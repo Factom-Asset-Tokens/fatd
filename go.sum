@@ -2,6 +2,10 @@ cloud.google.com/go v0.30.0 h1:xKvyLgk56d0nksWq49J0UyGEeUIicTl4+UBiX1NPX9g=
 cloud.google.com/go v0.30.0/go.mod h1:aQUYkXzVsufM+DwF1aE+0xfcU+56JwCaLick0ClmMTw=
 github.com/AdamSLevy/factom v0.0.0-20180830194820-f09dea5bd165 h1:BPBoEJK0KJ0e6cV44t1lMqTjdOoK/Nsvcc94LYeE4cE=
 github.com/AdamSLevy/factom v0.0.0-20180830194820-f09dea5bd165/go.mod h1:S5R9T6+CUDDZQ784neTGuKR3nsBSwBBEty5n1ipyezM=
+github.com/AdamSLevy/factom v0.0.0-20181009221422-86f373435bc6 h1:HPUBmFBXdxTU3Y7K5O+A3Sus6Dq17L/+LvgnkZWS4l4=
+github.com/AdamSLevy/factom v0.0.0-20181009221422-86f373435bc6/go.mod h1:S5R9T6+CUDDZQ784neTGuKR3nsBSwBBEty5n1ipyezM=
+github.com/AdamSLevy/factom v0.0.0-20181009222153-a7ad13c1f605 h1:b/8E4LxUcjmNw4lTML18fmsW2ghHDNdOabBByd8gUEE=
+github.com/AdamSLevy/factom v0.0.0-20181009222153-a7ad13c1f605/go.mod h1:S5R9T6+CUDDZQ784neTGuKR3nsBSwBBEty5n1ipyezM=
 github.com/FactomProject/FactomCode v0.0.0-20171228170625-d7e03150a9d5 h1:3CMiYso42Xa4iGiXXhUBl8OXFJd3wDB5Gd64eWMzJTs=
 github.com/FactomProject/FactomCode v0.0.0-20171228170625-d7e03150a9d5/go.mod h1:7XksVta7THNbD031Ax0/dS5RKMS+ug+d7/Lmti8jAhE=
 github.com/FactomProject/basen v0.0.0-20150613233007-fe3947df716e h1:ahyvB3q25YnZWly5Gq1ekg6jcmWaGj/vG/MhF4aisoc=
@@ -83,6 +87,7 @@ github.com/konsorten/go-windows-terminal-sequences v0.0.0-20180402223658-b729f26
 github.com/kr/pretty v0.1.0 h1:L/CwN0zerZDmRFUapSPitk6f+Q3+0za1rQkzVuMiMFI=
 github.com/kr/pretty v0.1.0/go.mod h1:dAy3ld7l9f0ibDNOQOHHMYYIIbhfbHSm3C4ZsoJORNo=
 github.com/kr/pty v1.1.1/go.mod h1:pFQYn66WHrOpPYNljwOMqo10TkYh1fy3cYio2l3bCsQ=
+github.com/kr/pty v1.1.3/go.mod h1:pFQYn66WHrOpPYNljwOMqo10TkYh1fy3cYio2l3bCsQ=
 github.com/kr/text v0.1.0 h1:45sCR5RtlFHMR4UwH9sdQ5TC8v0qDQCHnXt+kaKSTVE=
 github.com/kr/text v0.1.0/go.mod h1:4Jbv+DJW3UT/LiOwJeYQe1efqtUx/iVham/4vfdArNI=
 github.com/lib/pq v1.0.0 h1:X5PMW56eZitiTeO7tKzZxFCSpbFZJtkMMooicw2us9A=
@@ -107,6 +112,8 @@ golang.org/x/crypto v0.0.0-20180904163835-0709b304e793 h1:u+LnwYTOOW7Ukr/fppxEb1
 golang.org/x/crypto v0.0.0-20180904163835-0709b304e793/go.mod h1:6SG95UA2DQfeDnfUPMdvaQW0Q7yPrPDi9nlGo2tz2b4=
 golang.org/x/crypto v0.0.0-20181001203147-e3636079e1a4 h1:Vk3wNqEZwyGyei9yq5ekj7frek2u7HUfffJ1/opblzc=
 golang.org/x/crypto v0.0.0-20181001203147-e3636079e1a4/go.mod h1:6SG95UA2DQfeDnfUPMdvaQW0Q7yPrPDi9nlGo2tz2b4=
+golang.org/x/crypto v0.0.0-20181009213950-7c1a557ab941 h1:qBTHLajHecfu+xzRI9PqVDcqx7SdHj9d4B+EzSn3tAc=
+golang.org/x/crypto v0.0.0-20181009213950-7c1a557ab941/go.mod h1:6SG95UA2DQfeDnfUPMdvaQW0Q7yPrPDi9nlGo2tz2b4=
 golang.org/x/net v0.0.0-20171016235512-1087133bc4af/go.mod h1:mL1N/T3taQHkDXs73rZJwtUhF3w3ftmwwsq0BUmARs4=
 golang.org/x/net v0.0.0-20180724234803-3673e40ba225/go.mod h1:mL1N/T3taQHkDXs73rZJwtUhF3w3ftmwwsq0BUmARs4=
 golang.org/x/net v0.0.0-20180906233101-161cd47e91fd/go.mod h1:mL1N/T3taQHkDXs73rZJwtUhF3w3ftmwwsq0BUmARs4=
