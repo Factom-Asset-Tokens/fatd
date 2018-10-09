@@ -29,9 +29,7 @@ func _main() int {
 	}
 	log.Info("DB connected.")
 
-	if err := state.Start(); err != nil {
-		log.Fatal(err)
-	}
+	stateErrCh := state.Start()
 	log.Info("State machine started.")
 
 	if err := srv.Start(); err != nil {
@@ -50,6 +48,12 @@ func _main() int {
 	select {
 	case <-sig:
 		log.Infof("SIGINT: Shutting down now.")
+	case err := <-stateErrCh:
+		log.Errorf("state: %v", err)
+	}
+	if err := state.Stop(); err != nil {
+		log.Errorf("state.Stop(): %v", err)
+		ret = 1
 	}
 
 	return ret

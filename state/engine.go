@@ -21,7 +21,7 @@ const (
 func Start() chan error {
 	setupLogger()
 
-	returnError = make(chan error)
+	returnError = make(chan error, 1)
 	stop = make(chan error)
 
 	go engine()
@@ -29,11 +29,17 @@ func Start() chan error {
 	return returnError
 }
 
-func Stop() {
+func Stop() error {
+	if stop == nil {
+		return fmt.Errorf("%#", "Already not running")
+	}
 	close(stop)
+	stop = nil
+	return nil
 }
 
 func errorStop(err error) {
+	log.Debug("errorStop: %v", err)
 	returnError <- err
 }
 
@@ -48,7 +54,7 @@ func engine() {
 				return
 			}
 		case <-stop:
-			log.Debug("exit")
+			log.Debug("stopped")
 			return
 		}
 	}
