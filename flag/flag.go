@@ -33,7 +33,7 @@ var (
 		"startscanheight": uint64(0),
 		"debug":           false,
 
-		"dbfile": "./fct-address-monitord.db",
+		"dbfile": "./fatd.sqlite3",
 
 		"s":               "localhost:8088",
 		"factomdtimeout":  time.Duration(0),

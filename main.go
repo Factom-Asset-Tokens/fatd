@@ -13,7 +13,7 @@ import (
 )
 
 func main() { os.Exit(_main()) }
-func _main() int {
+func _main() (ret int) {
 	flag.Parse()
 	// Attempt to run the completion program.
 	if flag.Completion.Complete() {
@@ -24,17 +24,35 @@ func _main() int {
 
 	log := getLogger()
 
-	if err := db.Init(); err != nil {
-		log.Fatal(err)
+	if err := db.Open(); err != nil {
+		log.Fatalf("db.Open(): %v", err)
 	}
+	defer func() {
+		if err := db.Close(); err != nil {
+			log.Errorf("db.Close(): %v", err)
+			ret = 1
+		}
+	}()
 	log.Info("DB connected.")
 
 	stateErrCh := state.Start()
+	defer func() {
+		if err := state.Stop(); err != nil {
+			log.Errorf("state.Stop(): %v", err)
+			ret = 1
+		}
+	}()
 	log.Info("State machine started.")
 
 	if err := srv.Start(); err != nil {
-		log.Fatal(err)
+		log.Fatalf("srv.Start(): %v", err)
 	}
+	defer func() {
+		if err := srv.Stop(); err != nil {
+			log.Errorf("srv.Stop(): %v", err)
+			ret = 1
+		}
+	}()
 	log.Info("JSON RPC API server started.")
 
 	log.Info("Factom Asset Token Daemon started.")
@@ -44,19 +62,14 @@ func _main() int {
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, os.Interrupt)
 
-	ret := 0
 	select {
 	case <-sig:
 		log.Infof("SIGINT: Shutting down now.")
 	case err := <-stateErrCh:
 		log.Errorf("state: %v", err)
 	}
-	if err := state.Stop(); err != nil {
-		log.Errorf("state.Stop(): %v", err)
-		ret = 1
-	}
 
-	return ret
+	return
 }
 
 func getLogger() *logrus.Entry {
