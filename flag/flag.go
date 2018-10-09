@@ -1,0 +1,235 @@
+package flag
+
+import (
+	"flag"
+	"fmt"
+	"os"
+	"strconv"
+	"time"
+
+	"github.com/AdamSLevy/factom"
+	"github.com/posener/complete"
+	"github.com/sirupsen/logrus"
+)
+
+// Environment variable name prefix
+const envNamePrefix = "FCT_ADDRESS_MONITORD_"
+
+var (
+	envNames = map[string]string{
+		"startscanheight": "START_SCAN_HEIGHT",
+		"debug":           "DEBUG",
+
+		"dbfile": "DB_FILE",
+
+		"s":               "FACTOMD_SERVER",
+		"factomdtimeout":  "FACTOMD_TIMEOUT",
+		"factomduser":     "FACTOMD_USER",
+		"factomdpassword": "FACTOMD_PASSWORD",
+		"factomdcert":     "FACTOMD_TLS_CERT",
+		"factomdtls":      "FACTOMD_TLS_ENABLE",
+	}
+	defaults = map[string]interface{}{
+		"startscanheight": uint64(0),
+		"debug":           false,
+
+		"dbfile": "./fct-address-monitord.db",
+
+		"s":               "localhost:8088",
+		"factomdtimeout":  time.Duration(0),
+		"factomduser":     "",
+		"factomdpassword": "",
+		"factomdcert":     "",
+		"factomdtls":      false,
+	}
+	descriptions = map[string]string{
+		"startscanheight": "Block height to start scanning for deposits on startup",
+		"debug":           "Log debug messages",
+
+		"dbfile": "Path to a SQLite3 database file",
+
+		"s":               "IPAddr:port# of factomd API to use to access blockchain",
+		"factomdtimeout":  "Timeout for factomd API requests, 0 means never timeout",
+		"factomduser":     "Username for API connections to factomd",
+		"factomdpassword": "Password for API connections to factomd",
+		"factomdcert":     "The TLS certificate that will be provided by the factomd API server",
+		"factomdtls":      "Set to true to use TLS when accessing the factomd API",
+	}
+	flags = complete.Flags{
+		"-startscanheight": complete.PredictAnything,
+		"-debug":           complete.PredictNothing,
+
+		"-dbfile": complete.PredictFiles("*"),
+
+		"-s":               complete.PredictAnything,
+		"-factomdtimeout":  complete.PredictAnything,
+		"-factomduser":     complete.PredictAnything,
+		"-factomdpassword": complete.PredictAnything,
+		"-factomdcert":     complete.PredictFiles("*"),
+		"-factomdtls":      complete.PredictNothing,
+
+		"-y":                   complete.PredictNothing,
+		"-installcompletion":   complete.PredictNothing,
+		"-uninstallcompletion": complete.PredictNothing,
+	}
+
+	startScanHeight uint64 // We parse the flag as unsigned.
+	StartScanHeight int64  // We work with the signed value.
+	LogDebug        bool
+
+	DBFile string
+
+	rpc = factom.RpcConfig
+
+	flagset    map[string]bool
+	log        *logrus.Entry
+	Completion *complete.Complete
+)
+
+func init() {
+	flagVar(&startScanHeight, "startscanheight")
+	flagVar(&LogDebug, "debug")
+
+	flagVar(&DBFile, "dbfile")
+
+	flagVar(&rpc.FactomdServer, "s")
+	flagVar(&rpc.FactomdTimeout, "factomdtimeout")
+	flagVar(&rpc.FactomdRPCUser, "factomduser")
+	flagVar(&rpc.FactomdRPCPassword, "factomdpassword")
+	flagVar(&rpc.FactomdTLSCertFile, "factomdcert")
+	flagVar(&rpc.FactomdTLSEnable, "factomdtls")
+
+	// Add flags for self installing the CLI completion tool
+	Completion = complete.New(os.Args[0], complete.Command{Flags: flags})
+	Completion.CLI.InstallName = "installcompletion"
+	Completion.CLI.UninstallName = "uninstallcompletion"
+	Completion.AddFlags(nil)
+}
+
+func Parse() {
+	flag.Parse()
+	flagset = make(map[string]bool)
+	flag.Visit(func(f *flag.Flag) { flagset[f.Name] = true })
+
+	setupLogger()
+
+	// Load options from environment variables if they haven't been
+	// specified on the command line.
+	loadFromEnv(&startScanHeight, "startscanheight")
+	loadFromEnv(&LogDebug, "debug")
+
+	loadFromEnv(&DBFile, "dbfile")
+
+	loadFromEnv(&rpc.FactomdServer, "s")
+	loadFromEnv(&rpc.FactomdTimeout, "factomdtimeout")
+	loadFromEnv(&rpc.FactomdRPCUser, "factomduser")
+	loadFromEnv(&rpc.FactomdRPCPassword, "factomdpassword")
+	loadFromEnv(&rpc.FactomdTLSCertFile, "factomdcert")
+	loadFromEnv(&rpc.FactomdTLSEnable, "factomdtls")
+
+	StartScanHeight = int64(startScanHeight)
+}
+
+func Validate() {
+	// Redact private data from debug output.
+	factomdRPCPassword := "\"\""
+	if len(rpc.FactomdRPCPassword) > 0 {
+		factomdRPCPassword = "<redacted>"
+	}
+
+	log.Debugf("-startscanheight %v ", StartScanHeight)
+	debugPrintln()
+
+	log.Debugf("-dbfile   %#v", DBFile)
+	debugPrintln()
+
+	log.Debugf("-startscanheight      %v ", StartScanHeight)
+	debugPrintln()
+
+	log.Debugf("-s              %#v", rpc.FactomdServer)
+	log.Debugf("-factomduser    %#v", rpc.FactomdRPCUser)
+	log.Debugf("-factomdpass    %v ", factomdRPCPassword)
+	log.Debugf("-factomdcert    %#v", rpc.FactomdTLSCertFile)
+	log.Debugf("-factomdtimeout %v ", rpc.FactomdTimeout)
+	debugPrintln()
+
+	// Validate options
+}
+
+func flagVar(v interface{}, name string) {
+	switch v := v.(type) {
+	case *AddressList:
+		flag.Var(v, name, description(name))
+	case *string:
+		flag.StringVar(v, name, defaults[name].(string), description(name))
+	case *time.Duration:
+		flag.DurationVar(v, name, defaults[name].(time.Duration), description(name))
+	case *uint64:
+		flag.Uint64Var(v, name, defaults[name].(uint64), description(name))
+	case *bool:
+		flag.BoolVar(v, name, defaults[name].(bool), description(name))
+	}
+}
+
+func loadFromEnv(v interface{}, flagName string) {
+	if flagset[flagName] {
+		return
+	}
+	eName := envName(flagName)
+	eVar, ok := os.LookupEnv(eName)
+	if len(eVar) > 0 {
+		switch v := v.(type) {
+		case *AddressList:
+			if err := v.Set(eVar); err != nil {
+				log.Fatalf("Environment Variable %v: %v", eName, err)
+			}
+		case *string:
+			*v = eVar
+		case *time.Duration:
+			duration, err := time.ParseDuration(eVar)
+			if err != nil {
+				log.Fatalf("Environment Variable %v: "+
+					"time.ParseDuration(\"%v\"): %v",
+					eName, eVar, err)
+			}
+			*v = duration
+		case *uint64:
+			val, err := strconv.ParseUint(eVar, 10, 64)
+			if err != nil {
+				log.Fatalf("Environment Variable %v: "+
+					"strconv.ParseUint(\"%v\", 10, 64): %v",
+					eName, eVar, err)
+			}
+			*v = val
+		case *bool:
+			if ok {
+				*v = true
+			}
+		}
+	}
+}
+
+func debugPrintln() {
+	if LogDebug {
+		fmt.Println()
+	}
+}
+
+func envName(flagName string) string {
+	return envNamePrefix + envNames[flagName]
+}
+func description(flagName string) string {
+	return fmt.Sprintf("%s\nEnvironment variable: %v",
+		descriptions[flagName], envName(flagName))
+}
+
+func setupLogger() {
+	_log := logrus.New()
+	_log.Formatter = &logrus.TextFormatter{ForceColors: true,
+		DisableTimestamp:       true,
+		DisableLevelTruncation: true}
+	if LogDebug {
+		_log.SetLevel(logrus.DebugLevel)
+	}
+	log = _log.WithField("pkg", "flag")
+}
