@@ -13,7 +13,7 @@ import (
 )
 
 // Environment variable name prefix
-const envNamePrefix = "FCT_ADDRESS_MONITORD_"
+const envNamePrefix = "FATD_"
 
 var (
 	envNames = map[string]string{
@@ -21,6 +21,8 @@ var (
 		"debug":           "DEBUG",
 
 		"dbfile": "DB_FILE",
+
+		"apiaddress": "API_ADDRESS",
 
 		"s":               "FACTOMD_SERVER",
 		"factomdtimeout":  "FACTOMD_TIMEOUT",
@@ -35,6 +37,8 @@ var (
 
 		"dbfile": "./fatd.sqlite3",
 
+		"apiaddress": ":8078",
+
 		"s":               "localhost:8088",
 		"factomdtimeout":  time.Duration(0),
 		"factomduser":     "",
@@ -48,6 +52,8 @@ var (
 
 		"dbfile": "Path to a SQLite3 database file",
 
+		"apiaddress": "IPAddr:port# to bind to for serving the JSON RPC 2.0 API",
+
 		"s":               "IPAddr:port# of factomd API to use to access blockchain",
 		"factomdtimeout":  "Timeout for factomd API requests, 0 means never timeout",
 		"factomduser":     "Username for API connections to factomd",
@@ -60,6 +66,8 @@ var (
 		"-debug":           complete.PredictNothing,
 
 		"-dbfile": complete.PredictFiles("*"),
+
+		"-apiaddress": complete.PredictAnything,
 
 		"-s":               complete.PredictAnything,
 		"-factomdtimeout":  complete.PredictAnything,
@@ -79,6 +87,8 @@ var (
 
 	DBFile string
 
+	APIAddress string
+
 	rpc = factom.RpcConfig
 
 	flagset    map[string]bool
@@ -91,6 +101,8 @@ func init() {
 	flagVar(&LogDebug, "debug")
 
 	flagVar(&DBFile, "dbfile")
+
+	flagVar(&APIAddress, "apiaddress")
 
 	flagVar(&rpc.FactomdServer, "s")
 	flagVar(&rpc.FactomdTimeout, "factomdtimeout")
@@ -120,6 +132,8 @@ func Parse() {
 
 	loadFromEnv(&DBFile, "dbfile")
 
+	loadFromEnv(&APIAddress, "apiaddress")
+
 	loadFromEnv(&rpc.FactomdServer, "s")
 	loadFromEnv(&rpc.FactomdTimeout, "factomdtimeout")
 	loadFromEnv(&rpc.FactomdRPCUser, "factomduser")
@@ -137,13 +151,9 @@ func Validate() {
 		factomdRPCPassword = "<redacted>"
 	}
 
+	log.Debugf("-dbfile          %#v", DBFile)
+	log.Debugf("-apiaddress      %#v", APIAddress)
 	log.Debugf("-startscanheight %v ", StartScanHeight)
-	debugPrintln()
-
-	log.Debugf("-dbfile   %#v", DBFile)
-	debugPrintln()
-
-	log.Debugf("-startscanheight      %v ", StartScanHeight)
 	debugPrintln()
 
 	log.Debugf("-s              %#v", rpc.FactomdServer)

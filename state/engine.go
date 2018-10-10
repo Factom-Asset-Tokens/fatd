@@ -13,6 +13,7 @@ var (
 	returnError chan error
 	stop        chan error
 	log         _log.Log
+	scanTicker  = time.NewTicker(scanInterval)
 )
 
 const (
@@ -32,7 +33,7 @@ func Start() chan error {
 
 func Stop() error {
 	if stop == nil {
-		return fmt.Errorf("%#", "Already not running")
+		return fmt.Errorf("%#v", "Already not running")
 	}
 	close(stop)
 	stop = nil
@@ -42,20 +43,19 @@ func Stop() error {
 func errorStop(err error) {
 	log.Debug("errorStop: %v", err)
 	returnError <- err
+	scanTicker.Stop()
 }
 
 func engine() {
-	scanTick := time.Tick(scanInterval)
 	for {
 		select {
-		case <-scanTick:
+		case <-scanTicker.C:
 			err := scanNewBlocks()
 			if err != nil {
 				errorStop(fmt.Errorf("scanNewBlocks(): %v", err))
-				return
 			}
 		case <-stop:
-			log.Debug("stopped")
+			scanTicker.Stop()
 			return
 		}
 	}

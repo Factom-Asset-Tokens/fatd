@@ -25,33 +25,41 @@ func _main() (ret int) {
 	log := getLogger()
 
 	if err := db.Open(); err != nil {
-		log.Fatalf("db.Open(): %v", err)
+		log.Errorf("db.Open(): %v", err)
+		return 1
 	}
 	defer func() {
 		if err := db.Close(); err != nil {
 			log.Errorf("db.Close(): %v", err)
 			ret = 1
+			return
 		}
+		log.Info("DB connection closed.")
 	}()
-	log.Info("DB connected.")
+	log.Info("DB connection opened.")
 
 	stateErrCh := state.Start()
 	defer func() {
 		if err := state.Stop(); err != nil {
 			log.Errorf("state.Stop(): %v", err)
 			ret = 1
+			return
 		}
+		log.Info("State machine stopped.")
 	}()
 	log.Info("State machine started.")
 
 	if err := srv.Start(); err != nil {
-		log.Fatalf("srv.Start(): %v", err)
+		log.Errorf("srv.Start(): %v", err)
+		return 1
 	}
 	defer func() {
 		if err := srv.Stop(); err != nil {
 			log.Errorf("srv.Stop(): %v", err)
 			ret = 1
+			return
 		}
+		log.Info("JSON RPC API server stopped.")
 	}()
 	log.Info("JSON RPC API server started.")
 
