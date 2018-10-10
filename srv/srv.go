@@ -11,17 +11,23 @@ import (
 
 var (
 	log _log.Log
-	srv = http.Server{Handler: jrpc.HTTPRequestHandler}
+	srv http.Server
 )
 
 func Start() error {
 	log = _log.New("srv")
 
-	// Register Methods
+	// Register JSON RPC Methods
 	jrpc.RegisterMethod("version", version)
 
+	// Set up server
+	srvMux := http.NewServeMux()
+	srvMux.Handle("/", jrpc.HTTPRequestHandler)
+	srvMux.Handle("/v1", jrpc.HTTPRequestHandler)
+	srv.Handler = srvMux
 	srv.Addr = flag.APIAddress
 
+	// Launch server
 	go listen()
 
 	return nil
@@ -33,8 +39,7 @@ func Stop() error {
 }
 
 func listen() {
-	err := srv.ListenAndServe()
-	if err != http.ErrServerClosed {
+	if err := srv.ListenAndServe(); err != http.ErrServerClosed {
 		log.Errorf("srv.ListenAndServe(): %v", err)
 	}
 }
