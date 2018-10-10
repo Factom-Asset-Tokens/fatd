@@ -70,18 +70,8 @@ func scanNewBlocks() error {
 	currentHeight := heights.EntryHeight
 	// Scan blocks from the last saved FBlockHeight up to but not including
 	// the leader height
-	for height := db.GetSavedHeight(); height < currentHeight; height++ {
+	for height := db.GetSavedHeight(); height < currentHeight-1; height++ {
 		log.Debugf("Scanning block %v for deposits.", height)
-		//// Get the transactions from this block
-		//fctTransactions, err := getFCTTransactionsByHeight(height)
-		//if err != nil {
-		//	return fmt.Errorf("getFCTTransactionsByHeight(%v): %v", height, err)
-		//}
-		//// Scan the block's FCT transactions for deposits
-		//if err := saveTransactions(
-		//	scanFCTTransactionsForDeposits(fctTransactions)); err != nil {
-		//	return fmt.Errorf("saveTransactions(txs) : %v", err)
-		//}
 		if err := db.SaveHeight(height); err != nil {
 			return fmt.Errorf("db.SaveHeight(%v): %v", height, err)
 		}
