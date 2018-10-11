@@ -6,10 +6,9 @@ import (
 
 	"bitbucket.org/canonical-ledgers/fatd/db"
 	"bitbucket.org/canonical-ledgers/fatd/flag"
+	"bitbucket.org/canonical-ledgers/fatd/log"
 	"bitbucket.org/canonical-ledgers/fatd/srv"
 	"bitbucket.org/canonical-ledgers/fatd/state"
-
-	"github.com/sirupsen/logrus"
 )
 
 func main() { os.Exit(_main()) }
@@ -22,7 +21,7 @@ func _main() (ret int) {
 	}
 	flag.Validate()
 
-	log := getLogger()
+	log := log.New("main")
 
 	if err := db.Open(); err != nil {
 		log.Errorf("db.Open(): %v", err)
@@ -78,16 +77,4 @@ func _main() (ret int) {
 	}
 
 	return
-}
-
-func getLogger() *logrus.Entry {
-	log := logrus.New()
-	log.Formatter = &logrus.TextFormatter{ForceColors: true,
-		DisableTimestamp:       true,
-		DisableLevelTruncation: true}
-	if flag.LogDebug {
-		log.SetLevel(logrus.DebugLevel)
-	}
-	return log.WithField("pkg", "main")
-
 }
