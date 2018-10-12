@@ -2,6 +2,7 @@ package state
 
 import (
 	"fmt"
+	"sync"
 	"time"
 
 	"bitbucket.org/canonical-ledgers/fatd/db"
@@ -69,21 +70,25 @@ func scanNewBlocks() error {
 	currentHeight := heights.EntryHeight
 	// Scan blocks from the last saved FBlockHeight up to but not including
 	// the leader height
-	for height := db.GetSavedHeight(); height < currentHeight; height++ {
+	for height := db.GetSavedHeight() + 1; height <= currentHeight; height++ {
 		log.Debugf("Scanning block %v for deposits.", height)
 		dblock, err := factom.DBlockByHeight(height)
 		if err != nil {
 			return fmt.Errorf("factom.DBlockByHeight(%v): %v", height, err)
 		}
 
+		wg := &sync.WaitGroup{}
+		ignored := 0
 		for _, eb := range dblock.EBlocks {
-			if _, ok := ignoredChains[eb.ChainID]; ok {
+			if ignore.get(&eb.ChainID) {
+				ignored++
 				continue
 			}
-			if err := processEBlock(&eb); err != nil {
-				return err
-			}
+			wg.Add(1)
+			go processEBlock(&eb, wg)
 		}
+		log.Debugf("Ignored %v in block %v", ignored, height)
+		wg.Wait()
 
 		if err := db.SaveHeight(height); err != nil {
 			return fmt.Errorf("db.SaveHeight(%v): %v", height, err)
@@ -93,45 +98,71 @@ func scanNewBlocks() error {
 	return nil
 }
 
+type chainMap struct {
+	m map[factom.Bytes32]bool
+	sync.RWMutex
+}
+
+func (c chainMap) set(b *factom.Bytes32) {
+	defer c.Unlock()
+	c.Lock()
+	log.Debugf("Adding chain to ignore list")
+	c.m[*b] = true
+}
+
+func (c chainMap) get(b *factom.Bytes32) bool {
+	defer c.RUnlock()
+	c.RLock()
+	_, ok := c.m[*b]
+	return ok
+}
+
 var (
-	ignoredChains = map[factom.Bytes32]bool{
+	ignore = chainMap{m: map[factom.Bytes32]bool{
 		factom.Bytes32{31: 0x0a}: true,
 		factom.Bytes32{31: 0x0c}: true,
 		factom.Bytes32{31: 0x0f}: true,
-	}
-	trackedChains map[factom.Bytes32]bool
+	}}
+
+	track = chainMap{m: map[factom.Bytes32]bool{}}
 )
 
 // Assumption: Chain is not yet ignored
-func processEBlock(eb *factom.EBlock) error {
+func processEBlock(eb *factom.EBlock, wg *sync.WaitGroup) {
+	defer wg.Done()
 	// Check whether this is a new chain.
 	if err := factom.GetEntryBlock(eb); err != nil {
-		return fmt.Errorf("factom.GetEntryBlock(%#v): %v", eb, err)
+		errorStop(fmt.Errorf("factom.GetEntryBlock(%#v): %v", eb, err))
+		return
 	}
 	if !eb.IsNewChain() {
 		// Check whether we are already tracking this chain.
-		if _, ok := trackedChains[eb.ChainID]; ok {
+		if track.get(&eb.ChainID) {
 			// process chain
-			return nil
+			return
 		}
 		// Otherwise we ignore this existing chain.
-		ignoredChains[eb.ChainID] = true
-		return nil
+		ignore.set(&eb.ChainID)
+		return
 	}
 	// New Chain!
 	log.Debugf("EBlock%+v", eb)
 
 	// Get first entry of chain.
 	if err := factom.GetEntry(&eb.Entries[0]); err != nil {
-		return fmt.Errorf("factom.GetEntry(%#v): %v", eb.Entries[0], err)
+		errorStop(fmt.Errorf("factom.GetEntry(%#v): %v", eb.Entries[0], err))
+		return
 	}
 	log.Debugf("Entry%+v", eb.Entries[0])
 
 	// Check if ExtIDs of first entry match a FAT pattern
-	if false {
-		// If so track the chain for future entries.
-		trackedChains[eb.ChainID] = true
-		// Process any remaining entries
+	ExtIDsDoNotMatch := true
+	if ExtIDsDoNotMatch {
+		// Otherwise we ignore this new chain.
+		ignore.set(&eb.ChainID)
+		return
 	}
-	return nil
+	// If ExtIDs match track the chain for future entries.
+	track.set(&eb.ChainID)
+	// Process any remaining entries
 }
