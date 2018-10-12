@@ -5,6 +5,7 @@ import (
 	"os/signal"
 
 	"bitbucket.org/canonical-ledgers/fatd/db"
+	"bitbucket.org/canonical-ledgers/fatd/factom"
 	"bitbucket.org/canonical-ledgers/fatd/flag"
 	"bitbucket.org/canonical-ledgers/fatd/log"
 	"bitbucket.org/canonical-ledgers/fatd/srv"
@@ -22,6 +23,7 @@ func _main() (ret int) {
 	flag.Validate()
 
 	log := log.New("main")
+	factom.Init()
 
 	if err := db.Open(); err != nil {
 		log.Errorf("db.Open(): %v", err)

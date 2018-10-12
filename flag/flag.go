@@ -81,8 +81,8 @@ var (
 		"-uninstallcompletion": complete.PredictNothing,
 	}
 
-	startScanHeight uint64 // We parse the flag as unsigned.
-	StartScanHeight int64  // We work with the signed value.
+	startScanHeight uint64      // We parse the flag as unsigned.
+	StartScanHeight int64  = -1 // We work with the signed value.
 	LogDebug        bool
 
 	DBFile string
@@ -97,6 +97,7 @@ var (
 )
 
 func init() {
+
 	flagVar(&startScanHeight, "startscanheight")
 	flagVar(&LogDebug, "debug")
 
@@ -141,7 +142,9 @@ func Parse() {
 	loadFromEnv(&rpc.FactomdTLSCertFile, "factomdcert")
 	loadFromEnv(&rpc.FactomdTLSEnable, "factomdtls")
 
-	StartScanHeight = int64(startScanHeight)
+	if flagset["startscanheight"] {
+		StartScanHeight = int64(startScanHeight)
+	}
 }
 
 func Validate() {
@@ -164,6 +167,7 @@ func Validate() {
 	debugPrintln()
 
 	// Validate options
+
 }
 
 func flagVar(v interface{}, name string) {

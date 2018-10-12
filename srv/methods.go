@@ -1,10 +1,10 @@
 package srv
 
 import (
-	jrpc "github.com/AdamSLevy/jsonrpc2/v2"
+	jrpc "github.com/AdamSLevy/jsonrpc2/v3"
 )
 
-var version = jrpc.MethodFunc(func(params interface{}) jrpc.Response {
+var version = jrpc.MethodFunc(func(params interface{}) *jrpc.Response {
 	if params != nil {
 		return jrpc.NewInvalidParamsErrorResponse("Unexpected parameters")
 	}

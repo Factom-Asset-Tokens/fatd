@@ -3,7 +3,7 @@ package srv
 import (
 	"net/http"
 
-	jrpc "github.com/AdamSLevy/jsonrpc2/v2"
+	jrpc "github.com/AdamSLevy/jsonrpc2/v3"
 
 	"bitbucket.org/canonical-ledgers/fatd/flag"
 	_log "bitbucket.org/canonical-ledgers/fatd/log"

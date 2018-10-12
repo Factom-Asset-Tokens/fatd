@@ -17,7 +17,7 @@ var (
 )
 
 const (
-	scanInterval = 1 * time.Minute
+	scanInterval = 2 * time.Second
 )
 
 func Start() chan error {
@@ -41,7 +41,6 @@ func Stop() error {
 }
 
 func errorStop(err error) {
-	log.Debug("errorStop: %v", err)
 	returnError <- err
 	scanTicker.Stop()
 }
@@ -70,12 +69,69 @@ func scanNewBlocks() error {
 	currentHeight := heights.EntryHeight
 	// Scan blocks from the last saved FBlockHeight up to but not including
 	// the leader height
-	for height := db.GetSavedHeight(); height < currentHeight-1; height++ {
+	for height := db.GetSavedHeight(); height < currentHeight; height++ {
 		log.Debugf("Scanning block %v for deposits.", height)
+		dblock, err := factom.DBlockByHeight(height)
+		if err != nil {
+			return fmt.Errorf("factom.DBlockByHeight(%v): %v", height, err)
+		}
+
+		for _, eb := range dblock.EBlocks {
+			if _, ok := ignoredChains[eb.ChainID]; ok {
+				continue
+			}
+			if err := processEBlock(&eb); err != nil {
+				return err
+			}
+		}
+
 		if err := db.SaveHeight(height); err != nil {
 			return fmt.Errorf("db.SaveHeight(%v): %v", height, err)
 		}
 	}
 
+	return nil
+}
+
+var (
+	ignoredChains = map[factom.Bytes32]bool{
+		factom.Bytes32{31: 0x0a}: true,
+		factom.Bytes32{31: 0x0c}: true,
+		factom.Bytes32{31: 0x0f}: true,
+	}
+	trackedChains map[factom.Bytes32]bool
+)
+
+// Assumption: Chain is not yet ignored
+func processEBlock(eb *factom.EBlock) error {
+	// Check whether this is a new chain.
+	if err := factom.GetEntryBlock(eb); err != nil {
+		return fmt.Errorf("factom.GetEntryBlock(%#v): %v", eb, err)
+	}
+	if !eb.IsNewChain() {
+		// Check whether we are already tracking this chain.
+		if _, ok := trackedChains[eb.ChainID]; ok {
+			// process chain
+			return nil
+		}
+		// Otherwise we ignore this existing chain.
+		ignoredChains[eb.ChainID] = true
+		return nil
+	}
+	// New Chain!
+	log.Debugf("EBlock%+v", eb)
+
+	// Get first entry of chain.
+	if err := factom.GetEntry(&eb.Entries[0]); err != nil {
+		return fmt.Errorf("factom.GetEntry(%#v): %v", eb.Entries[0], err)
+	}
+	log.Debugf("Entry%+v", eb.Entries[0])
+
+	// Check if ExtIDs of first entry match a FAT pattern
+	if false {
+		// If so track the chain for future entries.
+		trackedChains[eb.ChainID] = true
+		// Process any remaining entries
+	}
 	return nil
 }

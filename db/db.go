@@ -45,6 +45,10 @@ func Open() error {
 		return err
 	}
 
+	if flag.StartScanHeight >= 0 {
+		SaveHeight(flag.StartScanHeight)
+	}
+
 	return nil
 }
 
