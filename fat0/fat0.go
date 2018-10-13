@@ -1,27 +1,46 @@
 package fat0
 
 import (
-	. "bitbucket.org/canonical-ledgers/fatd/factom"
+	"encoding/json"
 	"unicode/utf8"
+
+	"bitbucket.org/canonical-ledgers/fatd/factom"
 )
 
-func ValidExtID(b []Bytes) bool {
-	if len(b) != 4 ||
-		string(b[0]) != "token" || string(b[2]) != "issuer" ||
-		len(b[3]) != 32 || !utf8.Valid(b[1]) {
+type Entry struct {
+	*factom.Entry `json:"-"`
+	Metadata      json.RawMessage `json:"metadata"`
+}
+
+func (e *Entry) Unmarshal(v interface{}) error {
+	return json.Unmarshal(e.Content, v)
+}
+
+func (e *Entry) ValidExtID() bool {
+	if e := e.ExtIDs; len(e) != 4 ||
+		string(e[0]) != "token" || string(e[2]) != "issuer" ||
+		len(e[3]) != 32 || !utf8.Valid(e[1]) {
 		return false
 	}
 	return true
 }
 
 type Issuance struct {
-	*Entry `json:"-"`
+	Entry
 	Type   string `json:"type"`
 	Name   string `json:"name"`
 	Symbol string `json:"symbol"`
 	Supply uint64 `json:"supply"`
 }
 
+func (i *Issuance) UnmarshalEntry() error {
+	return i.Entry.Unmarshal(i)
+}
+
 type Transaction struct {
 	*Entry
+}
+
+func (t *Transaction) UnmarshalEntry() error {
+	return t.Entry.Unmarshal(t)
 }

@@ -82,7 +82,7 @@ func scanNewBlocks() error {
 		ignored := 0
 		for i, _ := range dblock.EBlocks {
 			eb := &dblock.EBlocks[i]
-			if ignore.has(&eb.ChainID) {
+			if chains.Get(&eb.ChainID).Ignored() {
 				ignored++
 				continue
 			}
@@ -100,35 +100,6 @@ func scanNewBlocks() error {
 	return nil
 }
 
-type chainMap struct {
-	m map[factom.Bytes32]bool
-	sync.RWMutex
-}
-
-func (c chainMap) add(b *factom.Bytes32) {
-	defer c.Unlock()
-	c.Lock()
-	log.Debugf("Adding chain to ignore list")
-	c.m[*b] = true
-}
-
-func (c chainMap) has(b *factom.Bytes32) bool {
-	defer c.RUnlock()
-	c.RLock()
-	_, ok := c.m[*b]
-	return ok
-}
-
-var (
-	ignore = chainMap{m: map[factom.Bytes32]bool{
-		factom.Bytes32{31: 0x0a}: true,
-		factom.Bytes32{31: 0x0c}: true,
-		factom.Bytes32{31: 0x0f}: true,
-	}}
-
-	track = chainMap{m: map[factom.Bytes32]bool{}}
-)
-
 // Assumption: Chain is not yet ignored
 func processEBlock(eb *factom.EBlock, wg *sync.WaitGroup) {
 	defer wg.Done()
@@ -139,12 +110,21 @@ func processEBlock(eb *factom.EBlock, wg *sync.WaitGroup) {
 	}
 	if !eb.IsNewChain() {
 		// Check whether we are already tracking this chain.
-		if track.has(&eb.ChainID) {
+		if status := chains.Get(&eb.ChainID); status.Tracked() {
 			// process chain
+			if status.Issued() {
+				if err := processTransactionEntries(eb.Entries); err != nil {
+					errorStop(err)
+				}
+				return
+			}
+			if err := processIssuanceEntries(eb.Entries); err != nil {
+				errorStop(err)
+			}
 			return
 		}
 		// Otherwise we ignore this existing chain.
-		ignore.add(&eb.ChainID)
+		chains.Ignore(&eb.ChainID)
 		return
 	}
 	// New Chain!
@@ -152,18 +132,37 @@ func processEBlock(eb *factom.EBlock, wg *sync.WaitGroup) {
 
 	// Get first entry of chain.
 	if err := eb.Entries[0].Get(); err != nil {
-		errorStop(fmt.Errorf("factom.GetEntry(%#v): %v", eb.Entries[0], err))
+		errorStop(fmt.Errorf("Entry%#v.Get: %v", eb.Entries[0], err))
 		return
 	}
 	log.Debugf("Entry%+v", eb.Entries[0])
 
 	// Check if ExtIDs of first entry match a FAT pattern
-	if !fat0.ValidExtID(eb.Entries[0].ExtIDs) {
+	e := fat0.Entry{Entry: &eb.Entries[0]}
+	if !e.ValidExtID() {
 		// Otherwise we ignore this new chain.
-		ignore.add(&eb.ChainID)
+		chains.Ignore(&eb.ChainID)
 		return
 	}
 	// If ExtIDs match track the chain for future entries.
-	track.add(&eb.ChainID)
-	// Process any remaining entries
+	chains.Track(&eb.ChainID)
+	// Process any remaining for issuance. Discard first entry.
+	if err := processIssuanceEntries(eb.Entries[1:]); err != nil {
+		errorStop(err)
+		return
+	}
+}
+
+func processIssuanceEntries(es []factom.Entry) error {
+	//for i, _ := range es {
+	//	_ := &es[i]
+	//}
+	return nil
+}
+
+func processTransactionEntries(es []factom.Entry) error {
+	//for i, _ := range es {
+	//	_ := &es[i]
+	//}
+	return nil
 }
