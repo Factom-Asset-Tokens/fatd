@@ -21,33 +21,36 @@ type Entry struct {
 	Hash      Bytes32 `json:"entryhash"`
 	Timestamp Time    `json:"timestamp"`
 
-	ChainID Bytes32 `json:"chainid"`
-	Content Bytes   `json:"content"`
-	ExtIDs  []Bytes `json:"extids"`
+	ChainID *Bytes32 `json:"-"`
+	Content Bytes    `json:"content"`
+	ExtIDs  []Bytes  `json:"extids"`
 }
 
-func DBlockByHeight(height int64) (*DBlock, error) {
-	params := map[string]int64{"height": height}
+func (db *DBlock) Get() error {
+	params := map[string]int64{"height": db.Height}
 	result := &struct {
 		*DBlock `json:"dblock"`
-	}{DBlock: &DBlock{}}
+	}{DBlock: db}
 	if err := request("dblock-by-height", params, result); err != nil {
-		return nil, err
-	}
-	return result.DBlock, nil
-}
-
-func GetEntryBlock(eblock *EBlock) error {
-	params := map[string]*Bytes32{"keymr": &eblock.KeyMR}
-	if err := request("entry-block", params, eblock); err != nil {
 		return err
 	}
 	return nil
 }
 
-func GetEntry(entry *Entry) error {
-	params := map[string]*Bytes32{"hash": &entry.Hash}
-	if err := request("entry", params, entry); err != nil {
+func (eb *EBlock) Get() error {
+	params := map[string]*Bytes32{"keymr": &eb.KeyMR}
+	if err := request("entry-block", params, eb); err != nil {
+		return err
+	}
+	for i, _ := range eb.Entries {
+		eb.Entries[i].ChainID = &eb.ChainID
+	}
+	return nil
+}
+
+func (e *Entry) Get() error {
+	params := map[string]*Bytes32{"hash": &e.Hash}
+	if err := request("entry", params, e); err != nil {
 		return err
 	}
 	return nil
