@@ -2,21 +2,36 @@
 
 # fatd - Factom Asset Token Daemon
 
-A daemon written in Golang that maintains the current state of Factom Asset Tokens(FAT) tokens.
+A daemon written in Golang that maintains the current state of Factom Asset
+Tokens (FAT) tokens.
 
 Provides a standard RPC API to access FAT data.
 
 
 
-## Installing
+## Building
 
-Installing & running fatd requires [Golang 1.1](https://golang.org/dl/)
+Installing & running fatd requires [Golang 1.11](https://golang.org/dl/) or later.
 
 ```bash
-git clone https://github.com/Factom-Asset-Tokens/fatd.git
-cd fatd
-go get
+$ git clone https://github.com/Factom-Asset-Tokens/fatd.git
+$ cd fatd
+$ go build
+$ ./fatd
 ```
+
+
+
+## Installing
+
+The `fatd` binary can be run from anywhere in your system. If `$GOPATH/bin` is
+in your `PATH` then you can use `go install` from inside the build directory to
+move `fatd` to that location and then run `fatd`.
+
+### Systemd Service
+
+TODO: Later there will be a systemd service to run fatd and further
+instructions on how to set that up should go here.
 
 
 
@@ -25,12 +40,16 @@ go get
 From the command line:
 
 ```bash
-go run main.go
+$ fatd
 ```
+
+TODO: Add example of some common flags that people need to use.
 
 
 
 ### Run As A Background Service
+
+TODO: Sort out this section with the section in Installing above.
 
 
 
@@ -38,7 +57,7 @@ go run main.go
 
 ```bash
 git pull
-go run main.go
+go build
 ```
 
 
