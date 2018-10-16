@@ -10,7 +10,7 @@ Provides a standard RPC API to access FAT data.
 
 ## Installing
 
-Installing & running fatd requires [Golang 1.1](https://golang.org/dl/)
+Installing & running fatd requires [Golang 1.11](https://golang.org/dl/)
 
 ```bash
 git clone https://github.com/Factom-Asset-Tokens/fatd.git
