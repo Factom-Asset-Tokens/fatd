@@ -3,7 +3,8 @@ package state
 import (
 	"sync"
 
-	"bitbucket.org/canonical-ledgers/fatd/factom"
+	"github.com/Factom-Asset-Tokens/fatd/factom"
+	"github.com/Factom-Asset-Tokens/fatd/fat0"
 )
 
 type ChainStatus int
@@ -12,7 +13,7 @@ const (
 	ChainStatusUnknown ChainStatus = -1
 	ChainStatusIgnored ChainStatus = 0
 	ChainStatusTracked ChainStatus = 1
-	ChainStatusIssued  ChainStatus = 2
+	ChainStatusIssued  ChainStatus = 3 // Will also test true for Tracked()
 )
 
 func (status ChainStatus) Unknown() bool {
@@ -29,40 +30,55 @@ func (status ChainStatus) Issued() bool {
 }
 
 var (
-	chains = chainMap{m: map[factom.Bytes32]ChainStatus{
-		factom.Bytes32{31: 0x0a}: ChainStatusIgnored,
-		factom.Bytes32{31: 0x0c}: ChainStatusIgnored,
-		factom.Bytes32{31: 0x0f}: ChainStatusIgnored,
+	chains = chainMap{m: map[factom.Bytes32]Chain{
+		factom.Bytes32{31: 0x0a}: Chain{ChainStatus: ChainStatusIgnored},
+		factom.Bytes32{31: 0x0c}: Chain{ChainStatus: ChainStatusIgnored},
+		factom.Bytes32{31: 0x0f}: Chain{ChainStatus: ChainStatusIgnored},
 	}}
 )
 
 type chainMap struct {
-	m map[factom.Bytes32]ChainStatus
+	m map[factom.Bytes32]Chain
 	sync.RWMutex
 }
 
-func (cm chainMap) Ignore(c *factom.Bytes32) {
-	cm.Set(c, ChainStatusIgnored)
-}
-func (cm chainMap) Track(c *factom.Bytes32) {
-	cm.Set(c, ChainStatusTracked)
-}
-func (cm chainMap) Issue(c *factom.Bytes32) {
-	cm.Set(c, ChainStatusIssued|ChainStatusTracked)
+type Chain struct {
+	ChainStatus
+	*fat0.Issuance
+	*fat0.Identity
 }
 
-func (cm chainMap) Set(c *factom.Bytes32, status ChainStatus) {
+func NewChain(status ChainStatus) *Chain {
+	return &Chain{ChainStatus: status}
+}
+
+func (cm chainMap) Ignore(c *factom.Bytes32) {
+	cm.Set(c, NewChain(ChainStatusIgnored))
+}
+func (cm chainMap) Track(c *factom.Bytes32, identity *fat0.Identity) {
+	chain := NewChain(ChainStatusTracked)
+	chain.Identity = identity
+	cm.Set(c, chain)
+}
+func (cm chainMap) Issue(c *factom.Bytes32, issuance *fat0.Issuance) {
+	chain := cm.Get(c)
+	chain.ChainStatus = ChainStatusIssued
+	chain.Issuance = issuance
+	cm.Set(c, chain)
+}
+
+func (cm chainMap) Set(c *factom.Bytes32, chain *Chain) {
 	defer cm.Unlock()
 	cm.Lock()
-	cm.m[*c] = status
+	cm.m[*c] = *chain
 }
 
-func (cm chainMap) Get(c *factom.Bytes32) ChainStatus {
+func (cm chainMap) Get(c *factom.Bytes32) *Chain {
 	defer cm.RUnlock()
 	cm.RLock()
-	status, ok := cm.m[*c]
+	chain, ok := cm.m[*c]
 	if !ok {
-		return ChainStatusUnknown
+		return NewChain(ChainStatusUnknown)
 	}
-	return status
+	return &chain
 }

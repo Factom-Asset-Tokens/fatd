@@ -1,4 +1,4 @@
-module bitbucket.org/canonical-ledgers/fatd
+module github.com/Factom-Asset-Tokens/fatd
 
 require (
 	cloud.google.com/go v0.30.0 // indirect
@@ -17,7 +17,7 @@ require (
 	github.com/onsi/gomega v1.4.2 // indirect
 	github.com/posener/complete v1.1.2
 	github.com/sirupsen/logrus v1.1.1
-	golang.org/x/crypto v0.0.0-20181009213950-7c1a557ab941 // indirect
+	golang.org/x/crypto v0.0.0-20181009213950-7c1a557ab941
 	golang.org/x/net v0.0.0-20181005035420-146acd28ed58 // indirect
 	golang.org/x/sys v0.0.0-20181005133103-4497e2df6f9e // indirect
 	google.golang.org/appengine v1.2.0 // indirect

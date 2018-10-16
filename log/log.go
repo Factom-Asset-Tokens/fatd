@@ -1,7 +1,7 @@
 package log
 
 import (
-	"bitbucket.org/canonical-ledgers/fatd/flag"
+	"github.com/Factom-Asset-Tokens/fatd/flag"
 
 	"github.com/sirupsen/logrus"
 )

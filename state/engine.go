@@ -5,10 +5,10 @@ import (
 	"sync"
 	"time"
 
-	"bitbucket.org/canonical-ledgers/fatd/db"
-	"bitbucket.org/canonical-ledgers/fatd/factom"
-	"bitbucket.org/canonical-ledgers/fatd/fat0"
-	_log "bitbucket.org/canonical-ledgers/fatd/log"
+	"github.com/Factom-Asset-Tokens/fatd/db"
+	"github.com/Factom-Asset-Tokens/fatd/factom"
+	"github.com/Factom-Asset-Tokens/fatd/fat0"
+	_log "github.com/Factom-Asset-Tokens/fatd/log"
 )
 
 var (
@@ -79,17 +79,10 @@ func scanNewBlocks() error {
 		}
 
 		wg := &sync.WaitGroup{}
-		ignored := 0
 		for i, _ := range dblock.EBlocks {
-			eb := &dblock.EBlocks[i]
-			if chains.Get(&eb.ChainID).Ignored() {
-				ignored++
-				continue
-			}
 			wg.Add(1)
-			go processEBlock(eb, wg)
+			go processEBlock(wg, &dblock.EBlocks[i])
 		}
-		log.Debugf("Ignored %v in block %v", ignored, height)
 		wg.Wait()
 
 		if err := db.SaveHeight(height); err != nil {
@@ -100,69 +93,134 @@ func scanNewBlocks() error {
 	return nil
 }
 
-// Assumption: Chain is not yet ignored
-func processEBlock(eb *factom.EBlock, wg *sync.WaitGroup) {
+// Assumption: eb is not nil and has valid ChainID and KeyMR.
+func processEBlock(wg *sync.WaitGroup, eb *factom.EBlock) {
 	defer wg.Done()
-	// Check whether this is a new chain.
+
+	// Get the saved data for this chain.
+	chain := chains.Get(eb.ChainID)
+
+	// Skip ignored chains.
+	if chain.Ignored() {
+		return
+	}
+
+	// Load this Entry Block.
 	if err := eb.Get(); err != nil {
 		errorStop(fmt.Errorf("factom.GetEntryBlock(%#v): %v", eb, err))
 		return
 	}
-	if !eb.IsNewChain() {
-		// Check whether we are already tracking this chain.
-		if status := chains.Get(&eb.ChainID); status.Tracked() {
-			// process chain
-			if status.Issued() {
-				if err := processTransactionEntries(eb.Entries); err != nil {
-					errorStop(err)
-				}
-				return
-			}
-			if err := processIssuanceEntries(eb.Entries); err != nil {
+
+	// Check whether this is a new chain.
+	if !eb.First() {
+		// Check whether this chain is tracked.
+		if chain.Tracked() {
+			if err := processEntries(chain, eb.Entries); err != nil {
 				errorStop(err)
 			}
 			return
 		}
-		// Otherwise we ignore this existing chain.
-		chains.Ignore(&eb.ChainID)
+		// Since the chian is not new and isn't already tracked, then
+		// ignore this chain going forward.
+		chains.Ignore(eb.ChainID)
 		return
 	}
-	// New Chain!
-	log.Debugf("EBlock%+v", eb)
 
-	// Get first entry of chain.
+	// Load first entry of new chain.
 	if err := eb.Entries[0].Get(); err != nil {
 		errorStop(fmt.Errorf("Entry%#v.Get: %v", eb.Entries[0], err))
 		return
 	}
-	log.Debugf("Entry%+v", eb.Entries[0])
+	nameIDs := eb.Entries[0].ExtIDs
 
-	// Check if ExtIDs of first entry match a FAT pattern
-	e := fat0.Entry{Entry: &eb.Entries[0]}
-	if !e.ValidExtID() {
-		// Otherwise we ignore this new chain.
-		chains.Ignore(&eb.ChainID)
+	// Filter out chains with NameIDs that don't match the fat0 pattern.
+	if !fat0.ValidTokenNameIDs(nameIDs) {
+		chains.Ignore(eb.ChainID)
 		return
 	}
-	// If ExtIDs match track the chain for future entries.
-	chains.Track(&eb.ChainID)
-	// Process any remaining for issuance. Discard first entry.
-	if err := processIssuanceEntries(eb.Entries[1:]); err != nil {
+
+	// Track this chain going forward.
+	chains.Track(eb.ChainID, &fat0.Identity{ChainID: factom.NewBytes32(nameIDs[3])})
+
+	// The first entry cannot be a valid Issuance entry, so discard it and
+	// process the rest.
+	if err := processEntries(chain, eb.Entries[1:]); err != nil {
 		errorStop(err)
 		return
 	}
 }
 
-func processIssuanceEntries(es []factom.Entry) error {
-	//for i, _ := range es {
-	//	_ := &es[i]
-	//}
+func processEntries(chain *Chain, es []factom.Entry) error {
+	if !chain.Issuance.Populated() {
+		return processIssuance(chain, es)
+	}
+	return processTransactions(chain, es)
+}
+
+// In general the following checks are ordered from cheapest to most expensive
+// in terms of computation and memory.
+func processIssuance(chain *Chain, es []factom.Entry) error {
+	if len(es) == 0 {
+		return nil
+	}
+	// The Identity may not have existed when this chain was first tracked.
+	// Attempt to retrieve it.
+	if err := chain.Identity.Get(); err != nil {
+		return err
+	}
+	// If the Identity isn't yet populated then Issuance entries can't be
+	// validated.
+	if !chain.Identity.Populated() {
+		return nil
+	}
+	// If these entries were created in a lower block height than the
+	// Identity entry, then none of them can be a valid Issuance entry.
+	if es[0].Height < chain.Identity.Height {
+		return nil
+	}
+
+	for i, _ := range es {
+		e := &es[i]
+		// If this entry was created before the Identity entry then it
+		// can't be valid.
+		if e.Timestamp.Before(chain.Issuance.Timestamp.Time) {
+			continue
+		}
+		// Get the data for the entry.
+		if err := e.Get(); err != nil {
+			return fmt.Errorf("factom.Entry%#v.Get(): %v", e, err)
+		}
+		issuance := &fat0.Issuance{Entry: fat0.Entry{Entry: e}}
+		if !issuance.ValidExtIDs() {
+			continue
+		}
+		if issuance.RCDHash() != *chain.Identity.IDKey {
+			continue
+		}
+		if issuance.Unmarshal() != nil {
+			continue
+		}
+		if !issuance.Valid() {
+			continue
+		}
+		if !issuance.VerifySignature() {
+			continue
+		}
+
+		chains.Issue(issuance.ChainID, issuance)
+
+		// Process remaining entries as transactions
+		return processTransactions(chain, es[i+1:])
+	}
 	return nil
 }
 
-func processTransactionEntries(es []factom.Entry) error {
-	//for i, _ := range es {
-	//	_ := &es[i]
-	//}
+func processTransactions(chain *Chain, es []factom.Entry) error {
+	for i, _ := range es {
+		e := &es[i]
+		if err := e.Get(); err != nil {
+			return fmt.Errorf("factom.Entry%#v.Get(): %v", e, err)
+		}
+	}
 	return nil
 }

@@ -3,8 +3,8 @@ package db
 import (
 	"fmt"
 
-	"bitbucket.org/canonical-ledgers/fatd/flag"
-	_log "bitbucket.org/canonical-ledgers/fatd/log"
+	"github.com/Factom-Asset-Tokens/fatd/flag"
+	_log "github.com/Factom-Asset-Tokens/fatd/log"
 
 	"github.com/jinzhu/gorm"
 	_ "github.com/jinzhu/gorm/dialects/sqlite"

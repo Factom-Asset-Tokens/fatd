@@ -8,6 +8,15 @@ import (
 
 type Bytes32 [32]byte
 
+func NewBytes32(s32 []byte) *Bytes32 {
+	if len(s32) != len(Bytes32{}) {
+		return nil
+	}
+	b32 := new(Bytes32)
+	copy(b32[:], s32)
+	return b32
+}
+
 func (b Bytes32) String() string {
 	return hex.EncodeToString(b[:])
 }
@@ -42,7 +51,6 @@ func (b *Bytes) UnmarshalJSON(data []byte) error {
 	if err != nil {
 		return err
 	}
-
 	return nil
 }
 

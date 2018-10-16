@@ -8,7 +8,7 @@ import (
 	"math/rand"
 	"net/http"
 
-	_log "bitbucket.org/canonical-ledgers/fatd/log"
+	_log "github.com/Factom-Asset-Tokens/fatd/log"
 
 	jrpc "github.com/AdamSLevy/jsonrpc2/v3"
 )
@@ -26,7 +26,6 @@ func request(method string, params interface{}, result interface{}) error {
 		return fmt.Errorf("json.Marshal(jrpc.NewRequest(%#v, %v, %#v): %v",
 			method, id, params, err)
 	}
-	//log.Debugf("%v", string(reqBytes))
 	endpoint := "http://" + RpcConfig.FactomdServer + "/v2"
 	req, err := http.NewRequest(http.MethodPost, endpoint, bytes.NewBuffer(reqBytes))
 	if err != nil {
@@ -41,23 +40,15 @@ func request(method string, params interface{}, result interface{}) error {
 		return fmt.Errorf("http.Client%#v.Do(%#v): %v",
 			c, req, err)
 	}
-	if res.StatusCode != http.StatusOK {
-		return fmt.Errorf("http status: %#v", res.Status)
-	}
 
 	resBytes, err := ioutil.ReadAll(res.Body)
 	if err != nil {
 		return fmt.Errorf("ioutil.ReadAll(http.Response.Body): %v", err)
 	}
-	//log.Debugf("%v", string(resBytes))
 
 	resJrpc := jrpc.NewResponse(result)
 	if err := json.Unmarshal(resBytes, resJrpc); err != nil {
 		return fmt.Errorf("json.Unmarshal(, ): %v", err)
 	}
-	if resJrpc.Error != nil {
-		return fmt.Errorf("%#v", resJrpc.Error)
-	}
-	//log.Debugf("%v", resJrpc)
 	return nil
 }

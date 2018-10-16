@@ -4,12 +4,12 @@ import (
 	"os"
 	"os/signal"
 
-	"bitbucket.org/canonical-ledgers/fatd/db"
-	"bitbucket.org/canonical-ledgers/fatd/factom"
-	"bitbucket.org/canonical-ledgers/fatd/flag"
-	"bitbucket.org/canonical-ledgers/fatd/log"
-	"bitbucket.org/canonical-ledgers/fatd/srv"
-	"bitbucket.org/canonical-ledgers/fatd/state"
+	"github.com/Factom-Asset-Tokens/fatd/db"
+	"github.com/Factom-Asset-Tokens/fatd/factom"
+	"github.com/Factom-Asset-Tokens/fatd/flag"
+	"github.com/Factom-Asset-Tokens/fatd/log"
+	"github.com/Factom-Asset-Tokens/fatd/srv"
+	"github.com/Factom-Asset-Tokens/fatd/state"
 )
 
 func main() { os.Exit(_main()) }

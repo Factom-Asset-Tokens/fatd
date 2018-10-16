@@ -5,8 +5,8 @@ import (
 
 	jrpc "github.com/AdamSLevy/jsonrpc2/v3"
 
-	"bitbucket.org/canonical-ledgers/fatd/flag"
-	_log "bitbucket.org/canonical-ledgers/fatd/log"
+	"github.com/Factom-Asset-Tokens/fatd/flag"
+	_log "github.com/Factom-Asset-Tokens/fatd/log"
 )
 
 var (
