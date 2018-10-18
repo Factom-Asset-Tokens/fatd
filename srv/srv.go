@@ -17,8 +17,14 @@ var (
 func Start() error {
 	log = _log.New("srv")
 
-	// Register JSON RPC Methods
+	// Register JSON RPC Methods:
 	jrpc.RegisterMethod("version", version)
+
+	//Token methods (Mock data for now)
+	jrpc.RegisterMethod("get-issuance", getIssuance)
+	jrpc.RegisterMethod("get-transaction", getTransaction)
+	jrpc.RegisterMethod("get-balance", getBalance)
+	jrpc.RegisterMethod("get-stats", getStats)
 
 	// Set up server
 	srvMux := http.NewServeMux()
