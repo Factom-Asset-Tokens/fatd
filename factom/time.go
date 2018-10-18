@@ -15,10 +15,10 @@ func (t *Time) UnmarshalJSON(data []byte) error {
 	if str == "null" {
 		return nil
 	}
-	ts, err := strconv.ParseUint(str, 10, 64)
+	sec, err := strconv.ParseUint(str, 10, 64)
 	if err != nil {
 		return fmt.Errorf("strconv.ParseUint(%#v, 10, 64): %v", str, err)
 	}
-	t.Time = time.Unix(int64(ts), 0)
+	t.Time = time.Unix(int64(sec), 0)
 	return nil
 }

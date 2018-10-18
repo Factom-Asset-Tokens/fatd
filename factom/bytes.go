@@ -21,13 +21,19 @@ func (b Bytes32) String() string {
 	return hex.EncodeToString(b[:])
 }
 
+func trimQuotes(data []byte) []byte {
+	quote := []byte(`"`)
+	return bytes.TrimSuffix(bytes.TrimPrefix(data, quote), quote)
+}
+
 func (b *Bytes32) UnmarshalJSON(data []byte) error {
-	n, err := hex.Decode(b[:], bytes.Trim(data, "\""))
+	data = trimQuotes(data)
+	n, err := hex.Decode(b[:], data)
 	if err != nil {
-		return err
+		return fmt.Errorf("hex.Decode(b[:], %#v): %v", string(data), err)
 	}
 	if n != len(b) {
-		return fmt.Errorf("only read %v bytes out of %v", n, len(b))
+		return fmt.Errorf("Only read %v bytes out of %v", n, len(b))
 	}
 	return nil
 }
@@ -49,7 +55,7 @@ func (b *Bytes) UnmarshalJSON(data []byte) error {
 	}
 	_, err := hex.Decode(*b, data)
 	if err != nil {
-		return err
+		return fmt.Errorf("hex.Decode(*b, %#v): %v", string(data), err)
 	}
 	return nil
 }

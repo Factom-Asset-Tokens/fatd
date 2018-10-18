@@ -5,7 +5,7 @@ import "fmt"
 // DBlock unmarshals a Directory Block response from the factomd API for a
 // given Height.
 type DBlock struct {
-	Height  int64    `json:"-"`
+	Height  uint64   `json:"-"`
 	EBlocks []EBlock `json:"dbentries"`
 }
 
@@ -58,7 +58,7 @@ func (db *DBlock) Get() error {
 	if db.Populated() {
 		return nil
 	}
-	params := map[string]int64{"height": db.Height}
+	params := map[string]interface{}{"height": db.Height}
 	// We need the following anonymous struct to accomodate the way the
 	// idiosyncratic way that the JSON response is returned.
 	result := &struct {

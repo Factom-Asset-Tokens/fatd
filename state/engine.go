@@ -68,14 +68,14 @@ func scanNewBlocks() error {
 	if err != nil {
 		return fmt.Errorf("factom.GetHeights(): %v", err)
 	}
-	currentHeight := heights.EntryHeight
+	currentHeight := uint64(heights.EntryHeight)
 	// Scan blocks from the last saved FBlockHeight up to but not including
 	// the leader height
 	for height := db.GetSavedHeight() + 1; height <= currentHeight; height++ {
 		log.Debugf("Scanning block %v for deposits.", height)
 		dblock := &factom.DBlock{Height: height}
 		if err := dblock.Get(); err != nil {
-			return fmt.Errorf("factom.DBlockByHeight(%v): %v", height, err)
+			return fmt.Errorf("DBlock%+v.Get(): %v", dblock, err)
 		}
 
 		wg := &sync.WaitGroup{}
@@ -200,7 +200,7 @@ func processIssuance(chain *Chain, es []factom.Entry) error {
 		if issuance.Unmarshal() != nil {
 			continue
 		}
-		if !issuance.Valid() {
+		if !issuance.ValidData() {
 			continue
 		}
 		if !issuance.VerifySignature() {
@@ -221,6 +221,35 @@ func processTransactions(chain *Chain, es []factom.Entry) error {
 		if err := e.Get(); err != nil {
 			return fmt.Errorf("factom.Entry%#v.Get(): %v", e, err)
 		}
+		transaction := &fat0.Transaction{Entry: fat0.Entry{Entry: e}}
+		if transaction.Unmarshal() != nil {
+			continue
+		}
+		if !transaction.ValidData() {
+			continue
+		}
+		if !transaction.ValidExtIDs() {
+			continue
+		}
+		if transaction.Coinbase {
+			if transaction.RCDHash() != *chain.Identity.IDKey {
+				continue
+			}
+		} else {
+			if !transaction.VerifyRCDHashes() {
+				continue
+			}
+		}
+		if !transaction.VerifySignatures() {
+			continue
+		}
+		if !chain.UniqueSignatures(transaction) {
+			continue
+		}
+		if !chain.SufficientBalances(transaction) {
+			continue
+		}
+		chain.Apply(transaction)
 	}
 	return nil
 }

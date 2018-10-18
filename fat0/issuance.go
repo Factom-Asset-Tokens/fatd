@@ -27,7 +27,7 @@ type Issuance struct {
 	Entry
 }
 
-func (i *Issuance) Valid() bool {
+func (i *Issuance) ValidData() bool {
 	return i.Type == "FAT-0" && i.Supply != 0
 }
 
@@ -53,7 +53,7 @@ func (i *Issuance) RCDHash() [sha256.Size]byte {
 
 func (i *Issuance) VerifySignature() bool {
 	pubKey := ed25519.PublicKey(i.ExtIDs[0][1:])
-	return ed25519.Verify(pubKey, i.Content, i.ExtIDs[1])
+	return ed25519.Verify(pubKey, append(i.ChainID[:], i.Content...), i.ExtIDs[1])
 }
 
 func sha256d(data []byte) [sha256.Size]byte {

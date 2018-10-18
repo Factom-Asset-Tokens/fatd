@@ -13,7 +13,7 @@ import (
 type Metadata struct {
 	gorm.Model
 
-	Height int64 `gorm:"default:161460"`
+	Height uint64 `gorm:"default:161460"`
 }
 
 var (
@@ -46,7 +46,7 @@ func Open() error {
 	}
 
 	if flag.StartScanHeight >= 0 {
-		SaveHeight(flag.StartScanHeight)
+		SaveHeight(uint64(flag.StartScanHeight))
 	}
 
 	return nil
@@ -59,11 +59,11 @@ func Close() error {
 	return gDB.Close()
 }
 
-func GetSavedHeight() int64 {
+func GetSavedHeight() uint64 {
 	return metadata.Height
 }
 
-func SaveHeight(height int64) error {
+func SaveHeight(height uint64) error {
 	metadata.Height = height
 	if err := gDB.Model(&metadata).Update("height", height).Error; err != nil {
 		return fmt.Errorf("gDB.Model(&metadata).Update(%#v, %v): %v",

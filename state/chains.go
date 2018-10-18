@@ -44,7 +44,7 @@ type chainMap struct {
 
 type Chain struct {
 	ChainStatus
-	*fat0.Issuance
+	*fat0.State
 	*fat0.Identity
 }
 
@@ -63,7 +63,7 @@ func (cm chainMap) Track(c *factom.Bytes32, identity *fat0.Identity) {
 func (cm chainMap) Issue(c *factom.Bytes32, issuance *fat0.Issuance) {
 	chain := cm.Get(c)
 	chain.ChainStatus = ChainStatusIssued
-	chain.Issuance = issuance
+	chain.State = fat0.NewState(issuance)
 	cm.Set(c, chain)
 }
 
