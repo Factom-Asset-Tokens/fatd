@@ -30,7 +30,7 @@ func Start() error {
 	// Set up server
 	srvMux := http.NewServeMux()
 	srvMux.Handle("/", jrpc.HTTPRequestHandler)
-	srvMux.Handle("/v1", jrpc.HTTPRequestHandler)
+	srvMux.Handle("/v1", Cors(jrpc.HTTPRequestHandler))
 	srv.Handler = srvMux
 	srv.Addr = flag.APIAddress
 
@@ -38,6 +38,16 @@ func Start() error {
 	go listen()
 
 	return nil
+}
+
+func Cors(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "*")
+		w.Header().Set("Access-Control-Allow-Headers", "*")
+		w.Header().Set("Access-Control-Allow-Credentials", "true")
+		next.ServeHTTP(w, r)
+	})
 }
 
 func Stop() error {
