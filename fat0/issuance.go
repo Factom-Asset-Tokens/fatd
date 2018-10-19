@@ -27,6 +27,25 @@ type Issuance struct {
 	Entry
 }
 
+func (i *Issuance) Valid(idKey *factom.Bytes32) bool {
+	if !i.ValidExtIDs() {
+		return false
+	}
+	if i.RCDHash() != *idKey {
+		return false
+	}
+	if i.Unmarshal() != nil {
+		return false
+	}
+	if !i.ValidData() {
+		return false
+	}
+	if !i.VerifySignature() {
+		return false
+	}
+	return true
+}
+
 func (i *Issuance) ValidData() bool {
 	return i.Type == "FAT-0" && i.Supply != 0
 }

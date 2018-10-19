@@ -22,6 +22,31 @@ type AddressAmount struct {
 	Amount         uint64 `json:"amount"`
 }
 
+func (t *Transaction) Valid(idKey *factom.Bytes32) bool {
+	if t.Unmarshal() != nil {
+		return false
+	}
+	if !t.ValidData() {
+		return false
+	}
+	if !t.ValidExtIDs() {
+		return false
+	}
+	if t.Coinbase {
+		if t.RCDHash() != *idKey {
+			return false
+		}
+	} else {
+		if !t.VerifyRCDHashes() {
+			return false
+		}
+	}
+	if !t.VerifySignatures() {
+		return false
+	}
+	return true
+}
+
 func (t *Transaction) Unmarshal() error {
 	return t.Entry.Unmarshal(t)
 }

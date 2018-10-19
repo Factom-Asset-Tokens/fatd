@@ -183,7 +183,7 @@ func processIssuance(chain *Chain, es []factom.Entry) error {
 		e := &es[i]
 		// If this entry was created before the Identity entry then it
 		// can't be valid.
-		if e.Timestamp.Before(chain.Issuance.Timestamp.Time) {
+		if e.Timestamp.Before(chain.Identity.Timestamp.Time) {
 			continue
 		}
 		// Get the data for the entry.
@@ -191,22 +191,9 @@ func processIssuance(chain *Chain, es []factom.Entry) error {
 			return fmt.Errorf("factom.Entry%#v.Get(): %v", e, err)
 		}
 		issuance := &fat0.Issuance{Entry: fat0.Entry{Entry: e}}
-		if !issuance.ValidExtIDs() {
+		if !issuance.Valid(chain.Identity.IDKey) {
 			continue
 		}
-		if issuance.RCDHash() != *chain.Identity.IDKey {
-			continue
-		}
-		if issuance.Unmarshal() != nil {
-			continue
-		}
-		if !issuance.ValidData() {
-			continue
-		}
-		if !issuance.VerifySignature() {
-			continue
-		}
-
 		chains.Issue(issuance.ChainID, issuance)
 
 		// Process remaining entries as transactions
@@ -222,34 +209,14 @@ func processTransactions(chain *Chain, es []factom.Entry) error {
 			return fmt.Errorf("factom.Entry%#v.Get(): %v", e, err)
 		}
 		transaction := &fat0.Transaction{Entry: fat0.Entry{Entry: e}}
-		if transaction.Unmarshal() != nil {
+		if !transaction.Valid(chain.Identity.IDKey) {
 			continue
 		}
-		if !transaction.ValidData() {
+		if !chain.Apply(transaction) {
 			continue
 		}
-		if !transaction.ValidExtIDs() {
-			continue
-		}
-		if transaction.Coinbase {
-			if transaction.RCDHash() != *chain.Identity.IDKey {
-				continue
-			}
-		} else {
-			if !transaction.VerifyRCDHashes() {
-				continue
-			}
-		}
-		if !transaction.VerifySignatures() {
-			continue
-		}
-		if !chain.UniqueSignatures(transaction) {
-			continue
-		}
-		if !chain.SufficientBalances(transaction) {
-			continue
-		}
-		chain.Apply(transaction)
+		// Save transaction data to db
+
 	}
 	return nil
 }

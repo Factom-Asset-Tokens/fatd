@@ -21,7 +21,13 @@ func NewState(issuance *Issuance) *State {
 	}
 }
 
-func (s *State) Apply(t *Transaction) {
+func (s *State) Apply(t *Transaction) bool {
+	if !s.UniqueSignatures(t) {
+		return false
+	}
+	if !s.SufficientBalances(t) {
+		return false
+	}
 	for i, _ := range t.Inputs {
 		input := &t.Inputs[i]
 		s.Balances[input.RCDHash()] -= input.Amount
@@ -33,6 +39,7 @@ func (s *State) Apply(t *Transaction) {
 	sig := new([SignatureSize]byte)
 	copy(sig[:], t.ExtIDs[1])
 	s.Signatures[t.Height][*sig] = true
+	return true
 }
 
 func (s *State) SufficientBalances(t *Transaction) bool {
