@@ -16,8 +16,8 @@ var version jrpc.MethodFunc = func(params json.RawMessage) *jrpc.Response {
 
 var requiredParamsErr = `required params: "chain-id", or "token-id" and "issuer-id"`
 var getIssuance jrpc.MethodFunc = func(params json.RawMessage) *jrpc.Response {
-	if len(params) == 0 || string(params) == "null" {
-		return jrpc.NewInvalidParamsErrorResponse(requiredParamsErr)
+	if params == nil {
+		return jrpc.NewInvalidParamsErrorResponse("Parameters are required for this method")
 	}
 	token := TokenParams{}
 	if err := unmarshalStrict(params, &token); err != nil {
@@ -44,7 +44,7 @@ var getIssuance jrpc.MethodFunc = func(params json.RawMessage) *jrpc.Response {
 
 var getTransaction jrpc.MethodFunc = func(params json.RawMessage) *jrpc.Response {
 	if params == nil {
-		return jrpc.NewInvalidParamsErrorResponse("Params are required for this method")
+		return jrpc.NewInvalidParamsErrorResponse("Parameters are required for this method")
 	}
 
 	token := TokenParams{}
@@ -55,6 +55,10 @@ var getTransaction jrpc.MethodFunc = func(params json.RawMessage) *jrpc.Response
 	if token.ChainID == nil &&
 		(token.TokenID == nil || token.IssuerChainID == nil) {
 		return jrpc.NewInvalidParamsErrorResponse(requiredParamsErr)
+	}
+
+	if token.TransactionID == nil {
+		return jrpc.NewInvalidParamsErrorResponse("A transaction ID ('tx-id') is required for method 'get-transaction'")
 	}
 
 	input := map[string]interface{}{
@@ -76,7 +80,7 @@ var getTransaction jrpc.MethodFunc = func(params json.RawMessage) *jrpc.Response
 
 var getTransactions jrpc.MethodFunc = func(params json.RawMessage) *jrpc.Response {
 	if params == nil {
-		return jrpc.NewInvalidParamsErrorResponse("Params are required for this method")
+		return jrpc.NewInvalidParamsErrorResponse("Parameters are required for this method")
 	}
 
 	token := TokenParams{}
@@ -108,7 +112,7 @@ var getTransactions jrpc.MethodFunc = func(params json.RawMessage) *jrpc.Respons
 
 var getBalance jrpc.MethodFunc = func(params json.RawMessage) *jrpc.Response {
 	if params == nil {
-		return jrpc.NewInvalidParamsErrorResponse("Params are required for this method")
+		return jrpc.NewInvalidParamsErrorResponse("Parameters are required for this method")
 	}
 
 	token := TokenParams{}
@@ -125,8 +129,8 @@ var getBalance jrpc.MethodFunc = func(params json.RawMessage) *jrpc.Response {
 }
 
 var getStats jrpc.MethodFunc = func(params json.RawMessage) *jrpc.Response {
-	if params != nil {
-		return jrpc.NewInvalidParamsErrorResponse("Unexpected parameters")
+	if params == nil {
+		return jrpc.NewInvalidParamsErrorResponse("Parameters are required for this method")
 	}
 
 	token := TokenParams{}

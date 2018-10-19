@@ -5,7 +5,6 @@ import (
 )
 
 type TokenParams struct {
-
 	//base token params
 	ChainID       *factom.Bytes32 `json:"chain-id,omitempty"`
 	TokenID       *string         `json:"token-id,omitempty"`
@@ -14,9 +13,9 @@ type TokenParams struct {
 	//query params
 	TransactionID      *factom.Bytes32 `json:"tx-id,omitempty"`
 	FactoidAddress     *factom.Address `json:"fa-address,omitempty"`
-	NonFungibleTokenID *string         `json:"nf-token-address,omitempty"`
+	NonFungibleTokenID *string         `json:"nf-token-id,omitempty"`
 
 	//pagination
-	Page  *int `json:"page,omitempty"`
-	Limit *int `json:"limit,omitempty"`
+	Start  *uint `json:"start,omitempty"`
+	Limit *uint `json:"limit,omitempty"`
 }
