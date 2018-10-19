@@ -23,6 +23,7 @@ func Start() error {
 	//Token methods (Mock data for now)
 	jrpc.RegisterMethod("get-issuance", getIssuance)
 	jrpc.RegisterMethod("get-transaction", getTransaction)
+	jrpc.RegisterMethod("get-transactions", getTransactions)
 	jrpc.RegisterMethod("get-balance", getBalance)
 	jrpc.RegisterMethod("get-stats", getStats)
 
