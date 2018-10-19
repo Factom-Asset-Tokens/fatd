@@ -34,12 +34,12 @@ var (
 		factom.Bytes32{31: 0x0a}: Chain{ChainStatus: ChainStatusIgnored},
 		factom.Bytes32{31: 0x0c}: Chain{ChainStatus: ChainStatusIgnored},
 		factom.Bytes32{31: 0x0f}: Chain{ChainStatus: ChainStatusIgnored},
-	}}
+	}, RWMutex: &sync.RWMutex{}}
 )
 
 type chainMap struct {
 	m map[factom.Bytes32]Chain
-	sync.RWMutex
+	*sync.RWMutex
 }
 
 type Chain struct {

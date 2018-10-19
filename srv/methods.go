@@ -16,7 +16,7 @@ var version jrpc.MethodFunc = func(params json.RawMessage) *jrpc.Response {
 
 var requiredParamsErr = `required params: "chain-id", or "token-id" and "issuer-id"`
 var getIssuance jrpc.MethodFunc = func(params json.RawMessage) *jrpc.Response {
-	if params == nil {
+	if len(params) == 0 || string(params) == "null" {
 		return jrpc.NewInvalidParamsErrorResponse(requiredParamsErr)
 	}
 	token := Token{}

@@ -38,7 +38,6 @@ func Stop() error {
 		return fmt.Errorf("%#v", "Already not running")
 	}
 	close(stop)
-	stop = nil
 	return nil
 }
 
