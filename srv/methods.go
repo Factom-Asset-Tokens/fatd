@@ -1,6 +1,7 @@
 package srv
 
 import (
+	"bytes"
 	"encoding/json"
 
 	jrpc "github.com/AdamSLevy/jsonrpc2/v4"
@@ -13,9 +14,19 @@ var version jrpc.MethodFunc = func(params json.RawMessage) *jrpc.Response {
 	return jrpc.NewResponse("0.0.0")
 }
 
+var requiredParamsErr = `required params: "chain-id", or "token-id" and "issuer-id"`
 var getIssuance jrpc.MethodFunc = func(params json.RawMessage) *jrpc.Response {
 	if params == nil {
-		return jrpc.NewInvalidParamsErrorResponse("Params are required for this method")
+		return jrpc.NewInvalidParamsErrorResponse(requiredParamsErr)
+	}
+	token := Token{}
+	if err := unmarshalStrict(params, &token); err != nil {
+		return jrpc.NewInvalidParamsErrorResponse("unrecognized params")
+
+	}
+	if token.ChainID == nil &&
+		(token.ID == nil || token.IssuerChainID == nil) {
+		return jrpc.NewInvalidParamsErrorResponse(requiredParamsErr)
 	}
 
 	issuance := map[string]interface{}{
@@ -71,4 +82,11 @@ var getStats jrpc.MethodFunc = func(params json.RawMessage) *jrpc.Response {
 	}
 
 	return jrpc.NewResponse(stats)
+}
+
+func unmarshalStrict(data []byte, v interface{}) error {
+	b := bytes.NewBuffer(data)
+	d := json.NewDecoder(b)
+	d.DisallowUnknownFields()
+	return d.Decode(v)
 }
