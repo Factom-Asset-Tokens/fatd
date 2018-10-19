@@ -1,17 +1,19 @@
 package srv
 
 import (
-	jrpc "github.com/AdamSLevy/jsonrpc2/v3"
+	"encoding/json"
+
+	jrpc "github.com/AdamSLevy/jsonrpc2/v4"
 )
 
-var version = jrpc.MethodFunc(func(params interface{}) *jrpc.Response {
+var version jrpc.MethodFunc = func(params json.RawMessage) *jrpc.Response {
 	if params != nil {
 		return jrpc.NewInvalidParamsErrorResponse("Unexpected parameters")
 	}
 	return jrpc.NewResponse("0.0.0")
-})
+}
 
-var getIssuance = jrpc.MethodFunc(func(params interface{}) *jrpc.Response {
+var getIssuance jrpc.MethodFunc = func(params json.RawMessage) *jrpc.Response {
 	if params == nil {
 		return jrpc.NewInvalidParamsErrorResponse("Params are required for this method")
 	}
@@ -25,9 +27,9 @@ var getIssuance = jrpc.MethodFunc(func(params interface{}) *jrpc.Response {
 	}
 
 	return jrpc.NewResponse(issuance)
-})
+}
 
-var getTransaction = jrpc.MethodFunc(func(params interface{}) *jrpc.Response {
+var getTransaction jrpc.MethodFunc = func(params json.RawMessage) *jrpc.Response {
 	if params == nil {
 		return jrpc.NewInvalidParamsErrorResponse("Params are required for this method")
 	}
@@ -38,35 +40,35 @@ var getTransaction = jrpc.MethodFunc(func(params interface{}) *jrpc.Response {
 	}
 
 	transaction := map[string]interface{}{
-		"inputs": [1]map[string]interface{}{input},
-		"outputs": [1]map[string]interface{}{input},
-		"milliTimestamp":   1537450868,
-		"salt":   "80d87a8bd5cf2a3eca9037c2229f3701eed29360caa975531ef5fe476b1b70b5",
+		"inputs":         [1]map[string]interface{}{input},
+		"outputs":        [1]map[string]interface{}{input},
+		"milliTimestamp": 1537450868,
+		"salt":           "80d87a8bd5cf2a3eca9037c2229f3701eed29360caa975531ef5fe476b1b70b5",
 	}
 
 	return jrpc.NewResponse(transaction)
-})
+}
 
-var getBalance = jrpc.MethodFunc(func(params interface{}) *jrpc.Response {
+var getBalance jrpc.MethodFunc = func(params json.RawMessage) *jrpc.Response {
 	if params == nil {
 		return jrpc.NewInvalidParamsErrorResponse("Params are required for this method")
 	}
 
 	return jrpc.NewResponse(302)
-})
+}
 
-var getStats = jrpc.MethodFunc(func(params interface{}) *jrpc.Response {
+var getStats jrpc.MethodFunc = func(params json.RawMessage) *jrpc.Response {
 	if params != nil {
 		return jrpc.NewInvalidParamsErrorResponse("Unexpected parameters")
 	}
 
 	stats := map[string]interface{}{
-		"supply":   10000000,
-		"circulatingSupply":   53024,
-		"transactions": 7745,
-		"issuanceTimestamp": 1518286500,
-		"lastTransactionTimestamp":   1518286899,
+		"supply":                   10000000,
+		"circulatingSupply":        53024,
+		"transactions":             7745,
+		"issuanceTimestamp":        1518286500,
+		"lastTransactionTimestamp": 1518286899,
 	}
 
 	return jrpc.NewResponse(stats)
-})
+}

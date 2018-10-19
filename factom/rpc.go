@@ -10,7 +10,7 @@ import (
 
 	_log "github.com/Factom-Asset-Tokens/fatd/log"
 
-	jrpc "github.com/AdamSLevy/jsonrpc2/v3"
+	jrpc "github.com/AdamSLevy/jsonrpc2/v4"
 )
 
 var log _log.Log
