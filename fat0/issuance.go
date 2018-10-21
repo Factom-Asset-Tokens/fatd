@@ -5,7 +5,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/Factom-Asset-Tokens/fatd/factom"
-	"golang.org/x/crypto/ed25519"
+	"github.com/FactomProject/ed25519"
 )
 
 func ValidTokenNameIDs(nameIDs []factom.Bytes) bool {
@@ -71,8 +71,11 @@ func (i *Issuance) RCDHash() [sha256.Size]byte {
 }
 
 func (i *Issuance) VerifySignature() bool {
-	pubKey := ed25519.PublicKey(i.ExtIDs[0][1:])
-	return ed25519.Verify(pubKey, append(i.ChainID[:], i.Content...), i.ExtIDs[1])
+	pubKey := new([ed25519.PublicKeySize]byte)
+	copy(pubKey[:], i.ExtIDs[0][1:])
+	sig := new([ed25519.SignatureSize]byte)
+	copy(sig[:], i.ExtIDs[1])
+	return ed25519.VerifyCanonical(pubKey, append(i.ChainID[:], i.Content...), sig)
 }
 
 func sha256d(data []byte) [sha256.Size]byte {

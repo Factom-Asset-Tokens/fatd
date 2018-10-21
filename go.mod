@@ -5,6 +5,7 @@ require (
 	github.com/AdamSLevy/factom v0.0.0-20181009222153-a7ad13c1f605
 	github.com/AdamSLevy/jsonrpc2/v4 v4.0.2
 	github.com/FactomProject/btcutil v0.0.0-20160826074221-43986820ccd5
+	github.com/FactomProject/ed25519 v0.0.0-20150814230546-38002c4fe7b6
 	github.com/denisenkom/go-mssqldb v0.0.0-20180901172138-1eb28afdf9b6 // indirect
 	github.com/erikstmartin/go-testdb v0.0.0-20160219214506-8d10e4a1bae5 // indirect
 	github.com/go-sql-driver/mysql v1.4.0 // indirect
@@ -18,6 +19,7 @@ require (
 	github.com/onsi/gomega v1.4.2 // indirect
 	github.com/posener/complete v1.1.2
 	github.com/sirupsen/logrus v1.1.1
+	github.com/stretchr/testify v1.2.2
 	golang.org/x/crypto v0.0.0-20181009213950-7c1a557ab941
 	golang.org/x/net v0.0.0-20181005035420-146acd28ed58 // indirect
 	golang.org/x/sys v0.0.0-20181005133103-4497e2df6f9e // indirect

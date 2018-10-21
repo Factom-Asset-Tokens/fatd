@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/FactomProject/btcutil/base58"
-	"golang.org/x/crypto/ed25519"
+	"github.com/FactomProject/ed25519"
 )
 
 var (
@@ -19,9 +19,9 @@ const (
 )
 
 type Address struct {
-	ed25519.PrivateKey
-	ed25519.PublicKey
-	rcdHash *Bytes32
+	PrivateKey *[ed25519.PrivateKeySize]byte
+	PublicKey  *[ed25519.PublicKeySize]byte
+	rcdHash    *Bytes32
 }
 
 func (a *Address) UnmarshalJSON(data []byte) error {
@@ -46,21 +46,24 @@ func (a *Address) MarshalJSON() ([]byte, error) {
 }
 func (a *Address) String() string {
 	a.RCDHash()
-	return encode(a.rcdHash[:])
+	return encodePub(a.rcdHash[:])
 }
 
 func (a *Address) RCDHash() Bytes32 {
 	if a.rcdHash == nil {
-		if a.PublicKey == nil {
-			a.PublicKey = make(ed25519.PublicKey, ed25519.PublicKeySize)
+		if a.PrivateKey == nil {
+			a.PrivateKey = new([ed25519.PrivateKeySize]byte)
 		}
-		rcdHash := Bytes32(sha256d([]byte(a.PublicKey)))
+		if a.PublicKey == nil {
+			a.PublicKey = ed25519.GetPublicKey(a.PrivateKey)
+		}
+		rcdHash := Bytes32(sha256d(append([]byte{0x01}, a.PublicKey[:]...)))
 		a.rcdHash = &rcdHash
 	}
 	return *a.rcdHash
 }
 
-func encode(data []byte) string {
+func encodePub(data []byte) string {
 	return base58.CheckEncodeWithVersionBytes(data, prefix[0], prefix[1])
 }
 

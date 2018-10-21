@@ -4,7 +4,7 @@ import (
 	"crypto/sha256"
 
 	"github.com/Factom-Asset-Tokens/fatd/factom"
-	"golang.org/x/crypto/ed25519"
+	"github.com/FactomProject/ed25519"
 )
 
 type Transaction struct {
@@ -134,9 +134,12 @@ func (t *Transaction) ValidExtIDs() bool {
 
 func (t *Transaction) VerifySignatures() bool {
 	msg := append(t.ChainID[:], t.Content...)
+	pubKey := new([ed25519.PublicKeySize]byte)
+	sig := new([ed25519.SignatureSize]byte)
 	for i, _ := range t.Inputs {
-		pubKey := ed25519.PublicKey(t.ExtIDs[i*2][1:])
-		if !ed25519.Verify(pubKey, msg, t.ExtIDs[i*2+1]) {
+		copy(pubKey[:], t.ExtIDs[i*2][1:])
+		copy(sig[:], t.ExtIDs[i*2+1])
+		if !ed25519.VerifyCanonical(pubKey, msg, sig) {
 			return false
 		}
 	}
