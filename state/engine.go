@@ -75,7 +75,7 @@ func scanNewBlocks() error {
 	// Scan blocks from the last saved FBlockHeight up to but not including
 	// the leader height
 	for height := db.GetSavedHeight() + 1; height <= currentHeight; height++ {
-		log.Debugf("Scanning block %v for deposits.", height)
+		log.Debugf("Scanning block %v for FAT entries.", height)
 		dblock := &factom.DBlock{Height: height}
 		if err := dblock.Get(); err != nil {
 			return fmt.Errorf("DBlock%+v.Get(): %v", dblock, err)
