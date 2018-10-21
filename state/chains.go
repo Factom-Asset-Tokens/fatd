@@ -30,16 +30,16 @@ func (status ChainStatus) Issued() bool {
 }
 
 var (
-	chains = chainMap{m: map[factom.Bytes32]Chain{
+	chains = &chainMap{m: map[factom.Bytes32]Chain{
 		factom.Bytes32{31: 0x0a}: Chain{ChainStatus: ChainStatusIgnored},
 		factom.Bytes32{31: 0x0c}: Chain{ChainStatus: ChainStatusIgnored},
 		factom.Bytes32{31: 0x0f}: Chain{ChainStatus: ChainStatusIgnored},
-	}, RWMutex: &sync.RWMutex{}}
+	}, RWMutex: sync.RWMutex{}}
 )
 
 type chainMap struct {
 	m map[factom.Bytes32]Chain
-	*sync.RWMutex
+	sync.RWMutex
 }
 
 type Chain struct {
@@ -52,28 +52,28 @@ func NewChain(status ChainStatus) *Chain {
 	return &Chain{ChainStatus: status}
 }
 
-func (cm chainMap) Ignore(c *factom.Bytes32) {
+func (cm *chainMap) Ignore(c *factom.Bytes32) {
 	cm.Set(c, NewChain(ChainStatusIgnored))
 }
-func (cm chainMap) Track(c *factom.Bytes32, identity *fat0.Identity) {
+func (cm *chainMap) Track(c *factom.Bytes32, identity *fat0.Identity) {
 	chain := NewChain(ChainStatusTracked)
 	chain.Identity = identity
 	cm.Set(c, chain)
 }
-func (cm chainMap) Issue(c *factom.Bytes32, issuance *fat0.Issuance) {
+func (cm *chainMap) Issue(c *factom.Bytes32, issuance *fat0.Issuance) {
 	chain := cm.Get(c)
 	chain.ChainStatus = ChainStatusIssued
 	chain.State = fat0.NewState(issuance)
 	cm.Set(c, chain)
 }
 
-func (cm chainMap) Set(c *factom.Bytes32, chain *Chain) {
+func (cm *chainMap) Set(c *factom.Bytes32, chain *Chain) {
 	defer cm.Unlock()
 	cm.Lock()
 	cm.m[*c] = *chain
 }
 
-func (cm chainMap) Get(c *factom.Bytes32) *Chain {
+func (cm *chainMap) Get(c *factom.Bytes32) *Chain {
 	defer cm.RUnlock()
 	cm.RLock()
 	chain, ok := cm.m[*c]
