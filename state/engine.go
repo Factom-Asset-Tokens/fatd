@@ -19,18 +19,22 @@ var (
 )
 
 const (
-	scanInterval = 2 * time.Second
+	scanInterval = 1 * time.Minute
 )
 
-func Start() chan error {
+func Start() (chan error, error) {
 	log = _log.New("state")
+
+	if err := scanNewBlocks(); err != nil {
+		return nil, fmt.Errorf("scanNewBlocks(): %v", err)
+	}
 
 	returnError = make(chan error, 1)
 	stop = make(chan error)
 
 	go engine()
 
-	return returnError
+	return returnError, nil
 }
 
 func Stop() error {

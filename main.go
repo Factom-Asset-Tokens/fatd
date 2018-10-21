@@ -39,7 +39,11 @@ func _main() (ret int) {
 	}()
 	log.Info("DB connection opened.")
 
-	stateErrCh := state.Start()
+	stateErrCh, err := state.Start()
+	if err != nil {
+		log.Errorf("state.Start(): %v", err)
+		return 1
+	}
 	defer func() {
 		if err := state.Stop(); err != nil {
 			log.Errorf("state.Stop(): %v", err)
