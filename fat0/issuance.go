@@ -18,6 +18,20 @@ func ValidTokenNameIDs(nameIDs []factom.Bytes) bool {
 	return false
 }
 
+func ChainID(tokenID string, issuerChainID *factom.Bytes32) *factom.Bytes32 {
+	hash := sha256.New()
+	extIDs := [][]byte{
+		[]byte("token"), []byte(tokenID),
+		[]byte("issuer"), issuerChainID[:],
+	}
+	for _, id := range extIDs {
+		idSum := sha256.Sum256(id)
+		hash.Write(idSum[:])
+	}
+	chainID := hash.Sum(nil)
+	return factom.NewBytes32(chainID)
+}
+
 type Issuance struct {
 	Type   string `json:"type"`
 	Supply int64  `json:"supply"`

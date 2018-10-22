@@ -1,6 +1,10 @@
 package fat0
 
-import "github.com/Factom-Asset-Tokens/fatd/factom"
+import (
+	"sync"
+
+	"github.com/Factom-Asset-Tokens/fatd/factom"
+)
 
 type State struct {
 	Signatures   SignatureMap
@@ -8,6 +12,8 @@ type State struct {
 	Height       uint64
 	AmountIssued uint64
 	*Issuance
+
+	mu sync.RWMutex
 }
 
 type SignatureMap map[uint64]map[[SignatureSize]byte]bool
@@ -28,6 +34,8 @@ func (s *State) Apply(t *Transaction) bool {
 	if !s.SufficientBalances(t) {
 		return false
 	}
+	defer s.mu.Unlock()
+	s.mu.Lock()
 	for i, _ := range t.Inputs {
 		input := &t.Inputs[i]
 		s.Balances[input.RCDHash()] -= input.Amount
@@ -60,4 +68,10 @@ func (s *State) UniqueSignatures(t *Transaction) bool {
 		return false
 	}
 	return true
+}
+
+func (s *State) Balance(a *factom.Address) uint64 {
+	defer s.mu.RUnlock()
+	s.mu.RLock()
+	return s.Balances[a.RCDHash()]
 }

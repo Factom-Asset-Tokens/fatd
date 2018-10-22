@@ -1,9 +1,10 @@
 package factom_test
 
 import (
+	"testing"
+
 	"github.com/Factom-Asset-Tokens/fatd/factom"
 	"github.com/stretchr/testify/assert"
-	"testing"
 )
 
 func TestZeroAddress(t *testing.T) {
