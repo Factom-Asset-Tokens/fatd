@@ -9,7 +9,7 @@ import (
 )
 
 func ValidTokenNameIDs(nameIDs []factom.Bytes) bool {
-	if len(nameIDs) == 4 &&
+	if len(nameIDs) == 4 && len(nameIDs[1]) > 0 &&
 		string(nameIDs[0]) == "token" && string(nameIDs[2]) == "issuer" &&
 		ValidIdentityChainID(nameIDs[3]) &&
 		utf8.Valid(nameIDs[1]) {
@@ -39,6 +39,10 @@ type Issuance struct {
 	Symbol string `json:"symbol,omitempty"`
 	Name   string `json:"name,omitempty"`
 	Entry
+}
+
+func NewIssuance(entry *factom.Entry) *Issuance {
+	return &Issuance{Entry: Entry{Entry: entry}}
 }
 
 func (i *Issuance) Valid(idKey *factom.Bytes32) bool {

@@ -8,7 +8,7 @@ import (
 
 func ValidIdentityChainID(chainID factom.Bytes) bool {
 	if len(chainID) == 32 &&
-		chainID[0] == 0x88 && chainID[1] == 0x88 && chainID[2] != 0x88 {
+		chainID[0] == 0x88 && chainID[1] == 0x88 && chainID[2] == 0x88 {
 		return true
 	}
 	return false
