@@ -3,8 +3,11 @@ package srv
 import (
 	"bytes"
 	"encoding/json"
-	jrpc "github.com/AdamSLevy/jsonrpc2/v4"
 	"time"
+
+	jrpc "github.com/AdamSLevy/jsonrpc2/v4"
+	"github.com/Factom-Asset-Tokens/fatd/fat0"
+	"github.com/Factom-Asset-Tokens/fatd/state"
 )
 
 var version jrpc.MethodFunc = func(params json.RawMessage) *jrpc.Response {
@@ -17,26 +20,24 @@ var version jrpc.MethodFunc = func(params json.RawMessage) *jrpc.Response {
 var requiredParamsErr = `required params: "chain-id", or "token-id" and "issuer-id"`
 var getIssuance jrpc.MethodFunc = func(params json.RawMessage) *jrpc.Response {
 	if params == nil {
-		return jrpc.NewInvalidParamsErrorResponse("Parameters are required for this method")
+		return jrpc.NewInvalidParamsErrorResponse(requiredParamsErr)
 	}
 	token := TokenParams{}
 	if err := unmarshalStrict(params, &token); err != nil {
-		return jrpc.NewInvalidParamsErrorResponse("unrecognized params")
-
+		return jrpc.NewInvalidParamsErrorResponse(err.Error())
 	}
-	if token.ChainID == nil &&
-		(token.TokenID == nil || token.IssuerChainID == nil) {
-		return jrpc.NewInvalidParamsErrorResponse(requiredParamsErr)
+	chainID := token.ChainID
+	if token.ChainID == nil {
+		if token.TokenID == nil || token.IssuerChainID == nil {
+			return jrpc.NewInvalidParamsErrorResponse(requiredParamsErr)
+		}
+		chainID = fat0.ChainID(*token.TokenID, token.IssuerChainID)
 	}
 
-	issuance := map[string]interface{}{
-		"type":      "FAT-0",
-		"name":      "Test Token",
-		"symbol":    "TTK",
-		"supply":    10000000,
-		"salt":      "874220a808090fb736f345dd5d67ac26eab94c9c9f51b708b05cdc4d42f65aae",
-		"timestamp": time.Now().Unix() - 3600, //unix timestamp Added by this lib, based on Factom entry timestamp
-		"extIds":    [1]string{"874220a808090fb736f345dd5d67ac26eab94c9c9f51b708b05cdc4d42f65aae"},
+	issuance := state.GetIssuance(chainID)
+	if issuance == nil {
+		return jrpc.NewErrorResponse(-32800, "Token Not Found",
+			"not yet issued or not tracked by this instance of fatd")
 	}
 
 	return jrpc.NewResponse(issuance)

@@ -16,6 +16,6 @@ type TokenParams struct {
 	NonFungibleTokenID *string         `json:"nf-token-id,omitempty"`
 
 	//pagination
-	Start  *uint `json:"start,omitempty"`
+	Start *uint `json:"start,omitempty"`
 	Limit *uint `json:"limit,omitempty"`
 }
