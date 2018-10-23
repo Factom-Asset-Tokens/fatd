@@ -22,6 +22,7 @@ type Address struct {
 	PrivateKey *[ed25519.PrivateKeySize]byte
 	PublicKey  *[ed25519.PublicKeySize]byte
 	rcdHash    *Bytes32
+	rcd        []byte
 }
 
 func (a *Address) UnmarshalJSON(data []byte) error {
@@ -50,15 +51,22 @@ func (a *Address) String() string {
 	return encodePub(a.rcdHash[:])
 }
 
-func (a *Address) RCDHash() Bytes32 {
-	if a.rcdHash == nil {
+func (a *Address) RCD() []byte {
+	if a.rcd == nil {
 		if a.PrivateKey == nil {
 			a.PrivateKey = new([ed25519.PrivateKeySize]byte)
 		}
 		if a.PublicKey == nil {
 			a.PublicKey = ed25519.GetPublicKey(a.PrivateKey)
 		}
-		rcdHash := Bytes32(sha256d(append([]byte{0x01}, a.PublicKey[:]...)))
+		a.rcd = append([]byte{0x01}, a.PublicKey[:]...)
+	}
+	return a.rcd
+}
+
+func (a *Address) RCDHash() Bytes32 {
+	if a.rcdHash == nil {
+		rcdHash := Bytes32(sha256d(a.RCD()))
 		a.rcdHash = &rcdHash
 	}
 	return *a.rcdHash
