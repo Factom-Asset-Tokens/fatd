@@ -26,29 +26,29 @@ func (t *Transaction) Coinbase() bool {
 	return ok
 }
 
-func (t *Transaction) Valid(idKey *factom.Bytes32) bool {
-	if t.Unmarshal() != nil {
-		return false
+func (t *Transaction) Valid(idKey *factom.Bytes32) error {
+	if err := t.Unmarshal(); err != nil {
+		return err
 	}
-	if t.ValidData() != nil {
-		return false
+	if err := t.ValidData(); err != nil {
+		return err
 	}
-	if !t.ValidExtIDs() {
-		return false
+	if err := t.ValidExtIDs(); err != nil {
+		return err
 	}
 	if t.Coinbase() {
 		if t.RCDHash() != *idKey {
-			return false
+			return fmt.Errorf("invalid RCD for coinbase transaction")
 		}
 	} else {
-		if !t.ValidRCDHashes() {
-			return false
+		if !t.ValidRCDs() {
+			return fmt.Errorf("invalid RCDs")
 		}
 	}
 	if !t.ValidSignatures() {
-		return false
+		return fmt.Errorf("invalid signatures")
 	}
-	return true
+	return nil
 }
 
 func (t *Transaction) Unmarshal() error {
@@ -65,7 +65,7 @@ const (
 
 func (t *Transaction) ValidData() error {
 	if t.Height > t.Entry.Height ||
-		t.Entry.Height-t.Height < MaxHeightDifference {
+		t.Entry.Height-t.Height > MaxHeightDifference {
 		return fmt.Errorf("invalid height")
 	}
 	if len(t.Inputs) == 0 {
@@ -80,12 +80,14 @@ func (t *Transaction) ValidData() error {
 	if t.Coinbase() && len(t.Inputs) != 1 {
 		return fmt.Errorf("invalid coinbase transaction")
 	}
+	// Select the shortest map to range through.
 	a := t.Inputs
 	b := t.Outputs
 	if len(t.Outputs) < len(t.Inputs) {
 		a = t.Outputs
 		b = t.Inputs
 	}
+	// Ensure that no address exists in both the Inputs and Outputs.
 	for rcdHash := range a {
 		if _, ok := b[rcdHash]; ok {
 			return fmt.Errorf("%v appears in both inputs and outputs",
@@ -100,7 +102,7 @@ func (t *Transaction) SumInputs() uint64 {
 }
 
 func (t *Transaction) SumOutputs() uint64 {
-	return sum(t.Inputs)
+	return sum(t.Outputs)
 }
 
 func sum(aam AddressAmountMap) uint64 {
@@ -111,17 +113,24 @@ func sum(aam AddressAmountMap) uint64 {
 	return sum
 }
 
-func (t *Transaction) ValidExtIDs() bool {
-	if len(t.ExtIDs) >= 2*len(t.Inputs) {
-		for i := 0; i < len(t.Inputs); i++ {
-			if len(t.ExtIDs[i*2]) != RCDSize ||
-				len(t.ExtIDs[i*2+1]) != SignatureSize {
-				return false
-			}
-		}
-		return true
+func (t *Transaction) ValidExtIDs() error {
+	if len(t.ExtIDs) < 2*len(t.Inputs) {
+		return fmt.Errorf("insufficient number of ExtIDs")
 	}
-	return false
+	for i := 0; i < len(t.Inputs); i++ {
+		rcd := t.ExtIDs[i*2]
+		if len(rcd) != RCDSize {
+			return fmt.Errorf("invalid RCD size")
+		}
+		if rcd[0] != RCDType {
+			return fmt.Errorf("invalid RCD type: %v", rcd[0])
+		}
+		sig := t.ExtIDs[i*2+1]
+		if len(sig) != SignatureSize {
+			return fmt.Errorf("invalid signature size")
+		}
+	}
+	return nil
 }
 
 func (t *Transaction) ValidSignatures() bool {
@@ -138,13 +147,15 @@ func (t *Transaction) ValidSignatures() bool {
 	return true
 }
 
-func (t *Transaction) ValidRCDHashes() bool {
-	i := 0
-	for rcdHash, _ := range t.Inputs {
-		if rcdHash != sha256d(t.ExtIDs[i*2]) {
+func (t *Transaction) ValidRCDs() bool {
+	rcdHashes := make(AddressAmountMap)
+	for i := 0; i < len(t.Inputs); i++ {
+		rcdHashes[sha256d(t.ExtIDs[i*2])] = 0
+	}
+	for inputRCDHash, _ := range t.Inputs {
+		if _, ok := rcdHashes[inputRCDHash]; !ok {
 			return false
 		}
-		i++
 	}
 	return true
 }

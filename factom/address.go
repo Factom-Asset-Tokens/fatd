@@ -54,7 +54,7 @@ func (a *Address) MarshalJSON() ([]byte, error) {
 	return []byte(fmt.Sprintf("%#v", a.String())), nil
 }
 
-func (a *Address) String() string {
+func (a Address) String() string {
 	a.RCDHash()
 	return encodePub(a.rcdHash[:])
 }

@@ -30,9 +30,9 @@ var (
 	validTransactionEntryContentMap map[string]interface{}
 	validTransactionEntry           factom.Entry
 	validTransaction                *fat0.Transaction
-	inputs                          []factom.Address
+	inputAddresses                  []factom.Address
 	inputAmounts                    = []uint64{100, 10}
-	outputs                         []factom.Address
+	outputAddresses                 []factom.Address
 	outputAmounts                   = []uint64{90, 20}
 )
 
@@ -54,9 +54,9 @@ func init() {
 	validIssuance = fat0.NewIssuance(&validIssuanceEntry)
 	validIssuance.Sign(issuerKey)
 
-	inputs = make([]factom.Address, 2)
-	outputs = make([]factom.Address, 2)
-	for _, addresses := range [][]factom.Address{inputs, outputs} {
+	inputAddresses = make([]factom.Address, 2)
+	outputAddresses = make([]factom.Address, 2)
+	for _, addresses := range [][]factom.Address{inputAddresses, outputAddresses} {
 		for i := range addresses {
 			addresses[i].PublicKey, addresses[i].PrivateKey, _ =
 				ed25519.GenerateKey(rand)
@@ -65,17 +65,17 @@ func init() {
 
 	validTransactionEntryContentMap = map[string]interface{}{
 		"inputs": []addressAmount{{
-			Address: inputs[0],
+			Address: inputAddresses[0],
 			Amount:  inputAmounts[0],
 		}, {
-			Address: inputs[1],
+			Address: inputAddresses[1],
 			Amount:  inputAmounts[1],
 		}},
 		"outputs": []addressAmount{{
-			Address: outputs[0],
+			Address: outputAddresses[0],
 			Amount:  outputAmounts[0],
 		}, {
-			Address: outputs[1],
+			Address: outputAddresses[1],
 			Amount:  outputAmounts[1],
 		}},
 		"blockheight": blockheight,
@@ -87,7 +87,7 @@ func init() {
 	validTransactionEntry.Height = blockheight
 
 	validTransaction = fat0.NewTransaction(&validTransactionEntry)
-	validTransaction.Sign(inputs...)
+	validTransaction.Sign(inputAddresses...)
 }
 
 func marshal(v map[string]interface{}) []byte {
