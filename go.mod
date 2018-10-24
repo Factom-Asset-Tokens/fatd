@@ -18,6 +18,7 @@ require (
 	github.com/mattn/go-sqlite3 v1.9.0 // indirect
 	github.com/onsi/gomega v1.4.2 // indirect
 	github.com/posener/complete v1.1.2
+	github.com/rs/cors v1.3.0
 	github.com/sirupsen/logrus v1.1.1
 	github.com/stretchr/testify v1.2.2
 	golang.org/x/net v0.0.0-20181005035420-146acd28ed58 // indirect

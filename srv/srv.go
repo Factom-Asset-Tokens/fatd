@@ -4,9 +4,9 @@ import (
 	"net/http"
 
 	jrpc "github.com/AdamSLevy/jsonrpc2/v4"
-
 	"github.com/Factom-Asset-Tokens/fatd/flag"
 	_log "github.com/Factom-Asset-Tokens/fatd/log"
+	"github.com/rs/cors"
 )
 
 var (
@@ -30,24 +30,17 @@ func Start() error {
 	// Set up server
 	srvMux := http.NewServeMux()
 	srvMux.Handle("/", jrpc.HTTPRequestHandler)
-	srvMux.Handle("/v1", Cors(jrpc.HTTPRequestHandler))
-	srv.Handler = srvMux
+	srvMux.Handle("/v1", jrpc.HTTPRequestHandler)
+
+	c := cors.New(cors.Options{AllowedOrigins: []string{"*"}})
+	srv.Handler = c.Handler(srvMux)
+
 	srv.Addr = flag.APIAddress
 
 	// Launch server
 	go listen()
 
 	return nil
-}
-
-func Cors(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "*")
-		w.Header().Set("Access-Control-Allow-Headers", "*")
-		w.Header().Set("Access-Control-Allow-Credentials", "true")
-		next.ServeHTTP(w, r)
-	})
 }
 
 func Stop() error {
