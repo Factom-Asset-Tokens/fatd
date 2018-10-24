@@ -20,10 +20,10 @@ func (e *Entry) Unmarshal(v interface{}) error {
 	return d.Decode(v)
 }
 
-func (e *Entry) Sign(a *factom.Address) {
+func (e *Entry) Sign(as ...factom.Address) {
 	msg := append(e.ChainID[:], e.Content...)
-	e.ExtIDs = []factom.Bytes{
-		a.RCD(),
-		ed25519.Sign(a.PrivateKey, msg)[:],
+	e.ExtIDs = nil
+	for _, a := range as {
+		e.ExtIDs = append(e.ExtIDs, a.RCD(), ed25519.Sign(a.PrivateKey, msg)[:])
 	}
 }

@@ -25,6 +25,10 @@ type Address struct {
 	rcd        []byte
 }
 
+func NewAddress(rcdHash *Bytes32) *Address {
+	return &Address{rcdHash: rcdHash}
+}
+
 func (a *Address) UnmarshalJSON(data []byte) error {
 	data = trimQuotes(data)
 	if len(data) != 52 {
@@ -38,7 +42,11 @@ func (a *Address) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("base58.CheckDecodeWithTwoVersionBytes(%#v): %v",
 			string(data), err)
 	}
-	a.rcdHash = NewBytes32(b)
+	if a.rcdHash == nil {
+		a.rcdHash = NewBytes32(b)
+	} else {
+		copy(a.rcdHash[:], b)
+	}
 	return nil
 }
 

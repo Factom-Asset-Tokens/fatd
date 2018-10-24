@@ -36,13 +36,11 @@ func (s *State) Apply(t *Transaction) bool {
 	}
 	defer s.mu.Unlock()
 	s.mu.Lock()
-	for i, _ := range t.Inputs {
-		input := &t.Inputs[i]
-		s.Balances[input.RCDHash()] -= input.Amount
+	for rcdHash, amount := range t.Inputs {
+		s.Balances[rcdHash] -= amount
 	}
-	for i, _ := range t.Outputs {
-		output := &t.Outputs[i]
-		s.Balances[output.RCDHash()] += output.Amount
+	for rcdHash, amount := range t.Outputs {
+		s.Balances[rcdHash] += amount
 	}
 	sig := new([SignatureSize]byte)
 	copy(sig[:], t.ExtIDs[1])
@@ -51,9 +49,9 @@ func (s *State) Apply(t *Transaction) bool {
 }
 
 func (s *State) SufficientBalances(t *Transaction) bool {
-	for _, input := range t.Inputs {
-		balance := s.Balances[input.RCDHash()]
-		if input.Amount > balance {
+	for rcdHash, amount := range t.Inputs {
+		balance := s.Balances[rcdHash]
+		if amount > balance {
 			return false
 		}
 	}

@@ -14,14 +14,14 @@ type DBlock struct {
 type EBlock struct {
 	// Populated when DBlock.Get is called
 	ChainID *Bytes32 `json:"chainid"`
-	KeyMR   *Bytes32 `json:"keymr"`
+	KeyMR   *Bytes32 `json:"keymr,omitempty"`
 
 	// Populated when EBlock.Get is called
-	Entries      []Entry `json:"entrylist"`
-	EBlockHeader `json:"header"`
+	Entries      []Entry `json:"entrylist,omitempty"`
+	EBlockHeader `json:"header,omitempty"`
 
 	// Link back to the DBlock containing this EBlock
-	*DBlock `json:"-"`
+	DBlock `json:"-"`
 }
 
 // EBlockHeader unmarshals a nested structure of the Entry Block response from
@@ -34,15 +34,15 @@ type EBlockHeader struct {
 // and an Entry response for a given Hash.
 type Entry struct {
 	// Entry Block response fields
-	Hash      Bytes32 `json:"entryhash"`
-	Timestamp Time    `json:"timestamp"`
+	Hash      Bytes32 `json:"entryhash,omitempty"`
+	Timestamp Time    `json:"timestamp,omitempty"`
 
 	// Entry response fields
 	Content Bytes   `json:"content"`
 	ExtIDs  []Bytes `json:"extids"`
 
 	// Link back to the EBlock containing this entry
-	*EBlock `json:"-"`
+	EBlock
 }
 
 // Returns true if db has already been populated by a successful call to Get.
@@ -69,7 +69,7 @@ func (db *DBlock) Get() error {
 	}
 	// Set DBlock pointer
 	for i, _ := range db.EBlocks {
-		db.EBlocks[i].DBlock = db
+		db.EBlocks[i].DBlock = *db
 	}
 	return nil
 }
@@ -105,7 +105,7 @@ func (eb *EBlock) Get() error {
 	}
 	// Populate the link in each entry back to its entry block
 	for i, _ := range eb.Entries {
-		eb.Entries[i].EBlock = eb
+		eb.Entries[i].EBlock = *eb
 	}
 	return nil
 }

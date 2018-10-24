@@ -2,46 +2,50 @@ package fat0
 
 import (
 	"crypto/sha256"
+	"encoding/json"
+	"fmt"
 
 	"github.com/Factom-Asset-Tokens/fatd/factom"
 	"github.com/FactomProject/ed25519"
 )
 
 type Transaction struct {
-	Inputs  []AddressAmount `json:"inputs"`
-	Outputs []AddressAmount `json:"outputs"`
-	Height  uint64          `json:"blockheight"`
-	Salt    string          `json:"salt,omitempty"`
+	Inputs  AddressAmountMap `json:"inputs"`
+	Outputs AddressAmountMap `json:"outputs"`
+	Height  uint64           `json:"blockheight"`
+	Salt    string           `json:"salt,omitempty"`
 	Entry
-
-	Coinbase bool `json:"-"`
 }
 
-type AddressAmount struct {
-	factom.Address `json:"address"`
-	Amount         uint64 `json:"amount"`
+func NewTransaction(entry *factom.Entry) *Transaction {
+	return &Transaction{Entry: Entry{Entry: entry}}
+}
+
+func (t *Transaction) Coinbase() bool {
+	_, ok := t.Inputs[coinbase.RCDHash()]
+	return ok
 }
 
 func (t *Transaction) Valid(idKey *factom.Bytes32) bool {
 	if t.Unmarshal() != nil {
 		return false
 	}
-	if !t.ValidData() {
+	if t.ValidData() != nil {
 		return false
 	}
 	if !t.ValidExtIDs() {
 		return false
 	}
-	if t.Coinbase {
+	if t.Coinbase() {
 		if t.RCDHash() != *idKey {
 			return false
 		}
 	} else {
-		if !t.VerifyRCDHashes() {
+		if !t.ValidRCDHashes() {
 			return false
 		}
 	}
-	if !t.VerifySignatures() {
+	if !t.ValidSignatures() {
 		return false
 	}
 	return true
@@ -59,48 +63,36 @@ const (
 	MaxHeightDifference = uint64(3)
 )
 
-func (t *Transaction) ValidData() bool {
-	if len(t.Inputs) > 0 && len(t.Outputs) > 0 &&
-		t.Height <= t.Entry.Height &&
-		t.Entry.Height-t.Height < MaxHeightDifference &&
-		t.SumInputs() == t.SumOutputs() {
-		inputs := map[factom.Bytes32]bool{}
-		for i, a := range t.Inputs {
-			if a.Amount == 0 {
-				return false
-			}
-			if a.RCDHash() == coinbase.RCDHash() {
-				// A coinbase transaction may only have a
-				// single input. No other inputs may be the
-				// coinbase address.
-				if i == 0 && len(t.Inputs) == 1 {
-					t.Coinbase = true
-					return true
-				}
-				return false
-			}
-			// Enforce input uniqueness
-			if inputs[a.RCDHash()] {
-				return false
-			}
-			inputs[a.RCDHash()] = true
-
-		}
-		outputs := map[factom.Bytes32]bool{}
-		for _, a := range t.Outputs {
-			if a.Amount == 0 {
-				return false
-			}
-			// Enforce output uniqueness
-			if outputs[a.RCDHash()] {
-				return false
-			}
-			outputs[a.RCDHash()] = true
-
-		}
-		return true
+func (t *Transaction) ValidData() error {
+	if t.Height > t.Entry.Height ||
+		t.Entry.Height-t.Height < MaxHeightDifference {
+		return fmt.Errorf("invalid height")
 	}
-	return false
+	if len(t.Inputs) == 0 {
+		return fmt.Errorf("no inputs")
+	}
+	if len(t.Outputs) == 0 {
+		return fmt.Errorf("no outputs")
+	}
+	if t.SumInputs() != t.SumOutputs() {
+		return fmt.Errorf("sum(inputs) != sum(outputs)")
+	}
+	if t.Coinbase() && len(t.Inputs) != 1 {
+		return fmt.Errorf("invalid coinbase transaction")
+	}
+	a := t.Inputs
+	b := t.Outputs
+	if len(t.Outputs) < len(t.Inputs) {
+		a = t.Outputs
+		b = t.Inputs
+	}
+	for rcdHash := range a {
+		if _, ok := b[rcdHash]; ok {
+			return fmt.Errorf("%v appears in both inputs and outputs",
+				factom.NewAddress(&rcdHash))
+		}
+	}
+	return nil
 }
 
 func (t *Transaction) SumInputs() uint64 {
@@ -111,17 +103,17 @@ func (t *Transaction) SumOutputs() uint64 {
 	return sum(t.Inputs)
 }
 
-func sum(as []AddressAmount) uint64 {
+func sum(aam AddressAmountMap) uint64 {
 	var sum uint64
-	for i, _ := range as {
-		sum += as[i].Amount
+	for _, amount := range aam {
+		sum += amount
 	}
 	return sum
 }
 
 func (t *Transaction) ValidExtIDs() bool {
 	if len(t.ExtIDs) >= 2*len(t.Inputs) {
-		for i, _ := range t.Inputs {
+		for i := 0; i < len(t.Inputs); i++ {
 			if len(t.ExtIDs[i*2]) != RCDSize ||
 				len(t.ExtIDs[i*2+1]) != SignatureSize {
 				return false
@@ -132,11 +124,11 @@ func (t *Transaction) ValidExtIDs() bool {
 	return false
 }
 
-func (t *Transaction) VerifySignatures() bool {
+func (t *Transaction) ValidSignatures() bool {
 	msg := append(t.ChainID[:], t.Content...)
 	pubKey := new([ed25519.PublicKeySize]byte)
 	sig := new([ed25519.SignatureSize]byte)
-	for i, _ := range t.Inputs {
+	for i := 0; i < len(t.Inputs); i++ {
 		copy(pubKey[:], t.ExtIDs[i*2][1:])
 		copy(sig[:], t.ExtIDs[i*2+1])
 		if !ed25519.VerifyCanonical(pubKey, msg, sig) {
@@ -146,16 +138,58 @@ func (t *Transaction) VerifySignatures() bool {
 	return true
 }
 
-func (t *Transaction) VerifyRCDHashes() bool {
-	for i, _ := range t.Inputs {
-		input := &t.Inputs[i]
-		if input.RCDHash() != sha256d(t.ExtIDs[i*2]) {
+func (t *Transaction) ValidRCDHashes() bool {
+	i := 0
+	for rcdHash, _ := range t.Inputs {
+		if rcdHash != sha256d(t.ExtIDs[i*2]) {
 			return false
 		}
+		i++
 	}
 	return true
 }
 
 func (t *Transaction) RCDHash() [sha256.Size]byte {
 	return sha256d(t.ExtIDs[0])
+}
+
+type AddressAmountMap map[factom.Bytes32]uint64
+
+type addressAmount struct {
+	Address factom.Address `json:"address"`
+	Amount  uint64         `json:"amount"`
+}
+
+func (aP *AddressAmountMap) UnmarshalJSON(data []byte) error {
+	a := make(AddressAmountMap)
+	var aaS []addressAmount
+	if err := json.Unmarshal(data, &aaS); err != nil {
+		return err
+	}
+	for _, aa := range aaS {
+		if aa.Amount == 0 {
+			return fmt.Errorf("invalid amount (0) for address: %v", aa)
+		}
+		if _, duplicate := a[aa.Address.RCDHash()]; duplicate {
+			return fmt.Errorf("duplicate address: %v", aa)
+		}
+		a[aa.Address.RCDHash()] = aa.Amount
+	}
+	*aP = a
+	return nil
+}
+
+func (a AddressAmountMap) MarshalJSON() ([]byte, error) {
+	aaS := make([]addressAmount, len(a))
+	i := 0
+	for rcdHash, amount := range a {
+		// Skip addresses with 0 amounts
+		if amount == 0 {
+			continue
+		}
+		aaS[i].Address = *factom.NewAddress(&rcdHash)
+		aaS[i].Amount = amount
+		i++
+	}
+	return json.Marshal(aaS)
 }

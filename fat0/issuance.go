@@ -2,6 +2,7 @@ package fat0
 
 import (
 	"crypto/sha256"
+	"fmt"
 	"unicode/utf8"
 
 	"github.com/Factom-Asset-Tokens/fatd/factom"
@@ -45,27 +46,34 @@ func NewIssuance(entry *factom.Entry) *Issuance {
 	return &Issuance{Entry: Entry{Entry: entry}}
 }
 
-func (i *Issuance) Valid(idKey *factom.Bytes32) bool {
-	if !i.ValidExtIDs() {
-		return false
+func (i *Issuance) Valid(idKey factom.Bytes32) error {
+	if err := i.ValidExtIDs(); err != nil {
+		return err
 	}
-	if i.RCDHash() != *idKey {
-		return false
+	if i.RCDHash() != idKey {
+		return fmt.Errorf("RCDHash %v != idKey %v",
+			factom.Bytes32(i.RCDHash()), idKey)
 	}
-	if i.Unmarshal() != nil {
-		return false
+	if err := i.Unmarshal(); err != nil {
+		return err
 	}
-	if !i.ValidData() {
-		return false
+	if err := i.ValidData(); err != nil {
+		return err
 	}
-	if !i.VerifySignature() {
-		return false
+	if !i.ValidSignature() {
+		return fmt.Errorf("invalid signature")
 	}
-	return true
+	return nil
 }
 
-func (i *Issuance) ValidData() bool {
-	return i.Type == "FAT-0" && i.Supply != 0
+func (i *Issuance) ValidData() error {
+	if i.Type != "FAT-0" {
+		return fmt.Errorf(`invalid "type": %#v`, i.Type)
+	}
+	if i.Supply == 0 {
+		return fmt.Errorf(`invalid "supply": must be positive or -1`)
+	}
+	return nil
 }
 
 func (i *Issuance) Unmarshal() error {
@@ -78,17 +86,27 @@ const (
 	SignatureSize      = ed25519.SignatureSize
 )
 
-func (i *Issuance) ValidExtIDs() bool {
-	return len(i.ExtIDs) >= 2 &&
-		len(i.ExtIDs[0]) == RCDSize && i.ExtIDs[0][0] == RCDType &&
-		len(i.ExtIDs[1]) == SignatureSize
+func (i *Issuance) ValidExtIDs() error {
+	if len(i.ExtIDs) < 2 {
+		return fmt.Errorf("not enough ExtIDs")
+	}
+	if len(i.ExtIDs[0]) != RCDSize {
+		return fmt.Errorf("invalid RCD size")
+	}
+	if i.ExtIDs[0][0] != RCDType {
+		return fmt.Errorf("invalid RCD type")
+	}
+	if len(i.ExtIDs[1]) != SignatureSize {
+		return fmt.Errorf("invalid signature size")
+	}
+	return nil
 }
 
 func (i *Issuance) RCDHash() [sha256.Size]byte {
 	return sha256d(i.ExtIDs[0])
 }
 
-func (i *Issuance) VerifySignature() bool {
+func (i *Issuance) ValidSignature() bool {
 	pubKey := new([ed25519.PublicKeySize]byte)
 	copy(pubKey[:], i.ExtIDs[0][1:])
 

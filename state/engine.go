@@ -76,7 +76,7 @@ func scanNewBlocks() error {
 	// the leader height
 	for height := db.GetSavedHeight() + 1; height <= currentHeight; height++ {
 		log.Debugf("Scanning block %v for FAT entries.", height)
-		dblock := &factom.DBlock{Height: height}
+		dblock := factom.DBlock{Height: height}
 		if err := dblock.Get(); err != nil {
 			return fmt.Errorf("DBlock%+v.Get(): %v", dblock, err)
 		}
@@ -194,7 +194,7 @@ func processIssuance(chain *Chain, es []factom.Entry) error {
 			return fmt.Errorf("factom.Entry%#v.Get(): %v", e, err)
 		}
 		issuance := &fat0.Issuance{Entry: fat0.Entry{Entry: e}}
-		if !issuance.Valid(chain.Identity.IDKey) {
+		if issuance.Valid(*chain.Identity.IDKey) != nil {
 			continue
 		}
 		chains.Issue(issuance.ChainID, issuance)
