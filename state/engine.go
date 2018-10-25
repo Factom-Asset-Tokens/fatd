@@ -212,7 +212,7 @@ func processTransactions(chain *Chain, es []factom.Entry) error {
 			return fmt.Errorf("factom.Entry%#v.Get(): %v", e, err)
 		}
 		transaction := &fat0.Transaction{Entry: fat0.Entry{Entry: e}}
-		if !transaction.Valid(chain.Identity.IDKey) {
+		if err := transaction.Valid(chain.Identity.IDKey); err != nil {
 			continue
 		}
 		if !chain.Apply(transaction) {
