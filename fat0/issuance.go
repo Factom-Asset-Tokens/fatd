@@ -51,8 +51,7 @@ func (i *Issuance) Valid(idKey factom.Bytes32) error {
 		return err
 	}
 	if i.RCDHash() != idKey {
-		return fmt.Errorf("RCDHash %v != idKey %v",
-			factom.Bytes32(i.RCDHash()), idKey)
+		return fmt.Errorf("invalid RCD")
 	}
 	if err := i.Unmarshal(); err != nil {
 		return err

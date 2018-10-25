@@ -38,7 +38,7 @@ func (t *Transaction) Valid(idKey *factom.Bytes32) error {
 	}
 	if t.Coinbase() {
 		if t.RCDHash() != *idKey {
-			return fmt.Errorf("invalid RCD for coinbase transaction")
+			return fmt.Errorf("invalid RCD")
 		}
 	} else {
 		if !t.ValidRCDs() {

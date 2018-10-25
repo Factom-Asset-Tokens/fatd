@@ -6,6 +6,7 @@ import (
 	"github.com/Factom-Asset-Tokens/fatd/factom"
 	"github.com/Factom-Asset-Tokens/fatd/fat0"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestChainID(t *testing.T) {
@@ -39,31 +40,38 @@ func TestValidTokenNameIDs(t *testing.T) {
 func TestIssuance(t *testing.T) {
 	t.Run("ValidExtIDs()", func(t *testing.T) {
 		assert := assert.New(t)
+		require := require.New(t)
 		invalidIssuance := fat0.NewIssuance(&factom.Entry{})
-		assert.Error(invalidIssuance.ValidExtIDs(), "invalid number of ExtIDs")
+		assert.EqualError(invalidIssuance.ValidExtIDs(), "not enough ExtIDs")
 
 		invalidIssuance.ExtIDs = append([]factom.Bytes{}, validIssuance.ExtIDs...)
+		require.NoError(invalidIssuance.ValidExtIDs())
 
 		invalidIssuance.ExtIDs[0] = invalidIssuance.ExtIDs[0][0 : fat0.RCDSize-1]
-		assert.Error(invalidIssuance.ValidExtIDs(), "invalid RCD length")
+		assert.EqualError(invalidIssuance.ValidExtIDs(), "invalid RCD size")
 		invalidIssuance.ExtIDs[0] = validIssuance.ExtIDs[0]
+		require.NoError(invalidIssuance.ValidExtIDs())
 
 		invalidIssuance.ExtIDs[1] =
 			invalidIssuance.ExtIDs[1][0 : fat0.SignatureSize-1]
-		assert.Error(invalidIssuance.ValidExtIDs(), "invalid signature length")
+		assert.EqualError(invalidIssuance.ValidExtIDs(), "invalid signature size")
 		invalidIssuance.ExtIDs[1] = validIssuance.ExtIDs[1]
+		require.NoError(invalidIssuance.ValidExtIDs())
 
 		invalidIssuance.ExtIDs[0][0] = 0
-		assert.Error(invalidIssuance.ValidExtIDs(), "invalid RCD type")
+		assert.EqualError(invalidIssuance.ValidExtIDs(), "invalid RCD type")
 		invalidIssuance.ExtIDs[0][0] = fat0.RCDType
+		require.NoError(invalidIssuance.ValidExtIDs())
 
 		assert.NoError(validIssuance.ValidExtIDs())
 		validIssuance.ExtIDs = append(validIssuance.ExtIDs, []byte{0})
 		assert.NoError(validIssuance.ValidExtIDs(), "additional ExtIDs")
 		validIssuance.ExtIDs = validIssuance.ExtIDs[0:2]
+		require.NoError(invalidIssuance.ValidExtIDs())
 	})
 	t.Run("Unmarshal()", func(t *testing.T) {
 		assert := assert.New(t)
+		require := require.New(t)
 		var invalidIssuanceEntry factom.Entry
 		invalidIssuance := fat0.NewIssuance(&invalidIssuanceEntry)
 		assert.Error(invalidIssuance.Unmarshal(), "no content")
@@ -76,6 +84,8 @@ func TestIssuance(t *testing.T) {
 		invalidIssuance.Content = marshal(invalidIssuanceEntryContentMap)
 		assert.Error(invalidIssuance.Unmarshal(), "extra unrecognized field")
 		delete(invalidIssuanceEntryContentMap, "extra")
+		invalidIssuance.Content = marshal(invalidIssuanceEntryContentMap)
+		require.NoError(invalidIssuance.Unmarshal())
 
 		// Try to use an invalid value for each field.
 		var invalid = []int{0}
@@ -85,6 +95,8 @@ func TestIssuance(t *testing.T) {
 			assert.Errorf(invalidIssuance.Unmarshal(),
 				"invalid type for field %#v", k)
 			invalidIssuanceEntryContentMap[k] = v
+			invalidIssuance.Content = marshal(invalidIssuanceEntryContentMap)
+			require.NoError(invalidIssuance.Unmarshal())
 		}
 
 		assert.NoError(validIssuance.Unmarshal())
@@ -107,24 +119,24 @@ func TestIssuance(t *testing.T) {
 	})
 	t.Run("ValidData()", func(t *testing.T) {
 		assert := assert.New(t)
-		invalidIssuance := &fat0.Issuance{
-			Type:   validIssuance.Type,
-			Supply: validIssuance.Supply,
-			Symbol: validIssuance.Symbol,
-			Name:   validIssuance.Name,
-		}
+		require := require.New(t)
+		invalidIssuance := *validIssuance
+		require.NoError(invalidIssuance.ValidData())
 
 		invalidIssuance.Type = "invalid"
 		assert.Error(invalidIssuance.ValidData(), "type")
 		invalidIssuance.Type = validIssuance.Type
+		require.NoError(invalidIssuance.ValidData())
 
 		invalidIssuance.Supply = 0
 		assert.Error(invalidIssuance.ValidData())
 		invalidIssuance.Supply = validIssuance.Supply
+		require.NoError(invalidIssuance.ValidData())
 
 		invalidIssuance.Symbol = ""
 		assert.NoError(invalidIssuance.ValidData(), "symbol is optional")
 		invalidIssuance.Symbol = validIssuance.Symbol
+		require.NoError(invalidIssuance.ValidData())
 
 		invalidIssuance.Name = ""
 		assert.NoError(invalidIssuance.ValidData(), "name is optional")
@@ -134,11 +146,13 @@ func TestIssuance(t *testing.T) {
 	})
 	t.Run("ValidSignature()", func(t *testing.T) {
 		assert := assert.New(t)
+		require := require.New(t)
 		invalidIssuance := fat0.NewIssuance(&factom.Entry{})
 		invalidIssuance.ChainID = validIssuance.ChainID
 		invalidIssuance.Content = validIssuance.Content
 		invalidIssuance.ExtIDs = append([]factom.Bytes{}, validIssuance.ExtIDs...)
 		invalidIssuance.ExtIDs[1] = append(factom.Bytes{}, validIssuance.ExtIDs[1]...)
+		require.True(invalidIssuance.ValidSignature())
 		invalidIssuance.ExtIDs[1][0]++
 		assert.False(invalidIssuance.ValidSignature())
 
@@ -146,6 +160,7 @@ func TestIssuance(t *testing.T) {
 	})
 	t.Run("Valid()", func(t *testing.T) {
 		assert := assert.New(t)
+		require := require.New(t)
 		validIDKey := issuerKey.RCDHash()
 
 		invalidIssuance := fat0.NewIssuance(&factom.Entry{})
@@ -154,13 +169,15 @@ func TestIssuance(t *testing.T) {
 
 		assert.Error(invalidIssuance.Valid(validIDKey), "invalid ExtIDs")
 		invalidIssuance.ExtIDs = append([]factom.Bytes{}, validIssuance.ExtIDs...)
+		require.NoError(invalidIssuance.Valid(validIDKey))
 
 		invalidIDKey := *factom.NewBytes32([]byte{0})
-		assert.Error(validIssuance.Valid(invalidIDKey), "invalid id key")
+		assert.EqualError(validIssuance.Valid(invalidIDKey), "invalid RCD")
 
 		invalidIssuance.Content[0]++
 		assert.Error(invalidIssuance.Valid(validIDKey), "unmarshal")
 		invalidIssuance.Content[0]--
+		require.NoError(invalidIssuance.Valid(validIDKey))
 
 		invalidIssuanceEntryContentMap := make(map[string]interface{})
 		mapCopy(invalidIssuanceEntryContentMap, validIssuanceEntryContentMap)
@@ -174,8 +191,9 @@ func TestIssuance(t *testing.T) {
 		invalidIssuance.ExtIDs = extIDs
 
 		invalidIssuance.ExtIDs[1][0]++
-		assert.Error(invalidIssuance.Valid(validIDKey), "invalid signature")
+		assert.EqualError(invalidIssuance.Valid(validIDKey), "invalid signature")
 		invalidIssuance.ExtIDs[1][0]--
+		require.NoError(invalidIssuance.Valid(validIDKey))
 
 		assert.NoError(validIssuance.Valid(validIDKey))
 	})

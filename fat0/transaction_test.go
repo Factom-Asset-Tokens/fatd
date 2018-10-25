@@ -13,6 +13,7 @@ import (
 func TestTransaction(t *testing.T) {
 	t.Run("Unmarshal()", func(t *testing.T) {
 		assert := assert.New(t)
+		require := require.New(t)
 		var invalidTransactionEntry factom.Entry
 		invalidTransaction := fat0.NewTransaction(&invalidTransactionEntry)
 		assert.Error(invalidTransaction.Unmarshal(), "no content")
@@ -23,17 +24,23 @@ func TestTransaction(t *testing.T) {
 
 		invalidTransactionEntryContentMap["extra"] = "extra"
 		invalidTransaction.Content = marshal(invalidTransactionEntryContentMap)
-		assert.Error(invalidTransaction.Unmarshal(), "extra unrecognized field")
+		assert.EqualError(invalidTransaction.Unmarshal(),
+			`json: unknown field "extra"`)
 		delete(invalidTransactionEntryContentMap, "extra")
+		invalidTransaction.Content = marshal(invalidTransactionEntryContentMap)
+		require.NoError(invalidTransaction.Unmarshal())
 
 		// Try to use an invalid value for each field.
 		var invalid = []int{0}
 		for k, v := range invalidTransactionEntryContentMap {
 			invalidTransactionEntryContentMap[k] = invalid
-			invalidTransaction.Content = marshal(invalidTransactionEntryContentMap)
+			invalidTransaction.Content = marshal(
+				invalidTransactionEntryContentMap)
 			assert.Errorf(invalidTransaction.Unmarshal(),
 				"invalid type for field %#v", k)
 			invalidTransactionEntryContentMap[k] = v
+			invalidTransaction.Content = marshal(invalidTransactionEntryContentMap)
+			require.NoError(invalidTransaction.Unmarshal())
 		}
 
 		amount := invalidTransactionEntryContentMap["inputs"].([]addressAmount)[0].
@@ -43,6 +50,8 @@ func TestTransaction(t *testing.T) {
 		assert.Errorf(invalidTransaction.Unmarshal(), "zero amount")
 		invalidTransactionEntryContentMap["inputs"].([]addressAmount)[0].
 			Amount = amount
+		invalidTransaction.Content = marshal(invalidTransactionEntryContentMap)
+		require.NoError(invalidTransaction.Unmarshal())
 
 		address := invalidTransactionEntryContentMap["inputs"].([]addressAmount)[0].
 			Address
@@ -52,6 +61,8 @@ func TestTransaction(t *testing.T) {
 		assert.Errorf(invalidTransaction.Unmarshal(), "duplicate address")
 		invalidTransactionEntryContentMap["inputs"].([]addressAmount)[0].
 			Address = address
+		invalidTransaction.Content = marshal(invalidTransactionEntryContentMap)
+		require.NoError(invalidTransaction.Unmarshal())
 
 		assert.NoError(validTransaction.Unmarshal())
 		assert.Equal(blockheight, validTransaction.Height, "blockheight")
@@ -68,7 +79,8 @@ func TestTransaction(t *testing.T) {
 			}
 		}
 		if assert.NotNil(validTransaction.Outputs, "outputs") &&
-			assert.Len(validTransaction.Outputs, len(outputAddresses), "outputs") {
+			assert.Len(validTransaction.Outputs,
+				len(outputAddresses), "outputs") {
 			for i, a := range outputAddresses {
 				assert.Contains(validTransaction.Outputs, a.RCDHash(),
 					"outputs")
@@ -89,7 +101,9 @@ func TestTransaction(t *testing.T) {
 	t.Run("ValidData()", func(t *testing.T) {
 		assert := assert.New(t)
 		require := require.New(t)
+		// Ensure that we start off with a valid transaction
 		invalidTransaction := *validTransaction
+		require.NoError(invalidTransaction.ValidData())
 
 		// Invalid Heights
 		invalidTransaction.Height = blockheight + 1
