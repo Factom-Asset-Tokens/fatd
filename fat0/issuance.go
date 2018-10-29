@@ -87,7 +87,7 @@ const (
 
 func (i *Issuance) ValidExtIDs() error {
 	if len(i.ExtIDs) < 2 {
-		return fmt.Errorf("not enough ExtIDs")
+		return fmt.Errorf("insufficient number of ExtIDs")
 	}
 	if len(i.ExtIDs[0]) != RCDSize {
 		return fmt.Errorf("invalid RCD size")

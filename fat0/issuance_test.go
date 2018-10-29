@@ -42,7 +42,8 @@ func TestIssuance(t *testing.T) {
 		assert := assert.New(t)
 		require := require.New(t)
 		invalidIssuance := fat0.NewIssuance(&factom.Entry{})
-		assert.EqualError(invalidIssuance.ValidExtIDs(), "not enough ExtIDs")
+		assert.EqualError(invalidIssuance.ValidExtIDs(),
+			"insufficient number of ExtIDs")
 
 		invalidIssuance.ExtIDs = append([]factom.Bytes{}, validIssuance.ExtIDs...)
 		require.NoError(invalidIssuance.ValidExtIDs())
