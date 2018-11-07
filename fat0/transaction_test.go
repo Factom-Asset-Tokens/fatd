@@ -80,7 +80,7 @@ func TestTransaction(t *testing.T) {
 		}
 		if assert.NotNil(validTransaction.Outputs, "outputs") &&
 			assert.Len(validTransaction.Outputs,
-				len(outputAddresses), "outputs") {
+				len(outputAddresses)+1, "outputs") {
 			for i, a := range outputAddresses {
 				assert.Contains(validTransaction.Outputs, a.RCDHash(),
 					"outputs")
@@ -163,10 +163,8 @@ func TestTransaction(t *testing.T) {
 		assert.NoError(validTransaction.ValidData())
 
 		// Valid coinbase transaction
-		inputs = validTransaction.Inputs
-		validTransaction.Inputs = fat0.AddressAmountMap{coinbase.RCDHash(): 110}
-		assert.NoError(validTransaction.ValidData())
-		validTransaction.Inputs = inputs
+		require.NoError(validCoinbaseTransaction.Unmarshal())
+		assert.NoError(validCoinbaseTransaction.ValidData())
 	})
 	t.Run("ValidExtIDs()", func(t *testing.T) {
 		assert := assert.New(t)
@@ -203,14 +201,62 @@ func TestTransaction(t *testing.T) {
 	})
 	t.Run("ValidSignatures()", func(t *testing.T) {
 		assert := assert.New(t)
-		assert.True(validTransaction.ValidSignatures())
+		require := require.New(t)
+		invalidTransaction := *validTransaction
+		validExtIDs := validTransaction.ExtIDs
+		invalidTransaction.ExtIDs = append([]factom.Bytes{}, validExtIDs...)
+		invalidTransaction.ExtIDs[1] = append(factom.Bytes{}, validExtIDs[1]...)
+		invalidTransaction.ExtIDs[1][0]++
+		assert.False(invalidTransaction.ValidSignatures())
+		invalidTransaction.ExtIDs[1][0]--
+		assert.True(invalidTransaction.ValidSignatures())
+		require.True(validTransaction.ValidSignatures())
 	})
 	t.Run("ValidRCDs()", func(t *testing.T) {
 		assert := assert.New(t)
-		assert.True(validTransaction.ValidSignatures())
+		validTransaction.ExtIDs[0][0]++
+		assert.False(validTransaction.ValidRCDs())
+		validTransaction.ExtIDs[0][0]--
+		assert.True(validTransaction.ValidRCDs())
 	})
 	t.Run("Valid()", func(t *testing.T) {
 		assert := assert.New(t)
-		assert.True(true)
+		require := require.New(t)
+		validIDKey := issuerKey.RCDHash()
+		invalidIDKey := coinbase.RCDHash()
+		assert.NoError(validTransaction.Valid(nil))
+		assert.NoError(validTransaction.Valid(&validIDKey))
+
+		validTransaction.Content[0] = ':'
+		assert.EqualError(validTransaction.Valid(&validIDKey),
+			"invalid character ':' looking for beginning of value")
+		validTransaction.Content[0] = '{'
+		require.NoError(validTransaction.Valid(&validIDKey))
+
+		validTransaction.Entry.Height = blockheight + 5
+		assert.EqualError(validTransaction.Valid(&validIDKey), "invalid height")
+		validTransaction.Entry.Height = blockheight
+		require.NoError(validTransaction.Valid(&validIDKey))
+
+		extIDs := validTransaction.ExtIDs
+		validTransaction.ExtIDs = nil
+		assert.EqualError(validTransaction.Valid(&validIDKey),
+			"insufficient number of ExtIDs")
+		validTransaction.ExtIDs = extIDs
+		require.NoError(validTransaction.Valid(&validIDKey))
+
+		validTransaction.ExtIDs[0][1]++
+		assert.EqualError(validTransaction.Valid(&validIDKey), "invalid RCDs")
+		validTransaction.ExtIDs[0][1]--
+		require.NoError(validTransaction.Valid(&validIDKey))
+
+		validTransaction.ExtIDs[1][1]++
+		assert.EqualError(validTransaction.Valid(&validIDKey), "invalid signatures")
+		validTransaction.ExtIDs[1][1]--
+		require.NoError(validTransaction.Valid(&validIDKey))
+
+		assert.NoError(validCoinbaseTransaction.Valid(&validIDKey))
+		assert.EqualError(validCoinbaseTransaction.Valid(&invalidIDKey),
+			"invalid RCD")
 	})
 }

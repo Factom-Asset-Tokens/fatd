@@ -76,7 +76,7 @@ func (i *Issuance) ValidData() error {
 }
 
 func (i *Issuance) Unmarshal() error {
-	return i.Entry.Unmarshal(i)
+	return i.unmarshal(i)
 }
 
 const (

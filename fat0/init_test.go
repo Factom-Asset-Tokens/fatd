@@ -27,13 +27,19 @@ var (
 	validIssuanceEntry factom.Entry
 	validIssuance      *fat0.Issuance
 
-	validTransactionEntryContentMap map[string]interface{}
-	validTransactionEntry           factom.Entry
-	validTransaction                *fat0.Transaction
-	inputAddresses                  []factom.Address
-	inputAmounts                    = []uint64{100, 10}
-	outputAddresses                 []factom.Address
-	outputAmounts                   = []uint64{90, 20}
+	validTransactionEntryContentMap         map[string]interface{}
+	validCoinbaseTransactionEntryContentMap map[string]interface{}
+
+	coinbase factom.Address
+
+	validTransactionEntry         factom.Entry
+	validTransaction              *fat0.Transaction
+	validCoinbaseTransactionEntry factom.Entry
+	validCoinbaseTransaction      *fat0.Transaction
+	inputAddresses                []factom.Address
+	inputAmounts                  = []uint64{100, 10}
+	outputAddresses               []factom.Address
+	outputAmounts                 = []uint64{90, 10, 10}
 )
 
 type addressAmount struct {
@@ -77,6 +83,25 @@ func init() {
 		}, {
 			Address: outputAddresses[1],
 			Amount:  outputAmounts[1],
+		}, {
+			Address: coinbase,
+			Amount:  outputAmounts[2],
+		}},
+		"blockheight": blockheight,
+		"salt":        "xyz",
+	}
+
+	validCoinbaseTransactionEntryContentMap = map[string]interface{}{
+		"inputs": []addressAmount{{
+			Address: coinbase,
+			Amount:  inputAmounts[0] + inputAmounts[1],
+		}},
+		"outputs": []addressAmount{{
+			Address: outputAddresses[0],
+			Amount:  outputAmounts[0],
+		}, {
+			Address: outputAddresses[1],
+			Amount:  outputAmounts[1] + outputAmounts[2],
 		}},
 		"blockheight": blockheight,
 		"salt":        "xyz",
@@ -88,6 +113,14 @@ func init() {
 
 	validTransaction = fat0.NewTransaction(&validTransactionEntry)
 	validTransaction.Sign(inputAddresses...)
+
+	validCoinbaseTransactionEntry.Content = marshal(
+		validCoinbaseTransactionEntryContentMap)
+	validCoinbaseTransactionEntry.ChainID = validIssuanceEntry.ChainID
+	validCoinbaseTransactionEntry.Height = blockheight
+
+	validCoinbaseTransaction = fat0.NewTransaction(&validCoinbaseTransactionEntry)
+	validCoinbaseTransaction.Sign(issuerKey)
 }
 
 func marshal(v map[string]interface{}) []byte {

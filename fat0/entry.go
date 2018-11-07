@@ -14,7 +14,7 @@ type Entry struct {
 	factom.Entry `json:"-"`
 }
 
-func (e *Entry) Unmarshal(v interface{}) error {
+func (e *Entry) unmarshal(v interface{}) error {
 	d := json.NewDecoder(bytes.NewReader(e.Content))
 	d.DisallowUnknownFields()
 	return d.Decode(v)

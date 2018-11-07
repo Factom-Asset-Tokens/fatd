@@ -52,7 +52,7 @@ func (t *Transaction) Valid(idKey *factom.Bytes32) error {
 }
 
 func (t *Transaction) Unmarshal() error {
-	return t.Entry.Unmarshal(t)
+	return t.unmarshal(t)
 }
 
 var (
@@ -148,12 +148,16 @@ func (t *Transaction) ValidSignatures() bool {
 }
 
 func (t *Transaction) ValidRCDs() bool {
-	rcdHashes := make(AddressAmountMap)
+	// Create a map of all RCDs that are present in the ExtIDs.
+	extIDRCDHashes := make(AddressAmountMap)
 	for i := 0; i < len(t.Inputs); i++ {
-		rcdHashes[sha256d(t.ExtIDs[i*2])] = 0
+		extIDRCDHashes[sha256d(t.ExtIDs[i*2])] = 0
 	}
+
+	// Ensure that for all Inputs there is a corresponding RCD in the
+	// ExtIDs.
 	for inputRCDHash, _ := range t.Inputs {
-		if _, ok := rcdHashes[inputRCDHash]; !ok {
+		if _, ok := extIDRCDHashes[inputRCDHash]; !ok {
 			return false
 		}
 	}
