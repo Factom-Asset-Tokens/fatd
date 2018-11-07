@@ -170,7 +170,36 @@ func TestTransaction(t *testing.T) {
 	})
 	t.Run("ValidExtIDs()", func(t *testing.T) {
 		assert := assert.New(t)
+		require := require.New(t)
+		invalidTransaction := *validTransaction
+		validExtIDs := validTransaction.ExtIDs
+		require.NoError(invalidTransaction.ValidExtIDs())
+		invalidTransaction.ExtIDs = nil
+		assert.EqualError(invalidTransaction.ValidExtIDs(),
+			"insufficient number of ExtIDs")
+		invalidTransaction.ExtIDs = append([]factom.Bytes{}, validExtIDs...)
+		require.NoError(invalidTransaction.ValidExtIDs())
+
+		invalidTransaction.ExtIDs[0] = validExtIDs[0][0 : fat0.RCDSize-1]
+		assert.EqualError(invalidTransaction.ValidExtIDs(), "invalid RCD size")
+		invalidTransaction.ExtIDs[0] = validExtIDs[0]
+		require.NoError(invalidTransaction.ValidExtIDs())
+
+		invalidTransaction.ExtIDs[0][0]++
+		assert.EqualError(invalidTransaction.ValidExtIDs(), "invalid RCD type")
+		invalidTransaction.ExtIDs[0][0]--
+		require.NoError(invalidTransaction.ValidExtIDs())
+
+		invalidTransaction.ExtIDs[1] = validExtIDs[1][0 : fat0.SignatureSize-1]
+		assert.EqualError(invalidTransaction.ValidExtIDs(), "invalid signature size")
+		invalidTransaction.ExtIDs[1] = validExtIDs[1]
+		require.NoError(invalidTransaction.ValidExtIDs())
+
 		assert.NoError(validTransaction.ValidExtIDs())
+		validTransaction.ExtIDs = append(validTransaction.ExtIDs, []byte{0})
+		assert.NoError(validTransaction.ValidExtIDs(), "additional ExtIDs")
+		validTransaction.ExtIDs = validExtIDs[0 : len(validTransaction.Inputs)*2]
+		require.NoError(validTransaction.ValidExtIDs())
 	})
 	t.Run("ValidSignatures()", func(t *testing.T) {
 		assert := assert.New(t)
