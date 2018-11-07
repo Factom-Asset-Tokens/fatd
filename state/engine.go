@@ -193,7 +193,7 @@ func processIssuance(chain *Chain, es []factom.Entry) error {
 		if err := e.Get(); err != nil {
 			return fmt.Errorf("factom.Entry%#v.Get(): %v", e, err)
 		}
-		issuance := &fat0.Issuance{Entry: fat0.Entry{Entry: e}}
+		issuance := fat0.NewIssuance(e)
 		if issuance.Valid(*chain.Identity.IDKey) != nil {
 			continue
 		}
@@ -211,7 +211,7 @@ func processTransactions(chain *Chain, es []factom.Entry) error {
 		if err := e.Get(); err != nil {
 			return fmt.Errorf("factom.Entry%#v.Get(): %v", e, err)
 		}
-		transaction := &fat0.Transaction{Entry: fat0.Entry{Entry: e}}
+		transaction := fat0.NewTransaction(e)
 		if err := transaction.Valid(chain.Identity.IDKey); err != nil {
 			continue
 		}

@@ -34,8 +34,8 @@ type EBlockHeader struct {
 // and an Entry response for a given Hash.
 type Entry struct {
 	// Entry Block response fields
-	Hash      Bytes32 `json:"entryhash,omitempty"`
-	Timestamp Time    `json:"timestamp,omitempty"`
+	Hash      *Bytes32 `json:"entryhash,omitempty"`
+	Timestamp Time     `json:"timestamp,omitempty"`
 
 	// Entry response fields
 	Content Bytes   `json:"content"`
@@ -67,7 +67,7 @@ func (db *DBlock) Get() error {
 	if err := request("dblock-by-height", params, result); err != nil {
 		return err
 	}
-	// Set DBlock pointer
+	// Set DBlock
 	for i, _ := range db.EBlocks {
 		db.EBlocks[i].DBlock = *db
 	}
@@ -103,7 +103,7 @@ func (eb *EBlock) Get() error {
 	if err := request(method, params, eb); err != nil {
 		return err
 	}
-	// Populate the link in each entry back to its entry block
+	// Populate each entry with a copy of its entry block
 	for i, _ := range eb.Entries {
 		eb.Entries[i].EBlock = *eb
 	}
@@ -174,7 +174,7 @@ func (e *Entry) Get() error {
 	if e.Populated() {
 		return nil
 	}
-	params := map[string]*Bytes32{"hash": &e.Hash}
+	params := map[string]*Bytes32{"hash": e.Hash}
 	if err := request("entry", params, e); err != nil {
 		return err
 	}

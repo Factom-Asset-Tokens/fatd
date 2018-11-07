@@ -18,7 +18,7 @@ type Transaction struct {
 }
 
 func NewTransaction(entry *factom.Entry) *Transaction {
-	return &Transaction{Entry: Entry{Entry: entry}}
+	return &Transaction{Entry: Entry{Entry: *entry}}
 }
 
 func (t *Transaction) Coinbase() bool {
@@ -123,7 +123,7 @@ func (t *Transaction) ValidExtIDs() error {
 			return fmt.Errorf("invalid RCD size")
 		}
 		if rcd[0] != RCDType {
-			return fmt.Errorf("invalid RCD type: %v", rcd[0])
+			return fmt.Errorf("invalid RCD type")
 		}
 		sig := t.ExtIDs[i*2+1]
 		if len(sig) != SignatureSize {

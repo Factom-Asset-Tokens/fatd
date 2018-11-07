@@ -11,7 +11,7 @@ import (
 type Entry struct {
 	Metadata json.RawMessage `json:"metadata,omitempty"`
 
-	*factom.Entry `json:"-"`
+	factom.Entry `json:"-"`
 }
 
 func (e *Entry) Unmarshal(v interface{}) error {
