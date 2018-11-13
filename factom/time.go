@@ -6,10 +6,13 @@ import (
 	"time"
 )
 
+// Time embeds time.Time and implements the json.Unmarshaler interface for
+// correctly parsing the timestamps returned by the factomd JSON RPC API.
 type Time struct {
 	time.Time
 }
 
+// UnmarshalJSON unmarshals a string containing a timestamp.
 func (t *Time) UnmarshalJSON(data []byte) error {
 	str := string(data)
 	if str == "null" {
