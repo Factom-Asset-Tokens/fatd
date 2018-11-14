@@ -161,12 +161,11 @@ func (eb EBlock) Prev() EBlock {
 // on any of the EBlocks in the returned slice.
 func (eb EBlock) GetAllPrev() ([]EBlock, error) {
 	ebs := []EBlock{eb}
-	for ; !eb.IsFirst(); ebs = append([]EBlock{eb.Prev()}, ebs...) {
-		eb := &ebs[0]
-		if err := eb.Get(); err != nil {
-			return nil, fmt.Errorf("EBlock%+v.Get(): %v", eb, err)
+	for ; !ebs[0].IsFirst(); ebs = append([]EBlock{ebs[0].Prev()}, ebs...) {
+		if err := ebs[0].Get(); err != nil {
+			return nil, fmt.Errorf("EBlock%+v.Get(): %v", ebs[0], err)
 		}
-		if !eb.IsPopulated() {
+		if !ebs[0].IsPopulated() {
 			return nil, nil
 		}
 	}
@@ -184,7 +183,7 @@ func (eb EBlock) GetAllPrev() ([]EBlock, error) {
 // RPC errors. To check if the EBlock has been successfully populated, call
 // IsPopulated().
 func (eb *EBlock) GetFirst() error {
-	for ; !eb.IsFirst(); eb.KeyMR = eb.PrevKeyMR {
+	for ; !eb.IsFirst(); *eb = eb.Prev() {
 		if err := eb.Get(); err != nil {
 			return fmt.Errorf("EBlock%+v.Get(): %v", eb, err)
 		}

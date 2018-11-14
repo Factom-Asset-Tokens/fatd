@@ -11,6 +11,8 @@ import (
 
 var humanReadableZeroAddress = "FA1zT4aFpEvcnPqPCigB3fvGu4Q4mTXY22iiuV69DqE1pNhdF2MC"
 
+var humanReadableAddress = "FA2MwhbJFxPckPahsmntwF1ogKjXGz8FSqo2cLWtshdU47GQVZDC"
+
 func TestZeroAddress(t *testing.T) {
 	a := factom.Address{}
 	require := require.New(t)
@@ -42,10 +44,12 @@ func TestAddressUnmarshalJSON(t *testing.T) {
 		"invalid format: version and/or checksum bytes missing")
 	testAddressUnmarshalJSON(t, "InvalidChecksum", JSONAddressInvalidChecksum,
 		"checksum error")
-	json := fmt.Sprintf("%#v", humanReadableZeroAddress)
+	json := fmt.Sprintf("%#v", humanReadableAddress)
 	t.Run("Valid", func(t *testing.T) {
 		var address factom.Address
-		assert.NoErrorf(t, address.UnmarshalJSON([]byte(json)), "json: %v", json)
+		assert := assert.New(t)
+		assert.NoErrorf(address.UnmarshalJSON([]byte(json)), "json: %v", json)
+		assert.Equal(humanReadableAddress, address.String())
 	})
 }
 

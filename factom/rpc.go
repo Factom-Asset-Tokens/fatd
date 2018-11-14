@@ -24,23 +24,23 @@ func request(method string, params interface{}, result interface{}) error {
 	// Marshal the JSON RPC Request.
 	reqBytes, err := json.Marshal(jrpc.NewRequest(method, id, params))
 	if err != nil {
-		return fmt.Errorf("json.Marshal(jrpc.NewRequest(%#v, %v, %#v): %v",
-			method, id, params, err)
+		return err
 	}
 
 	// Make the HTTP request.
 	endpoint := "http://" + RpcConfig.FactomdServer + "/v2"
 	req, err := http.NewRequest(http.MethodPost, endpoint, bytes.NewBuffer(reqBytes))
 	if err != nil {
-		return fmt.Errorf("http.NewRequest(%#v, %#v, %#v): %v",
-			http.MethodPost, endpoint, reqBytes, err)
+		return err
 	}
 	req.Header.Add("Content-Type", "application/json")
 	c := http.Client{Timeout: RpcConfig.FactomdTimeout}
 	res, err := c.Do(req)
 	if err != nil {
-		return fmt.Errorf("http.Client%+v.Do(%#v): %v",
-			c, req, err)
+		return fmt.Errorf("%v", err)
+	}
+	if res.StatusCode != http.StatusOK && res.StatusCode != http.StatusBadRequest {
+		return fmt.Errorf("http: %v", res.Status)
 	}
 
 	// Read the HTTP response.
@@ -52,7 +52,7 @@ func request(method string, params interface{}, result interface{}) error {
 	// Unmarshal the HTTP response into a JSON RPC response.
 	resJrpc := jrpc.NewResponse(result)
 	if err := json.Unmarshal(resBytes, resJrpc); err != nil {
-		return fmt.Errorf("json.Unmarshal(, ): %v", err)
+		return fmt.Errorf("json.Unmarshal(): %v", err)
 	}
 	return nil
 }
