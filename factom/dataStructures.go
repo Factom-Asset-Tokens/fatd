@@ -195,7 +195,8 @@ func (eb *EBlock) GetFirst() error {
 }
 
 // IsPopulated returns true if e has already been successfully populated by a
-// call to Get. IsPopulated returns false if e.ExtIDs or e.Content is nil.
+// call to Get. IsPopulated returns false if both e.ExtIDs and e.Content are
+// nil.
 func (e Entry) IsPopulated() bool {
 	return e.ExtIDs != nil || e.Content != nil
 }
