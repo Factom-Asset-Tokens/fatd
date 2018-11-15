@@ -5,7 +5,6 @@ import (
 	"os/signal"
 
 	"github.com/Factom-Asset-Tokens/fatd/db"
-	"github.com/Factom-Asset-Tokens/fatd/factom"
 	"github.com/Factom-Asset-Tokens/fatd/flag"
 	"github.com/Factom-Asset-Tokens/fatd/log"
 	"github.com/Factom-Asset-Tokens/fatd/srv"
@@ -23,7 +22,6 @@ func _main() (ret int) {
 	flag.Validate()
 
 	log := log.New("main")
-	factom.Init()
 
 	if err := db.Open(); err != nil {
 		log.Errorf("db.Open(): %v", err)

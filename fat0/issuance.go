@@ -42,8 +42,8 @@ type Issuance struct {
 	Entry
 }
 
-func NewIssuance(entry *factom.Entry) *Issuance {
-	return &Issuance{Entry: Entry{Entry: *entry}}
+func NewIssuance(entry factom.Entry) Issuance {
+	return Issuance{Entry: Entry{Entry: entry}}
 }
 
 func (i *Issuance) Valid(idKey factom.Bytes32) error {

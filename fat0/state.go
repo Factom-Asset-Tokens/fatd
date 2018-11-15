@@ -11,19 +11,20 @@ type State struct {
 	Balances     BalanceMap
 	Height       uint64
 	AmountIssued uint64
-	*Issuance
+	Issuance
 
-	mu sync.RWMutex
+	mu *sync.RWMutex
 }
 
 type SignatureMap map[uint64]map[[SignatureSize]byte]bool
 type BalanceMap map[factom.Bytes32]uint64
 
-func NewState(issuance *Issuance) *State {
-	return &State{
+func NewState(issuance Issuance) State {
+	return State{
 		Signatures: make(SignatureMap),
 		Balances:   make(BalanceMap),
 		Issuance:   issuance,
+		mu:         new(sync.RWMutex),
 	}
 }
 

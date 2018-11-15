@@ -30,11 +30,11 @@ func ValidIdentityNameIDs(nameIDs []factom.Bytes) bool {
 type Identity struct {
 	ChainID *factom.Bytes32
 	IDKey   *factom.Bytes32
-	*factom.Entry
+	factom.Entry
 }
 
 func (i *Identity) Get() error {
-	if i.Populated() {
+	if i.IsPopulated() {
 		return nil
 	}
 	if !ValidIdentityChainID(i.ChainID[:]) {
@@ -42,20 +42,19 @@ func (i *Identity) Get() error {
 	}
 
 	// Get first entry of Identity Chain.
-	eb := &factom.EBlock{ChainID: i.ChainID}
+	eb := factom.EBlock{ChainID: i.ChainID}
 	if err := eb.GetFirst(); err != nil {
 		return fmt.Errorf("EBlock%+v.GetFirst(): %v", eb, err)
 	}
-	if !eb.Populated() {
+	if !eb.IsFirst() {
 		return nil
 	}
 
-	// Use a pointer to the first entry to avoid allocation.
-	first := &eb.Entries[0]
+	first := eb.Entries[0]
 	if err := first.Get(); err != nil {
 		return fmt.Errorf("Entry%+v.Get(): %v", first, err)
 	}
-	if !first.Populated() {
+	if !first.IsPopulated() {
 		return nil
 	}
 	if !ValidIdentityNameIDs(first.ExtIDs) {
@@ -63,12 +62,8 @@ func (i *Identity) Get() error {
 	}
 
 	// Save a copy of the first entry and parse out IDKey.
-	copy := *first
-	i.Entry = &copy
+	i.Entry = first
 	i.IDKey = factom.NewBytes32(first.ExtIDs[2])
-
-	// Clear this pointer to allow the memory to other entries to be freed.
-	i.Entry.EBlock.Entries = nil
 
 	return nil
 }

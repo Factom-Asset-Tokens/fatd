@@ -12,8 +12,8 @@ func GetBalance(chainID *factom.Bytes32, address *factom.Address) uint64 {
 
 func GetIssuance(chainID *factom.Bytes32) *fat0.Issuance {
 	chain := chains.Get(chainID)
-	if chain.State == nil {
+	if !chain.Issued() {
 		return nil
 	}
-	return chain.Issuance
+	return &chain.Issuance
 }

@@ -202,7 +202,7 @@ func (a AddressAmountMap) MarshalJSON() ([]byte, error) {
 		if amount == 0 {
 			continue
 		}
-		aaS[i].Address = *factom.NewAddress(&rcdHash)
+		aaS[i].Address = factom.NewAddress(&rcdHash)
 		aaS[i].Amount = amount
 		i++
 	}

@@ -84,7 +84,7 @@ func scanNewBlocks() error {
 		wg := &sync.WaitGroup{}
 		for i, _ := range dblock.EBlocks {
 			wg.Add(1)
-			go processEBlock(wg, &dblock.EBlocks[i])
+			go processEBlock(wg, dblock.EBlocks[i])
 		}
 		wg.Wait()
 
@@ -97,7 +97,7 @@ func scanNewBlocks() error {
 }
 
 // Assumption: eb is not nil and has valid ChainID and KeyMR.
-func processEBlock(wg *sync.WaitGroup, eb *factom.EBlock) {
+func processEBlock(wg *sync.WaitGroup, eb factom.EBlock) {
 	defer wg.Done()
 
 	// Get the saved data for this chain.
@@ -115,7 +115,7 @@ func processEBlock(wg *sync.WaitGroup, eb *factom.EBlock) {
 	}
 
 	// Check whether this is a new chain.
-	if !eb.First() {
+	if !eb.IsFirst() {
 		// Check whether this chain is tracked.
 		if chain.Tracked() {
 			if err := processEntries(chain, eb.Entries); err != nil {
@@ -143,7 +143,7 @@ func processEBlock(wg *sync.WaitGroup, eb *factom.EBlock) {
 	}
 
 	// Track this chain going forward.
-	chains.Track(eb.ChainID, &fat0.Identity{ChainID: factom.NewBytes32(nameIDs[3])})
+	chains.Track(eb.ChainID, fat0.Identity{ChainID: factom.NewBytes32(nameIDs[3])})
 
 	// The first entry cannot be a valid Issuance entry, so discard it and
 	// process the rest.
@@ -153,8 +153,8 @@ func processEBlock(wg *sync.WaitGroup, eb *factom.EBlock) {
 	}
 }
 
-func processEntries(chain *Chain, es []factom.Entry) error {
-	if !chain.Issuance.Populated() {
+func processEntries(chain Chain, es []factom.Entry) error {
+	if !chain.Issuance.IsPopulated() {
 		return processIssuance(chain, es)
 	}
 	return processTransactions(chain, es)
@@ -162,7 +162,7 @@ func processEntries(chain *Chain, es []factom.Entry) error {
 
 // In general the following checks are ordered from cheapest to most expensive
 // in terms of computation and memory.
-func processIssuance(chain *Chain, es []factom.Entry) error {
+func processIssuance(chain Chain, es []factom.Entry) error {
 	if len(es) == 0 {
 		return nil
 	}
@@ -173,7 +173,7 @@ func processIssuance(chain *Chain, es []factom.Entry) error {
 	}
 	// If the Identity isn't yet populated then Issuance entries can't be
 	// validated.
-	if !chain.Identity.Populated() {
+	if !chain.Identity.IsPopulated() {
 		return nil
 	}
 	// If these entries were created in a lower block height than the
@@ -182,8 +182,7 @@ func processIssuance(chain *Chain, es []factom.Entry) error {
 		return nil
 	}
 
-	for i, _ := range es {
-		e := &es[i]
+	for i, e := range es {
 		// If this entry was created before the Identity entry then it
 		// can't be valid.
 		if e.Timestamp.Before(chain.Identity.Timestamp.Time) {
@@ -205,7 +204,7 @@ func processIssuance(chain *Chain, es []factom.Entry) error {
 	return nil
 }
 
-func processTransactions(chain *Chain, es []factom.Entry) error {
+func processTransactions(chain Chain, es []factom.Entry) error {
 	for i, _ := range es {
 		e := &es[i]
 		if err := e.Get(); err != nil {

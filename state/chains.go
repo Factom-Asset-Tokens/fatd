@@ -44,41 +44,41 @@ type chainMap struct {
 
 type Chain struct {
 	ChainStatus
-	*fat0.State
-	*fat0.Identity
+	fat0.State
+	fat0.Identity
 }
 
-func NewChain(status ChainStatus) *Chain {
-	return &Chain{ChainStatus: status}
+func NewChain(status ChainStatus) Chain {
+	return Chain{ChainStatus: status}
 }
 
 func (cm *chainMap) Ignore(c *factom.Bytes32) {
 	cm.Set(c, NewChain(ChainStatusIgnored))
 }
-func (cm *chainMap) Track(c *factom.Bytes32, identity *fat0.Identity) {
+func (cm *chainMap) Track(c *factom.Bytes32, identity fat0.Identity) {
 	chain := NewChain(ChainStatusTracked)
 	chain.Identity = identity
 	cm.Set(c, chain)
 }
-func (cm *chainMap) Issue(c *factom.Bytes32, issuance *fat0.Issuance) {
+func (cm *chainMap) Issue(c *factom.Bytes32, issuance fat0.Issuance) {
 	chain := cm.Get(c)
 	chain.ChainStatus = ChainStatusIssued
 	chain.State = fat0.NewState(issuance)
 	cm.Set(c, chain)
 }
 
-func (cm *chainMap) Set(c *factom.Bytes32, chain *Chain) {
+func (cm *chainMap) Set(c *factom.Bytes32, chain Chain) {
 	defer cm.Unlock()
 	cm.Lock()
-	cm.m[*c] = *chain
+	cm.m[*c] = chain
 }
 
-func (cm *chainMap) Get(c *factom.Bytes32) *Chain {
+func (cm *chainMap) Get(c *factom.Bytes32) Chain {
 	defer cm.RUnlock()
 	cm.RLock()
 	chain, ok := cm.m[*c]
 	if !ok {
 		return NewChain(ChainStatusUnknown)
 	}
-	return &chain
+	return chain
 }
