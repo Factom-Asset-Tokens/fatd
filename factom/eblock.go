@@ -2,14 +2,6 @@ package factom
 
 import "fmt"
 
-// DBlock represents a Factom Directory Block.
-type DBlock struct {
-	Height uint64 `json:"-"`
-
-	// DBlock.Get populates EBlocks with their ChainID and KeyMR.
-	EBlocks []EBlock `json:"dbentries,omitempty"`
-}
-
 // EBlock represents an Factom Entry Block.
 type EBlock struct {
 	// DBlock.Get populates the ChainID, KeyMR, and Height.
@@ -27,51 +19,6 @@ type EBlock struct {
 // Block response from the factomd JSON RPC API.
 type EBlockHeader struct {
 	PrevKeyMR *Bytes32 `json:"prevkeymr,omitempty"`
-}
-
-// Entry represents a Factom Entry.
-type Entry struct {
-	// EBlock.Get populates the Hash, Timestamp, ChainID, and Height.
-	Hash      *Bytes32 `json:"entryhash,omitempty"`
-	Timestamp *Time    `json:"timestamp,omitempty"`
-	ChainID   *Bytes32 `json:"chainid,omitempty"`
-	Height    uint64   `json:"-"`
-
-	// Entry.Get populates the Content and ExtIDs.
-	Content Bytes   `json:"content"`
-	ExtIDs  []Bytes `json:"extids"`
-}
-
-// IsPopulated returns true if db has already been successfully populated by a
-// call to Get. IsPopulated returns false if db.EBlocks is nil.
-func (db DBlock) IsPopulated() bool {
-	return db.EBlocks != nil
-}
-
-// Get queries factomd for the Directory Block at db.Height.
-//
-// Get returns any networking or marshaling errors, but not JSON RPC errors. To
-// check if the DBlock has been successfully populated, call IsPopulated().
-func (db *DBlock) Get() error {
-	if db.IsPopulated() {
-		return nil
-	}
-
-	params := map[string]interface{}{"height": db.Height}
-	// We need the following anonymous struct to accomodate the way the
-	// idiosyncratic way that the JSON response is returned.
-	result := &struct {
-		*DBlock `json:"dblock"`
-	}{DBlock: db}
-	if err := request("dblock-by-height", params, result); err != nil {
-		return err
-	}
-
-	// Populate the Height for all EBlocks.
-	for i := range db.EBlocks {
-		db.EBlocks[i].Height = db.Height
-	}
-	return nil
 }
 
 // IsPopulated returns true if eb has already been successfully populated by a
@@ -192,35 +139,4 @@ func (eb *EBlock) GetFirst() error {
 		}
 	}
 	return nil
-}
-
-// IsPopulated returns true if e has already been successfully populated by a
-// call to Get. IsPopulated returns false if both e.ExtIDs and e.Content are
-// nil.
-func (e Entry) IsPopulated() bool {
-	return e.ExtIDs != nil || e.Content != nil
-}
-
-// Get queries factomd for the entry corresponding to e.Hash.
-//
-// Get returns any networking or marshaling errors, but not JSON RPC errors. To
-// check if the Entry has been successfully populated, call IsPopulated().
-func (e *Entry) Get() error {
-	// If the Entry is already populated then there is nothing to do. If
-	// the Hash is nil, we cannot populate it anyway.
-	if e.IsPopulated() || e.Hash == nil {
-		return nil
-	}
-	params := map[string]*Bytes32{"hash": e.Hash}
-	if err := request("entry", params, e); err != nil {
-		return err
-	}
-	return nil
-}
-
-var zeroBytes32 Bytes32
-
-// ZeroBytes32 returns an all zero Byte32.
-func ZeroBytes32() Bytes32 {
-	return Bytes32{}
 }
