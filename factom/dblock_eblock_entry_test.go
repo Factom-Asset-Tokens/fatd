@@ -13,6 +13,7 @@ var courtesyNode = "courtesy-node.factom.com"
 
 func TestDataStructures(t *testing.T) {
 	height := uint64(166587)
+	factom.RpcConfig.FactomdTimeout = 3 * time.Second
 	db := &factom.DBlock{Height: height}
 	t.Run("DBlock", func(t *testing.T) {
 		assert := assert.New(t)
@@ -42,6 +43,11 @@ func TestDataStructures(t *testing.T) {
 	t.Run("EBlock", func(t *testing.T) {
 		assert := assert.New(t)
 		require := require.New(t)
+
+		// An EBlock without a KeyMR or ChainID should cause an error.
+		blank := factom.EBlock{}
+		assert.EqualError(blank.Get(), "KeyMR and ChainID are both nil")
+
 		// We'll use the DBlock from the last test, so it must be
 		// populated to proceed.
 		require.True(db.IsPopulated())
@@ -118,6 +124,11 @@ func TestDataStructures(t *testing.T) {
 	t.Run("Entry", func(t *testing.T) {
 		assert := assert.New(t)
 		require := require.New(t)
+
+		// An EBlock without a KeyMR or ChainID should cause an error.
+		blank := factom.Entry{}
+		assert.EqualError(blank.Get(), "Hash is nil")
+
 		// We'll use the DBlock and EBlock from the last test, so they
 		// must be populated to proceed.
 		require.True(db.IsPopulated())

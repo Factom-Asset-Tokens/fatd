@@ -13,6 +13,12 @@ var (
 	prefix      = [...]byte{0x5f, 0xb1}
 )
 
+const (
+	RCDType       byte = 0x01
+	RCDSize            = ed25519.PublicKeySize + 1
+	SignatureSize      = ed25519.SignatureSize
+)
+
 // Address represents a Factoid address.
 type Address struct {
 	PrivateKey *[ed25519.PrivateKeySize]byte
@@ -68,7 +74,7 @@ func (a *Address) RCD() []byte {
 		if a.PublicKey == nil {
 			a.PublicKey = ed25519.GetPublicKey(a.PrivateKey)
 		}
-		a.rcd = append([]byte{0x01}, a.PublicKey[:]...)
+		a.rcd = append([]byte{RCDType}, a.PublicKey[:]...)
 	}
 	return a.rcd
 }

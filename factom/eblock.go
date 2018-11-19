@@ -35,9 +35,12 @@ func (eb EBlock) IsPopulated() bool {
 // Get returns any networking or marshaling errors, but not JSON RPC errors. To
 // check if the EBlock has been successfully populated, call IsPopulated().
 func (eb *EBlock) Get() error {
-	// If the EBlock is already populated then there is nothing to do. If
-	// the KeyMR and ChainID are both nil, we cannot populate it anyway.
-	if eb.IsPopulated() || (eb.KeyMR == nil && eb.ChainID == nil) {
+	// If the KeyMR and ChainID are both nil we have nothing to query for.
+	if eb.KeyMR == nil && eb.ChainID == nil {
+		return fmt.Errorf("KeyMR and ChainID are both nil")
+	}
+	// If the EBlock is already populated then there is nothing to do.
+	if eb.IsPopulated() {
 		return nil
 	}
 
@@ -110,7 +113,7 @@ func (eb EBlock) GetAllPrev() ([]EBlock, error) {
 	ebs := []EBlock{eb}
 	for ; !ebs[0].IsFirst(); ebs = append([]EBlock{ebs[0].Prev()}, ebs...) {
 		if err := ebs[0].Get(); err != nil {
-			return nil, fmt.Errorf("EBlock%+v.Get(): %v", ebs[0], err)
+			return nil, err
 		}
 		if !ebs[0].IsPopulated() {
 			return nil, nil
@@ -132,7 +135,7 @@ func (eb EBlock) GetAllPrev() ([]EBlock, error) {
 func (eb *EBlock) GetFirst() error {
 	for ; !eb.IsFirst(); *eb = eb.Prev() {
 		if err := eb.Get(); err != nil {
-			return fmt.Errorf("EBlock%+v.Get(): %v", eb, err)
+			return err
 		}
 		if !eb.IsPopulated() {
 			return nil

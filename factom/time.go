@@ -12,7 +12,8 @@ type Time struct {
 	time.Time
 }
 
-// UnmarshalJSON unmarshals a string containing a timestamp.
+// UnmarshalJSON unmarshals a string containing a Unix seconds since epoch
+// timestamp.
 func (t *Time) UnmarshalJSON(data []byte) error {
 	sec, err := strconv.ParseUint(string(data), 10, 64)
 	if err != nil {

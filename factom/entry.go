@@ -1,5 +1,7 @@
 package factom
 
+import "fmt"
+
 // Entry represents a Factom Entry.
 type Entry struct {
 	// EBlock.Get populates the Hash, Timestamp, ChainID, and Height.
@@ -25,9 +27,13 @@ func (e Entry) IsPopulated() bool {
 // Get returns any networking or marshaling errors, but not JSON RPC errors. To
 // check if the Entry has been successfully populated, call IsPopulated().
 func (e *Entry) Get() error {
+	// If the Hash is nil then we have nothing to query for.
+	if e.Hash == nil {
+		return fmt.Errorf("Hash is nil")
+	}
 	// If the Entry is already populated then there is nothing to do. If
 	// the Hash is nil, we cannot populate it anyway.
-	if e.IsPopulated() || e.Hash == nil {
+	if e.IsPopulated() {
 		return nil
 	}
 	params := map[string]*Bytes32{"hash": e.Hash}
