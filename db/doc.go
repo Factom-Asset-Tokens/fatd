@@ -3,4 +3,7 @@
 // package.
 //
 // We are using gorm and sqlite.
+//
+// Each FAT token has a separate database file.
+// A FAT token has entries
 package db

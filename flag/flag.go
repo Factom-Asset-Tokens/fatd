@@ -20,7 +20,7 @@ var (
 		"startscanheight": "START_SCAN_HEIGHT",
 		"debug":           "DEBUG",
 
-		"dbfile": "DB_FILE",
+		"dbpath": "DB_PATH",
 
 		"apiaddress": "API_ADDRESS",
 
@@ -35,7 +35,7 @@ var (
 		"startscanheight": uint64(0),
 		"debug":           false,
 
-		"dbfile": "./fatd.sqlite3",
+		"dbpath": "./fatd.db",
 
 		"apiaddress": ":8078",
 
@@ -50,7 +50,7 @@ var (
 		"startscanheight": "Block height to start scanning for deposits on startup",
 		"debug":           "Log debug messages",
 
-		"dbfile": "Path to a SQLite3 database file",
+		"dbpath": "Path to the folder containing all database files",
 
 		"apiaddress": "IPAddr:port# to bind to for serving the JSON RPC 2.0 API",
 
@@ -65,7 +65,7 @@ var (
 		"-startscanheight": complete.PredictAnything,
 		"-debug":           complete.PredictNothing,
 
-		"-dbfile": complete.PredictFiles("*"),
+		"-dbpath": complete.PredictFiles("*"),
 
 		"-apiaddress": complete.PredictAnything,
 
@@ -85,7 +85,7 @@ var (
 	StartScanHeight int64  = -1 // We work with the signed value.
 	LogDebug        bool
 
-	DBFile string
+	DBPath string
 
 	APIAddress string
 
@@ -101,7 +101,7 @@ func init() {
 	flagVar(&startScanHeight, "startscanheight")
 	flagVar(&LogDebug, "debug")
 
-	flagVar(&DBFile, "dbfile")
+	flagVar(&DBPath, "dbpath")
 
 	flagVar(&APIAddress, "apiaddress")
 
@@ -131,7 +131,7 @@ func Parse() {
 	loadFromEnv(&startScanHeight, "startscanheight")
 	loadFromEnv(&LogDebug, "debug")
 
-	loadFromEnv(&DBFile, "dbfile")
+	loadFromEnv(&DBPath, "dbpath")
 
 	loadFromEnv(&APIAddress, "apiaddress")
 
@@ -154,7 +154,7 @@ func Validate() {
 		factomdRPCPassword = "<redacted>"
 	}
 
-	log.Debugf("-dbfile          %#v", DBFile)
+	log.Debugf("-dbpath          %#v", DBPath)
 	log.Debugf("-apiaddress      %#v", APIAddress)
 	log.Debugf("-startscanheight %v ", StartScanHeight)
 	debugPrintln()

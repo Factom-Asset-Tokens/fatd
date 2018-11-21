@@ -37,7 +37,7 @@ func request(method string, params interface{}, result interface{}) error {
 	c := http.Client{Timeout: RpcConfig.FactomdTimeout}
 	res, err := c.Do(req)
 	if err != nil {
-		return fmt.Errorf("%v", err)
+		return err
 	}
 	if res.StatusCode != http.StatusOK && res.StatusCode != http.StatusBadRequest {
 		return fmt.Errorf("http: %v", res.Status)

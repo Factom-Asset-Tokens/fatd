@@ -6,9 +6,10 @@ import (
 	"unicode/utf8"
 
 	"github.com/Factom-Asset-Tokens/fatd/factom"
-	"github.com/FactomProject/ed25519"
 )
 
+// ValidTokenNameIDs returns true if the nameIDs match the pattern for a valid
+// token chain.
 func ValidTokenNameIDs(nameIDs []factom.Bytes) bool {
 	if len(nameIDs) == 4 && len(nameIDs[1]) > 0 &&
 		string(nameIDs[0]) == "token" && string(nameIDs[2]) == "issuer" &&
@@ -19,6 +20,7 @@ func ValidTokenNameIDs(nameIDs []factom.Bytes) bool {
 	return false
 }
 
+// ChainID returns the chain ID for a given token ID and issuer Chain ID.
 func ChainID(tokenID string, issuerChainID *factom.Bytes32) *factom.Bytes32 {
 	hash := sha256.New()
 	extIDs := [][]byte{
@@ -33,6 +35,7 @@ func ChainID(tokenID string, issuerChainID *factom.Bytes32) *factom.Bytes32 {
 	return factom.NewBytes32(chainID)
 }
 
+// Issuance represents the Issuance of a token.
 type Issuance struct {
 	Type   string `json:"type"`
 	Supply int64  `json:"supply"`
@@ -42,18 +45,26 @@ type Issuance struct {
 	Entry
 }
 
+// NewIssuance returns an Issuance initialized with the given entry.
 func NewIssuance(entry factom.Entry) Issuance {
 	return Issuance{Entry: Entry{Entry: entry}}
 }
 
-func (i *Issuance) Valid(idKey factom.Bytes32) error {
+// UnmarshalEntry unmarshals the entry content as an Issuance.
+func (i *Issuance) UnmarshalEntry() error {
+	return i.unmarshalEntry(i)
+}
+
+// Valid performs all validation checks and returns nil if i is a valid
+// Issuance.
+func (i Issuance) Valid(idKey factom.Bytes32) error {
 	if err := i.ValidExtIDs(); err != nil {
 		return err
 	}
 	if i.RCDHash() != idKey {
 		return fmt.Errorf("invalid RCD")
 	}
-	if err := i.Unmarshal(); err != nil {
+	if err := i.UnmarshalEntry(); err != nil {
 		return err
 	}
 	if err := i.ValidData(); err != nil {
@@ -65,7 +76,9 @@ func (i *Issuance) Valid(idKey factom.Bytes32) error {
 	return nil
 }
 
-func (i *Issuance) ValidData() error {
+// ValidData validates the Issuance data and returns nil if no errors are
+// present. ValidData assumes that the entry content has been unmarshaled.
+func (i Issuance) ValidData() error {
 	if i.Type != "FAT-0" {
 		return fmt.Errorf(`invalid "type": %#v`, i.Type)
 	}
@@ -75,48 +88,38 @@ func (i *Issuance) ValidData() error {
 	return nil
 }
 
-func (i *Issuance) Unmarshal() error {
-	return i.unmarshal(i)
-}
-
-const (
-	RCDType       byte = 0x01
-	RCDSize            = ed25519.PublicKeySize + 1
-	SignatureSize      = ed25519.SignatureSize
-)
-
-func (i *Issuance) ValidExtIDs() error {
+// ValidExtIDs validates the structure of the external IDs of the entry to make
+// sure that it has an RCD and signature. It does not validate the content of
+// the RCD or signature.
+func (i Issuance) ValidExtIDs() error {
 	if len(i.ExtIDs) < 2 {
 		return fmt.Errorf("insufficient number of ExtIDs")
 	}
-	if len(i.ExtIDs[0]) != RCDSize {
+	if len(i.ExtIDs[0]) != factom.RCDSize {
 		return fmt.Errorf("invalid RCD size")
 	}
-	if i.ExtIDs[0][0] != RCDType {
+	if i.ExtIDs[0][0] != factom.RCDType {
 		return fmt.Errorf("invalid RCD type")
 	}
-	if len(i.ExtIDs[1]) != SignatureSize {
+	if len(i.ExtIDs[1]) != factom.SignatureSize {
 		return fmt.Errorf("invalid signature size")
 	}
 	return nil
 }
 
-func (i *Issuance) RCDHash() [sha256.Size]byte {
+// RCDHash returns the SHA256d hash of the first external ID of the entry,
+// which should be the RCD of the IDKey of the issuing Identity.
+func (i Issuance) RCDHash() [sha256.Size]byte {
 	return sha256d(i.ExtIDs[0])
 }
 
-func (i *Issuance) ValidSignature() bool {
-	pubKey := new([ed25519.PublicKeySize]byte)
-	copy(pubKey[:], i.ExtIDs[0][1:])
-
-	sig := new([ed25519.SignatureSize]byte)
-	copy(sig[:], i.ExtIDs[1])
-
-	msg := append(i.ChainID[:], i.Content...)
-
-	return ed25519.VerifyCanonical(pubKey, msg, sig)
+// ValidSignature returns true if the RCD/signature pair is valid.
+// ValidSignature assumes that ValidExtIDs returns nil.
+func (i Issuance) ValidSignature() bool {
+	return i.validSignatures(1)
 }
 
+// sha256d computes two rounds of the sha256 hash.
 func sha256d(data []byte) [sha256.Size]byte {
 	hash := sha256.Sum256(data)
 	return sha256.Sum256(hash[:])
