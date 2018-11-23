@@ -22,7 +22,7 @@ func ValidIdentityChainID(chainID factom.Bytes) bool {
 }
 
 // ValidIdentityNameIDs returns true if the nameIDs match the pattern for a
-// valid Identity Chain. The name IDs for a chain are the ExtIDs of the first
+// valid Identity Chain. The nameIDs for a chain are the ExtIDs of the first
 // entry in the chain.
 //
 // The Identity Chain specification can be found here:

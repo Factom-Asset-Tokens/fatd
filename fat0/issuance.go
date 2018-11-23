@@ -57,7 +57,7 @@ func (i *Issuance) UnmarshalEntry() error {
 
 // Valid performs all validation checks and returns nil if i is a valid
 // Issuance.
-func (i Issuance) Valid(idKey factom.Bytes32) error {
+func (i *Issuance) Valid(idKey factom.Bytes32) error {
 	if err := i.ValidExtIDs(); err != nil {
 		return err
 	}
