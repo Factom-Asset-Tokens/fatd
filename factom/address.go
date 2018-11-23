@@ -14,9 +14,12 @@ var (
 )
 
 const (
-	RCDType       byte = 0x01
-	RCDSize            = ed25519.PublicKeySize + 1
-	SignatureSize      = ed25519.SignatureSize
+	// RCDType is the magic number identifying the currenctly accepted RCD.
+	RCDType byte = 0x01
+	// RCDSize is the size of the RCD.
+	RCDSize = ed25519.PublicKeySize + 1
+	// SignatureSize is the size of the ed25519 signatures.
+	SignatureSize = ed25519.SignatureSize
 )
 
 // Address represents a Factoid address.
