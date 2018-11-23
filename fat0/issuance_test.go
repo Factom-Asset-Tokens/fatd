@@ -48,10 +48,10 @@ func TestValidTokenNameIDs(t *testing.T) {
 }
 
 var (
-	issuerKey = func() factom.Address {
+	randSource = rand.New(rand.NewSource(100))
+	issuerKey  = func() factom.Address {
 		a := factom.Address{}
-		rand := rand.New(rand.NewSource(100))
-		a.PublicKey, a.PrivateKey, _ = ed25519.GenerateKey(rand)
+		a.PublicKey, a.PrivateKey, _ = ed25519.GenerateKey(randSource)
 		return a
 	}()
 	validIssuanceEntryContentMap = map[string]interface{}{
@@ -110,26 +110,6 @@ func TestIssuance(t *testing.T) {
 		validIssuance.ExtIDs = append(validIssuance.ExtIDs, []byte{0})
 		assert.NoError(validIssuance.ValidExtIDs(), "additional ExtIDs")
 		validIssuance.ExtIDs = validIssuance.ExtIDs[0:2]
-		require.NoError(invalidIssuance.ValidExtIDs())
-	})
-	t.Run("ValidSignature()", func(t *testing.T) {
-		assert := assert.New(t)
-		require := require.New(t)
-
-		require.True(validIssuance.ValidSignature())
-
-		invalidIssuance := validIssuance
-		invalidIssuance.ExtIDs = copyExtIDs(validIssuance.ExtIDs)
-		// Mucking with the second byte in the RCD and the signature
-		// should make the signature fail.
-		// We use the second byte because the first byte of the RCD is
-		// the type and is not used in signature validation.
-		for i := 0; i < 2; i++ {
-			invalidIssuance.ExtIDs[i][1]++
-			assert.False(invalidIssuance.ValidSignature())
-			invalidIssuance.ExtIDs[i][1]--
-			require.True(invalidIssuance.ValidSignature())
-		}
 	})
 	t.Run("UnmarshalEntry()", func(t *testing.T) {
 		assert := assert.New(t)
@@ -154,13 +134,14 @@ func TestIssuance(t *testing.T) {
 		assert.Error(invalidIssuance.UnmarshalEntry(), "no content")
 
 		// Initialize content map to be equal to the valid map.
-		invalidIssuanceEntryContentMap := mapCopy(validIssuanceEntryContentMap)
+		invalidIssuanceEntryContentMap := copyContentMap(validIssuanceEntryContentMap)
 
 		// An invalid field should cause an error.
 		invalidField := "invalid"
 		invalidIssuanceEntryContentMap[invalidField] = invalidField
 		invalidIssuance.Content = marshal(invalidIssuanceEntryContentMap)
-		assert.Error(invalidIssuance.UnmarshalEntry(), "extra unrecognized field")
+		assert.EqualError(invalidIssuance.UnmarshalEntry(),
+			fmt.Sprintf("json: unknown field %#v", invalidField))
 		delete(invalidIssuanceEntryContentMap, invalidField)
 		invalidIssuance.Content = marshal(invalidIssuanceEntryContentMap)
 		require.NoError(invalidIssuance.UnmarshalEntry())
@@ -213,6 +194,26 @@ func TestIssuance(t *testing.T) {
 		assert.NoError(invalidIssuance.ValidData(), "name is optional")
 		invalidIssuance.Name = validIssuance.Name
 	})
+	t.Run("ValidSignature()", func(t *testing.T) {
+		assert := assert.New(t)
+		require := require.New(t)
+
+		// Make a working copy.
+		require.True(validIssuance.ValidSignature())
+		invalidIssuance := validIssuance
+		invalidIssuance.ExtIDs = copyExtIDs(validIssuance.ExtIDs)
+
+		// Mucking with the second byte in the RCD and the signature
+		// should make the signature fail.
+		// We use the second byte because the first byte of the RCD is
+		// the type and is not used in signature validation.
+		for i := range invalidIssuance.ExtIDs {
+			invalidIssuance.ExtIDs[i][1]++
+			assert.False(invalidIssuance.ValidSignature())
+			invalidIssuance.ExtIDs[i][1]--
+			require.True(invalidIssuance.ValidSignature())
+		}
+	})
 	t.Run("Valid()", func(t *testing.T) {
 		assert := assert.New(t)
 		require := require.New(t)
@@ -225,7 +226,7 @@ func TestIssuance(t *testing.T) {
 		invalidIssuance := validIssuance
 		invalidIssuance.Content = append([]byte{}, validIssuance.Content...)
 
-		// Invalid ExtIDs.
+		// Invalid ExtIDs
 		invalidIssuance.ExtIDs = nil
 		assert.EqualError(invalidIssuance.Valid(validIDKey),
 			"insufficient number of ExtIDs")
@@ -243,7 +244,7 @@ func TestIssuance(t *testing.T) {
 		require.NoError(invalidIssuance.Valid(validIDKey))
 
 		// Invalid Data
-		invalidIssuanceEntryContentMap := mapCopy(validIssuanceEntryContentMap)
+		invalidIssuanceEntryContentMap := copyContentMap(validIssuanceEntryContentMap)
 		invalidIssuanceEntryContentMap["supply"] = 0
 		content := invalidIssuance.Content
 		extIDs := invalidIssuance.ExtIDs
@@ -275,7 +276,7 @@ func copyExtIDs(src []factom.Bytes) []factom.Bytes {
 	return dst
 }
 
-func mapCopy(src map[string]interface{}) map[string]interface{} {
+func copyContentMap(src map[string]interface{}) map[string]interface{} {
 	dst := make(map[string]interface{})
 	for k, v := range src {
 		dst[k] = v
