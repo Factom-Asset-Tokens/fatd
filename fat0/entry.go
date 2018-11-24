@@ -3,6 +3,7 @@ package fat0
 import (
 	"bytes"
 	"encoding/json"
+	"strconv"
 
 	"github.com/Factom-Asset-Tokens/fatd/factom"
 	"github.com/FactomProject/ed25519"
@@ -32,9 +33,11 @@ func (e Entry) validSignatures(num int) bool {
 	msg := append(e.ChainID[:], e.Content...)
 	pubKey := new([ed25519.PublicKeySize]byte)
 	sig := new([ed25519.SignatureSize]byte)
-	for i := 0; i < num; i++ {
-		copy(pubKey[:], e.ExtIDs[i*2][1:])
-		copy(sig[:], e.ExtIDs[i*2+1])
+	for sigID := 0; sigID < num; sigID++ {
+		copy(pubKey[:], e.ExtIDs[sigID*2][1:])
+		copy(sig[:], e.ExtIDs[sigID*2+1])
+		salt := []byte(strconv.FormatInt(int64(sigID), 10))
+		msg := append(salt, msg...)
 		if !ed25519.VerifyCanonical(pubKey, msg, sig) {
 			return false
 		}
@@ -42,13 +45,15 @@ func (e Entry) validSignatures(num int) bool {
 	return true
 }
 
-// Sign the chain ID + content of the factom.Entry and add the RCD + signature
-// pairs for the given addresses to the ExtIDs. This clears any existing
-// ExtIDs.
+// Sign the Sig ID + chain ID + content of the factom.Entry and add the RCD +
+// signature pairs for the given addresses to the ExtIDs. This clears any
+// existing ExtIDs.
 func (e *Entry) Sign(as ...factom.Address) {
 	msg := append(e.ChainID[:], e.Content...)
 	e.ExtIDs = nil
-	for _, a := range as {
+	for sigID, a := range as {
+		salt := []byte(strconv.FormatInt(int64(sigID), 10))
+		msg := append(salt, msg...)
 		e.ExtIDs = append(e.ExtIDs, a.RCD(), ed25519.Sign(a.PrivateKey, msg)[:])
 	}
 }
