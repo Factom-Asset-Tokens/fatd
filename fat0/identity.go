@@ -79,7 +79,6 @@ func (i *Identity) Get() error {
 	if !eb.IsFirst() {
 		return nil
 	}
-	fmt.Println("height:", eb.Height)
 
 	// Get first entry of first entry block.
 	first := eb.Entries[0]

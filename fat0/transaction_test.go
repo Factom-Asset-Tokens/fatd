@@ -1,6 +1,7 @@
 package fat0_test
 
 import (
+	"encoding/json"
 	"fmt"
 	"testing"
 
@@ -10,11 +11,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-type addressAmount struct {
-	Address factom.Address `json:"address"`
-	Amount  uint64         `json:"amount"`
-}
 
 func twoAddresses() []factom.Address {
 	adrs := make([]factom.Address, 2)
@@ -41,38 +37,26 @@ var (
 	outputAmounts = []uint64{90, 10, 10}
 
 	validTxEntryContentMap = map[string]interface{}{
-		"inputs": []addressAmount{{
-			Address: inputAddresses[0],
-			Amount:  inputAmounts[0],
-		}, {
-			Address: inputAddresses[1],
-			Amount:  inputAmounts[1],
-		}},
-		"outputs": []addressAmount{{
-			Address: outputAddresses[0],
-			Amount:  outputAmounts[0],
-		}, {
-			Address: outputAddresses[1],
-			Amount:  outputAmounts[1],
-		}, {
-			Address: coinbase,
-			Amount:  outputAmounts[2],
-		}},
+		"inputs": map[string]uint64{
+			inputAddresses[0].String(): inputAmounts[0],
+			inputAddresses[1].String(): inputAmounts[1],
+		},
+		"outputs": map[string]uint64{
+			outputAddresses[0].String(): outputAmounts[0],
+			outputAddresses[1].String(): outputAmounts[1],
+			coinbase.String():           outputAmounts[2],
+		},
 		"salt":     "xyz",
 		"metadata": []int{0},
 	}
 	validCoinbaseTxEntryContentMap = map[string]interface{}{
-		"inputs": []addressAmount{{
-			Address: coinbase,
-			Amount:  inputAmounts[0] + inputAmounts[1],
-		}},
-		"outputs": []addressAmount{{
-			Address: outputAddresses[0],
-			Amount:  outputAmounts[0],
-		}, {
-			Address: outputAddresses[1],
-			Amount:  outputAmounts[1] + outputAmounts[2],
-		}},
+		"inputs": map[string]uint64{
+			coinbase.String(): inputAmounts[0] + inputAmounts[1],
+		},
+		"outputs": map[string]uint64{
+			outputAddresses[0].String(): outputAmounts[0],
+			outputAddresses[1].String(): outputAmounts[1] + outputAmounts[2],
+		},
 		"salt":     "abc",
 		"metadata": []int{0},
 	}
@@ -137,21 +121,26 @@ func TestTransaction(t *testing.T) {
 		}
 
 		// Zero amounts cannot be unmarshaled.
-		invalidTxEntryContentMap["inputs"].([]addressAmount)[0].Amount = 0
+		invalidTxEntryContentMap["inputs"].(map[string]uint64)[inputAddresses[0].
+			String()] = 0
 		invalidTx.Content = marshal(invalidTxEntryContentMap)
 		assert.Errorf(invalidTx.UnmarshalEntry(), "zero amount")
-		invalidTxEntryContentMap["inputs"].([]addressAmount)[0].Amount =
-			inputAmounts[0]
+		invalidTxEntryContentMap["inputs"].(map[string]uint64)[inputAddresses[0].
+			String()] = inputAmounts[0]
 		invalidTx.Content = marshal(invalidTxEntryContentMap)
 		require.NoError(invalidTx.UnmarshalEntry())
 
 		// Duplicate addresses cannot be unmarshaled.
-		invalidTxEntryContentMap["inputs"].([]addressAmount)[0].Address =
-			inputAddresses[1]
+		inputs := invalidTxEntryContentMap["inputs"]
+		invalidTxEntryContentMap["inputs"] = json.RawMessage(fmt.Sprintf(
+			"{%#v:%v,%#v:%v,%#v:%v}",
+			inputAddresses[0], inputAmounts[0],
+			inputAddresses[1], inputAmounts[1]-1,
+			inputAddresses[1], 1,
+		))
 		invalidTx.Content = marshal(invalidTxEntryContentMap)
 		assert.Errorf(invalidTx.UnmarshalEntry(), "duplicate address")
-		invalidTxEntryContentMap["inputs"].([]addressAmount)[0].Address =
-			inputAddresses[0]
+		invalidTxEntryContentMap["inputs"] = inputs
 		invalidTx.Content = marshal(invalidTxEntryContentMap)
 		require.NoError(invalidTx.UnmarshalEntry())
 	})
@@ -357,7 +346,7 @@ func TestTransaction(t *testing.T) {
 }
 
 func TestAddressAmountMap(t *testing.T) {
-	t.Run("UnmarshalJSON()", func(t *testing.T) {
+	t.Run("MarshalJSON()", func(t *testing.T) {
 		assert := assert.New(t)
 		require := require.New(t)
 		amount := uint64(5)
@@ -365,8 +354,7 @@ func TestAddressAmountMap(t *testing.T) {
 			inputAddresses[0].RCDHash(): amount,
 			coinbase.RCDHash():          0,
 		}
-		expectedData := fmt.Sprintf(`[{"address":%#v,"amount":%v}]`,
-			inputAddresses[0].String(), amount)
+		expectedData := fmt.Sprintf(`{%#v:%v}`, inputAddresses[0].String(), amount)
 
 		data, err := aam.MarshalJSON()
 		require.NoError(err)

@@ -3,7 +3,7 @@ package srv
 import (
 	"net/http"
 
-	jrpc "github.com/AdamSLevy/jsonrpc2/v4"
+	jrpc "github.com/AdamSLevy/jsonrpc2/v5"
 	"github.com/Factom-Asset-Tokens/fatd/flag"
 	_log "github.com/Factom-Asset-Tokens/fatd/log"
 	"github.com/rs/cors"

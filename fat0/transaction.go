@@ -183,30 +183,26 @@ func (t Transaction) RCDHash() [sha256.Size]byte {
 // Transaction.
 type AddressAmountMap map[factom.Bytes32]uint64
 
-// addressAmount is used to marshal and unmarshal the JSON representation of a
-// list of inputs or outputs in a Transaction.
-type addressAmount struct {
-	Address factom.Address `json:"address"`
-	Amount  uint64         `json:"amount"`
-}
-
 // UnmarshalJSON unmarshals a list of addresses and amounts used in the inputs
 // or outputs of a transaction. Duplicate addresses or addresses with a 0
 // amount cause an error.
 func (a *AddressAmountMap) UnmarshalJSON(data []byte) error {
 	aam := make(AddressAmountMap)
-	var aaS []addressAmount
+	var aaS map[string]uint64
 	if err := json.Unmarshal(data, &aaS); err != nil {
 		return err
 	}
-	for _, aa := range aaS {
-		if aa.Amount == 0 {
-			return fmt.Errorf("invalid amount (0) for address: %v", aa)
+	for address, amount := range aaS {
+		data := []byte(fmt.Sprintf("%#v", address))
+		address := factom.Address{}
+		if amount == 0 {
+			return fmt.Errorf("invalid amount (0) for address: %v", address)
 		}
-		if _, duplicate := aam[aa.Address.RCDHash()]; duplicate {
-			return fmt.Errorf("duplicate address: %v", aa)
+		json.Unmarshal(data, &address)
+		if _, duplicate := aam[address.RCDHash()]; duplicate {
+			return fmt.Errorf("duplicate address: %v", address)
 		}
-		aam[aa.Address.RCDHash()] = aa.Amount
+		aam[address.RCDHash()] = amount
 	}
 	*a = aam
 	return nil
@@ -215,18 +211,14 @@ func (a *AddressAmountMap) UnmarshalJSON(data []byte) error {
 // MarshalJSON marshals a list of addresses and amounts used in the inputs or
 // outputs of a transaction. Addresses with a 0 amount are omitted.
 func (a AddressAmountMap) MarshalJSON() ([]byte, error) {
-	as := make([]addressAmount, 0, len(a))
+	as := make(map[string]uint64, len(a))
 	for rcdHash, amount := range a {
-		rcdHash := rcdHash
 		// Omit addresses with 0 amounts.
 		if amount == 0 {
 			continue
 		}
-
-		as = append(as, addressAmount{
-			Address: factom.NewAddress(&rcdHash),
-			Amount:  amount,
-		})
+		address := factom.NewAddress(&rcdHash)
+		as[address.String()] = amount
 	}
 	return json.Marshal(as)
 }

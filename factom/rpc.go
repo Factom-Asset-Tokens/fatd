@@ -8,7 +8,7 @@ import (
 	"math/rand"
 	"net/http"
 
-	jrpc "github.com/AdamSLevy/jsonrpc2/v4"
+	jrpc "github.com/AdamSLevy/jsonrpc2/v5"
 )
 
 // request makes a JSON RPC request with the given method and params, and then
@@ -51,7 +51,7 @@ func request(method string, params interface{}, result interface{}) error {
 
 	// Unmarshal the HTTP response into a JSON RPC response.
 	resJrpc := jrpc.NewResponse(result)
-	if err := json.Unmarshal(resBytes, resJrpc); err != nil {
+	if err := json.Unmarshal(resBytes, &resJrpc); err != nil {
 		return fmt.Errorf("json.Unmarshal(): %v", err)
 	}
 	return nil
