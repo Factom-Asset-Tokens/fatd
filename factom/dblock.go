@@ -33,9 +33,5 @@ func (db *DBlock) Get() error {
 		return err
 	}
 
-	// Populate the Height for all EBlocks.
-	for i := range db.EBlocks {
-		db.EBlocks[i].Height = db.Height
-	}
 	return nil
 }

@@ -3,6 +3,7 @@ package fat0_test
 import (
 	"encoding/hex"
 	"testing"
+	"time"
 
 	"github.com/Factom-Asset-Tokens/fatd/factom"
 	"github.com/Factom-Asset-Tokens/fatd/fat0"
@@ -104,6 +105,8 @@ func TestIdentity(t *testing.T) {
 	i.ChainID = factom.NewBytes32(validIdentityChainID)
 	require.NoError(i.Get())
 	require.True(i.IsPopulated())
+	assert.Equal(140744, int(i.Height))
+	assert.Equal(time.Unix(1526281620, 0), i.Timestamp)
 	// Take early exit path for an already populated Identity.
 	require.NoError(i.Get())
 }

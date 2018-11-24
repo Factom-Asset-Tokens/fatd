@@ -6,8 +6,7 @@ import (
 )
 
 func GetBalance(chainID *factom.Bytes32, address *factom.Address) uint64 {
-	state := chains.Get(chainID)
-	return state.Balance(address)
+	return 0
 }
 
 func GetIssuance(chainID *factom.Bytes32) *fat0.Issuance {

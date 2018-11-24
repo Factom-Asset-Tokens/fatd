@@ -34,10 +34,10 @@ func TestDataStructures(t *testing.T) {
 
 		// Validate this DBlock.
 		assert.Len(db.EBlocks, 7)
+		assert.Equal(height, db.Height)
 		for _, eb := range db.EBlocks {
 			assert.NotNil(eb.ChainID)
 			assert.NotNil(eb.KeyMR)
-			assert.Equal(height, eb.Height)
 		}
 	})
 	t.Run("EBlock", func(t *testing.T) {
@@ -72,12 +72,13 @@ func TestDataStructures(t *testing.T) {
 
 		// Validate the entries.
 		assert.Len(eb.Entries, 5)
+		assert.Equal(height, eb.Height)
 		require.NotNil(eb.PrevKeyMR)
 		for _, e := range eb.Entries {
 			assert.True(e.ChainID == eb.ChainID)
 			assert.NotNil(e.Hash)
 			assert.NotNil(e.Timestamp)
-			assert.Equal(eb.Height, e.Height)
+			assert.Equal(height, e.Height)
 		}
 
 		assert.False(eb.IsFirst())
@@ -94,7 +95,8 @@ func TestDataStructures(t *testing.T) {
 		assert.Len(ebs, 6)
 		assert.True(ebs[0].IsFirst())
 		first := ebs[0].Prev()
-		assert.Equal(first.KeyMR, ebs[0].KeyMR)
+		assert.Equal(first.KeyMR, ebs[0].KeyMR,
+			"Prev() should return a copy of itself if it is first")
 		assert.Equal(eb.KeyMR, ebs[len(ebs)-1].KeyMR)
 
 		// Fetch the chain head EBlock via the ChainID.
@@ -152,6 +154,8 @@ func TestDataStructures(t *testing.T) {
 		// Validate the entry.
 		assert.Len(e.ExtIDs, 6)
 		assert.NotEmpty(e.Content)
+		assert.Equal(height, e.Height)
+		assert.Equal(time.Unix(1542223080, 0), e.Timestamp.Time)
 	})
 
 	assert.Equal(t, factom.Bytes32{}, factom.ZeroBytes32())

@@ -7,7 +7,6 @@ type EBlock struct {
 	// DBlock.Get populates the ChainID, KeyMR, and Height.
 	ChainID *Bytes32 `json:"chainid,omitempty"`
 	KeyMR   *Bytes32 `json:"keymr,omitempty"`
-	Height  uint64   `json:"-"`
 
 	// EBlock.Get populates the EBlockHeader.PrevKeyMR and the Entries with
 	// their Hash and Timestamp.
@@ -19,6 +18,7 @@ type EBlock struct {
 // Block response from the factomd JSON RPC API.
 type EBlockHeader struct {
 	PrevKeyMR *Bytes32 `json:"prevkeymr,omitempty"`
+	Height    uint64   `json:"dbheight"`
 }
 
 // IsPopulated returns true if eb has already been successfully populated by a

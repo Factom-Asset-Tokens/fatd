@@ -24,10 +24,6 @@ const (
 func Start() (chan error, error) {
 	log = _log.New("state")
 
-	if err := scanNewBlocks(); err != nil {
-		return nil, fmt.Errorf("scanNewBlocks(): %v", err)
-	}
-
 	returnError = make(chan error, 1)
 	stop = make(chan error)
 
@@ -51,12 +47,13 @@ func errorStop(err error) {
 
 func engine() {
 	for {
+		err := scanNewBlocks()
+		if err != nil {
+			errorStop(fmt.Errorf("scanNewBlocks(): %v", err))
+		}
 		select {
 		case <-scanTicker.C:
-			err := scanNewBlocks()
-			if err != nil {
-				errorStop(fmt.Errorf("scanNewBlocks(): %v", err))
-			}
+			continue
 		case <-stop:
 			scanTicker.Stop()
 			return

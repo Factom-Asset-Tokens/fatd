@@ -2,6 +2,7 @@ package fat0
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/Factom-Asset-Tokens/fatd/factom"
 )
@@ -43,8 +44,10 @@ func ValidIdentityNameIDs(nameIDs []factom.Bytes) bool {
 // Identity represents the Token Issuer's Identity Chain and the public IDKey
 // used to sign Issuance and coinbase Transaction Entries.
 type Identity struct {
-	ChainID *factom.Bytes32
-	IDKey   *factom.Bytes32
+	ChainID   *factom.Bytes32
+	IDKey     *factom.Bytes32
+	Height    uint64
+	Timestamp time.Time
 }
 
 // IsPopulated returns true if the Identity has been populated with an IDKey.
@@ -76,6 +79,7 @@ func (i *Identity) Get() error {
 	if !eb.IsFirst() {
 		return nil
 	}
+	fmt.Println("height:", eb.Height)
 
 	// Get first entry of first entry block.
 	first := eb.Entries[0]
@@ -88,6 +92,8 @@ func (i *Identity) Get() error {
 	}
 
 	i.IDKey = factom.NewBytes32(first.ExtIDs[2])
+	i.Height = first.Height
+	i.Timestamp = first.Timestamp.Time
 
 	return nil
 }
