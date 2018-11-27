@@ -3,7 +3,6 @@ package srv
 import (
 	"net/http"
 
-	jrpc "github.com/AdamSLevy/jsonrpc2/v5"
 	"github.com/Factom-Asset-Tokens/fatd/flag"
 	_log "github.com/Factom-Asset-Tokens/fatd/log"
 	"github.com/rs/cors"
@@ -11,33 +10,23 @@ import (
 
 var (
 	log _log.Log
-	srv http.Server
+	srv = func() http.Server {
+		// Set up server
+		srvMux := http.NewServeMux()
+		srvMux.Handle("/", jrpcHandler)
+		srvMux.Handle("/v1", jrpcHandler)
+
+		cors := cors.New(cors.Options{AllowedOrigins: []string{"*"}})
+
+		return http.Server{Handler: cors.Handler(srvMux)}
+	}()
 )
 
 func Start() error {
 	log = _log.New("srv")
 
-	// Register JSON RPC Methods:
-	jrpc.RegisterMethod("version", version)
-
-	//Token methods (Mock data for now)
-	jrpc.RegisterMethod("get-issuance", getIssuance)
-	jrpc.RegisterMethod("get-transaction", getTransaction)
-	jrpc.RegisterMethod("get-transactions", getTransactions)
-	jrpc.RegisterMethod("get-balance", getBalance)
-	jrpc.RegisterMethod("get-stats", getStats)
-
-	// Set up server
-	srvMux := http.NewServeMux()
-	srvMux.Handle("/", jrpc.HTTPRequestHandler)
-	srvMux.Handle("/v1", jrpc.HTTPRequestHandler)
-
-	c := cors.New(cors.Options{AllowedOrigins: []string{"*"}})
-	srv.Handler = c.Handler(srvMux)
-
-	srv.Addr = flag.APIAddress
-
 	// Launch server
+	srv.Addr = flag.APIAddress
 	go listen()
 
 	return nil

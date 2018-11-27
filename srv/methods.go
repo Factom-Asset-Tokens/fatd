@@ -5,12 +5,21 @@ import (
 	"encoding/json"
 	"time"
 
-	jrpc "github.com/AdamSLevy/jsonrpc2/v5"
+	jrpc "github.com/AdamSLevy/jsonrpc2/v6"
 	"github.com/Factom-Asset-Tokens/fatd/fat0"
 	"github.com/Factom-Asset-Tokens/fatd/state"
 )
 
-var version jrpc.MethodFunc = func(params json.RawMessage) jrpc.Response {
+var jrpcHandler = jrpc.HTTPRequestHandler(jrpc.MethodMap{
+	"version":          version,
+	"get-issuance":     getIssuance,
+	"get-transaction":  getTransaction,
+	"get-transactions": getTransactions,
+	"get-balance":      getBalance,
+	"get-stats":        getStats,
+})
+
+func version(params json.RawMessage) jrpc.Response {
 	if params != nil {
 		return jrpc.NewInvalidParamsErrorResponse("Unexpected parameters")
 	}
@@ -18,7 +27,8 @@ var version jrpc.MethodFunc = func(params json.RawMessage) jrpc.Response {
 }
 
 var requiredParamsErr = `required params: "chain-id", or "token-id" and "issuer-id"`
-var getIssuance jrpc.MethodFunc = func(params json.RawMessage) jrpc.Response {
+
+func getIssuance(params json.RawMessage) jrpc.Response {
 	if params == nil {
 		return jrpc.NewInvalidParamsErrorResponse(requiredParamsErr)
 	}
@@ -43,7 +53,7 @@ var getIssuance jrpc.MethodFunc = func(params json.RawMessage) jrpc.Response {
 	return jrpc.NewResponse(issuance)
 }
 
-var getTransaction jrpc.MethodFunc = func(params json.RawMessage) jrpc.Response {
+func getTransaction(params json.RawMessage) jrpc.Response {
 	if params == nil {
 		return jrpc.NewInvalidParamsErrorResponse("Parameters are required for this method")
 	}
@@ -129,7 +139,7 @@ var getBalance jrpc.MethodFunc = func(params json.RawMessage) jrpc.Response {
 	return jrpc.NewResponse(302)
 }
 
-var getStats jrpc.MethodFunc = func(params json.RawMessage) jrpc.Response {
+func getStats(params json.RawMessage) jrpc.Response {
 	if params == nil {
 		return jrpc.NewInvalidParamsErrorResponse("Parameters are required for this method")
 	}

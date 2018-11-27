@@ -271,7 +271,6 @@ func TestTransaction(t *testing.T) {
 		// signatures.
 		invalidTx.ExtIDs = append(invalidTx.ExtIDs[2:], invalidTx.ExtIDs[0:2]...)
 		assert.False(invalidTx.ValidSignatures())
-
 	})
 	t.Run("ValidRCDs()", func(t *testing.T) {
 		assert := assert.New(t)
