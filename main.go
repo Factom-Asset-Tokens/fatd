@@ -52,10 +52,7 @@ func _main() (ret int) {
 	}()
 	log.Info("State machine started.")
 
-	if err := srv.Start(); err != nil {
-		log.Errorf("srv.Start(): %v", err)
-		return 1
-	}
+	srv.Start()
 	defer func() {
 		if err := srv.Stop(); err != nil {
 			log.Errorf("srv.Stop(): %v", err)

@@ -11,8 +11,8 @@ type Entry struct {
 	Height    uint64   `json:"-"`
 
 	// Entry.Get populates the Content and ExtIDs.
-	Content Bytes   `json:"content"`
 	ExtIDs  []Bytes `json:"extids"`
+	Content Bytes   `json:"content"`
 }
 
 // IsPopulated returns true if e has already been successfully populated by a
