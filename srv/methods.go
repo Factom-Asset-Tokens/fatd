@@ -5,12 +5,11 @@ import (
 	"encoding/json"
 
 	jrpc "github.com/AdamSLevy/jsonrpc2/v7"
-	"github.com/Factom-Asset-Tokens/fatd/state"
 )
 
 var jrpcMethods = jrpc.MethodMap{
-	"get-issuance": getIssuance,
-	//"get-transaction":  getTransaction,
+	"get-issuance":    getIssuance,
+	"get-transaction": getTransaction,
 	//"get-transactions": getTransactions,
 	//"get-balance":      getBalance,
 	//"get-stats":        getStats,
@@ -22,16 +21,20 @@ var jrpcMethods = jrpc.MethodMap{
 	//"get-daemon-properties": getDaemonProperties,
 }
 
-var tokenParamsErr = `"params" required: either "chain-id" or both "token-id" and "issuer-id"`
-
 var (
-	TokenNotFoundError = jrpc.NewErrorResponse(-32800, "Token Not Found",
+	TokenParamsRes = jrpc.NewInvalidParamsErrorResponse(
+		`"params" required: either "chain-id" or both "token-id" and "issuer-id"`)
+	TokenNotFoundRes = jrpc.NewErrorResponse(-32800, "Token Not Found",
 		"not yet issued or not tracked by this instance of fatd")
+	TransactionNotFoundRes = jrpc.NewErrorResponse(-32800, "Token Not Found",
+		"not yet issued or not tracked by this instance of fatd")
+	GetTransactionParamsRes = jrpc.NewInvalidParamsErrorResponse(
+		`"params" required: "hash" and either "chain-id" or both "token-id" and "issuer-id"`)
 )
 
 func getIssuance(params json.RawMessage) jrpc.Response {
 	if params == nil {
-		return jrpc.NewInvalidParamsErrorResponse(tokenParamsErr)
+		return TokenParamsRes
 	}
 	token := TokenParams{}
 	if err := unmarshalStrict(params, &token); err != nil {
@@ -39,15 +42,30 @@ func getIssuance(params json.RawMessage) jrpc.Response {
 	}
 	chainID := token.ValidChainID()
 	if chainID == nil {
-		return jrpc.NewInvalidParamsErrorResponse(tokenParamsErr)
+		return TokenParamsRes
 	}
 
-	issuance := state.GetIssuance(chainID)
-	if issuance == nil {
-		return TokenNotFoundError
+	// Look up issuance
+
+	return TokenNotFoundRes
+}
+
+func getTransaction(params json.RawMessage) jrpc.Response {
+	if params == nil {
+		return GetTransactionParamsRes
+	}
+	txParams := GetTransactionParams{}
+	if err := unmarshalStrict(params, &txParams); err != nil {
+		return jrpc.NewInvalidParamsErrorResponse(err.Error())
+	}
+	chainID := txParams.ValidChainID()
+	if chainID == nil || txParams.Hash == nil {
+		return GetTransactionParamsRes
 	}
 
-	return jrpc.NewResponse(issuance)
+	// Lookup Tx by Hash
+
+	return TransactionNotFoundRes
 }
 
 func unmarshalStrict(data []byte, v interface{}) error {

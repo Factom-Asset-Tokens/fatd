@@ -16,63 +16,97 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-var invalidParamsErr = jrpc.NewInvalidParamsErrorResponse(tokenParamsErr)
-var tokenNotFoundError = func() jrpc.Response {
-	res := TokenNotFoundError
-	res.Error = new(jrpc.Error)
-	*res.Error = *TokenNotFoundError.Error
-	return res
-}()
+func cpResponse(res jrpc.Response) jrpc.Response {
+	return jrpc.NewErrorResponse(res.Code, res.Message, res.Data)
+}
+
+var tokenParamsRes = cpResponse(TokenParamsRes)
+var tokenNotFoundRes = cpResponse(TokenNotFoundRes)
+var transactionNotFoundRes = cpResponse(TransactionNotFoundRes)
+var getTransactionParamsRes = cpResponse(GetTransactionParamsRes)
+
 var tokenID = "invalid"
 
-var tests = []struct {
+var getIssuanceTests = []struct {
 	Params           interface{}
 	Description      string
 	ExpectedResponse jrpc.Response
 }{{
 	Params:           nil,
 	Description:      "nil params",
-	ExpectedResponse: invalidParamsErr,
+	ExpectedResponse: tokenParamsRes,
 }, {
 	Params:           TokenParams{},
 	Description:      "empty params",
-	ExpectedResponse: invalidParamsErr,
+	ExpectedResponse: tokenParamsRes,
 }, {
 	Params: struct {
 		TokenParams
 		NewField string
 	}{TokenParams: TokenParams{ChainID: factom.NewBytes32(nil)}, NewField: "hello"},
-	Description: "empty params",
+	Description: "unknown field",
 	ExpectedResponse: jrpc.NewInvalidParamsErrorResponse(
 		`json: unknown field "NewField"`),
 }, {
 	Params:           TokenParams{ChainID: factom.NewBytes32(nil), TokenID: &tokenID},
 	Description:      "chain id and token id",
-	ExpectedResponse: invalidParamsErr,
-}, {
-	Params: TokenParams{ChainID: factom.NewBytes32(nil),
-		IssuerChainID: factom.NewBytes32(nil)},
-	Description:      "chain id and token id",
-	ExpectedResponse: invalidParamsErr,
+	ExpectedResponse: tokenParamsRes,
 }, {
 	Params: TokenParams{ChainID: factom.NewBytes32(nil),
 		IssuerChainID: factom.NewBytes32(nil)},
 	Description:      "chain id and issuer chain id",
-	ExpectedResponse: invalidParamsErr,
+	ExpectedResponse: tokenParamsRes,
 }, {
 	Params: TokenParams{ChainID: factom.NewBytes32(nil),
 		IssuerChainID: factom.NewBytes32(nil), TokenID: &tokenID},
 	Description:      "chain id and token id and issuer chain id",
-	ExpectedResponse: invalidParamsErr,
+	ExpectedResponse: tokenParamsRes,
 }, {
 	Params: TokenParams{IssuerChainID: factom.NewBytes32(nil),
 		TokenID: &tokenID},
 	Description:      "token id and issuer chain id",
-	ExpectedResponse: tokenNotFoundError,
+	ExpectedResponse: tokenNotFoundRes,
 }, {
 	Params:           TokenParams{ChainID: factom.NewBytes32(nil)},
 	Description:      "chain id",
-	ExpectedResponse: tokenNotFoundError,
+	ExpectedResponse: tokenNotFoundRes,
+},
+}
+
+var getTransactionTests = []struct {
+	Params           interface{}
+	Description      string
+	ExpectedResponse jrpc.Response
+}{{
+	Params:           nil,
+	Description:      "nil params",
+	ExpectedResponse: getTransactionParamsRes,
+}, {
+	Params:           GetTransactionParams{},
+	Description:      "empty params",
+	ExpectedResponse: getTransactionParamsRes,
+}, {
+	Params: struct {
+		GetTransactionParams
+		NewField string
+	}{GetTransactionParams: GetTransactionParams{
+		TokenParams: TokenParams{ChainID: factom.NewBytes32(nil)},
+		Hash:        factom.NewBytes32(nil)},
+		NewField: "hello"},
+	Description: "unknown field",
+	ExpectedResponse: jrpc.NewInvalidParamsErrorResponse(
+		`json: unknown field "NewField"`),
+}, {
+	Params: TokenParams{ChainID: factom.NewBytes32(nil),
+		IssuerChainID: factom.NewBytes32(nil)},
+	Description:      "no hash",
+	ExpectedResponse: getTransactionParamsRes,
+}, {
+	Params: GetTransactionParams{
+		TokenParams: TokenParams{ChainID: factom.NewBytes32(nil)},
+		Hash:        factom.NewBytes32(nil)},
+	Description:      "tx not found",
+	ExpectedResponse: transactionNotFoundRes,
 },
 }
 
@@ -81,12 +115,24 @@ func TestMethods(t *testing.T) {
 	Start()
 	t.Run("get-issuance", func(t *testing.T) {
 		assert := assert.New(t)
-		for _, test := range tests {
+		for _, test := range getIssuanceTests {
 			res, err := request("get-issuance", test.Params, nil)
 			assert.NoError(err)
 			assert.NotNil(res.ID)
 			res.ID = nil
-			assert.Equal(test.ExpectedResponse.Error, res.Error)
+			assert.Equal(test.ExpectedResponse.Error, res.Error,
+				test.Description)
+		}
+	})
+	t.Run("get-transaction", func(t *testing.T) {
+		assert := assert.New(t)
+		for _, test := range getTransactionTests {
+			res, err := request("get-transaction", test.Params, nil)
+			assert.NoError(err)
+			assert.NotNil(res.ID)
+			res.ID = nil
+			assert.Equal(test.ExpectedResponse.Error, res.Error,
+				test.Description)
 		}
 	})
 	Stop()
