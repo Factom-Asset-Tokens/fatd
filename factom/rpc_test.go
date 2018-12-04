@@ -22,7 +22,7 @@ func TestRequest(t *testing.T) {
 	var b badParams
 	assert := assert.New(t)
 	assert.EqualError(request("test", &b, nil),
-		"json: error calling MarshalJSON for type *factom.badParams: bad params")
+		"json: error calling MarshalJSON for type jsonrpc2.Request: json: error calling MarshalJSON for type *factom.badParams: bad params")
 
 	RpcConfig.FactomdServer = "@#$%^"
 	assert.EqualError(request("test", nil, nil),

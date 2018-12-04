@@ -3,7 +3,7 @@ module github.com/Factom-Asset-Tokens/fatd
 require (
 	cloud.google.com/go v0.30.0 // indirect
 	github.com/AdamSLevy/factom v0.0.0-20181009222153-a7ad13c1f605
-	github.com/AdamSLevy/jsonrpc2/v7 v7.0.0
+	github.com/AdamSLevy/jsonrpc2/v9 v9.1.1
 	github.com/FactomProject/btcutil v0.0.0-20160826074221-43986820ccd5
 	github.com/FactomProject/ed25519 v0.0.0-20150814230546-38002c4fe7b6
 	github.com/denisenkom/go-mssqldb v0.0.0-20180901172138-1eb28afdf9b6 // indirect

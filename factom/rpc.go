@@ -8,7 +8,7 @@ import (
 	"math/rand"
 	"net/http"
 
-	jrpc "github.com/AdamSLevy/jsonrpc2/v7"
+	jrpc "github.com/AdamSLevy/jsonrpc2/v9"
 )
 
 // request makes a JSON RPC request with the given method and params, and then
