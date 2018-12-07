@@ -2,264 +2,240 @@ package fat0_test
 
 import (
 	"encoding/json"
-	"fmt"
-	"math/rand"
 	"testing"
 
 	"github.com/Factom-Asset-Tokens/fatd/factom"
-	"github.com/Factom-Asset-Tokens/fatd/fat0"
+	. "github.com/Factom-Asset-Tokens/fatd/fat0"
 	"github.com/FactomProject/ed25519"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 var (
-	identityChainID = factom.NewBytes32(validIdentityChainID)
+	identityChainID = factom.NewBytes32(validIdentityChainID())
 )
 
 func TestChainID(t *testing.T) {
 	assert.Equal(t, "b54c4310530dc4dd361101644fa55cb10aec561e7874a7b786ea3b66f2c6fdfb",
-		fat0.ChainID("test", identityChainID).String())
+		ChainID("test", identityChainID).String())
 }
 
-var (
-	validNameIDs = []factom.Bytes{
+var validTokenNameIDsTests = []struct {
+	Name    string
+	NameIDs []factom.Bytes
+	Valid   bool
+}{{
+	Name:    "valid",
+	Valid:   true,
+	NameIDs: validTokenNameIDs(),
+}, {
+	Name:    "invalid length (short)",
+	NameIDs: validTokenNameIDs()[0:3],
+}, {
+	Name:    "invalid length (long)",
+	NameIDs: append(validTokenNameIDs(), factom.Bytes{}),
+}, {
+	Name:    "invalid ExtID",
+	NameIDs: invalidTokenNameIDs(0),
+}, {
+	Name:    "invalid ExtID",
+	NameIDs: invalidTokenNameIDs(1),
+}, {
+	Name:    "invalid ExtID",
+	NameIDs: invalidTokenNameIDs(2),
+}, {
+	Name:    "invalid ExtID",
+	NameIDs: invalidTokenNameIDs(3),
+}}
+
+func TestValidTokenNameIDs(t *testing.T) {
+	for _, test := range validTokenNameIDsTests {
+		t.Run(test.Name, func(t *testing.T) {
+			assert := assert.New(t)
+			valid := ValidTokenNameIDs(test.NameIDs)
+			if test.Valid {
+				assert.True(valid)
+			} else {
+				assert.False(valid)
+			}
+		})
+	}
+}
+
+func validTokenNameIDs() []factom.Bytes {
+	return []factom.Bytes{
 		factom.Bytes("token"),
 		factom.Bytes("valid"),
 		factom.Bytes("issuer"),
 		identityChainID[:],
 	}
-)
-
-func TestValidTokenNameIDs(t *testing.T) {
-	assert := assert.New(t)
-
-	invalidNameIDs := append([]factom.Bytes{}, validNameIDs...)
-	assert.False(fat0.ValidTokenNameIDs(invalidNameIDs[:3]), "invalid length")
-
-	invalidName := factom.Bytes{}
-	for i := 0; i < 4; i++ {
-		invalidNameIDs[i] = invalidName
-		assert.Falsef(fat0.ValidTokenNameIDs(invalidNameIDs),
-			"invalid name id [%v]", i)
-		invalidNameIDs[i] = validNameIDs[i]
-	}
-	assert.True(fat0.ValidTokenNameIDs(validNameIDs))
 }
 
-var (
-	randSource = rand.New(rand.NewSource(100))
-	issuerKey  = func() factom.Address {
-		a := factom.Address{}
-		a.PublicKey, a.PrivateKey, _ = ed25519.GenerateKey(randSource)
-		return a
-	}()
-	validIssuanceEntryContentMap = map[string]interface{}{
+func invalidTokenNameIDs(i int) []factom.Bytes {
+	n := validTokenNameIDs()
+	n[i] = factom.Bytes{}
+	return n
+}
+
+var issuanceTests = []struct {
+	Name      string
+	Error     string
+	IssuerKey factom.Address
+	Issuance
+}{{
+	Name:      "valid",
+	IssuerKey: issuerKey,
+	Issuance:  validIssuance(),
+}, {
+	Name:      "valid (omit symbol)",
+	IssuerKey: issuerKey,
+	Issuance:  omitFieldIssuance("symbol"),
+}, {
+	Name:      "valid (omit name)",
+	IssuerKey: issuerKey,
+	Issuance:  omitFieldIssuance("name"),
+}, {
+	Name:      "valid (omit metadata)",
+	IssuerKey: issuerKey,
+	Issuance:  omitFieldIssuance("metadata"),
+}, {
+	Name:      "invalid JSON (unknown field)",
+	Error:     `json: unknown field "invalid"`,
+	IssuerKey: issuerKey,
+	Issuance:  issuance(factom.Bytes(`{"invalid":5}`)),
+}, {
+	Name:      "invalid JSON (invalid type)",
+	Error:     `json: cannot unmarshal array into Go struct field Issuance.type of type string`,
+	IssuerKey: issuerKey,
+	Issuance:  invalidIssuance("type"),
+}, {
+	Name:      "invalid JSON (invalid supply)",
+	Error:     `json: cannot unmarshal array into Go struct field Issuance.supply of type int64`,
+	IssuerKey: issuerKey,
+	Issuance:  invalidIssuance("supply"),
+}, {
+	Name:      "invalid JSON (invalid symbol)",
+	Error:     `json: cannot unmarshal array into Go struct field Issuance.symbol of type string`,
+	IssuerKey: issuerKey,
+	Issuance:  invalidIssuance("symbol"),
+}, {
+	Name:      "invalid JSON (invalid name)",
+	Error:     `json: cannot unmarshal array into Go struct field Issuance.name of type string`,
+	IssuerKey: issuerKey,
+	Issuance:  invalidIssuance("name"),
+}, {
+	Name:      "invalid JSON (nil)",
+	Error:     `EOF`,
+	IssuerKey: issuerKey,
+	Issuance:  issuance(nil),
+}, {
+	Name:      "invalid data (type)",
+	Error:     `invalid "type": "invalid"`,
+	IssuerKey: issuerKey,
+	Issuance:  setFieldIssuance("type", "invalid"),
+}, {
+	Name:      "invalid data (type omitted)",
+	Error:     `invalid "type": ""`,
+	IssuerKey: issuerKey,
+	Issuance:  omitFieldIssuance("type"),
+}, {
+	Name:      "invalid data (supply: 0)",
+	Error:     `invalid "supply": must be positive or -1`,
+	IssuerKey: issuerKey,
+	Issuance:  setFieldIssuance("supply", 0),
+}, {
+	Name:      "invalid data (supply: -5)",
+	Error:     `invalid "supply": must be positive or -1`,
+	IssuerKey: issuerKey,
+	Issuance:  setFieldIssuance("supply", -5),
+}, {
+	Name:      "invalid data (supply: omitted)",
+	Error:     `invalid "supply": must be positive or -1`,
+	IssuerKey: issuerKey,
+	Issuance:  omitFieldIssuance("supply"),
+}, {
+	Name:      "invalid ExtIDs (timestamp)",
+	Error:     `timestamp salt expired`,
+	IssuerKey: issuerKey,
+	Issuance: func() Issuance {
+		i := validIssuance()
+		i.ExtIDs[0] = factom.Bytes("10")
+		return i
+	}(),
+}, {
+	Name:      "invalid ExtIDs (length)",
+	Error:     `incorrect number of ExtIDs`,
+	IssuerKey: issuerKey,
+	Issuance: func() Issuance {
+		i := validIssuance()
+		i.ExtIDs = append(i.ExtIDs, factom.Bytes{})
+		return i
+	}(),
+}, {
+	Name:     "invalid RCD hash",
+	Error:    `invalid RCD`,
+	Issuance: validIssuance(),
+}}
+
+func TestIssuance(t *testing.T) {
+	for _, test := range issuanceTests {
+		t.Run(test.Name, func(t *testing.T) {
+			assert := assert.New(t)
+			i := test.Issuance
+			key := test.IssuerKey
+			err := i.Valid(key.RCDHash())
+			if len(test.Error) == 0 {
+				assert.NoError(err)
+			} else {
+				assert.EqualError(err, test.Error)
+			}
+		})
+	}
+}
+
+func validIssuanceEntryContentMap() map[string]interface{} {
+	return map[string]interface{}{
 		"type":     "FAT-0",
 		"supply":   int64(100000),
 		"symbol":   "TEST",
 		"name":     "Test Token",
 		"metadata": []int{0},
 	}
-	validIssuance = func() fat0.Issuance {
-		e := factom.Entry{
-			ChainID: factom.NewBytes32(nil),
-			Content: marshal(validIssuanceEntryContentMap),
-		}
-		i := fat0.NewIssuance(e)
-		i.Sign(issuerKey)
-		return i
-	}()
-)
+}
 
-func TestIssuance(t *testing.T) {
-	t.Run("ValidExtIDs()", func(t *testing.T) {
-		assert := assert.New(t)
-		require := require.New(t)
+func validIssuance() Issuance {
+	return issuance(marshal(validIssuanceEntryContentMap()))
+}
 
-		// Blank ExtIDs
-		invalidIssuance := fat0.NewIssuance(factom.Entry{})
-		assert.EqualError(invalidIssuance.ValidExtIDs(),
-			"insufficient number of ExtIDs")
+var issuerKey = func() factom.Address {
+	a := factom.Address{}
+	a.PublicKey, a.PrivateKey, _ = ed25519.GenerateKey(randSource)
+	return a
+}()
 
-		// Create a working copy of the valid ExtIDs.
-		invalidIssuance.ExtIDs = copyExtIDs(validIssuance.ExtIDs)
-		require.NoError(invalidIssuance.ValidExtIDs())
+func issuance(content factom.Bytes) Issuance {
+	e := factom.Entry{
+		ChainID: factom.NewBytes32(nil),
+		Content: content,
+	}
+	i := NewIssuance(e)
+	i.Sign(issuerKey)
+	return i
+}
 
-		// Bad RCD length.
-		tmp := invalidIssuance.ExtIDs[0]
-		invalidIssuance.ExtIDs[0] = invalidIssuance.ExtIDs[0][0 : factom.RCDSize-1]
-		assert.EqualError(invalidIssuance.ValidExtIDs(), "invalid RCD size")
-		invalidIssuance.ExtIDs[0] = tmp
-		require.NoError(invalidIssuance.ValidExtIDs())
+func invalidIssuance(field string) Issuance {
+	return setFieldIssuance(field, []int{0})
+}
 
-		// Bad RCD type.
-		invalidIssuance.ExtIDs[0][0] = 0
-		assert.EqualError(invalidIssuance.ValidExtIDs(), "invalid RCD type")
-		invalidIssuance.ExtIDs[0][0] = factom.RCDType
-		require.NoError(invalidIssuance.ValidExtIDs())
+func omitFieldIssuance(field string) Issuance {
+	m := validIssuanceEntryContentMap()
+	delete(m, field)
+	return issuance(marshal(m))
+}
 
-		// Bad Signature length.
-		invalidIssuance.ExtIDs[1] =
-			invalidIssuance.ExtIDs[1][0 : factom.SignatureSize-1]
-		assert.EqualError(invalidIssuance.ValidExtIDs(), "invalid signature size")
-		invalidIssuance.ExtIDs[1] = validIssuance.ExtIDs[1]
-		require.NoError(invalidIssuance.ValidExtIDs())
-
-		// Additional ExtIDs are allowed.
-		validIssuance.ExtIDs = append(validIssuance.ExtIDs, []byte{0})
-		assert.NoError(validIssuance.ValidExtIDs(), "additional ExtIDs")
-		validIssuance.ExtIDs = validIssuance.ExtIDs[0:2]
-	})
-	t.Run("UnmarshalEntry()", func(t *testing.T) {
-		assert := assert.New(t)
-		require := require.New(t)
-
-		// We must start with a validIssuance.
-		require.NoError(validIssuance.UnmarshalEntry())
-		assert.Equal(validIssuanceEntryContentMap["type"],
-			validIssuance.Type, "type")
-		assert.Equal(validIssuanceEntryContentMap["symbol"],
-			validIssuance.Symbol, "symbol")
-		assert.Equal(validIssuanceEntryContentMap["supply"],
-			validIssuance.Supply, "supply")
-		assert.Equal(validIssuanceEntryContentMap["name"],
-			validIssuance.Name, "name")
-		// Metadata can be any type.
-		assert.NotNil(validIssuance.Metadata, "metadata")
-
-		// Nil content should fail.
-		invalidIssuance := validIssuance
-		invalidIssuance.Content = nil
-		assert.Error(invalidIssuance.UnmarshalEntry(), "no content")
-
-		// Initialize content map to be equal to the valid map.
-		invalidIssuanceEntryContentMap := copyContentMap(validIssuanceEntryContentMap)
-
-		// An invalid field should cause an error.
-		invalidField := "invalid"
-		invalidIssuanceEntryContentMap[invalidField] = invalidField
-		invalidIssuance.Content = marshal(invalidIssuanceEntryContentMap)
-		assert.EqualError(invalidIssuance.UnmarshalEntry(),
-			fmt.Sprintf("json: unknown field %#v", invalidField))
-		delete(invalidIssuanceEntryContentMap, invalidField)
-		invalidIssuance.Content = marshal(invalidIssuanceEntryContentMap)
-		require.NoError(invalidIssuance.UnmarshalEntry())
-
-		// Try to use an invalid value for each field, except for
-		// "metadata".
-		invalidValue := []int{0}
-		delete(invalidIssuanceEntryContentMap, "metadata")
-		for k, v := range invalidIssuanceEntryContentMap {
-			invalidIssuanceEntryContentMap[k] = invalidValue
-			invalidIssuance.Content = marshal(invalidIssuanceEntryContentMap)
-			assert.Errorf(invalidIssuance.UnmarshalEntry(),
-				"invalid type for field %#v", k)
-			invalidIssuanceEntryContentMap[k] = v
-			invalidIssuance.Content = marshal(invalidIssuanceEntryContentMap)
-			require.NoError(invalidIssuance.UnmarshalEntry())
-		}
-
-	})
-	t.Run("ValidData()", func(t *testing.T) {
-		assert := assert.New(t)
-		require := require.New(t)
-
-		// Start with validData.
-		require.NoError(validIssuance.UnmarshalEntry())
-		require.NoError(validIssuance.ValidData())
-		invalidIssuance := validIssuance
-
-		// Invalid Type
-		invalidIssuance.Type = "invalid"
-		assert.EqualError(invalidIssuance.ValidData(),
-			fmt.Sprintf(`invalid "type": %#v`, invalidIssuance.Type))
-		invalidIssuance = validIssuance
-		require.NoError(invalidIssuance.ValidData())
-
-		// Invalid Supply
-		invalidIssuance.Supply = 0
-		assert.Error(invalidIssuance.ValidData())
-		invalidIssuance = validIssuance
-		require.NoError(invalidIssuance.ValidData())
-
-		// Optional Symbol
-		invalidIssuance.Symbol = ""
-		assert.NoError(invalidIssuance.ValidData(), "symbol is optional")
-		invalidIssuance = validIssuance
-		require.NoError(invalidIssuance.ValidData())
-
-		// Optional Name
-		invalidIssuance.Name = ""
-		assert.NoError(invalidIssuance.ValidData(), "name is optional")
-		invalidIssuance.Name = validIssuance.Name
-	})
-	t.Run("ValidSignature()", func(t *testing.T) {
-		assert := assert.New(t)
-		require := require.New(t)
-
-		// Make a working copy.
-		require.True(validIssuance.ValidSignature())
-		invalidIssuance := validIssuance
-		invalidIssuance.ExtIDs = copyExtIDs(validIssuance.ExtIDs)
-
-		// Mucking with the second byte in the RCD and the signature
-		// should make the signature fail.
-		// We use the second byte because the first byte of the RCD is
-		// the type and is not used in signature validation.
-		for i := range invalidIssuance.ExtIDs {
-			invalidIssuance.ExtIDs[i][1]++
-			assert.False(invalidIssuance.ValidSignature())
-			invalidIssuance.ExtIDs[i][1]--
-			require.True(invalidIssuance.ValidSignature())
-		}
-	})
-	t.Run("Valid()", func(t *testing.T) {
-		assert := assert.New(t)
-		require := require.New(t)
-
-		// Start with a valid Issuance.
-		validIDKey := issuerKey.RCDHash()
-		require.NoError(validIssuance.Valid(validIDKey))
-
-		// Make a working copy.
-		invalidIssuance := validIssuance
-		invalidIssuance.Content = append([]byte{}, validIssuance.Content...)
-
-		// Invalid ExtIDs
-		invalidIssuance.ExtIDs = nil
-		assert.EqualError(invalidIssuance.Valid(validIDKey),
-			"insufficient number of ExtIDs")
-		invalidIssuance.ExtIDs = copyExtIDs(validIssuance.ExtIDs)
-		require.NoError(invalidIssuance.Valid(validIDKey))
-
-		// Invalid Issuer Identity Key
-		assert.EqualError(validIssuance.Valid(factom.Bytes32{}), "invalid RCD")
-
-		// Invalid JSON
-		invalidIssuance.Content[0]++
-		assert.EqualError(invalidIssuance.Valid(validIDKey),
-			"invalid character '|' looking for beginning of value")
-		invalidIssuance.Content[0]--
-		require.NoError(invalidIssuance.Valid(validIDKey))
-
-		// Invalid Data
-		invalidIssuanceEntryContentMap := copyContentMap(validIssuanceEntryContentMap)
-		invalidIssuanceEntryContentMap["supply"] = 0
-		content := invalidIssuance.Content
-		extIDs := invalidIssuance.ExtIDs
-		invalidIssuance.Content = marshal(invalidIssuanceEntryContentMap)
-		invalidIssuance.Sign(issuerKey)
-		assert.EqualError(invalidIssuance.Valid(validIDKey),
-			`invalid "supply": must be positive or -1`)
-		invalidIssuance.Content = content
-		invalidIssuance.ExtIDs = extIDs
-		require.NoError(invalidIssuance.Valid(validIDKey))
-
-		// Invalid Signature
-		invalidIssuance.ExtIDs[1][0]++
-		assert.EqualError(invalidIssuance.Valid(validIDKey), "invalid signature")
-	})
+func setFieldIssuance(field string, value interface{}) Issuance {
+	m := validIssuanceEntryContentMap()
+	m[field] = value
+	return issuance(marshal(m))
 }
 
 func marshal(v map[string]interface{}) []byte {
@@ -267,19 +243,58 @@ func marshal(v map[string]interface{}) []byte {
 	return data
 }
 
-func copyExtIDs(src []factom.Bytes) []factom.Bytes {
-	// Create a working copy of the valid ExtIDs.
-	dst := append([]factom.Bytes{}, src...)
-	for i, extID := range src {
-		dst[i] = append(factom.Bytes{}, extID...)
+var issuanceMarshalEntryTests = []struct {
+	Name  string
+	Error string
+	Issuance
+}{{
+	Name:     "valid",
+	Issuance: newIssuance(),
+}, {
+	Name: "valid (metadata)",
+	Issuance: func() Issuance {
+		i := newIssuance()
+		i.Metadata = json.RawMessage(`{"memo":"new token"}`)
+		return i
+	}(),
+}, {
+	Name:  "invalid data",
+	Error: "invalid type",
+	Issuance: func() Issuance {
+		i := newIssuance()
+		i.Type = "invalid"
+		return i
+	}(),
+}, {
+	Name:  "invalid metadata JSON",
+	Error: "json: error calling MarshalJSON for type json.RawMessage: invalid character 'a' looking for beginning of object key string",
+	Issuance: func() Issuance {
+		i := newIssuance()
+		i.Metadata = json.RawMessage("{asdf")
+		return i
+	}(),
+}}
+
+func TestIssuanceMarshalEntry(t *testing.T) {
+	for _, test := range issuanceMarshalEntryTests {
+		t.Run(test.Name, func(t *testing.T) {
+			assert := assert.New(t)
+			i := test.Issuance
+			err := i.MarshalEntry()
+			if len(test.Error) == 0 {
+				assert.NoError(err)
+			} else {
+				assert.EqualError(err, test.Error)
+			}
+		})
 	}
-	return dst
 }
 
-func copyContentMap(src map[string]interface{}) map[string]interface{} {
-	dst := make(map[string]interface{})
-	for k, v := range src {
-		dst[k] = v
+func newIssuance() Issuance {
+	return Issuance{
+		Type:   "FAT-0",
+		Supply: 1000000,
+		Name:   "test coin",
+		Symbol: "TEST",
 	}
-	return dst
 }
