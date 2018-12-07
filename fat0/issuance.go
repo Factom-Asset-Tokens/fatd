@@ -55,23 +55,25 @@ func (i *Issuance) UnmarshalEntry() error {
 	return i.unmarshalEntry(i)
 }
 
+// MarshalEntry marshals the entry content as an Issuance.
+func (i *Issuance) MarshalEntry() error {
+	return i.marshalEntry(i)
+}
+
 // Valid performs all validation checks and returns nil if i is a valid
 // Issuance.
 func (i *Issuance) Valid(idKey factom.Bytes32) error {
-	if err := i.ValidExtIDs(); err != nil {
-		return err
-	}
-	if i.RCDHash() != idKey {
-		return fmt.Errorf("invalid RCD")
-	}
 	if err := i.UnmarshalEntry(); err != nil {
 		return err
 	}
 	if err := i.ValidData(); err != nil {
 		return err
 	}
-	if !i.ValidSignature() {
-		return fmt.Errorf("invalid signature")
+	if err := i.ValidExtIDs(); err != nil {
+		return err
+	}
+	if i.RCDHash() != idKey {
+		return fmt.Errorf("invalid RCD")
 	}
 	return nil
 }
@@ -82,7 +84,7 @@ func (i Issuance) ValidData() error {
 	if i.Type != "FAT-0" {
 		return fmt.Errorf(`invalid "type": %#v`, i.Type)
 	}
-	if i.Supply == 0 {
+	if i.Supply == 0 || i.Supply < -1 {
 		return fmt.Errorf(`invalid "supply": must be positive or -1`)
 	}
 	return nil
@@ -92,31 +94,16 @@ func (i Issuance) ValidData() error {
 // sure that it has an RCD and signature. It does not validate the content of
 // the RCD or signature.
 func (i Issuance) ValidExtIDs() error {
-	if len(i.ExtIDs) < 2 {
-		return fmt.Errorf("insufficient number of ExtIDs")
+	if len(i.ExtIDs) != 3 {
+		return fmt.Errorf("incorrect number of ExtIDs")
 	}
-	if len(i.ExtIDs[0]) != factom.RCDSize {
-		return fmt.Errorf("invalid RCD size")
-	}
-	if i.ExtIDs[0][0] != factom.RCDType {
-		return fmt.Errorf("invalid RCD type")
-	}
-	if len(i.ExtIDs[1]) != factom.SignatureSize {
-		return fmt.Errorf("invalid signature size")
-	}
-	return nil
+	return i.Entry.ValidExtIDs()
 }
 
 // RCDHash returns the SHA256d hash of the first external ID of the entry,
 // which should be the RCD of the IDKey of the issuing Identity.
 func (i Issuance) RCDHash() [sha256.Size]byte {
-	return sha256d(i.ExtIDs[0])
-}
-
-// ValidSignature returns true if the RCD/signature pair is valid.
-// ValidSignature assumes that ValidExtIDs returns nil.
-func (i Issuance) ValidSignature() bool {
-	return i.validSignatures(1)
+	return sha256d(i.ExtIDs[1])
 }
 
 // sha256d computes two rounds of the sha256 hash.

@@ -3,7 +3,10 @@ package fat0
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
+	"math/rand"
 	"strconv"
+	"time"
 
 	"github.com/Factom-Asset-Tokens/fatd/factom"
 	"github.com/FactomProject/ed25519"
@@ -24,36 +27,96 @@ func (e Entry) unmarshalEntry(v interface{}) error {
 	return d.Decode(v)
 }
 
-// validSignatures returns true if the first num RCD/signature pairs in the
-// ExtIDs are valid.
-func (e Entry) validSignatures(num int) bool {
-	if num <= 0 || num*2 > len(e.ExtIDs) {
-		return false
+func (e *Entry) marshalEntry(v interface{ ValidData() error }) error {
+	if err := v.ValidData(); err != nil {
+		return err
 	}
-	msg := append(e.ChainID[:], e.Content...)
-	pubKey := new([ed25519.PublicKeySize]byte)
-	sig := new([ed25519.SignatureSize]byte)
-	for sigID := 0; sigID < num; sigID++ {
-		copy(pubKey[:], e.ExtIDs[sigID*2][1:])
-		copy(sig[:], e.ExtIDs[sigID*2+1])
-		salt := []byte(strconv.FormatInt(int64(sigID), 10))
-		msg := append(salt, msg...)
-		if !ed25519.VerifyCanonical(pubKey, msg, sig) {
-			return false
-		}
+	data, err := json.Marshal(v)
+	if err != nil {
+		return err
 	}
-	return true
+	e.Content = factom.Bytes(data)
+	return nil
 }
 
-// Sign the Sig ID + chain ID + content of the factom.Entry and add the RCD +
-// signature pairs for the given addresses to the ExtIDs. This clears any
-// existing ExtIDs.
+// validExtIDs validates the structure of the external IDs of the entry to make
+// sure that it has the correct number of RCD/signature pairs. ValidExtIDs does
+// not validate the content of the RCD or signature. ValidExtIDs assumes that
+// the entry content has been unmarshaled and that ValidData returns nil.
+func (e Entry) ValidExtIDs() error {
+	if len(e.ExtIDs) < 3 || len(e.ExtIDs)%2 != 1 {
+		return fmt.Errorf("invalid number of ExtIDs")
+	}
+	if err := e.validTimestamp(); err != nil {
+		return err
+	}
+	extIDs := e.ExtIDs[1:]
+	for i := 0; i < len(extIDs)/2; i++ {
+		rcd := extIDs[i*2]
+		if len(rcd) != factom.RCDSize {
+			return fmt.Errorf("ExtIDs[%v]: invalid RCD size", i+1)
+		}
+		if rcd[0] != factom.RCDType {
+			return fmt.Errorf("ExtIDs[%v]: invalid RCD type", i+1)
+		}
+		sig := extIDs[i*2+1]
+		if len(sig) != factom.SignatureSize {
+			return fmt.Errorf("ExtIDs[%v]: invalid signature size", i+1)
+		}
+	}
+	return e.validSignatures()
+}
+
+func (e Entry) validTimestamp() error {
+	sec, err := strconv.ParseInt(string(e.ExtIDs[0]), 10, 64)
+	if err != nil {
+		return fmt.Errorf("timestamp salt: %v", err)
+	}
+	ts := time.Unix(sec, 0)
+	diff := e.Timestamp.Sub(ts)
+	if -12*time.Hour > diff || diff > 12*time.Hour {
+		return fmt.Errorf("timestamp salt expired")
+	}
+	return nil
+}
+
+// validSignatures returns true if the first num RCD/signature pairs in the
+// ExtIDs are valid.
+func (e Entry) validSignatures() error {
+	num := len(e.ExtIDs) / 2
+	timeSalt := e.ExtIDs[0]
+	salt := append(timeSalt, e.ChainID[:]...)
+	msg := append(salt, e.Content...)
+	pubKey := new([ed25519.PublicKeySize]byte)
+	sig := new([ed25519.SignatureSize]byte)
+	extIDs := e.ExtIDs[1:]
+	for sigID := 0; sigID < num; sigID++ {
+		copy(pubKey[:], extIDs[sigID*2][1:])
+		copy(sig[:], extIDs[sigID*2+1])
+		extIDSalt := []byte(strconv.FormatInt(int64(sigID), 10))
+		msg := append(extIDSalt, msg...)
+		if !ed25519.VerifyCanonical(pubKey, msg, sig) {
+			return fmt.Errorf("ExtIDs[%v]: invalid signature", sigID*2+2)
+		}
+	}
+	return nil
+}
+
+// Sign the ExtIDIndex Salt + Timestamp Salt + Chain ID Salt + Content of the
+// factom.Entry and add the RCD + signature pairs for the given addresses to
+// the ExtIDs. This clears any existing ExtIDs.
 func (e *Entry) Sign(as ...factom.Address) {
-	msg := append(e.ChainID[:], e.Content...)
-	e.ExtIDs = nil
+	e.Timestamp = &factom.Time{Time: time.Now()}
+	ts := time.Now().Add(time.Duration(
+		-rand.Int63n(int64(12 * time.Hour))))
+	timeSalt := []byte(strconv.FormatInt(ts.Unix(), 10))
+	salt := append(timeSalt, e.ChainID[:]...)
+	msg := append(salt, e.Content...)
+	e.ExtIDs = make([]factom.Bytes, 1, len(as)*2+1)
+	e.ExtIDs[0] = timeSalt
 	for sigID, a := range as {
-		salt := []byte(strconv.FormatInt(int64(sigID), 10))
-		msg := append(salt, msg...)
+		extIDSalt := []byte(strconv.FormatInt(int64(sigID), 10))
+		msg := append(extIDSalt, msg...)
 		e.ExtIDs = append(e.ExtIDs, a.RCD(), ed25519.Sign(a.PrivateKey, msg)[:])
 	}
 }

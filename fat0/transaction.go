@@ -2,7 +2,6 @@ package fat0
 
 import (
 	"crypto/sha256"
-	"encoding/json"
 	"fmt"
 
 	"github.com/Factom-Asset-Tokens/fatd/factom"
@@ -19,7 +18,6 @@ var (
 type Transaction struct {
 	Inputs  AddressAmountMap `json:"inputs"`
 	Outputs AddressAmountMap `json:"outputs"`
-	Salt    string           `json:"salt,omitempty"`
 	Entry
 }
 
@@ -33,11 +31,16 @@ func (t *Transaction) UnmarshalEntry() error {
 	return t.unmarshalEntry(t)
 }
 
-// Coinbase returns true if the coinbase address is in t.Input. This does not
+// MarshalEntry marshals the entry content as a Transaction.
+func (t *Transaction) MarshalEntry() error {
+	return t.marshalEntry(t)
+}
+
+// IsCoinbase returns true if the coinbase address is in t.Input. This does not
 // necessarily mean that t is a valid coinbase transaction.
-func (t Transaction) Coinbase() bool {
-	_, ok := t.Inputs[coinbase.RCDHash()]
-	return ok
+func (t Transaction) IsCoinbase() bool {
+	amount := t.Inputs[coinbase.RCDHash()]
+	return amount != 0
 }
 
 // Valid performs all validation checks and returns nil if t is a valid
@@ -53,7 +56,7 @@ func (t *Transaction) Valid(idKey factom.Bytes32) error {
 	if err := t.ValidExtIDs(); err != nil {
 		return err
 	}
-	if t.Coinbase() {
+	if t.IsCoinbase() {
 		if t.RCDHash() != idKey {
 			return fmt.Errorf("invalid RCD")
 		}
@@ -61,9 +64,6 @@ func (t *Transaction) Valid(idKey factom.Bytes32) error {
 		if !t.ValidRCDs() {
 			return fmt.Errorf("invalid RCDs")
 		}
-	}
-	if !t.ValidSignatures() {
-		return fmt.Errorf("invalid signatures")
 	}
 	return nil
 }
@@ -81,7 +81,7 @@ func (t Transaction) ValidData() error {
 		return fmt.Errorf("sum(inputs) != sum(outputs)")
 	}
 	// Coinbase transactions must only have one input.
-	if t.Coinbase() && len(t.Inputs) != 1 {
+	if t.IsCoinbase() && len(t.Inputs) != 1 {
 		return fmt.Errorf("invalid coinbase transaction")
 	}
 	// Ensure that no address exists in both the Inputs and Outputs.
@@ -127,30 +127,17 @@ func emptyIntersection(a, b AddressAmountMap) bool {
 // not validate the content of the RCD or signature. ValidExtIDs assumes that
 // the entry content has been unmarshaled and that ValidData returns nil.
 func (t Transaction) ValidExtIDs() error {
-	if len(t.ExtIDs) != 2*len(t.Inputs) {
-		return fmt.Errorf("invalid number of ExtIDs")
+	if len(t.ExtIDs) != 2*len(t.Inputs)+1 {
+		return fmt.Errorf("incorrect number of ExtIDs")
 	}
-	for i := 0; i < len(t.Inputs); i++ {
-		rcd := t.ExtIDs[i*2]
-		if len(rcd) != factom.RCDSize {
-			return fmt.Errorf("invalid RCD size")
-		}
-		if rcd[0] != factom.RCDType {
-			return fmt.Errorf("invalid RCD type")
-		}
-		sig := t.ExtIDs[i*2+1]
-		if len(sig) != factom.SignatureSize {
-			return fmt.Errorf("invalid signature size")
-		}
-	}
-	return nil
+	return t.Entry.ValidExtIDs()
 }
 
-// ValidSignatures returns true if the RCD/signature pairs are valid.
-// ValidSignatures assumes that ValidExtIDs returns nil.
-func (t Transaction) ValidSignatures() bool {
-	return t.validSignatures(len(t.Inputs))
-}
+//// ValidSignatures returns true if the RCD/signature pairs are valid.
+//// ValidSignatures assumes that ValidExtIDs returns nil.
+//func (t Transaction) ValidSignatures() bool {
+//	return t.validSignatures(len(t.Inputs))
+//}
 
 // ValidRCDs returns true if for each input there is an external ID containing
 // an RCD corresponding to the input. ValidRCDs assumes that UnmarshalEntry has
@@ -158,8 +145,9 @@ func (t Transaction) ValidSignatures() bool {
 func (t Transaction) ValidRCDs() bool {
 	// Create a map of all RCDs that are present in the ExtIDs.
 	rcdHashes := make(AddressAmountMap)
-	for i := 0; i < len(t.ExtIDs)/2; i++ {
-		rcdHashes[sha256d(t.ExtIDs[i*2])] = 0
+	extIDs := t.ExtIDs[1:]
+	for i := 0; i < len(extIDs)/2; i++ {
+		rcdHashes[sha256d(extIDs[i*2])] = 0
 	}
 
 	// Ensure that for all Inputs there is a corresponding RCD in the
@@ -176,49 +164,5 @@ func (t Transaction) ValidRCDs() bool {
 // which should be the RCD of the IDKey of the issuing Identity, if t is a
 // coinbase transaction.
 func (t Transaction) RCDHash() [sha256.Size]byte {
-	return sha256d(t.ExtIDs[0])
-}
-
-// AddressAmountMap relates the RCDHash of an address to its amount in a
-// Transaction.
-type AddressAmountMap map[factom.Bytes32]uint64
-
-// UnmarshalJSON unmarshals a list of addresses and amounts used in the inputs
-// or outputs of a transaction. Duplicate addresses or addresses with a 0
-// amount cause an error.
-func (a *AddressAmountMap) UnmarshalJSON(data []byte) error {
-	aam := make(AddressAmountMap)
-	var aaS map[string]uint64
-	if err := json.Unmarshal(data, &aaS); err != nil {
-		return err
-	}
-	for address, amount := range aaS {
-		data := []byte(fmt.Sprintf("%#v", address))
-		address := factom.Address{}
-		if amount == 0 {
-			return fmt.Errorf("invalid amount (0) for address: %v", address)
-		}
-		json.Unmarshal(data, &address)
-		if _, duplicate := aam[address.RCDHash()]; duplicate {
-			return fmt.Errorf("duplicate address: %v", address)
-		}
-		aam[address.RCDHash()] = amount
-	}
-	*a = aam
-	return nil
-}
-
-// MarshalJSON marshals a list of addresses and amounts used in the inputs or
-// outputs of a transaction. Addresses with a 0 amount are omitted.
-func (a AddressAmountMap) MarshalJSON() ([]byte, error) {
-	as := make(map[string]uint64, len(a))
-	for rcdHash, amount := range a {
-		// Omit addresses with 0 amounts.
-		if amount == 0 {
-			continue
-		}
-		address := factom.NewAddress(&rcdHash)
-		as[address.String()] = amount
-	}
-	return json.Marshal(as)
+	return sha256d(t.ExtIDs[1])
 }
