@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"math/rand"
 	"strconv"
 	"time"
@@ -21,13 +22,45 @@ type Entry struct {
 
 // unmarshalEntry unmarshals the content of the factom.Entry into the provided
 // variable v, disallowing all unknown fields.
-func (e Entry) unmarshalEntry(v interface{}) error {
+func (e Entry) unmarshalEntry(v interface {
+	ExpectedJSONLength() int
+}) error {
+	contentJSONLen := compactJSONLen(e.Content)
+	if contentJSONLen == 0 {
+		return fmt.Errorf("not a single valid JSON")
+	}
 	d := json.NewDecoder(bytes.NewReader(e.Content))
 	d.DisallowUnknownFields()
-	return d.Decode(v)
+	if err := d.Decode(v); err != nil {
+		return err
+	}
+	expectedJSONLen := v.ExpectedJSONLength()
+	if contentJSONLen != expectedJSONLen {
+		return fmt.Errorf("contentJSONLen (%v) != expectedJSONLen (%v)",
+			contentJSONLen, expectedJSONLen)
+	}
+	return nil
 }
 
-func (e *Entry) marshalEntry(v interface{ ValidData() error }) error {
+func (e Entry) metadataLen() int {
+	if e.Metadata == nil {
+		return 0
+	}
+	l := len(`,`)
+	l += len(`"metadata":`) + compactJSONLen(e.Metadata)
+	return l
+}
+
+func compactJSONLen(data []byte) int {
+	buf := bytes.NewBuffer(make([]byte, 0, len(data)))
+	json.Compact(buf, data)
+	cmp, _ := ioutil.ReadAll(buf)
+	return len(cmp)
+}
+
+func (e *Entry) marshalEntry(v interface {
+	ValidData() error
+}) error {
 	if err := v.ValidData(); err != nil {
 		return err
 	}
@@ -39,10 +72,9 @@ func (e *Entry) marshalEntry(v interface{ ValidData() error }) error {
 	return nil
 }
 
-// validExtIDs validates the structure of the external IDs of the entry to make
-// sure that it has the correct number of RCD/signature pairs. ValidExtIDs does
-// not validate the content of the RCD or signature. ValidExtIDs assumes that
-// the entry content has been unmarshaled and that ValidData returns nil.
+// ValidExtIDs validates the structure of the ExtIDs of the factom.Entry to
+// make sure that it has a valid timestamp salt and a valid set of
+// RCD/signature pairs.
 func (e Entry) ValidExtIDs() error {
 	if len(e.ExtIDs) < 3 || len(e.ExtIDs)%2 != 1 {
 		return fmt.Errorf("invalid number of ExtIDs")

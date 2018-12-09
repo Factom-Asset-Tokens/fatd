@@ -45,6 +45,24 @@ type Issuance struct {
 	Entry
 }
 
+func (i Issuance) ExpectedJSONLength() int {
+	l := len(`{`)
+	l += len(`"type":`) + len(`"`) + len(i.Type) + len(`"`)
+	l += len(`,"supply":`) + digitLen(i.Supply)
+	l += jsonStringLen("symbol", i.Symbol)
+	l += jsonStringLen("name", i.Name)
+	l += i.metadataLen()
+	l += len(`}`)
+	return l
+}
+
+func jsonStringLen(name, value string) int {
+	if len(value) != 0 {
+		return len(`,"`) + len(name) + len(`":`) + len(`"`) + len(value) + len(`"`)
+	}
+	return 0
+}
+
 // NewIssuance returns an Issuance initialized with the given entry.
 func NewIssuance(entry factom.Entry) Issuance {
 	return Issuance{Entry: Entry{Entry: entry}}

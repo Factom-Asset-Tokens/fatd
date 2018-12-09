@@ -124,7 +124,7 @@ var issuanceTests = []struct {
 	Issuance:  invalidIssuance("name"),
 }, {
 	Name:      "invalid JSON (nil)",
-	Error:     `EOF`,
+	Error:     `not a single valid JSON`,
 	IssuerKey: issuerKey,
 	Issuance:  issuance(nil),
 }, {
@@ -134,7 +134,7 @@ var issuanceTests = []struct {
 	Issuance:  setFieldIssuance("type", "invalid"),
 }, {
 	Name:      "invalid data (type omitted)",
-	Error:     `invalid "type": ""`,
+	Error:     `contentJSONLen (68) != expectedJSONLen (78)`,
 	IssuerKey: issuerKey,
 	Issuance:  omitFieldIssuance("type"),
 }, {
@@ -149,7 +149,7 @@ var issuanceTests = []struct {
 	Issuance:  setFieldIssuance("supply", -5),
 }, {
 	Name:      "invalid data (supply: omitted)",
-	Error:     `invalid "supply": must be positive or -1`,
+	Error:     `contentJSONLen (67) != expectedJSONLen (78)`,
 	IssuerKey: issuerKey,
 	Issuance:  omitFieldIssuance("supply"),
 }, {
@@ -259,7 +259,7 @@ var issuanceMarshalEntryTests = []struct {
 	}(),
 }, {
 	Name:  "invalid data",
-	Error: "invalid type",
+	Error: `invalid "type": "invalid"`,
 	Issuance: func() Issuance {
 		i := newIssuance()
 		i.Type = "invalid"

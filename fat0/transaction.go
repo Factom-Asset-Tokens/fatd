@@ -31,6 +31,40 @@ func (t *Transaction) UnmarshalEntry() error {
 	return t.unmarshalEntry(t)
 }
 
+func (t Transaction) ExpectedJSONLength() int {
+	l := len(`{`)
+	l += len(`"inputs":`) + addressAmountMapJSONLen(t.Inputs)
+	l += len(`,`)
+	l += len(`"outputs":`) + addressAmountMapJSONLen(t.Outputs)
+	l += t.metadataLen()
+	l += len(`}`)
+	return l
+}
+
+func addressAmountMapJSONLen(m AddressAmountMap) int {
+	l := len(`{}`)
+	if len(m) > 0 {
+		l += len(m) * len(`"FA3p291ptJvHAFjf22naELozdFEKfbAPt8zLKaGiSVXfM6AUDVM5":,`)
+		l -= len(`,`)
+		for _, a := range m {
+			l += digitLen(int64(a))
+		}
+	}
+	return l
+}
+
+func digitLen(d int64) int {
+	l := 1
+	if d < 0 {
+		l += 1
+		d *= -1
+	}
+	for pow := int64(10); d/pow != 0; pow *= 10 {
+		l++
+	}
+	return l
+}
+
 // MarshalEntry marshals the entry content as a Transaction.
 func (t *Transaction) MarshalEntry() error {
 	return t.marshalEntry(t)
