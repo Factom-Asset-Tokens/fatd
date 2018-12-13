@@ -27,7 +27,7 @@ func (a *AddressAmountMap) UnmarshalJSON(data []byte) error {
 			return fmt.Errorf("invalid amount (0) for address: %v", address)
 		}
 		json.Unmarshal(data, &address)
-		aam[address.RCDHash()] = amount
+		aam[*address.RCDHash()] = amount
 	}
 	*a = aam
 	return nil

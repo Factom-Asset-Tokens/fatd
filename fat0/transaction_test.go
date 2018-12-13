@@ -168,7 +168,7 @@ func TestTransaction(t *testing.T) {
 			assert := assert.New(t)
 			tx := test.Tx
 			key := test.IssuerKey
-			err := tx.Valid(key.RCDHash())
+			err := tx.Valid(*key.RCDHash())
 			if len(test.Error) != 0 {
 				assert.EqualError(err, test.Error)
 				return
@@ -290,7 +290,7 @@ var transactionMarshalEntryTests = []struct {
 	Name: "valid (omit zero balances)",
 	Tx: func() Transaction {
 		t := newTransaction()
-		t.Inputs[coinbase.RCDHash()] = 0
+		t.Inputs[*coinbase.RCDHash()] = 0
 		return t
 	}(),
 }, {
@@ -305,7 +305,7 @@ var transactionMarshalEntryTests = []struct {
 	Error: "sum(inputs) != sum(outputs)",
 	Tx: func() Transaction {
 		t := newTransaction()
-		t.Inputs[inputAddresses[0].RCDHash()]++
+		t.Inputs[*inputAddresses[0].RCDHash()]++
 		return t
 	}(),
 }, {
@@ -353,7 +353,7 @@ func addressAmountMap(aas map[string]uint64) AddressAmountMap {
 			[]byte(fmt.Sprintf("%#v", addressStr)), &a); err != nil {
 			panic(err)
 		}
-		m[a.RCDHash()] = amount
+		m[*a.RCDHash()] = amount
 	}
 	return m
 }

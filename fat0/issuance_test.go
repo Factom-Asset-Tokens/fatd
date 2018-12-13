@@ -182,7 +182,7 @@ func TestIssuance(t *testing.T) {
 			assert := assert.New(t)
 			i := test.Issuance
 			key := test.IssuerKey
-			err := i.Valid(key.RCDHash())
+			err := i.Valid(*key.RCDHash())
 			if len(test.Error) == 0 {
 				assert.NoError(err)
 			} else {

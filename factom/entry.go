@@ -1,6 +1,21 @@
 package factom
 
-import "fmt"
+import (
+	"crypto/sha256"
+	"crypto/sha512"
+	"fmt"
+)
+
+// ChainID returns the chain ID for a set of NameIDs.
+func ChainID(nameIDs []Bytes) *Bytes32 {
+	hash := sha256.New()
+	for _, id := range nameIDs {
+		idSum := sha256.Sum256(id)
+		hash.Write(idSum[:])
+	}
+	chainID := hash.Sum(nil)
+	return NewBytes32(chainID)
+}
 
 // Entry represents a Factom Entry.
 type Entry struct {
@@ -36,9 +51,105 @@ func (e *Entry) Get() error {
 	if e.IsPopulated() {
 		return nil
 	}
-	params := map[string]*Bytes32{"hash": e.Hash}
-	if err := request("entry", params, e); err != nil {
+	params := struct {
+		Hash *Bytes32 `json:"hash"`
+	}{Hash: e.Hash}
+	var result struct {
+		Data Bytes `json:"data"`
+	}
+	if err := request("raw-data", params, &result); err != nil {
 		return err
 	}
+	return e.UnmarshalBinary(result.Data)
+}
+
+// MarshalBinary marshals the entry to its binary representation. See
+// UnmarshalBinary for encoding details.
+func (e Entry) MarshalBinary() []byte {
+	extIDTotalLen := len(e.ExtIDs) * 2 // Two byte len(ExtID) per ExtID
+	for _, extID := range e.ExtIDs {
+		extIDTotalLen += len(extID)
+	}
+	// Header, version byte 0x00
+	data := make([]byte, 1, headerLen+extIDTotalLen+len(e.Content))
+	data = append(data, e.ChainID[:]...)
+	data = append(data, bigEndian(extIDTotalLen)...)
+
+	// Payload
+	for _, extID := range e.ExtIDs {
+		n := len(extID)
+		data = append(data, bigEndian(n)...)
+		data = append(data, extID...)
+	}
+	return append(data, e.Content...)
+}
+
+const (
+	// Version byte, Chain ID, ExtIDs Total Encoded Length
+	headerLen = len([...]byte{0x00}) + len(Bytes32{}) + len([...]byte{0x00, 0x00})
+)
+
+// UnmarshalBinary unmarshals raw entry data. Entries are encoded as follows
+// and use big endian uint16:
+//
+// [Version byte (0x00)] +
+// [ChainID (Bytes32)] +
+// [Total ExtID encoded length (uint16)] +
+// [ExtID 0 length (uint16)] + [ExtID 0 (Bytes)] +
+// ... +
+// [ExtID X length (uint16)] + [ExtID X (Bytes)] +
+// [Content (Bytes)]
+//
+// https://github.com/FactomProject/FactomDocs/blob/master/factomDataStructureDetails.md#entry
+func (e *Entry) UnmarshalBinary(data []byte) error {
+	if len(data) < headerLen {
+		return fmt.Errorf("insufficient length")
+	}
+	if data[0] != 0x00 {
+		return fmt.Errorf("invalid version byte")
+	}
+	chainID := data[1:33]
+	extIDTotalLen := parseBigEndian(data[33:35])
+	if extIDTotalLen == 1 || headerLen+extIDTotalLen > len(data) {
+		return fmt.Errorf("invalid ExtIDs length")
+	}
+
+	extIDs := []Bytes{}
+	pos := headerLen
+	for pos < headerLen+extIDTotalLen {
+		extIDLen := parseBigEndian(data[pos : pos+2])
+		if pos+2+extIDLen > headerLen+extIDTotalLen {
+			return fmt.Errorf("error parsing ExtIDs")
+		}
+		pos += 2
+		extIDs = append(extIDs, Bytes(data[pos:pos+extIDLen]))
+		pos += extIDLen
+	}
+	e.Content = data[pos:]
+	e.ExtIDs = extIDs
+	e.ChainID = NewBytes32(chainID)
 	return nil
+}
+
+// ComputeHash returns the Entry's hash as computed by hashing the binary
+// representation of the Entry.
+func (e Entry) ComputeHash() Bytes32 {
+	data := e.MarshalBinary()
+	return EntryHash(data)
+}
+
+// EntryHash returns the Entry hash of data. Entry's are hashed via:
+// sha256(sha512(data) + data).
+func EntryHash(data []byte) Bytes32 {
+	sum := sha512.Sum512(data)
+	return sha256.Sum256(append(sum[:], data...))
+
+}
+
+func bigEndian(x int) []byte {
+	return []byte{byte(x >> 8), byte(x)}
+}
+
+func parseBigEndian(data []byte) int {
+	return int(data[0])<<8 + int(data[1])
 }

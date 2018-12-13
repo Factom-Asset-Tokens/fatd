@@ -156,6 +156,11 @@ func TestDataStructures(t *testing.T) {
 		assert.NotEmpty(e.Content)
 		assert.Equal(height, e.Height)
 		assert.Equal(time.Unix(1542223080, 0), e.Timestamp.Time)
+		assert.Equal(*e.Hash, e.ComputeHash())
+
+		e = eb.Entries[1]
+		require.NoError(e.Get())
+		assert.Equal(*e.Hash, e.ComputeHash())
 	})
 
 	assert.Equal(t, factom.Bytes32{}, factom.ZeroBytes32())

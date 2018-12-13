@@ -18,7 +18,7 @@ func TestZeroAddress(t *testing.T) {
 	require := require.New(t)
 	require.Equal(humanReadableZeroAddress, a.String())
 	rcdHash := a.RCDHash()
-	a2 := factom.NewAddress(&rcdHash)
+	a2 := factom.NewAddress(rcdHash)
 	require.Equal(humanReadableZeroAddress, a2.String())
 }
 

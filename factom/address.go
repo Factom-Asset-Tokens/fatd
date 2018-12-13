@@ -84,12 +84,12 @@ func (a *Address) RCD() []byte {
 
 // RCDHash returns the RCDHash of the Address. If the rcdHash is nil, then it
 // is computed and saved for future reuse.
-func (a *Address) RCDHash() Bytes32 {
+func (a *Address) RCDHash() *Bytes32 {
 	if a.rcdHash == nil {
 		rcdHash := Bytes32(sha256d(a.RCD()))
 		a.rcdHash = &rcdHash
 	}
-	return *a.rcdHash
+	return a.rcdHash
 }
 
 // encodePub encodes data using a base58 checksum encoding with the two prefix

@@ -2,7 +2,7 @@ package factom
 
 // DBlock represents a Factom Directory Block.
 type DBlock struct {
-	Height uint64 `json:"-"`
+	Height uint64 `json:"height"`
 
 	// DBlock.Get populates EBlocks with their ChainID and KeyMR.
 	EBlocks []EBlock `json:"dbentries,omitempty"`
@@ -23,13 +23,12 @@ func (db *DBlock) Get() error {
 		return nil
 	}
 
-	params := map[string]interface{}{"height": db.Height}
 	// We need the following anonymous struct to accomodate the way the
 	// idiosyncratic way that the JSON response is returned.
 	result := &struct {
 		*DBlock `json:"dblock"`
 	}{DBlock: db}
-	if err := request("dblock-by-height", params, result); err != nil {
+	if err := request("dblock-by-height", db, result); err != nil {
 		return err
 	}
 

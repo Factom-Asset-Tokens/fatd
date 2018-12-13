@@ -73,7 +73,7 @@ func (t *Transaction) MarshalEntry() error {
 // IsCoinbase returns true if the coinbase address is in t.Input. This does not
 // necessarily mean that t is a valid coinbase transaction.
 func (t Transaction) IsCoinbase() bool {
-	amount := t.Inputs[coinbase.RCDHash()]
+	amount := t.Inputs[*coinbase.RCDHash()]
 	return amount != 0
 }
 
