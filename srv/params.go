@@ -43,7 +43,8 @@ func (p TokenParams) ValidChainID() *factom.Bytes32 {
 	if p.ChainID != nil {
 		return p.ChainID
 	}
-	return fat0.ChainID(*p.TokenID, p.IssuerChainID)
+	chainID := fat0.ChainID(*p.TokenID, p.IssuerChainID)
+	return &chainID
 }
 
 var TokenParamsError = jrpc.NewInvalidParamsError(

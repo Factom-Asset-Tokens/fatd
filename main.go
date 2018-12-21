@@ -4,11 +4,10 @@ import (
 	"os"
 	"os/signal"
 
-	"github.com/Factom-Asset-Tokens/fatd/db"
+	"github.com/Factom-Asset-Tokens/fatd/engine"
 	"github.com/Factom-Asset-Tokens/fatd/flag"
 	"github.com/Factom-Asset-Tokens/fatd/log"
 	"github.com/Factom-Asset-Tokens/fatd/srv"
-	"github.com/Factom-Asset-Tokens/fatd/state"
 )
 
 func main() { os.Exit(_main()) }
@@ -23,34 +22,20 @@ func _main() (ret int) {
 
 	log := log.New("main")
 
-	if err := db.Open(); err != nil {
-		log.Errorf("db.Open(): %v", err)
-		return 1
-	}
-	defer func() {
-		if err := db.Close(); err != nil {
-			log.Errorf("db.Close(): %v", err)
-			ret = 1
-			return
-		}
-		log.Info("DB connection closed.")
-	}()
-	log.Info("DB connection opened.")
-
-	stateErrCh, err := state.Start()
+	engineErrCh, err := engine.Start()
 	if err != nil {
-		log.Errorf("state.Start(): %v", err)
+		log.Errorf("engine.Start(): %v", err)
 		return 1
 	}
 	defer func() {
-		if err := state.Stop(); err != nil {
-			log.Errorf("state.Stop(): %v", err)
+		if err := engine.Stop(); err != nil {
+			log.Errorf("engine.Stop(): %v", err)
 			ret = 1
 			return
 		}
-		log.Info("State machine stopped.")
+		log.Info("State engine stopped.")
 	}()
-	log.Info("State machine started.")
+	log.Info("State engine started.")
 
 	srv.Start()
 	defer func() {
@@ -73,8 +58,8 @@ func _main() (ret int) {
 	select {
 	case <-sig:
 		log.Infof("SIGINT: Shutting down now.")
-	case err := <-stateErrCh:
-		log.Errorf("state: %v", err)
+	case err := <-engineErrCh:
+		log.Errorf("engine: %v", err)
 	}
 
 	return

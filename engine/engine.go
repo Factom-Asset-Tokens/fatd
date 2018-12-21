@@ -1,13 +1,13 @@
-package state
+package engine
 
 import (
 	"fmt"
 	"sync"
 	"time"
 
-	"github.com/Factom-Asset-Tokens/fatd/db"
 	"github.com/Factom-Asset-Tokens/fatd/factom"
 	_log "github.com/Factom-Asset-Tokens/fatd/log"
+	"github.com/Factom-Asset-Tokens/fatd/state"
 )
 
 var (
@@ -22,8 +22,11 @@ const (
 )
 
 func Start() (chan error, error) {
-	log = _log.New("state")
+	if err := state.Load(); err != nil {
+		return nil, err
+	}
 
+	log = _log.New("engine")
 	returnError = make(chan error, 1)
 	stop = make(chan error)
 
@@ -34,9 +37,10 @@ func Start() (chan error, error) {
 
 func Stop() error {
 	if stop == nil {
-		return fmt.Errorf("%#v", "Already not running")
+		return fmt.Errorf("Already not running")
 	}
 	close(stop)
+	state.Close()
 	return nil
 }
 
@@ -68,24 +72,40 @@ func scanNewBlocks() error {
 		return fmt.Errorf("factom.GetHeights(): %v", err)
 	}
 	currentHeight := uint64(heights.EntryHeight)
-	// Scan blocks from the last saved FBlockHeight up to but not including
+	// Scan blocks from the last saved block height up to but not including
 	// the leader height
-	for height := db.GetSavedHeight() + 1; height <= currentHeight; height++ {
+	for height := state.GetSavedHeight() + 1; height <= currentHeight; height++ {
 		log.Debugf("Scanning block %v for FAT entries.", height)
 		dblock := factom.DBlock{Height: height}
 		if err := dblock.Get(); err != nil {
-			return fmt.Errorf("DBlock%+v.Get(): %v", dblock, err)
+			return fmt.Errorf("%#v.Get(): %v", dblock, err)
 		}
 
 		wg := &sync.WaitGroup{}
-		for i, _ := range dblock.EBlocks {
+		chainIDs := make(map[factom.Bytes32]struct{}, len(dblock.EBlocks))
+		for _, eb := range dblock.EBlocks {
+			// There must never be a duplicate ChainID since chains
+			// are processed concurrently. Since this is external
+			// data we must validate it. This should never occur
+			// and indicates a serious issue with the factomd API
+			// endpoint we are talking to.
+			_, ok := chainIDs[*eb.ChainID]
+			if ok {
+				return fmt.Errorf("duplicate ChainID in DBlock.EBlocks")
+			}
+			chainIDs[*eb.ChainID] = struct{}{}
 			wg.Add(1)
-			go processEBlock(wg, dblock.EBlocks[i])
+			go func() {
+				defer wg.Done()
+				if err := state.ProcessEBlock(eb); err != nil {
+					errorStop(err)
+				}
+			}()
 		}
 		wg.Wait()
 
-		if err := db.SaveHeight(height); err != nil {
-			return fmt.Errorf("db.SaveHeight(%v): %v", height, err)
+		if err := state.SaveHeight(height); err != nil {
+			return fmt.Errorf("state.SaveHeight(%v): %v", height, err)
 		}
 	}
 

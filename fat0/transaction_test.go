@@ -220,7 +220,7 @@ func coinbaseTx() Transaction {
 }
 func transaction(content factom.Bytes) Transaction {
 	e := factom.Entry{
-		ChainID: tokenChainID,
+		ChainID: &tokenChainID,
 		Content: content,
 	}
 	t := NewTransaction(e)

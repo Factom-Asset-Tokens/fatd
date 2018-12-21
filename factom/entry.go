@@ -7,14 +7,16 @@ import (
 )
 
 // ChainID returns the chain ID for a set of NameIDs.
-func ChainID(nameIDs []Bytes) *Bytes32 {
+func ChainID(nameIDs []Bytes) Bytes32 {
 	hash := sha256.New()
 	for _, id := range nameIDs {
 		idSum := sha256.Sum256(id)
 		hash.Write(idSum[:])
 	}
-	chainID := hash.Sum(nil)
-	return NewBytes32(chainID)
+	c := hash.Sum(nil)
+	var chainID Bytes32
+	copy(chainID[:], c)
+	return chainID
 }
 
 // Entry represents a Factom Entry.
@@ -89,8 +91,8 @@ const (
 	headerLen = len([...]byte{0x00}) + len(Bytes32{}) + len([...]byte{0x00, 0x00})
 )
 
-// UnmarshalBinary unmarshals raw entry data. Entries are encoded as follows
-// and use big endian uint16:
+// UnmarshalBinary unmarshals raw entry data. It does not populate the
+// Entry.Hash. Entries are encoded as follows and use big endian uint16:
 //
 // [Version byte (0x00)] +
 // [ChainID (Bytes32)] +
@@ -130,6 +132,12 @@ func (e *Entry) UnmarshalBinary(data []byte) error {
 	e.ChainID = NewBytes32(chainID)
 	return nil
 }
+func bigEndian(x int) []byte {
+	return []byte{byte(x >> 8), byte(x)}
+}
+func parseBigEndian(data []byte) int {
+	return int(data[0])<<8 + int(data[1])
+}
 
 // ComputeHash returns the Entry's hash as computed by hashing the binary
 // representation of the Entry.
@@ -144,12 +152,4 @@ func EntryHash(data []byte) Bytes32 {
 	sum := sha512.Sum512(data)
 	return sha256.Sum256(append(sum[:], data...))
 
-}
-
-func bigEndian(x int) []byte {
-	return []byte{byte(x >> 8), byte(x)}
-}
-
-func parseBigEndian(data []byte) int {
-	return int(data[0])<<8 + int(data[1])
 }

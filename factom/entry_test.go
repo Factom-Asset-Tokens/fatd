@@ -32,7 +32,7 @@ var marshalBinaryTests = []struct {
 	Entry: Entry{
 		Hash: NewBytes32(hexToBytes(
 			"72177d733dcd0492066b79c5f3e417aef7f22909674f7dc351ca13b04742bb91")),
-		ChainID: ChainID([]Bytes{Bytes("test")}),
+		ChainID: func() *Bytes32 { c := ChainID([]Bytes{Bytes("test")}); return &c }(),
 		Content: hexToBytes("5061796c6f616448657265"),
 	},
 }}

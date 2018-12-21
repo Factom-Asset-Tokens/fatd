@@ -1,6 +1,7 @@
 package factom
 
 import (
+	"database/sql"
 	"encoding/hex"
 	"fmt"
 )
@@ -42,6 +43,20 @@ func (b *Bytes32) UnmarshalJSON(data []byte) error {
 func (b Bytes32) MarshalJSON() ([]byte, error) {
 	return bytesMarshalJSON(b[:])
 }
+
+func (b *Bytes32) Scan(v interface{}) error {
+	data, ok := v.([]byte)
+	if !ok {
+		return fmt.Errorf("value must be type []byte but is type %T", v)
+	}
+	if len(data) != 32 {
+		return fmt.Errorf("invalid length")
+	}
+	copy(b[:], data)
+	return nil
+}
+
+var _ sql.Scanner = &Bytes32{}
 
 // Bytes implements json.Marshaler and json.Unmarshaler to encode and decode
 // strings with hex encoded data, such as an Entry's external IDs or content.
