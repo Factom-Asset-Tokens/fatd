@@ -38,14 +38,12 @@ func ProcessEBlock(eb factom.EBlock) error {
 		// Ignore chains with NameIDs that don't match the fat0
 		// pattern.
 		if !fat0.ValidTokenNameIDs(nameIDs) {
-			chains.Ignore(eb.ChainID)
+			chain.Ignore()
 			return nil
 		}
 
 		// Track this chain going forward.
-		var err error
-		chain, err = chains.Track(eb.ChainID, nameIDs)
-		if err != nil {
+		if err := chain.Track(nameIDs); err != nil {
 			return err
 		}
 		// The first entry cannot be a valid Issuance entry, so discard
@@ -53,7 +51,7 @@ func ProcessEBlock(eb factom.EBlock) error {
 		eb.Entries = eb.Entries[1:]
 	} else if !chain.IsTracked() {
 		// Ignore chains that are not already tracked.
-		chains.Ignore(eb.ChainID)
+		chain.Ignore()
 		return nil
 	}
 

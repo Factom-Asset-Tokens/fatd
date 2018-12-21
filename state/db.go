@@ -30,7 +30,7 @@ func Load() error {
 	}
 	for _, f := range files {
 		fname := f.Name()
-		chain := Chain{ChainStatus: ChainStatusTracked}
+		chain := &Chain{ChainStatus: ChainStatusTracked}
 
 		if chain.ID = fnameToChainID(fname); chain.ID == nil {
 			continue
@@ -45,7 +45,7 @@ func Load() error {
 		if err := chain.loadIssuance(); err != nil {
 			return err
 		}
-		chains.Set(chain.ID, chain)
+		chains.Set(chain)
 	}
 
 	return nil

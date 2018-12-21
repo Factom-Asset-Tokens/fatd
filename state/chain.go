@@ -17,6 +17,30 @@ type Chain struct {
 	*gorm.DB
 }
 
+func (chain *Chain) Ignore() {
+	chain.ChainStatus = ChainStatusIgnored
+	chains.Set(chain)
+}
+func (chain *Chain) Track(nameIDs []factom.Bytes) error {
+	token := string(nameIDs[1])
+	identityChainID := factom.NewBytes32(nameIDs[3])
+	chain.ChainStatus = ChainStatusTracked
+	chain.metadata = metadata{Token: token, Issuer: identityChainID}
+	chain.Identity = fat0.Identity{ChainID: identityChainID}
+	if err := chain.setupDB(); err != nil {
+		return err
+	}
+	chains.Set(chain)
+	return nil
+}
+func (chain *Chain) Issue(issuance fat0.Issuance) error {
+	chain.Issuance = issuance
+	if err := chain.saveIssuance(); err != nil {
+		return err
+	}
+	return nil
+}
+
 // setupDB a database for a given token chain.
 func (chain *Chain) setupDB() error {
 	fname := fmt.Sprintf("%v%v", chain.ID, dbFileExtension)
@@ -73,19 +97,22 @@ func (chain *Chain) loadIssuance() error {
 	return nil
 }
 
-func (chain *Chain) Issue(issuance fat0.Issuance) error {
+func (chain *Chain) saveIssuance() error {
+	if chain.IsIssued() {
+		return fmt.Errorf("already issued")
+	}
 	var entriesTableCount int
 	if err := chain.DB.Model(&entry{}).Count(&entriesTableCount).Error; err != nil {
 		return err
 	}
 	if entriesTableCount != 0 {
-		return fmt.Errorf(`table "entries" must be empty`)
+		return fmt.Errorf(`table "entries" must be empty prior to issuance`)
 	}
 
-	chain.Issuance = issuance
-	if err := chain.Save(newEntry(issuance.Entry.Entry)).Error; err != nil {
+	if err := chain.Save(newEntry(chain.Issuance.Entry.Entry)).Error; err != nil {
 		return err
 	}
+	chain.ChainStatus = ChainStatusIssued
 	return nil
 }
 
@@ -98,19 +125,21 @@ func (chain Chain) ProcessEntries(es []factom.Entry) error {
 
 // In general the following checks are ordered from cheapest to most expensive
 // in terms of computation and memory.
-func (chain Chain) processIssuance(es []factom.Entry) error {
+func (chain *Chain) processIssuance(es []factom.Entry) error {
 	if len(es) == 0 {
 		return nil
 	}
-	// The Identity may not have existed when this chain was first tracked.
-	// Attempt to retrieve it.
-	if err := chain.Identity.Get(); err != nil {
-		return err
-	}
-	// If the Identity isn't yet populated then Issuance entries can't be
-	// validated.
 	if !chain.Identity.IsPopulated() {
-		return nil
+		// The Identity may not have existed when this chain was first tracked.
+		// Attempt to retrieve it.
+		if err := chain.Identity.Get(); err != nil {
+			return err
+		}
+		// If the Identity isn't yet populated then Issuance entries can't be
+		// validated.
+		if !chain.Identity.IsPopulated() {
+			return nil
+		}
 	}
 	// If these entries were created in a lower block height than the
 	// Identity entry, then none of them can be a valid Issuance entry.
@@ -136,7 +165,10 @@ func (chain Chain) processIssuance(es []factom.Entry) error {
 			// ignore invalid entries
 			continue
 		}
-		chains.Issue(issuance.ChainID, issuance)
+
+		if err := chain.Issue(issuance); err != nil {
+			return err
+		}
 
 		// Process remaining entries as transactions
 		return chain.processTransactions(es[i+1:])
