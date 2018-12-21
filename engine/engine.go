@@ -75,6 +75,11 @@ func scanNewBlocks() error {
 	// Scan blocks from the last saved block height up to but not including
 	// the leader height
 	for height := state.GetSavedHeight() + 1; height <= currentHeight; height++ {
+		select {
+		case <-stop:
+			return nil
+		default:
+		}
 		log.Debugf("Scanning block %v for FAT entries.", height)
 		dblock := factom.DBlock{Height: height}
 		if err := dblock.Get(); err != nil {
@@ -83,7 +88,8 @@ func scanNewBlocks() error {
 
 		wg := &sync.WaitGroup{}
 		chainIDs := make(map[factom.Bytes32]struct{}, len(dblock.EBlocks))
-		for _, eb := range dblock.EBlocks {
+		for i := range dblock.EBlocks {
+			eb := dblock.EBlocks[i]
 			// There must never be a duplicate ChainID since chains
 			// are processed concurrently. Since this is external
 			// data we must validate it. This should never occur
