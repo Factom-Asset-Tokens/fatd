@@ -2,6 +2,7 @@ package fat0
 
 import (
 	"bytes"
+	"crypto/sha512"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -127,7 +128,8 @@ func (e Entry) validSignatures() error {
 		copy(sig[:], extIDs[sigID*2+1])
 		extIDSalt := []byte(strconv.FormatInt(int64(sigID), 10))
 		msg := append(extIDSalt, msg...)
-		if !ed25519.VerifyCanonical(pubKey, msg, sig) {
+		msgHash := sha512.Sum512(msg)
+		if !ed25519.VerifyCanonical(pubKey, msgHash[:], sig) {
 			return fmt.Errorf("ExtIDs[%v]: invalid signature", sigID*2+2)
 		}
 	}
@@ -149,6 +151,8 @@ func (e *Entry) Sign(as ...factom.Address) {
 	for sigID, a := range as {
 		extIDSalt := []byte(strconv.FormatInt(int64(sigID), 10))
 		msg := append(extIDSalt, msg...)
-		e.ExtIDs = append(e.ExtIDs, a.RCD(), ed25519.Sign(a.PrivateKey, msg)[:])
+		msgHash := sha512.Sum512(msg)
+		sig := ed25519.Sign(a.PrivateKey, msgHash[:])
+		e.ExtIDs = append(e.ExtIDs, a.RCD(), sig[:])
 	}
 }
