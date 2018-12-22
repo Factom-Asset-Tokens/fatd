@@ -14,6 +14,8 @@ type metadata struct {
 
 	Token  string
 	Issuer *factom.Bytes32
+
+	Issued uint64
 }
 
 type entry struct {

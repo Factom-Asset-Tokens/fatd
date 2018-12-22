@@ -7,12 +7,15 @@ import (
 	"os"
 
 	"github.com/Factom-Asset-Tokens/fatd/factom"
+	"github.com/Factom-Asset-Tokens/fatd/fat0"
 	"github.com/Factom-Asset-Tokens/fatd/flag"
 	_log "github.com/Factom-Asset-Tokens/fatd/log"
 
 	"github.com/jinzhu/gorm"
 	_ "github.com/jinzhu/gorm/dialects/sqlite"
 )
+
+var savedHeight uint64
 
 // Load state from all existing databases
 func Load() error {
@@ -45,12 +48,11 @@ func Load() error {
 		if err := chain.loadIssuance(); err != nil {
 			return err
 		}
-		chains.Set(chain)
+		chains.Set(*chain)
 	}
 
 	return nil
 }
-
 func fnameToChainID(fname string) *factom.Bytes32 {
 	if len(fname) != dbFileNameLen ||
 		fname[dbFileNameLen-len(dbFileExtension):dbFileNameLen] != dbFileExtension {
@@ -62,6 +64,19 @@ func fnameToChainID(fname string) *factom.Bytes32 {
 		return nil
 	}
 	return &chainID
+}
+
+func Close() {
+	defer chains.Unlock()
+	chains.Lock()
+	for _, chain := range chains.m {
+		if chain.DB == nil {
+			continue
+		}
+		if err := chain.Close(); err != nil {
+			log.Errorf(err.Error())
+		}
+	}
 }
 
 var (
@@ -106,17 +121,91 @@ func autoMigrate(db *gorm.DB) error {
 	return nil
 }
 
-func Close() {
-	defer chains.Unlock()
-	chains.Lock()
-	for _, chain := range chains.m {
-		if chain.DB == nil {
-			continue
-		}
-		if err := chain.Close(); err != nil {
-			log.Errorf(err.Error())
-		}
+// setupDB a database for a given token chain.
+func (chain *Chain) setupDB() error {
+	fname := fmt.Sprintf("%v%v", chain.ID, dbFileExtension)
+	var err error
+	if chain.DB, err = open(fname); err != nil {
+		return err
 	}
+	// Ensure the db gets closed if there are any issues.
+	defer func() {
+		if err != nil {
+			chain.Close()
+		}
+	}()
+	if err := chain.Create(&chain.metadata).Error; err != nil {
+		return err
+	}
+	return nil
+}
+
+func (chain *Chain) loadMetadata() error {
+	var metadataTableCount int
+	if err := chain.DB.Model(&metadata{}).Count(&metadataTableCount).Error; err != nil {
+		return err
+	}
+	if metadataTableCount != 1 {
+		return fmt.Errorf(`table "metadata" must have exactly one row`)
+	}
+	if err := chain.First(&chain.metadata).Error; err != nil {
+		return err
+	}
+	if !fat0.ValidTokenNameIDs(fat0.NameIDs(chain.Token, chain.Issuer)) ||
+		*chain.ID != fat0.ChainID(chain.Token, chain.Issuer) {
+		return fmt.Errorf("corrupted metadata table for chain %v", chain.ID)
+	}
+	return nil
+}
+
+func (chain *Chain) loadIssuance() error {
+	e := entry{}
+	if err := chain.First(&e).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil
+		}
+		return err
+	}
+	if !e.IsValid() {
+		return fmt.Errorf("corrupted entry hash")
+	}
+	chain.Issuance = fat0.NewIssuance(e.Entry())
+	if err := chain.Issuance.UnmarshalEntry(); err != nil {
+		return err
+	}
+	chain.ChainStatus = ChainStatusIssued
+	return nil
+}
+
+func (chain *Chain) saveIssuance() error {
+	if chain.IsIssued() {
+		return fmt.Errorf("already issued")
+	}
+	var entriesTableCount int
+	if err := chain.DB.Model(&entry{}).Count(&entriesTableCount).Error; err != nil {
+		return err
+	}
+	if entriesTableCount != 0 {
+		return fmt.Errorf(`table "entries" must be empty prior to issuance`)
+	}
+
+	if err := chain.createEntry(chain.Issuance.Entry.Entry); err != nil {
+		return err
+	}
+	chain.ChainStatus = ChainStatusIssued
+	return nil
+}
+func (chain *Chain) saveMetadata() error {
+	if err := chain.Save(&chain.metadata).Error; err != nil {
+		return err
+	}
+	return nil
+}
+func (chain *Chain) createEntry(fe factom.Entry) error {
+	if err := chain.Create(newEntry(fe)).Error; err != nil {
+		return err
+	}
+	return nil
 }
 
 func GetSavedHeight() uint64 {
@@ -124,5 +213,13 @@ func GetSavedHeight() uint64 {
 }
 
 func SaveHeight(height uint64) error {
+	return nil
+}
+
+func (chain *Chain) SaveHeight(height uint64) error {
+	chain.metadata.Height = height
+	if err := chain.saveMetadata(); err != nil {
+		return err
+	}
 	return nil
 }

@@ -11,10 +11,15 @@ func ProcessEBlock(eb factom.EBlock) error {
 	// Get the saved data for this chain.
 	chain := chains.Get(eb.ChainID)
 
-	// Skip ignored chains.
-	if chain.IsIgnored() {
+	// Skip ignored chains or EBlocks for heights earlier than this chain's
+	// state.
+	if chain.IsIgnored() || eb.Height <= chain.metadata.Height {
 		return nil
 	}
+
+	defer func() {
+		chains.Set(chain)
+	}()
 
 	// Load this Entry Block.
 	if err := eb.Get(); err != nil {
@@ -46,6 +51,9 @@ func ProcessEBlock(eb factom.EBlock) error {
 		if err := chain.Track(nameIDs); err != nil {
 			return err
 		}
+		if len(eb.Entries) == 1 {
+			return nil
+		}
 		// The first entry cannot be a valid Issuance entry, so discard
 		// it and process the rest.
 		eb.Entries = eb.Entries[1:]
@@ -55,7 +63,7 @@ func ProcessEBlock(eb factom.EBlock) error {
 		return nil
 	}
 
-	if err := chain.ProcessEntries(eb.Entries); err != nil {
+	if err := chain.ProcessEBlock(eb); err != nil {
 		return err
 	}
 	return nil
