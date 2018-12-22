@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"math"
 	"os"
 
 	"github.com/Factom-Asset-Tokens/fatd/factom"
@@ -15,15 +16,21 @@ import (
 	_ "github.com/jinzhu/gorm/dialects/sqlite"
 )
 
-var savedHeight uint64
+var (
+	SavedHeight uint64 = 163180
+	log         _log.Log
+)
 
 // Load state from all existing databases
 func Load() error {
+	log = _log.New("state")
 	// Try to create the database directory in case it doesn't already
 	// exist.
 	if err := os.Mkdir(flag.DBPath, 0755); err != nil && !os.IsExist(err) {
 		return fmt.Errorf("os.Mkdir(%#v)", flag.DBPath)
 	}
+
+	minHeight := uint64(math.MaxUint64)
 
 	// Scan through all files within the database directory. Ignore invalid
 	// file names.
@@ -49,8 +56,18 @@ func Load() error {
 			return err
 		}
 		chains.Set(*chain)
+		log.Debugf("loaded chain: %+v", chain)
+		if chain.metadata.Height < minHeight {
+			minHeight = chain.metadata.Height
+		}
 	}
 
+	if minHeight < math.MaxUint64 {
+		SavedHeight = minHeight
+	}
+	if flag.StartScanHeight > -1 {
+		SavedHeight = uint64(flag.StartScanHeight)
+	}
 	return nil
 }
 func fnameToChainID(fname string) *factom.Bytes32 {
@@ -78,10 +95,6 @@ func Close() {
 		}
 	}
 }
-
-var (
-	log = _log.New("db")
-)
 
 const (
 	dbDriver        = "sqlite3"
@@ -208,15 +221,7 @@ func (chain *Chain) createEntry(fe factom.Entry) error {
 	return nil
 }
 
-func GetSavedHeight() uint64 {
-	return 0
-}
-
-func SaveHeight(height uint64) error {
-	return nil
-}
-
-func (chain *Chain) SaveHeight(height uint64) error {
+func (chain *Chain) saveHeight(height uint64) error {
 	chain.metadata.Height = height
 	if err := chain.saveMetadata(); err != nil {
 		return err

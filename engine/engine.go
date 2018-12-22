@@ -74,7 +74,7 @@ func scanNewBlocks() error {
 	currentHeight := uint64(heights.EntryHeight)
 	// Scan blocks from the last saved block height up to but not including
 	// the leader height
-	for height := state.GetSavedHeight() + 1; height <= currentHeight; height++ {
+	for height := state.SavedHeight + 1; height <= currentHeight; height++ {
 		select {
 		case <-stop:
 			return nil
@@ -109,10 +109,7 @@ func scanNewBlocks() error {
 			}()
 		}
 		wg.Wait()
-
-		if err := state.SaveHeight(height); err != nil {
-			return fmt.Errorf("state.SaveHeight(%v): %v", height, err)
-		}
+		state.SavedHeight = height
 	}
 
 	return nil

@@ -13,13 +13,11 @@ func ProcessEBlock(eb factom.EBlock) error {
 
 	// Skip ignored chains or EBlocks for heights earlier than this chain's
 	// state.
-	if chain.IsIgnored() || eb.Height <= chain.metadata.Height {
+	if chain.IsIgnored() {
+		log.Debugf("IsIgnored")
 		return nil
 	}
-
-	defer func() {
-		chains.Set(chain)
-	}()
+	defer chains.Set(chain)
 
 	// Load this Entry Block.
 	if err := eb.Get(); err != nil {
@@ -28,9 +26,15 @@ func ProcessEBlock(eb factom.EBlock) error {
 	if !eb.IsPopulated() {
 		return fmt.Errorf("%#v.IsPopulated(): false", eb)
 	}
+	log.Debugf("%+v", eb)
+	if eb.Height <= chain.metadata.Height {
+		log.Debugf("too early")
+		return nil
+	}
 
 	// Check for new chains.
 	if eb.IsFirst() {
+		log.Debugf("is first")
 		// Load first entry of new chain.
 		if err := eb.Entries[0].Get(); err != nil {
 			return fmt.Errorf("%#v.Get: %v", eb.Entries[0], err)
@@ -43,9 +47,11 @@ func ProcessEBlock(eb factom.EBlock) error {
 		// Ignore chains with NameIDs that don't match the fat0
 		// pattern.
 		if !fat0.ValidTokenNameIDs(nameIDs) {
+			log.Debug("ignoring")
 			chain.Ignore()
 			return nil
 		}
+		log.Debug("tracking")
 
 		// Track this chain going forward.
 		if err := chain.Track(nameIDs); err != nil {
@@ -59,6 +65,7 @@ func ProcessEBlock(eb factom.EBlock) error {
 		eb.Entries = eb.Entries[1:]
 	} else if !chain.IsTracked() {
 		// Ignore chains that are not already tracked.
+		log.Debug("ignoring")
 		chain.Ignore()
 		return nil
 	}

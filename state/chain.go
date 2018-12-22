@@ -45,13 +45,12 @@ func (chain *Chain) Issue(issuance fat0.Issuance) error {
 }
 
 func (chain *Chain) ProcessEBlock(eb factom.EBlock) error {
-	defer func() {
-		chain.metadata.Height = eb.Height
-		chain.saveMetadata()
-	}()
+	defer chain.saveHeight(eb.Height)
 	if !chain.IsIssued() {
+		log.Debug("is not issued")
 		return chain.processIssuance(eb.Entries)
 	}
+	log.Debug("is issued")
 	return chain.processTransactions(eb.Entries)
 }
 
@@ -95,6 +94,7 @@ func (chain *Chain) processIssuance(es []factom.Entry) error {
 			continue
 		}
 
+		log.Debug("issue")
 		if err := chain.Issue(issuance); err != nil {
 			return err
 		}

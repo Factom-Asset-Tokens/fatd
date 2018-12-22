@@ -2,6 +2,7 @@ package factom
 
 import (
 	"database/sql"
+	"database/sql/driver"
 	"encoding/hex"
 	"fmt"
 )
@@ -55,8 +56,12 @@ func (b *Bytes32) Scan(v interface{}) error {
 	copy(b[:], data)
 	return nil
 }
+func (b Bytes32) Value() (driver.Value, error) {
+	return b[:], nil
+}
 
 var _ sql.Scanner = &Bytes32{}
+var _ driver.Valuer = Bytes32{}
 
 // Bytes implements json.Marshaler and json.Unmarshaler to encode and decode
 // strings with hex encoded data, such as an Entry's external IDs or content.
