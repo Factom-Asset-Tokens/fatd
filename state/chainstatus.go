@@ -21,3 +21,16 @@ func (status ChainStatus) IsTracked() bool {
 func (status ChainStatus) IsIssued() bool {
 	return status&ChainStatusIssued == ChainStatusIssued
 }
+
+func (status ChainStatus) String() string {
+	s := "Unknown"
+	switch status {
+	case ChainStatusTracked:
+		s = "Tracked"
+	case ChainStatusIssued:
+		s = "Issued"
+	case ChainStatusIgnored:
+		s = "Ignored"
+	}
+	return s
+}

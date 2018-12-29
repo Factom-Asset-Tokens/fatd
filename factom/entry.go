@@ -3,6 +3,7 @@ package factom
 import (
 	"crypto/sha256"
 	"crypto/sha512"
+	"encoding/json"
 	"fmt"
 )
 
@@ -59,10 +60,70 @@ func (e *Entry) Get() error {
 	var result struct {
 		Data Bytes `json:"data"`
 	}
-	if err := request("raw-data", params, &result); err != nil {
+	if err := factomdRequest("raw-data", params, &result); err != nil {
 		return err
 	}
 	return e.UnmarshalBinary(result.Data)
+}
+
+type chainFirstEntryParams struct {
+	*Entry `json:"firstentry"`
+}
+type composeChainParams struct {
+	Chain chainFirstEntryParams `json:"chain"`
+	ECPub string                `json:"ecpub"`
+}
+type composeEntryParams struct {
+	*Entry `json:"entry"`
+	ECPub  string `json:"ecpub"`
+}
+
+type composeJRPC struct {
+	Method string          `json:"method"`
+	Params json.RawMessage `json:"params"`
+}
+type composeResult struct {
+	Commit composeJRPC `json:"commit"`
+	Reveal composeJRPC `json:"reveal"`
+}
+type commitResult struct {
+	TxID *Bytes32
+}
+
+func (e *Entry) Create(ecpub string) (*Bytes32, error) {
+	var params interface{}
+	var method string
+	if e.ChainID == nil {
+		method = "compose-chain"
+		params = composeChainParams{
+			Chain: chainFirstEntryParams{Entry: e},
+			ECPub: ecpub,
+		}
+	} else {
+		method = "compose-entry"
+		params = composeEntryParams{
+			Entry: e,
+			ECPub: ecpub,
+		}
+	}
+	result := composeResult{}
+	if err := walletRequest(method, params, &result); err != nil {
+		return nil, err
+	}
+	if len(result.Commit.Method) == 0 {
+		return nil, fmt.Errorf("Wallet request error: method: %#v", method)
+	}
+
+	var commit commitResult
+	if err := factomdRequest(result.Commit.Method, result.Commit.Params,
+		&commit); err != nil {
+		return nil, err
+	}
+	if err := factomdRequest(result.Reveal.Method, result.Reveal.Params,
+		e); err != nil {
+		return nil, err
+	}
+	return commit.TxID, nil
 }
 
 // MarshalBinary marshals the entry to its binary representation. See

@@ -11,24 +11,29 @@ import (
 	jrpc "github.com/AdamSLevy/jsonrpc2/v9"
 )
 
+var DebugRPC bool
+
 // request makes a JSON RPC request with the given method and params, and then
 // parses the response with the given result type. request only returns
 // networking and unmarshaling errors. JSON RPC Errors are not returned. It is
 // up to the caller to determine whether their result is properly populated
 // after request returns. Since data will need to be marshaled into result, the
 // result type should be passed as a pointer.
-func request(method string, params interface{}, result interface{}) error {
+func request(endpoint, method string, params, result interface{}) error {
 	// Generate a random ID for this request.
 	id := rand.Uint32()%200 + 500
 
 	// Marshal the JSON RPC Request.
-	reqBytes, err := json.Marshal(jrpc.NewRequest(method, id, params))
+	reqJrpc := jrpc.NewRequest(method, id, params)
+	if DebugRPC {
+		fmt.Println(reqJrpc)
+	}
+	reqBytes, err := json.Marshal(reqJrpc)
 	if err != nil {
 		return err
 	}
 
 	// Make the HTTP request.
-	endpoint := "http://" + RpcConfig.FactomdServer + "/v2"
 	req, err := http.NewRequest(http.MethodPost, endpoint, bytes.NewBuffer(reqBytes))
 	if err != nil {
 		return err
@@ -52,7 +57,20 @@ func request(method string, params interface{}, result interface{}) error {
 	// Unmarshal the HTTP response into a JSON RPC response.
 	resJrpc := jrpc.NewResponse(result)
 	if err := json.Unmarshal(resBytes, &resJrpc); err != nil {
-		return fmt.Errorf("json.Unmarshal(): %v", err)
+		return fmt.Errorf("json.Unmarshal(%v): %v", string(resBytes), err)
+	}
+	if DebugRPC {
+		fmt.Println(resJrpc)
+		fmt.Println("")
 	}
 	return nil
+}
+
+func factomdRequest(method string, params, result interface{}) error {
+	endpoint := "http://" + RpcConfig.FactomdServer + "/v2"
+	return request(endpoint, method, params, result)
+}
+func walletRequest(method string, params, result interface{}) error {
+	endpoint := "http://" + RpcConfig.WalletServer + "/v2"
+	return request(endpoint, method, params, result)
 }

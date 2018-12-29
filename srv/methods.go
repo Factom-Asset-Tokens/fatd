@@ -6,15 +6,17 @@ import (
 
 	jrpc "github.com/AdamSLevy/jsonrpc2/v9"
 	"github.com/Factom-Asset-Tokens/fatd/factom"
+	"github.com/Factom-Asset-Tokens/fatd/state"
 )
 
 var jrpcMethods = jrpc.MethodMap{
-	"get-issuance":     getIssuance,
-	"get-transaction":  getTransaction,
-	"get-transactions": getTransactions,
-	"get-balance":      getBalance,
-	"get-stats":        getStats,
-	"get-nf-token":     getNFToken,
+	"get-issuance":       getIssuance(false),
+	"get-issuance-entry": getIssuance(true),
+	"get-transaction":    getTransaction,
+	"get-transactions":   getTransactions,
+	"get-balance":        getBalance,
+	"get-stats":          getStats,
+	"get-nf-token":       getNFToken,
 
 	"send-transaction": sendTransaction,
 
@@ -22,20 +24,28 @@ var jrpcMethods = jrpc.MethodMap{
 	"get-daemon-properties": getDaemonProperties,
 }
 
-func getIssuance(data json.RawMessage) interface{} {
-	params := TokenParams{}
-	chainID, res := validate(data, &params)
-	if chainID == nil {
-		return res
+func getIssuance(entry bool) jrpc.MethodFunc {
+	return func(data json.RawMessage) interface{} {
+		params := ParamsToken{}
+		chainID, res := validate(data, &params)
+		if chainID == nil {
+			return res
+		}
+
+		// Look up issuance
+		chain := state.Chains.Get(chainID)
+		if !chain.IsIssued() {
+			return ErrorTokenNotFound
+		}
+		if entry {
+			return chain.Issuance.Entry
+		}
+		return chain.Issuance
 	}
-
-	// Look up issuance
-
-	return TokenNotFoundError
 }
 
 func getTransaction(data json.RawMessage) interface{} {
-	params := GetTransactionParams{}
+	params := ParamsGetTransaction{}
 	chainID, res := validate(data, &params)
 	if chainID == nil {
 		return res
@@ -43,11 +53,11 @@ func getTransaction(data json.RawMessage) interface{} {
 
 	// Lookup Tx by Hash
 
-	return TransactionNotFoundError
+	return ErrorTransactionNotFound
 }
 
 func getTransactions(data json.RawMessage) interface{} {
-	params := GetTransactionsParams{}
+	params := ParamsGetTransactions{}
 	chainID, res := validate(data, &params)
 	if chainID == nil {
 		return res
@@ -55,11 +65,11 @@ func getTransactions(data json.RawMessage) interface{} {
 
 	// Lookup Txs
 
-	return TransactionNotFoundError
+	return ErrorTransactionNotFound
 }
 
 func getBalance(data json.RawMessage) interface{} {
-	params := GetBalanceParams{}
+	params := ParamsGetBalance{}
 	chainID, res := validate(data, &params)
 	if chainID == nil {
 		return res
@@ -71,7 +81,7 @@ func getBalance(data json.RawMessage) interface{} {
 }
 
 func getStats(data json.RawMessage) interface{} {
-	params := TokenParams{}
+	params := ParamsToken{}
 	chainID, res := validate(data, &params)
 	if chainID == nil {
 		return res
@@ -87,28 +97,28 @@ func getStats(data json.RawMessage) interface{} {
 }
 
 func getNFToken(data json.RawMessage) interface{} {
-	params := GetNFTokenParams{}
+	params := ParamsGetNFToken{}
 	chainID, err := validate(data, &params)
 	if chainID == nil {
 		return err
 	}
 
-	return TokenNotFoundError
+	return ErrorTokenNotFound
 }
 
 func sendTransaction(data json.RawMessage) interface{} {
-	params := SendTransactionParams{}
+	params := ParamsSendTransaction{}
 	chainID, err := validate(data, &params)
 	if chainID == nil {
 		return err
 	}
 
-	return TokenNotFoundError
+	return ErrorTokenNotFound
 }
 
 func getDaemonTokens(data json.RawMessage) interface{} {
 	if data != nil {
-		return NoParamsError
+		return ParamsErrorNoParams
 	}
 
 	return []struct {
@@ -120,7 +130,7 @@ func getDaemonTokens(data json.RawMessage) interface{} {
 
 func getDaemonProperties(data json.RawMessage) interface{} {
 	if data != nil {
-		return NoParamsError
+		return ParamsErrorNoParams
 	}
 	return struct {
 		FatdVersion string `json:"fatd-version"`

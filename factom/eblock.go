@@ -35,38 +35,32 @@ func (eb EBlock) IsPopulated() bool {
 // Get returns any networking or marshaling errors, but not JSON RPC errors. To
 // check if the EBlock has been successfully populated, call IsPopulated().
 func (eb *EBlock) Get() error {
-	// If the KeyMR and ChainID are both nil we have nothing to query for.
-	if eb.KeyMR == nil && eb.ChainID == nil {
-		return fmt.Errorf("KeyMR and ChainID are both nil")
-	}
 	// If the EBlock is already populated then there is nothing to do.
 	if eb.IsPopulated() {
 		return nil
 	}
+	// If the KeyMR and ChainID are both nil we have nothing to query for.
+	if eb.KeyMR == nil && eb.ChainID == nil {
+		return fmt.Errorf("KeyMR and ChainID are both nil")
+	}
 
 	// If we don't have a KeyMR, fetch the chain head's KeyMR.
 	if eb.KeyMR == nil {
-		params := map[string]interface{}{"chainid": eb.ChainID}
-		method := "chain-head"
-		chainHead := struct {
-			KeyMR *Bytes32 `json:"chainhead"`
-		}{}
-		if err := request(method, params, &chainHead); err != nil {
+		if err := eb.GetChainHead(); err != nil {
 			return err
 		}
 		// If we don't get a KeyMR back for the chain head then we just
 		// return nil because the chain ID wasn't found and so we can't
 		// populate the entry block.
-		if chainHead.KeyMR == nil {
+		if eb.KeyMR == nil {
 			return nil
 		}
-		eb.KeyMR = chainHead.KeyMR
 	}
 
 	// Make RPC request for this Entry Block.
 	params := map[string]interface{}{"keymr": eb.KeyMR}
 	method := "entry-block"
-	if err := request(method, params, eb); err != nil {
+	if err := factomdRequest(method, params, eb); err != nil {
 		return err
 	}
 
@@ -75,6 +69,19 @@ func (eb *EBlock) Get() error {
 		eb.Entries[i].ChainID = eb.ChainID
 		eb.Entries[i].Height = eb.Height
 	}
+	return nil
+}
+
+func (eb *EBlock) GetChainHead() error {
+	params := eb
+	method := "chain-head"
+	result := struct {
+		KeyMR *Bytes32 `json:"chainhead"`
+	}{}
+	if err := factomdRequest(method, params, &result); err != nil {
+		return err
+	}
+	eb.KeyMR = result.KeyMR
 	return nil
 }
 

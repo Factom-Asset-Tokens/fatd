@@ -40,7 +40,7 @@ func Load() error {
 	}
 	for _, f := range files {
 		fname := f.Name()
-		chain := &Chain{ChainStatus: ChainStatusTracked}
+		chain := Chain{ChainStatus: ChainStatusTracked}
 
 		if chain.ID = fnameToChainID(fname); chain.ID == nil {
 			continue
@@ -55,10 +55,13 @@ func Load() error {
 		if err := chain.loadIssuance(); err != nil {
 			return err
 		}
-		chains.Set(*chain)
-		log.Debugf("loaded chain: %+v", chain)
-		if chain.metadata.Height < minHeight {
-			minHeight = chain.metadata.Height
+		Chains.set(chain.ID, &chain)
+		log.Debugf("loaded chain: %v", chain)
+		if chain.Metadata.Height == 0 {
+			continue
+		}
+		if chain.Metadata.Height < minHeight {
+			minHeight = chain.Metadata.Height
 		}
 	}
 
@@ -66,7 +69,10 @@ func Load() error {
 		SavedHeight = minHeight
 	}
 	if flag.StartScanHeight > -1 {
-		SavedHeight = uint64(flag.StartScanHeight)
+		if uint64(flag.StartScanHeight-1) > SavedHeight {
+			log.Warnf("-startscanheight (%v) is higher than the last saved block height (%v) which will very likely result in a corrupted database.")
+		}
+		SavedHeight = uint64(flag.StartScanHeight - 1)
 	}
 	return nil
 }
@@ -84,9 +90,9 @@ func fnameToChainID(fname string) *factom.Bytes32 {
 }
 
 func Close() {
-	defer chains.Unlock()
-	chains.Lock()
-	for _, chain := range chains.m {
+	defer Chains.Unlock()
+	Chains.Lock()
+	for _, chain := range Chains.m {
 		if chain.DB == nil {
 			continue
 		}
@@ -94,6 +100,23 @@ func Close() {
 			log.Errorf(err.Error())
 		}
 	}
+}
+
+func SaveHeight(height uint64) error {
+	Chains.Lock()
+	defer Chains.Unlock()
+
+	for _, chain := range Chains.m {
+		if !chain.IsTracked() || chain.Metadata.Height >= height {
+			continue
+		}
+		if err := chain.saveHeight(height); err != nil {
+			return err
+		}
+		Chains.m[*chain.ID] = chain
+	}
+	SavedHeight = height
+	return nil
 }
 
 const (
@@ -128,7 +151,7 @@ func autoMigrate(db *gorm.DB) error {
 	if err := db.AutoMigrate(&address{}).Error; err != nil {
 		return fmt.Errorf("db.AutoMigrate(&Address{}): %v", err)
 	}
-	if err := db.AutoMigrate(&metadata{}).Error; err != nil {
+	if err := db.AutoMigrate(&Metadata{}).Error; err != nil {
 		return fmt.Errorf("db.AutoMigrate(&Metadata{}): %v", err)
 	}
 	return nil
@@ -145,29 +168,32 @@ func (chain *Chain) setupDB() error {
 	defer func() {
 		if err != nil {
 			chain.Close()
+			chain.DB = nil
 		}
 	}()
-	if err := chain.Create(&chain.metadata).Error; err != nil {
+	if err := chain.Create(&chain.Metadata).Error; err != nil {
 		return err
 	}
 	return nil
 }
 
 func (chain *Chain) loadMetadata() error {
-	var metadataTableCount int
-	if err := chain.DB.Model(&metadata{}).Count(&metadataTableCount).Error; err != nil {
+	var MetadataTableCount int
+	if err := chain.DB.Model(&Metadata{}).
+		Count(&MetadataTableCount).Error; err != nil {
 		return err
 	}
-	if metadataTableCount != 1 {
+	if MetadataTableCount != 1 {
 		return fmt.Errorf(`table "metadata" must have exactly one row`)
 	}
-	if err := chain.First(&chain.metadata).Error; err != nil {
+	if err := chain.First(&chain.Metadata).Error; err != nil {
 		return err
 	}
 	if !fat0.ValidTokenNameIDs(fat0.NameIDs(chain.Token, chain.Issuer)) ||
 		*chain.ID != fat0.ChainID(chain.Token, chain.Issuer) {
-		return fmt.Errorf("corrupted metadata table for chain %v", chain.ID)
+		return fmt.Errorf(`corrupted "metadata" table for chain %v`, chain.ID)
 	}
+	chain.Identity.ChainID = chain.Metadata.Issuer
 	return nil
 }
 
@@ -191,9 +217,6 @@ func (chain *Chain) loadIssuance() error {
 }
 
 func (chain *Chain) saveIssuance() error {
-	if chain.IsIssued() {
-		return fmt.Errorf("already issued")
-	}
 	var entriesTableCount int
 	if err := chain.DB.Model(&entry{}).Count(&entriesTableCount).Error; err != nil {
 		return err
@@ -209,7 +232,7 @@ func (chain *Chain) saveIssuance() error {
 	return nil
 }
 func (chain *Chain) saveMetadata() error {
-	if err := chain.Save(&chain.metadata).Error; err != nil {
+	if err := chain.Save(&chain.Metadata).Error; err != nil {
 		return err
 	}
 	return nil
@@ -222,7 +245,7 @@ func (chain *Chain) createEntry(fe factom.Entry) error {
 }
 
 func (chain *Chain) saveHeight(height uint64) error {
-	chain.metadata.Height = height
+	chain.Metadata.Height = height
 	if err := chain.saveMetadata(); err != nil {
 		return err
 	}

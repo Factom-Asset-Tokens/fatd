@@ -28,14 +28,17 @@ func (b Bytes32) String() string {
 // UnmarshalJSON unmarshals a string with exactly 32 bytes of hex encoded data.
 func (b *Bytes32) UnmarshalJSON(data []byte) error {
 	if data[0] != '"' || data[len(data)-1] != '"' {
-		return fmt.Errorf("invalid type")
+		return fmt.Errorf("%T: invalid type", b)
 	}
 	data = data[1 : len(data)-1]
+	if len(data) == 0 {
+		return nil
+	}
 	if len(data) != len(b)*2 {
-		return fmt.Errorf("invalid length")
+		return fmt.Errorf("%T: invalid length", b)
 	}
 	if _, err := hex.Decode(b[:], data); err != nil {
-		return err
+		return fmt.Errorf("%T: %v", b, err)
 	}
 	return nil
 }
@@ -48,10 +51,10 @@ func (b Bytes32) MarshalJSON() ([]byte, error) {
 func (b *Bytes32) Scan(v interface{}) error {
 	data, ok := v.([]byte)
 	if !ok {
-		return fmt.Errorf("value must be type []byte but is type %T", v)
+		return fmt.Errorf("Bytes32: invalid type: %T", v)
 	}
 	if len(data) != 32 {
-		return fmt.Errorf("invalid length")
+		return fmt.Errorf("Bytes32: invalid length")
 	}
 	copy(b[:], data)
 	return nil
@@ -75,16 +78,20 @@ func (b Bytes) String() string {
 // UnmarshalJSON unmarshals a string of hex encoded data.
 func (b *Bytes) UnmarshalJSON(data []byte) error {
 	if data[0] != '"' || data[len(data)-1] != '"' {
-		return fmt.Errorf("invalid type")
+		return fmt.Errorf("%T: invalid type", b)
 	}
 	data = data[1 : len(data)-1]
 	*b = make(Bytes, hex.DecodedLen(len(data)))
 
 	_, err := hex.Decode(*b, data)
 	if err != nil {
-		return err
+		return fmt.Errorf("%T: %v", b, err)
 	}
 	return nil
+}
+
+func (b *Bytes) Set(data string) error {
+	return b.UnmarshalJSON([]byte(fmt.Sprintf("%#v", data)))
 }
 
 // MarshalJSON marshals b into hex encoded data.

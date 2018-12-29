@@ -25,10 +25,10 @@ func (db *DBlock) Get() error {
 
 	// We need the following anonymous struct to accomodate the way the
 	// idiosyncratic way that the JSON response is returned.
-	result := &struct {
+	result := struct {
 		*DBlock `json:"dblock"`
 	}{DBlock: db}
-	if err := request("dblock-by-height", db, result); err != nil {
+	if err := factomdRequest("dblock-by-height", db, &result); err != nil {
 		return err
 	}
 

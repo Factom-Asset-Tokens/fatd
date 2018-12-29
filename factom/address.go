@@ -4,7 +4,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 
-	"github.com/FactomProject/btcutil/base58"
+	"github.com/Factom-Asset-Tokens/base58"
 	"github.com/FactomProject/ed25519"
 )
 
@@ -44,10 +44,10 @@ func (a *Address) UnmarshalJSON(data []byte) error {
 	if len(data) != 52 {
 		return fmt.Errorf("invalid length")
 	}
-	if data[0] != prefixChars[0] || data[1] != prefixChars[1] {
+	if string(data[0:2]) != "FA" {
 		return fmt.Errorf("invalid prefix")
 	}
-	b, _, _, err := base58.CheckDecodeWithTwoVersionBytes(string(data))
+	b, _, err := base58.CheckDecode(string(data), 2)
 	if err != nil {
 		return err
 	}
@@ -95,7 +95,7 @@ func (a *Address) RCDHash() *Bytes32 {
 // encodePub encodes data using a base58 checksum encoding with the two prefix
 // bytes used for Factoid public addresses.
 func encodePub(data []byte) string {
-	return base58.CheckEncodeWithVersionBytes(data, prefix[0], prefix[1])
+	return base58.CheckEncode(data, prefix[0], prefix[1])
 }
 
 // sha256d computes two rounds of the sha256 hash on data.

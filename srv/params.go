@@ -6,29 +6,21 @@ import (
 	"github.com/Factom-Asset-Tokens/fatd/fat0"
 )
 
-var (
-	NoParamsError      = jrpc.NewInvalidParamsError(`no "params" accepted`)
-	TokenNotFoundError = jrpc.NewError(-32800, "Token Not Found",
-		"not yet issued or not tracked by this instance of fatd")
-	TransactionNotFoundError = jrpc.NewError(-32800, "Token Not Found",
-		"not yet issued or not tracked by this instance of fatd")
-)
-
 type Params interface {
 	IsValid() bool
 	ValidChainID() *factom.Bytes32
 	Error() jrpc.Error
 }
 
-// TokenParams scopes a request down to a single FAT token using either the
+// ParamsToken scopes a request down to a single FAT token using either the
 // ChainID or both the TokenID and the IssuerChainID.
-type TokenParams struct {
+type ParamsToken struct {
 	ChainID       *factom.Bytes32 `json:"chain-id,omitempty"`
 	TokenID       *string         `json:"token-id,omitempty"`
 	IssuerChainID *factom.Bytes32 `json:"issuer-id,omitempty"`
 }
 
-func (p TokenParams) IsValid() bool {
+func (p ParamsToken) IsValid() bool {
 	if (p.ChainID != nil && p.TokenID == nil && p.IssuerChainID == nil) ||
 		(p.ChainID == nil && p.TokenID != nil && p.IssuerChainID != nil) {
 		return true
@@ -36,7 +28,7 @@ func (p TokenParams) IsValid() bool {
 	return false
 }
 
-func (p TokenParams) ValidChainID() *factom.Bytes32 {
+func (p ParamsToken) ValidChainID() *factom.Bytes32 {
 	if !p.IsValid() {
 		return nil
 	}
@@ -47,33 +39,27 @@ func (p TokenParams) ValidChainID() *factom.Bytes32 {
 	return &chainID
 }
 
-var TokenParamsError = jrpc.NewInvalidParamsError(
-	`"params" required: either "chain-id" or both "token-id" and "issuer-id"`)
-
-func (p TokenParams) Error() jrpc.Error {
-	return TokenParamsError
+func (p ParamsToken) Error() jrpc.Error {
+	return ParamsErrorToken
 }
 
-// GetTransactionParams is used to query for a single particular transaction
+// ParamsGetTransaction is used to query for a single particular transaction
 // with the given Entry Hash.
-type GetTransactionParams struct {
-	TokenParams
+type ParamsGetTransaction struct {
+	ParamsToken
 	Hash *factom.Bytes32 `json:"entryhash"`
 }
 
-func (p GetTransactionParams) IsValid() bool {
+func (p ParamsGetTransaction) IsValid() bool {
 	return p.Hash != nil
 }
 
-var GetTransactionParamsError = jrpc.NewInvalidParamsError(
-	`"params" required: "hash" and either "chain-id" or both "token-id" and "issuer-id"`)
-
-func (p GetTransactionParams) Error() jrpc.Error {
-	return GetTransactionParamsError
+func (p ParamsGetTransaction) Error() jrpc.Error {
+	return ParamsErrorGetTransaction
 }
 
-type GetTransactionsParams struct {
-	TokenParams
+type ParamsGetTransactions struct {
+	ParamsToken
 	NonFungibleTokenID *string         `json:"nf-token-id,omitempty"`
 	FactoidAddress     *factom.Address `json:"fa-address,omitempty"`
 
@@ -83,7 +69,7 @@ type GetTransactionsParams struct {
 	Limit *uint           `json:"limit,omitempty"`
 }
 
-func (p *GetTransactionsParams) IsValid() bool {
+func (p *ParamsGetTransactions) IsValid() bool {
 	if p.Hash != nil {
 		if p.Start != nil {
 			return false
@@ -102,58 +88,46 @@ func (p *GetTransactionsParams) IsValid() bool {
 	return true
 }
 
-var GetTransactionsParamsError = jrpc.NewInvalidParamsError(
-	`"params" required: "hash" or "start" and either "chain-id" or both "token-id" and "issuer-id", "limit" must be greater than 0 if provided`)
-
-func (p GetTransactionsParams) Error() jrpc.Error {
-	return GetTransactionsParamsError
+func (p ParamsGetTransactions) Error() jrpc.Error {
+	return ParamsErrorGetTransactions
 }
 
-type GetNFTokenParams struct {
-	TokenParams
+type ParamsGetNFToken struct {
+	ParamsToken
 	NonFungibleTokenID *string `json:"nf-token-id,omitempty"`
 }
 
-func (p GetNFTokenParams) IsValid() bool {
+func (p ParamsGetNFToken) IsValid() bool {
 	return p.NonFungibleTokenID != nil
 }
 
-var GetNFTokenParamsError = jrpc.NewInvalidParamsError(
-	`"params" required: "nf-token-id" and either "chain-id" or both "token-id" and "issuer-id"`)
-
-func (p GetNFTokenParams) Error() jrpc.Error {
-	return GetNFTokenParamsError
+func (p ParamsGetNFToken) Error() jrpc.Error {
+	return ParamsErrorGetNFToken
 }
 
-type GetBalanceParams struct {
-	TokenParams
+type ParamsGetBalance struct {
+	ParamsToken
 	Address *factom.Address `json:"fa-address,omitempty"`
 }
 
-func (p GetBalanceParams) IsValid() bool {
+func (p ParamsGetBalance) IsValid() bool {
 	return p.Address != nil
 }
 
-var GetBalanceParamsError = jrpc.NewInvalidParamsError(
-	`"params" required: "fa-address" and either "chain-id" or both "token-id" and "issuer-id"`)
-
-func (p GetBalanceParams) Error() jrpc.Error {
-	return GetBalanceParamsError
+func (p ParamsGetBalance) Error() jrpc.Error {
+	return ParamsErrorGetBalance
 }
 
-type SendTransactionParams struct {
-	TokenParams
+type ParamsSendTransaction struct {
+	ParamsToken
 	ExtIDs  []factom.Bytes `json:"rcd-sigs"`
 	Content factom.Bytes   `json:"tx"`
 }
 
-func (p SendTransactionParams) IsValid() bool {
+func (p ParamsSendTransaction) IsValid() bool {
 	return len(p.Content) > 0 && len(p.ExtIDs) > 0
 }
 
-var SendTransactionParamsError = jrpc.NewInvalidParamsError(
-	`"params" required: "rcd-sigs" and "tx" and either "chain-id" or both "token-id" and "issuer-id"`)
-
-func (p SendTransactionParams) Error() jrpc.Error {
-	return SendTransactionParamsError
+func (p ParamsSendTransaction) Error() jrpc.Error {
+	return ParamsErrorSendTransaction
 }

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"math"
 	"math/rand"
 	"strconv"
 	"time"
@@ -117,19 +118,26 @@ func (e Entry) validTimestamp() error {
 // ExtIDs are valid.
 func (e Entry) validSignatures() error {
 	num := len(e.ExtIDs) / 2
+	maxExtIDSaltSize := int(math.Log10(float64(num))) + 1
 	timeSalt := e.ExtIDs[0]
-	salt := append(timeSalt, e.ChainID[:]...)
-	msg := append(salt, e.Content...)
-	pubKey := new([ed25519.PublicKeySize]byte)
-	sig := new([ed25519.SignatureSize]byte)
+	msg := make(factom.Bytes,
+		maxExtIDSaltSize+len(timeSalt)+len(e.ChainID)+len(e.Content))
+	i := maxExtIDSaltSize
+	i += copy(msg[i:], timeSalt[:])
+	i += copy(msg[i:], e.ChainID[:])
+	copy(msg[i:], e.Content)
+	var pubKey [ed25519.PublicKeySize]byte
+	var sig [ed25519.SignatureSize]byte
+	var msgHash [sha512.Size]byte
 	extIDs := e.ExtIDs[1:]
 	for sigID := 0; sigID < num; sigID++ {
+		extIDSalt := strconv.FormatInt(int64(sigID), 10)
+		i = maxExtIDSaltSize - len(extIDSalt)
+		copy(msg[i:], extIDSalt)
 		copy(pubKey[:], extIDs[sigID*2][1:])
 		copy(sig[:], extIDs[sigID*2+1])
-		extIDSalt := []byte(strconv.FormatInt(int64(sigID), 10))
-		msg := append(extIDSalt, msg...)
-		msgHash := sha512.Sum512(msg)
-		if !ed25519.VerifyCanonical(pubKey, msgHash[:], sig) {
+		msgHash = sha512.Sum512(msg)
+		if !ed25519.VerifyCanonical(&pubKey, msgHash[:], &sig) {
 			return fmt.Errorf("ExtIDs[%v]: invalid signature", sigID*2+2)
 		}
 	}

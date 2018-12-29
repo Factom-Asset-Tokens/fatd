@@ -7,10 +7,10 @@ import (
 	"github.com/jinzhu/gorm"
 )
 
-type metadata struct {
+type Metadata struct {
 	gorm.Model
 
-	Height uint64 `gorm:"default:161460"`
+	Height uint64
 
 	Token  string
 	Issuer *factom.Bytes32
@@ -25,8 +25,8 @@ type entry struct {
 	Data      []byte          `gorm:"NOT NULL;"`
 }
 
-func newEntry(e factom.Entry) entry {
-	return entry{
+func newEntry(e factom.Entry) *entry {
+	return &entry{
 		Hash:      e.Hash,
 		Timestamp: e.Timestamp.Time,
 		Data:      e.MarshalBinary(),
