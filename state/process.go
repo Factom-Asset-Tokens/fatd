@@ -33,7 +33,7 @@ func (chain Chain) Process(eb factom.EBlock) error {
 		// Ignore chains with NameIDs that don't match the fat0
 		// pattern.
 		if !fat0.ValidTokenNameIDs(first.ExtIDs) {
-			log.Debugln("ignoring", first.ChainID)
+			//log.Debugln("ignoring", first.ChainID)
 			chain.ignore()
 			return nil
 		}

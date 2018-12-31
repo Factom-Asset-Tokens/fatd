@@ -41,10 +41,12 @@ func (a *Address) Get() error {
 	}{A: a}
 	result := struct {
 		Key *privateKey `json:"secret"`
-	}{Key: (*privateKey)(a.PrivateKey)}
-	if err := WalletRequest("address", params, result); err != nil {
+	}{}
+	if err := WalletRequest("address", params, &result); err != nil {
 		return err
 	}
+	a.PrivateKey = (*[ed25519.PrivateKeySize]byte)(result.Key)
+	a.PublicKey = ed25519.GetPublicKey(a.PrivateKey)
 	return nil
 }
 
