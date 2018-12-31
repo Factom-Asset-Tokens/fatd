@@ -1,6 +1,7 @@
 package state
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -70,7 +71,8 @@ func Load() error {
 	}
 	if flag.StartScanHeight > -1 {
 		if uint64(flag.StartScanHeight-1) > SavedHeight {
-			log.Warnf("-startscanheight (%v) is higher than the last saved block height (%v) which will very likely result in a corrupted database.")
+			log.Warnf("-startscanheight (%v) is higher than the last saved block height (%v) which will very likely result in a corrupted database.",
+				flag.StartScanHeight, SavedHeight)
 		}
 		SavedHeight = uint64(flag.StartScanHeight - 1)
 	}
@@ -173,6 +175,10 @@ func (chain *Chain) setupDB() error {
 	if err := chain.Create(&chain.Metadata).Error; err != nil {
 		return err
 	}
+	coinbase := newAddress(factom.Address{})
+	if err := chain.Create(&coinbase).Error; err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -224,7 +230,7 @@ func (chain *Chain) saveIssuance() error {
 		return fmt.Errorf(`table "entries" must be empty prior to issuance`)
 	}
 
-	if err := chain.createEntry(chain.Issuance.Entry.Entry); err != nil {
+	if _, err := chain.createEntry(chain.Issuance.Entry.Entry); err != nil {
 		return err
 	}
 	chain.ChainStatus = ChainStatusIssued
@@ -236,11 +242,19 @@ func (chain *Chain) saveMetadata() error {
 	}
 	return nil
 }
-func (chain *Chain) createEntry(fe factom.Entry) error {
-	if err := chain.Create(newEntry(fe)).Error; err != nil {
-		return err
+func (chain *Chain) createEntry(fe factom.Entry) (*entry, error) {
+	entry := newEntry(fe)
+	if !entry.IsValid() {
+		return nil, fmt.Errorf("invalid hash: factom.Entry%+v", fe)
 	}
-	return nil
+	if err := chain.Where(&entry).
+		First(&entry).Error; err != gorm.ErrRecordNotFound {
+		return nil, err
+	}
+	if err := chain.Create(&entry).Error; err != nil {
+		return nil, err
+	}
+	return &entry, nil
 }
 
 func (chain *Chain) saveHeight(height uint64) error {
@@ -261,4 +275,23 @@ func (chain Chain) getAddress(rcdHash *factom.Bytes32) (address, error) {
 		return a, err
 	}
 	return a, nil
+}
+
+func (chain *Chain) rollbackUnlessCommitted(savedChain Chain, err *error) {
+	// This rollback will silently fail if the db tx has already
+	// been committed.
+	rberr := chain.Rollback().Error
+	chain.DB = savedChain.DB
+	if rberr == sql.ErrTxDone {
+		// already committed
+		return
+	}
+	if rberr != nil && *err != nil {
+		// Report other Rollback errors if there wasn't already
+		// a returned error.
+		*err = rberr
+		return
+	}
+	// complete rollback
+	chain.Issued = savedChain.Issued
 }

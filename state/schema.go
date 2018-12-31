@@ -25,8 +25,8 @@ type entry struct {
 	Data      []byte          `gorm:"NOT NULL;"`
 }
 
-func newEntry(e factom.Entry) *entry {
-	return &entry{
+func newEntry(e factom.Entry) entry {
+	return entry{
 		Hash:      e.Hash,
 		Timestamp: e.Timestamp.Time,
 		Data:      e.MarshalBinary(),
@@ -48,8 +48,8 @@ type address struct {
 	RCDHash *factom.Bytes32 `gorm:"type:varchar(32); UNIQUE_INDEX; NOT NULL;"`
 	Balance uint64          `gorm:"NOT NULL;"`
 
-	To   []entry `gorm:"many2many:address_transactions;"`
-	From []entry `gorm:"many2many:address_transactions;"`
+	To   []entry `gorm:"many2many:address_transactions_to;"`
+	From []entry `gorm:"many2many:address_transactions_from;"`
 }
 
 func newAddress(fa factom.Address) address {

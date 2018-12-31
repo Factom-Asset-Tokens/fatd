@@ -1,7 +1,6 @@
 package state
 
 import (
-	"database/sql"
 	"fmt"
 
 	"github.com/Factom-Asset-Tokens/fatd/factom"
@@ -33,15 +32,10 @@ func (chain Chain) Process(eb factom.EBlock) error {
 		// Ignore chains with NameIDs that don't match the fat0
 		// pattern.
 		if !fat0.ValidTokenNameIDs(first.ExtIDs) {
-			//log.Debugln("ignoring", first.ChainID)
 			chain.ignore()
 			return nil
 		}
 
-		log.Debugf("tracking Entry%+v", first)
-		if chain.IsTracked() {
-			log.Debugf("already tracked! EBlock%+v Chain%+v", eb, chain)
-		}
 		// Track this chain going forward.
 		if err := chain.track(first); err != nil {
 			return err
@@ -54,7 +48,6 @@ func (chain Chain) Process(eb factom.EBlock) error {
 		eb.Entries = eb.Entries[1:]
 	} else if !chain.IsTracked() {
 		// Ignore chains that are not already tracked.
-		//log.Debug("ignoring")
 		chain.ignore()
 		return nil
 	}
@@ -104,6 +97,8 @@ func (chain *Chain) processIssuance(es []factom.Entry) error {
 		// If this entry was created before the Identity entry then it
 		// can't be valid.
 		if e.Timestamp.Before(chain.Identity.Timestamp) {
+			log.Debugf("Invalid Issuance Entry: %v, %v", e.Hash,
+				"created before identity")
 			continue
 		}
 		// Get the data for the entry.
@@ -115,6 +110,7 @@ func (chain *Chain) processIssuance(es []factom.Entry) error {
 		}
 		issuance := fat0.NewIssuance(e)
 		if err := issuance.Valid(chain.Identity.IDKey); err != nil {
+			log.Debugf("Invalid Issuance Entry: %v, %v", e.Hash, err)
 			continue
 		}
 
@@ -150,6 +146,7 @@ func (chain *Chain) processTransactions(es []factom.Entry) error {
 		}
 		transaction := fat0.NewTransaction(e)
 		if err := transaction.Valid(chain.Identity.IDKey); err != nil {
+			log.Debugf("Invalid Transaction Entry: %v, %v", e.Hash, err)
 			continue
 		}
 		if err := chain.apply(transaction); err != nil {
@@ -160,68 +157,58 @@ func (chain *Chain) processTransactions(es []factom.Entry) error {
 }
 
 func (chain *Chain) apply(transaction fat0.Transaction) (err error) {
-	dbEntry := newEntry(transaction.Entry.Entry)
-	if !dbEntry.IsValid() {
-		return fmt.Errorf("invalid hash: %#v", dbEntry)
-	}
-	savedDB := chain.DB
-	savedIssued := chain.Issued
-	chain.DB = chain.Begin()
-	defer func() {
-		// This rollback will silently fail if the db tx has already
-		// been committed.
-		rberr := chain.Rollback().Error
-		chain.DB = savedDB
-		if rberr == sql.ErrTxDone {
-			// already committed
-			return
+	db := chain.Begin()
+	defer chain.rollbackUnlessCommitted(*chain, &err)
+	chain.DB = db
+
+	entry, err := chain.createEntry(transaction.Entry.Entry)
+	if entry == nil {
+		// replayed transaction
+		if err != nil {
+			log.Debugf("Invalid Transaction Entry: %v, "+
+				"replayed transaction",
+				entry.Hash)
 		}
-		if rberr != nil && err != nil {
-			// Report other Rollback errors if there wasn't already
-			// a returned error.
-			err = rberr
-			return
-		}
-		// complete rollback
-		chain.Issued = savedIssued
-	}()
-	if chain.DB.Error != nil {
-		return chain.DB.Error
-	}
-	if err := chain.Create(&dbEntry).Error; err != nil {
 		return err
 	}
+
 	for rcdHash, amount := range transaction.Inputs {
+		adr, err := chain.getAddress(&rcdHash)
+		if err != nil {
+			return err
+		}
+		if err := chain.DB.Model(&adr).
+			Association("From").Append(entry).Error; err != nil {
+			return err
+		}
 		if transaction.IsCoinbase() {
 			if chain.Supply > 0 &&
 				uint64(chain.Supply)-chain.Issued < amount {
-				// Insufficient supply for this coinbase tx.
+				// insufficient coinbase supply
+				log.Debugf("Invalid Transaction Entry: %v, "+
+					"insufficient coinbase supply",
+					entry.Hash)
 				return nil
 			}
 			chain.Issued += amount
 			if err := chain.saveMetadata(); err != nil {
 				return err
 			}
-			continue
+			break
 		}
-		a, err := chain.getAddress(&rcdHash)
-		if err != nil {
-			return err
-		}
-		if a.Balance < amount {
-			// insufficient funds
+		if adr.Balance < amount {
+			// insufficient balance
+			log.Debugf("Invalid Transaction Entry: %v, "+
+				"insufficient balance: %v",
+				entry.Hash, adr.Address())
 			return nil
 		}
-		a.Balance -= amount
-		if err := chain.Save(&a).Error; err != nil {
+		adr.Balance -= amount
+		if err := chain.Save(&adr).Error; err != nil {
 			return err
 		}
-		if err := chain.DB.Model(&a).
-			Association("From").Append(dbEntry).Error; err != nil {
-			return err
-		}
-
 	}
+
 	for rcdHash, amount := range transaction.Outputs {
 		a, err := chain.getAddress(&rcdHash)
 		if err != nil {
@@ -232,10 +219,11 @@ func (chain *Chain) apply(transaction fat0.Transaction) (err error) {
 			return err
 		}
 		if err := chain.DB.Model(&a).
-			Association("To").Append(dbEntry).Error; err != nil {
+			Association("To").Append(entry).Error; err != nil {
 			return err
 		}
 	}
-	chain.Commit()
-	return nil
+	log.Debugf("Valid Transaction Entry: %+v", transaction)
+
+	return chain.Commit().Error
 }
