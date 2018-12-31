@@ -164,10 +164,10 @@ func (chain *Chain) apply(transaction fat0.Transaction) (err error) {
 	entry, err := chain.createEntry(transaction.Entry.Entry)
 	if entry == nil {
 		// replayed transaction
-		if err != nil {
+		if err == nil {
 			log.Debugf("Invalid Transaction Entry: %v, "+
 				"replayed transaction",
-				entry.Hash)
+				transaction.Hash)
 		}
 		return err
 	}

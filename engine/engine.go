@@ -18,7 +18,7 @@ var (
 )
 
 const (
-	scanInterval = 1 * time.Minute
+	scanInterval = 30 * time.Second
 )
 
 func Start() (chan error, error) {

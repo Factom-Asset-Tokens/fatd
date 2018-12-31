@@ -140,6 +140,7 @@ func open(fname string) (*gorm.DB, error) {
 			db.Close()
 		}
 	}()
+	db.LogMode(false)
 	if err = autoMigrate(db); err != nil {
 		return nil, err
 	}
@@ -243,18 +244,17 @@ func (chain *Chain) saveMetadata() error {
 	return nil
 }
 func (chain *Chain) createEntry(fe factom.Entry) (*entry, error) {
-	entry := newEntry(fe)
-	if !entry.IsValid() {
+	e := newEntry(fe)
+	if !e.IsValid() {
 		return nil, fmt.Errorf("invalid hash: factom.Entry%+v", fe)
 	}
-	if err := chain.Where(&entry).
-		First(&entry).Error; err != gorm.ErrRecordNotFound {
+	if chain.Where("hash = ?", e.Hash).First(&e).Error != gorm.ErrRecordNotFound {
+		return nil, nil
+	}
+	if err := chain.Create(&e).Error; err != nil {
 		return nil, err
 	}
-	if err := chain.Create(&entry).Error; err != nil {
-		return nil, err
-	}
-	return &entry, nil
+	return &e, nil
 }
 
 func (chain *Chain) saveHeight(height uint64) error {
