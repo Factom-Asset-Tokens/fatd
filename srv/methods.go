@@ -76,8 +76,15 @@ func getBalance(data json.RawMessage) interface{} {
 	}
 
 	// Lookup Txs
-
-	return 0
+	chain := state.Chains.Get(chainID)
+	if !chain.IsIssued() {
+		return ErrorTokenNotFound
+	}
+	balance, err := chain.GetBalance(*params.Address)
+	if err != nil {
+		panic(err)
+	}
+	return balance
 }
 
 func getStats(data json.RawMessage) interface{} {

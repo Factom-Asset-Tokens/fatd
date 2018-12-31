@@ -80,7 +80,7 @@ func (t Transaction) IsCoinbase() bool {
 // Valid performs all validation checks and returns nil if t is a valid
 // Transaction. If t is a coinbase transaction then idKey is used to validate
 // the RCD. Otherwise RCDs are checked against the input addresses.
-func (t *Transaction) Valid(idKey factom.Bytes32) error {
+func (t *Transaction) Valid(idKey *factom.Bytes32) error {
 	if err := t.UnmarshalEntry(); err != nil {
 		return err
 	}
@@ -91,7 +91,7 @@ func (t *Transaction) Valid(idKey factom.Bytes32) error {
 		return err
 	}
 	if t.IsCoinbase() {
-		if t.RCDHash() != idKey {
+		if t.RCDHash() != *idKey {
 			return fmt.Errorf("invalid RCD")
 		}
 	} else {
@@ -111,7 +111,7 @@ func (t Transaction) ValidData() error {
 	if len(t.Outputs) == 0 {
 		return fmt.Errorf("no outputs")
 	}
-	if sum(t.Inputs) != sum(t.Outputs) {
+	if t.Inputs.Sum() != t.Outputs.Sum() {
 		return fmt.Errorf("sum(inputs) != sum(outputs)")
 	}
 	// Coinbase transactions must only have one input.
@@ -126,14 +126,6 @@ func (t Transaction) ValidData() error {
 }
 
 // sum the amounts in aam.
-func sum(aam AddressAmountMap) uint64 {
-	var sum uint64
-	for _, amount := range aam {
-		sum += amount
-	}
-	return sum
-}
-
 // emptyIntersection returns true if a and b have no keys with non-zero values
 // in common.
 func emptyIntersection(a, b AddressAmountMap) bool {

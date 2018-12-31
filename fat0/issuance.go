@@ -52,7 +52,7 @@ func (i *Issuance) MarshalEntry() error {
 
 // Valid performs all validation checks and returns nil if i is a valid
 // Issuance.
-func (i *Issuance) Valid(idKey factom.Bytes32) error {
+func (i *Issuance) Valid(idKey *factom.Bytes32) error {
 	if err := i.UnmarshalEntry(); err != nil {
 		return err
 	}
@@ -62,7 +62,7 @@ func (i *Issuance) Valid(idKey factom.Bytes32) error {
 	if err := i.ValidExtIDs(); err != nil {
 		return err
 	}
-	if i.RCDHash() != idKey {
+	if i.RCDHash() != *idKey {
 		return fmt.Errorf("invalid RCD")
 	}
 	return nil

@@ -60,7 +60,7 @@ func (e *Entry) Get() error {
 	var result struct {
 		Data Bytes `json:"data"`
 	}
-	if err := factomdRequest("raw-data", params, &result); err != nil {
+	if err := FactomdRequest("raw-data", params, &result); err != nil {
 		return err
 	}
 	return e.UnmarshalBinary(result.Data)
@@ -107,7 +107,7 @@ func (e *Entry) Create(ecpub string) (*Bytes32, error) {
 		}
 	}
 	result := composeResult{}
-	if err := walletRequest(method, params, &result); err != nil {
+	if err := WalletRequest(method, params, &result); err != nil {
 		return nil, err
 	}
 	if len(result.Commit.Method) == 0 {
@@ -115,11 +115,11 @@ func (e *Entry) Create(ecpub string) (*Bytes32, error) {
 	}
 
 	var commit commitResult
-	if err := factomdRequest(result.Commit.Method, result.Commit.Params,
+	if err := FactomdRequest(result.Commit.Method, result.Commit.Params,
 		&commit); err != nil {
 		return nil, err
 	}
-	if err := factomdRequest(result.Reveal.Method, result.Reveal.Params,
+	if err := FactomdRequest(result.Reveal.Method, result.Reveal.Params,
 		e); err != nil {
 		return nil, err
 	}

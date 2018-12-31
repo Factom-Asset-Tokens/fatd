@@ -60,7 +60,7 @@ func (eb *EBlock) Get() error {
 	// Make RPC request for this Entry Block.
 	params := map[string]interface{}{"keymr": eb.KeyMR}
 	method := "entry-block"
-	if err := factomdRequest(method, params, eb); err != nil {
+	if err := FactomdRequest(method, params, eb); err != nil {
 		return err
 	}
 
@@ -78,7 +78,7 @@ func (eb *EBlock) GetChainHead() error {
 	result := struct {
 		KeyMR *Bytes32 `json:"chainhead"`
 	}{}
-	if err := factomdRequest(method, params, &result); err != nil {
+	if err := FactomdRequest(method, params, &result); err != nil {
 		return err
 	}
 	eb.KeyMR = result.KeyMR

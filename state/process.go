@@ -6,7 +6,6 @@ import (
 
 	"github.com/Factom-Asset-Tokens/fatd/factom"
 	"github.com/Factom-Asset-Tokens/fatd/fat0"
-	"github.com/jinzhu/gorm"
 )
 
 func (chain Chain) Process(eb factom.EBlock) error {
@@ -115,7 +114,7 @@ func (chain *Chain) processIssuance(es []factom.Entry) error {
 			return fmt.Errorf("Entry%+v.IsPopulated(): false", e)
 		}
 		issuance := fat0.NewIssuance(e)
-		if err := issuance.Valid(*chain.Identity.IDKey); err != nil {
+		if err := issuance.Valid(chain.Identity.IDKey); err != nil {
 			continue
 		}
 
@@ -150,7 +149,7 @@ func (chain *Chain) processTransactions(es []factom.Entry) error {
 			return fmt.Errorf("%#v.IsPopulated(): false", e)
 		}
 		transaction := fat0.NewTransaction(e)
-		if err := transaction.Valid(*chain.Identity.IDKey); err != nil {
+		if err := transaction.Valid(chain.Identity.IDKey); err != nil {
 			continue
 		}
 		if err := chain.apply(transaction); err != nil {
@@ -205,10 +204,8 @@ func (chain *Chain) apply(transaction fat0.Transaction) (err error) {
 			}
 			continue
 		}
-		a := address{}
-		if err := chain.Where(
-			&address{RCDHash: &rcdHash}).First(&a).Error; err != nil &&
-			err != gorm.ErrRecordNotFound {
+		a, err := chain.getAddress(&rcdHash)
+		if err != nil {
 			return err
 		}
 		if a.Balance < amount {
@@ -226,10 +223,8 @@ func (chain *Chain) apply(transaction fat0.Transaction) (err error) {
 
 	}
 	for rcdHash, amount := range transaction.Outputs {
-		a := address{}
-		if err := chain.Where(
-			&address{RCDHash: &rcdHash}).First(&a).Error; err != nil &&
-			err != gorm.ErrRecordNotFound {
+		a, err := chain.getAddress(&rcdHash)
+		if err != nil {
 			return err
 		}
 		a.Balance += amount

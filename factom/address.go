@@ -35,6 +35,40 @@ func NewAddress(rcdHash *Bytes32) Address {
 	return Address{rcdHash: rcdHash}
 }
 
+func (a *Address) Get() error {
+	params := struct {
+		A *Address `json:"address"`
+	}{A: a}
+	result := struct {
+		Key *privateKey `json:"secret"`
+	}{Key: (*privateKey)(a.PrivateKey)}
+	if err := WalletRequest("address", params, result); err != nil {
+		return err
+	}
+	return nil
+}
+
+type privateKey [ed25519.PrivateKeySize]byte
+
+func (pk *privateKey) UnmarshalJSON(data []byte) error {
+	if data[0] != '"' || data[len(data)-1] != '"' {
+		return fmt.Errorf("invalid type")
+	}
+	data = data[1 : len(data)-1]
+	if len(data) != 52 {
+		return fmt.Errorf("invalid length")
+	}
+	if string(data[0:2]) != "Fs" {
+		return fmt.Errorf("invalid prefix")
+	}
+	b, _, err := base58.CheckDecode(string(data), 2)
+	if err != nil {
+		return err
+	}
+	copy(pk[:], b)
+	return nil
+}
+
 // UnmarshalJSON unmarshals a string with a human readable Factoid Address.
 func (a *Address) UnmarshalJSON(data []byte) error {
 	if data[0] != '"' || data[len(data)-1] != '"' {

@@ -10,17 +10,54 @@ import (
 	"github.com/posener/complete"
 )
 
-func predictAddress(fa bool, num int) complete.PredictFunc {
+func predictAddress(fa bool, num int, flagName, suffix string) complete.PredictFunc {
+	if len(flagName) == 0 {
+		return func(a complete.Args) []string {
+			// Count the number of complete arguments that are not flags.
+			argc := len(a.Completed[1:])
+			for _, arg := range a.Completed[1:] {
+				if string(arg[0]) == "-" {
+					argc--
+				}
+			}
+			if len(suffix) > 0 && len(a.Last) > 0 &&
+				a.Last[len(a.Last)-1:len(a.Last)] == suffix {
+				return nil
+			}
+			if argc < num {
+				adrs := listAddresses(fa)
+				if len(suffix) > 0 {
+					for i := range adrs {
+						adrs[i] += suffix
+					}
+				}
+				return adrs
+			}
+			return nil
+		}
+	}
 	return func(a complete.Args) []string {
 		// Count the number of complete arguments that are not flags.
-		argc := len(a.Completed[1:])
-		for _, arg := range a.Completed[1:] {
-			if string(arg[0]) == "-" {
-				argc--
+		argc := 0
+		for i := len(a.Completed) - 1; i > 0; i-- {
+			arg := a.Completed[i]
+			if string(arg) == flagName {
+				break
 			}
+			argc++
+		}
+		if len(suffix) > 0 && len(a.Last) > 0 &&
+			a.Last[len(a.Last)-1:len(a.Last)] == suffix {
+			return nil
 		}
 		if argc < num {
-			return listAddresses(fa)
+			adrs := listAddresses(fa)
+			if len(suffix) > 0 {
+				for i := range adrs {
+					adrs[i] += suffix
+				}
+			}
+			return adrs
 		}
 		return nil
 	}

@@ -138,7 +138,6 @@ func open(fname string) (*gorm.DB, error) {
 			db.Close()
 		}
 	}()
-	db.SetLogger(log)
 	if err = autoMigrate(db); err != nil {
 		return nil, err
 	}
@@ -250,4 +249,16 @@ func (chain *Chain) saveHeight(height uint64) error {
 		return err
 	}
 	return nil
+}
+func (chain Chain) GetBalance(adr factom.Address) (uint64, error) {
+	a, err := chain.getAddress(adr.RCDHash())
+	return a.Balance, err
+}
+func (chain Chain) getAddress(rcdHash *factom.Bytes32) (address, error) {
+	a := address{RCDHash: rcdHash}
+	if err := chain.Where(&a).First(&a).Error; err != nil &&
+		err != gorm.ErrRecordNotFound {
+		return a, err
+	}
+	return a, nil
 }

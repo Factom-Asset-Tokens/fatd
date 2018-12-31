@@ -5,13 +5,13 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/Factom-Asset-Tokens/base58"
 	"github.com/Factom-Asset-Tokens/fatd/factom"
 	"github.com/Factom-Asset-Tokens/fatd/fat0"
 	"github.com/FactomProject/ed25519"
-	"github.com/posener/complete"
 	"github.com/sirupsen/logrus"
 )
 
@@ -43,7 +43,7 @@ var (
 	defaults = map[string]interface{}{
 		"debug": false,
 
-		"apiaddress": ":8078",
+		"apiaddress": "http://localhost:8078",
 
 		"w":              "localhost:8089",
 		"wallettimeout":  time.Duration(0),
@@ -68,6 +68,8 @@ var (
 		"supply": int64(0),
 		"symbol": "",
 		"name":   "",
+
+		"coinbase": uint64(0),
 	}
 	descriptions = map[string]string{
 		"debug": "Log debug messages",
@@ -93,39 +95,15 @@ var (
 		"identity": "Issuer Identity Chain ID used in Token Chain ID derivation",
 		"ecpub":    "Entry Credit Public Address to use to pay for Factom entries",
 
-		"sk1":    "Issuer's SK1 key as defined by their Identity Chain",
+		"sk1":    "Issuer's SK1 key as defined by their Identity Chain.",
 		"type":   `FAT Token Type (e.g. "FAT-0")`,
 		"supply": "Total number of issuable tokens. Must be a positive integer or -1 for unlimited.",
 		"symbol": "Ticker symbol for the token (optional)",
 		"name":   "Complete descriptive name of the token (optional)",
-	}
-	globalCompleteFlags = complete.Flags{
-		"-debug": complete.PredictNothing,
 
-		"-apiaddress": complete.PredictAnything,
-
-		"-w":              complete.PredictAnything,
-		"-wallettimeout":  complete.PredictAnything,
-		"-walletuser":     complete.PredictAnything,
-		"-walletpassword": complete.PredictAnything,
-		"-walletcert":     complete.PredictFiles("*"),
-		"-wallettls":      complete.PredictNothing,
-
-		"-s":               complete.PredictAnything,
-		"-factomdtimeout":  complete.PredictAnything,
-		"-factomduser":     complete.PredictAnything,
-		"-factomdpassword": complete.PredictAnything,
-		"-factomdcert":     complete.PredictFiles("*"),
-		"-factomdtls":      complete.PredictNothing,
-
-		"-token":    complete.PredictAnything,
-		"-identity": complete.PredictAnything,
-		"-chainid":  complete.PredictAnything,
-		"-ecpub":    predictAddress(false, 1),
-
-		"-y":                   complete.PredictNothing,
-		"-installcompletion":   complete.PredictNothing,
-		"-uninstallcompletion": complete.PredictNothing,
+		"coinbase": "Create a coinbase transaction with the given amount.",
+		"input":    "Add an -input ADDRESS:AMOUNT to the transaction. Can be specified multiple times.",
+		"output":   "Add an -output ADDRESS:AMOUNT to the transaction. Can be specified multiple times.",
 	}
 
 	issuance = func() fat0.Issuance {
@@ -133,17 +111,29 @@ var (
 		i.ChainID = factom.NewBytes32(nil)
 		return i
 	}()
-	identity = fat0.Identity{ChainID: factom.NewBytes32(nil)}
-	sk1      = factom.Address{PrivateKey: new([ed25519.PrivateKeySize]byte)}
-	token    string
-	ecpub    string
-	chainID  = issuance.ChainID
+	chainID     = issuance.ChainID
+	transaction = func() fat0.Transaction {
+		tx := fat0.Transaction{
+			Inputs:  fat0.AddressAmountMap{},
+			Outputs: fat0.AddressAmountMap{},
+		}
+		tx.ChainID = chainID
+		return tx
+	}()
+	coinbaseAmount uint64
+	identity       = fat0.Identity{ChainID: factom.NewBytes32(nil)}
+	sk1            = factom.Address{PrivateKey: new([ed25519.PrivateKeySize]byte)}
+	address        = factom.Address{}
+	token          string
+	ecpub          string
+	metadata       string
 
 	cmd string
 
 	globalFlagSet = flag.NewFlagSet("fat-cli", flag.ContinueOnError)
 
-	issueFlagSet = flag.NewFlagSet("issue", flag.ExitOnError)
+	issueFlagSet    = flag.NewFlagSet("issue", flag.ExitOnError)
+	transactFlagSet = flag.NewFlagSet("transact", flag.ExitOnError)
 
 	LogDebug bool
 
@@ -151,26 +141,8 @@ var (
 
 	rpc = factom.RpcConfig
 
-	flagIsSet  = map[string]bool{}
-	log        *logrus.Entry
-	Completion = complete.New(os.Args[0], complete.Command{
-		Flags: globalCompleteFlags,
-		Sub: complete.Commands{
-			"balances": complete.Command{
-				Args: predictAddress(true, 1),
-			},
-			"issue": complete.Command{
-				Flags: complete.Flags{
-					"-sk1":    complete.PredictAnything,
-					"-type":   complete.PredictSet("FAT-0"),
-					"-supply": complete.PredictAnything,
-					"-symbol": complete.PredictAnything,
-					"-name":   complete.PredictAnything,
-				},
-				Args: complete.PredictAnything,
-			},
-		},
-	})
+	flagIsSet = map[string]bool{}
+	log       *logrus.Entry
 )
 
 func init() {
@@ -203,6 +175,11 @@ func init() {
 	flagVar(issueFlagSet, &issuance.Symbol, "symbol")
 	flagVar(issueFlagSet, &issuance.Name, "name")
 
+	flagVar(transactFlagSet, (*SecretKey)(sk1.PrivateKey), "sk1")
+	flagVar(transactFlagSet, &coinbaseAmount, "coinbase")
+	flagVar(transactFlagSet, (addressAmountMap)(transaction.Inputs), "input")
+	flagVar(transactFlagSet, (addressAmountMap)(transaction.Outputs), "output")
+
 	// Add flags for self installing the CLI completion tool
 	Completion.CLI.InstallName = "installcompletion"
 	Completion.CLI.UninstallName = "uninstallcompletion"
@@ -221,12 +198,23 @@ func Parse() string {
 		args = args[1:]
 	}
 
+	var flagSet *flag.FlagSet
 	switch cmd {
 	case "issue":
-		issueFlagSet.Parse(args)
-		issueFlagSet.Visit(setFlagIsSet)
-	case "balances":
+		flagSet = issueFlagSet
+	case "transact":
+		flagSet = transactFlagSet
+	case "balance":
+		if len(args) == 1 {
+			if err := address.UnmarshalJSON(
+				[]byte(fmt.Sprintf("%#v", args[0]))); err != nil {
+			}
+		}
 	default:
+	}
+	if flagSet != nil {
+		flagSet.Parse(args)
+		flagSet.Visit(setFlagIsSet)
 	}
 
 	// Load options from environment variables if they haven't been
@@ -296,13 +284,36 @@ func Validate() error {
 	}
 	switch cmd {
 	case "issue":
-		if err := missingFlags("sk1", "type", "supply"); err != nil {
+		if err := requireFlags("sk1", "type", "supply"); err != nil {
 			return err
 		}
 		if err := issuance.ValidData(); err != nil {
 			return err
 		}
-	case "balances":
+	case "balance":
+		zero := factom.Address{}
+		if address.RCDHash() == zero.RCDHash() {
+			return fmt.Errorf("no address specified")
+		}
+	case "transact":
+		required := []string{"output"}
+		if flagIsSet["coinbase"] || flagIsSet["sk1"] {
+			if flagIsSet["input"] {
+				return fmt.Errorf(
+					"cannot specify -input with -coinbase and -sk1")
+			}
+			required = append(required, "coinbase", "sk1")
+			if coinbaseAmount == 0 {
+				return fmt.Errorf("-coinbase amount may not be zero")
+			}
+			a := factom.Address{}
+			transaction.Inputs[*a.RCDHash()] = coinbaseAmount
+		} else {
+			required = append(required, "input")
+		}
+		if err := requireFlags(required...); err != nil {
+			return err
+		}
 	case "":
 		return fmt.Errorf("No command supplied")
 	default:
@@ -430,7 +441,7 @@ func (sk *SecretKey) Set(data string) error {
 	return nil
 }
 
-func missingFlags(names ...string) error {
+func requireFlags(names ...string) error {
 	missing := []string{}
 	for _, n := range names {
 		if !flagIsSet[n] {
@@ -441,4 +452,35 @@ func missingFlags(names ...string) error {
 		return fmt.Errorf("missing required flags: %v", missing)
 	}
 	return nil
+}
+
+type addressAmountMap fat0.AddressAmountMap
+
+func (a addressAmountMap) Set(data string) error {
+	s := strings.SplitN(data, ":", 2)
+	if len(s) != 2 {
+		return fmt.Errorf("invalid format")
+	}
+	adr := factom.Address{}
+	if s[0] != "coinbase" {
+		if err := adr.UnmarshalJSON(
+			[]byte(fmt.Sprintf("%#v", s[0]))); err != nil {
+			return fmt.Errorf("invalid address: %v", err)
+		}
+	}
+	if _, ok := a[*adr.RCDHash()]; ok {
+		return fmt.Errorf("duplicate address: %v", adr.RCDHash())
+	}
+	amount, err := strconv.ParseUint(s[1], 10, 64)
+	if err != nil {
+		return fmt.Errorf("invalid amount: %v", err)
+	}
+	if amount == 0 {
+		return fmt.Errorf("invalid amount: may not be zero")
+	}
+	a[*adr.RCDHash()] = amount
+	return nil
+}
+func (a addressAmountMap) String() string {
+	return fmt.Sprintf("%v", fat0.AddressAmountMap(a))
 }

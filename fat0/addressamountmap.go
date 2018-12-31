@@ -47,3 +47,11 @@ func (a AddressAmountMap) MarshalJSON() ([]byte, error) {
 	}
 	return json.Marshal(as)
 }
+
+func (a AddressAmountMap) Sum() uint64 {
+	var sum uint64
+	for _, amount := range a {
+		sum += amount
+	}
+	return sum
+}

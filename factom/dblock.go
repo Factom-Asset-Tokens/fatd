@@ -28,7 +28,7 @@ func (db *DBlock) Get() error {
 	result := struct {
 		*DBlock `json:"dblock"`
 	}{DBlock: db}
-	if err := factomdRequest("dblock-by-height", db, &result); err != nil {
+	if err := FactomdRequest("dblock-by-height", db, &result); err != nil {
 		return err
 	}
 

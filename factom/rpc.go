@@ -19,7 +19,7 @@ var DebugRPC bool
 // up to the caller to determine whether their result is properly populated
 // after request returns. Since data will need to be marshaled into result, the
 // result type should be passed as a pointer.
-func request(endpoint, method string, params, result interface{}) error {
+func Request(endpoint, method string, params, result interface{}) error {
 	// Generate a random ID for this request.
 	id := rand.Uint32()%200 + 500
 
@@ -66,11 +66,11 @@ func request(endpoint, method string, params, result interface{}) error {
 	return nil
 }
 
-func factomdRequest(method string, params, result interface{}) error {
+func FactomdRequest(method string, params, result interface{}) error {
 	endpoint := "http://" + RpcConfig.FactomdServer + "/v2"
-	return request(endpoint, method, params, result)
+	return Request(endpoint, method, params, result)
 }
-func walletRequest(method string, params, result interface{}) error {
+func WalletRequest(method string, params, result interface{}) error {
 	endpoint := "http://" + RpcConfig.WalletServer + "/v2"
-	return request(endpoint, method, params, result)
+	return Request(endpoint, method, params, result)
 }
