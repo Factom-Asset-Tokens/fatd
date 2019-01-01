@@ -39,7 +39,7 @@ func getIssuance(entry bool) jrpc.MethodFunc {
 			return ErrorTokenNotFound
 		}
 		if entry {
-			return chain.Issuance.Entry
+			return chain.Issuance.Entry.Entry
 		}
 		return chain.Issuance
 	}
