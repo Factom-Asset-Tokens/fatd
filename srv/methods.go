@@ -10,13 +10,14 @@ import (
 )
 
 var jrpcMethods = jrpc.MethodMap{
-	"get-issuance":       getIssuance(false),
-	"get-issuance-entry": getIssuance(true),
-	"get-transaction":    getTransaction,
-	"get-transactions":   getTransactions,
-	"get-balance":        getBalance,
-	"get-stats":          getStats,
-	"get-nf-token":       getNFToken,
+	"get-issuance":          getIssuance(false),
+	"get-issuance-entry":    getIssuance(true),
+	"get-transaction":       getTransaction(false),
+	"get-transaction-entry": getTransaction(true),
+	"get-transactions":      getTransactions,
+	"get-balance":           getBalance,
+	"get-stats":             getStats,
+	"get-nf-token":          getNFToken,
 
 	"send-transaction": sendTransaction,
 
@@ -44,16 +45,32 @@ func getIssuance(entry bool) jrpc.MethodFunc {
 	}
 }
 
-func getTransaction(data json.RawMessage) interface{} {
-	params := ParamsGetTransaction{}
-	chainID, res := validate(data, &params)
-	if chainID == nil {
-		return res
+func getTransaction(entry bool) jrpc.MethodFunc {
+	return func(data json.RawMessage) interface{} {
+		params := ParamsGetTransaction{}
+		chainID, res := validate(data, &params)
+		if chainID == nil {
+			return res
+		}
+
+		// Lookup Tx by Hash
+		chain := state.Chains.Get(chainID)
+		transaction, err := chain.GetTransaction(params.Hash)
+		if err != nil {
+			panic(err)
+		}
+		if !transaction.IsPopulated() {
+			return ErrorTransactionNotFound
+		}
+
+		if entry {
+			return transaction.Entry.Entry
+		}
+		if err := transaction.UnmarshalEntry(); err != nil {
+			panic(err)
+		}
+		return transaction
 	}
-
-	// Lookup Tx by Hash
-
-	return ErrorTransactionNotFound
 }
 
 func getTransactions(data json.RawMessage) interface{} {

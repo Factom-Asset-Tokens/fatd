@@ -295,3 +295,17 @@ func (chain *Chain) rollbackUnlessCommitted(savedChain Chain, err *error) {
 	// complete rollback
 	chain.Issued = savedChain.Issued
 }
+
+func (chain Chain) GetTransaction(hash *factom.Bytes32) (fat0.Transaction, error) {
+	e := entry{}
+	if err := chain.Not("id = ?", 1).
+		Where("hash = ?", hash).First(&e).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return fat0.Transaction{}, nil
+		}
+		return fat0.Transaction{}, err
+	}
+	e.Hash = hash
+	transaction := fat0.NewTransaction(e.Entry())
+	return transaction, nil
+}
