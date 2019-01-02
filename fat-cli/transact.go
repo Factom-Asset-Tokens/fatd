@@ -67,7 +67,7 @@ func transact() error {
 		transaction.Timestamp = nil
 		result := struct {
 			*factom.Entry
-			TxID *factom.Bytes32 `json:"factom-tx-id"`
+			TxID *factom.Bytes32 `json:"txid"`
 		}{Entry: &transaction.Entry.Entry}
 		err := factom.Request(APIAddress, "send-transaction",
 			transaction.Entry.Entry, &result)

@@ -115,7 +115,7 @@ func scanNewBlocks() error {
 			go func() {
 				defer wg.Done()
 				if err := chain.Process(eb); err != nil {
-					errorStop(err)
+					go errorStop(err)
 				}
 			}()
 		}

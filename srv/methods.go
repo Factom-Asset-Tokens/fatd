@@ -245,7 +245,7 @@ func sendTransaction(data json.RawMessage) interface{} {
 
 	return struct {
 		ChainID *factom.Bytes32 `json:"chainid"`
-		TxID    *factom.Bytes32 `json:"factom-tx-id"`
+		TxID    *factom.Bytes32 `json:"txid"`
 		Hash    *factom.Bytes32 `json:"entryhash"`
 	}{ChainID: chainID, TxID: txID, Hash: tx.Hash}
 }
@@ -255,11 +255,19 @@ func getDaemonTokens(data json.RawMessage) interface{} {
 		return ParamsErrorNoParams
 	}
 
-	return []struct {
-		TokenID  string          `json:"token-id"`
-		IssuerID *factom.Bytes32 `json:"issuer-id"`
-		ChainID  *factom.Bytes32 `json:"chain-id"`
-	}{{}}
+	issuedIDs := state.Chains.GetIssued()
+	chains := make([]struct {
+		TokenID  string          `json:"tokenid"`
+		IssuerID *factom.Bytes32 `json:"issuerid"`
+		ChainID  *factom.Bytes32 `json:"chainid"`
+	}, len(issuedIDs))
+	for i, chainID := range issuedIDs {
+		chain := state.Chains.Get(chainID)
+		chains[i].ChainID = chainID
+		chains[i].TokenID = chain.Token
+		chains[i].IssuerID = chain.Issuer
+	}
+	return chains
 }
 
 func getDaemonProperties(data json.RawMessage) interface{} {
@@ -267,8 +275,8 @@ func getDaemonProperties(data json.RawMessage) interface{} {
 		return ParamsErrorNoParams
 	}
 	return struct {
-		FatdVersion string `json:"fatd-version"`
-		APIVersion  string `json:"api-version"`
+		FatdVersion string `json:"fatdversion"`
+		APIVersion  string `json:"apiversion"`
 	}{FatdVersion: "0.0.0", APIVersion: "v0"}
 }
 

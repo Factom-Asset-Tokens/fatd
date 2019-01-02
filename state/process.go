@@ -47,10 +47,7 @@ func (chain Chain) Process(eb factom.EBlock) error {
 		return nil
 	}
 
-	if err := chain.process(eb); err != nil {
-		return err
-	}
-	return nil
+	return chain.process(eb)
 }
 
 func (chain *Chain) process(eb factom.EBlock) (err error) {
