@@ -42,5 +42,8 @@ func _main() (ret int) {
 }
 
 func usage() {
-	fmt.Println("usage: fat-cli -chainid TOKEN_CHAIN_ID [issue|transact|balance]")
+	fmt.Println(`usage: fat-cli CHAIN_FLAGS [GLOBAL_FLAGS] COMMAND COMMAND_FLAGS
+        CHAIN_FLAGS: -chainid OR -token AND -identity
+        GLOBAL_FLAGS: -s, -w, -apiaddress, ...
+        COMMAND: balance OR issue OR transact`)
 }

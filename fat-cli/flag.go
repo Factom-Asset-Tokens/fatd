@@ -167,14 +167,15 @@ func init() {
 	flagVar(globalFlagSet, &token, "token")
 	flagVar(globalFlagSet, (*flagBytes32)(identity.ChainID), "identity")
 	flagVar(globalFlagSet, (*flagBytes32)(chainID), "chainid")
-	flagVar(globalFlagSet, &ecpub, "ecpub")
 
+	flagVar(issueFlagSet, &ecpub, "ecpub")
 	flagVar(issueFlagSet, (*SecretKey)(sk1.PrivateKey), "sk1")
 	flagVar(issueFlagSet, &issuance.Type, "type")
 	flagVar(issueFlagSet, &issuance.Supply, "supply")
 	flagVar(issueFlagSet, &issuance.Symbol, "symbol")
 	flagVar(issueFlagSet, &issuance.Name, "name")
 
+	flagVar(transactFlagSet, &ecpub, "ecpub")
 	flagVar(transactFlagSet, (*SecretKey)(sk1.PrivateKey), "sk1")
 	flagVar(transactFlagSet, &coinbaseAmount, "coinbase")
 	flagVar(transactFlagSet, (addressAmountMap)(transaction.Inputs), "input")
@@ -288,7 +289,7 @@ func Validate() error {
 	}
 	switch cmd {
 	case "issue":
-		if err := requireFlags("sk1", "type", "supply"); err != nil {
+		if err := requireFlags("sk1", "type", "supply", "ecpub"); err != nil {
 			return err
 		}
 		if err := issuance.ValidData(); err != nil {
@@ -300,7 +301,7 @@ func Validate() error {
 			return fmt.Errorf("no address specified")
 		}
 	case "transact":
-		required := []string{"output"}
+		required := []string{"output", "ecpub"}
 		if flagIsSet["coinbase"] || flagIsSet["sk1"] {
 			if flagIsSet["input"] {
 				return fmt.Errorf(
