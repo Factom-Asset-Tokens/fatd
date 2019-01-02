@@ -34,7 +34,6 @@ var (
 			"-token":    complete.PredictAnything,
 			"-identity": complete.PredictAnything,
 			"-chainid":  complete.PredictAnything,
-			"-ecpub":    predictAddress(false, 1, "-ecpub", ""),
 		},
 		Sub: complete.Commands{
 			"balance": complete.Command{
@@ -42,6 +41,8 @@ var (
 			},
 			"issue": complete.Command{
 				Flags: complete.Flags{
+					"-ecpub": predictAddress(
+						false, 1, "-ecpub", ""),
 					"-sk1":    complete.PredictAnything,
 					"-type":   complete.PredictSet("FAT-0"),
 					"-supply": complete.PredictAnything,
@@ -52,6 +53,8 @@ var (
 			},
 			"transact": complete.Command{
 				Flags: complete.Flags{
+					"-ecpub": predictAddress(
+						false, 1, "-ecpub", ""),
 					"-sk1":      complete.PredictAnything,
 					"-coinbase": complete.PredictAnything,
 					"-input": predictAddress(
