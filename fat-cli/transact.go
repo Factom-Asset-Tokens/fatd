@@ -56,10 +56,27 @@ func transact() error {
 	if err := transaction.Valid(sk1.RCDHash()); err != nil {
 		return err
 	}
-	txID, err := transaction.Create(ecpub)
-	if err != nil {
-		return err
+	var txID *factom.Bytes32
+	var err error
+	if len(ECPub) != 0 {
+		txID, err = transaction.Create(ECPub)
+		if err != nil {
+			return err
+		}
+	} else {
+		transaction.Timestamp = nil
+		result := struct {
+			*factom.Entry
+			TxID *factom.Bytes32 `json:"factom-tx-id"`
+		}{Entry: &transaction.Entry.Entry}
+		err := factom.Request(APIAddress, "send-transaction",
+			transaction.Entry.Entry, &result)
+		if err != nil {
+			return err
+		}
+		txID = result.TxID
 	}
+
 	fmt.Println("Token Chain ID: ", chainID)
 	fmt.Println("Created Transaction Entry")
 	fmt.Println("Transaction Entry Hash: ", transaction.Hash)

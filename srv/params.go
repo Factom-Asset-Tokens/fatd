@@ -1,7 +1,9 @@
 package srv
 
 import (
-	jrpc "github.com/AdamSLevy/jsonrpc2/v9"
+	"time"
+
+	jrpc "github.com/AdamSLevy/jsonrpc2/v10"
 	"github.com/Factom-Asset-Tokens/fatd/factom"
 	"github.com/Factom-Asset-Tokens/fatd/fat0"
 )
@@ -15,9 +17,9 @@ type Params interface {
 // ParamsToken scopes a request down to a single FAT token using either the
 // ChainID or both the TokenID and the IssuerChainID.
 type ParamsToken struct {
-	ChainID       *factom.Bytes32 `json:"chain-id,omitempty"`
-	TokenID       *string         `json:"token-id,omitempty"`
-	IssuerChainID *factom.Bytes32 `json:"issuer-id,omitempty"`
+	ChainID       *factom.Bytes32 `json:"chainid,omitempty"`
+	TokenID       *string         `json:"tokenid,omitempty"`
+	IssuerChainID *factom.Bytes32 `json:"issuerid,omitempty"`
 }
 
 func (p ParamsToken) IsValid() bool {
@@ -36,7 +38,8 @@ func (p ParamsToken) ValidChainID() *factom.Bytes32 {
 		return p.ChainID
 	}
 	chainID := fat0.ChainID(*p.TokenID, p.IssuerChainID)
-	return &chainID
+	p.ChainID = &chainID
+	return p.ChainID
 }
 
 func (p ParamsToken) Error() jrpc.Error {
@@ -60,8 +63,9 @@ func (p ParamsGetTransaction) Error() jrpc.Error {
 
 type ParamsGetTransactions struct {
 	ParamsToken
-	NonFungibleTokenID *string         `json:"nf-token-id,omitempty"`
+	NonFungibleTokenID string          `json:"nf-token-id,omitempty"`
 	FactoidAddress     *factom.Address `json:"fa-address,omitempty"`
+	ToFrom             string          `json:"to-from"`
 
 	// Pagination
 	Hash  *factom.Bytes32 `json:"entryhash,omitempty"`
@@ -85,6 +89,13 @@ func (p *ParamsGetTransactions) IsValid() bool {
 		if *p.Limit == 0 {
 			return false
 		}
+	}
+	switch p.ToFrom {
+	case "to":
+	case "from":
+	case "":
+	default:
+		return false
 	}
 	return true
 }
@@ -121,8 +132,8 @@ func (p ParamsGetBalance) Error() jrpc.Error {
 
 type ParamsSendTransaction struct {
 	ParamsToken
-	ExtIDs  []factom.Bytes `json:"rcd-sigs"`
-	Content factom.Bytes   `json:"tx"`
+	ExtIDs  []factom.Bytes `json:"extids"`
+	Content factom.Bytes   `json:"content"`
 }
 
 func (p ParamsSendTransaction) IsValid() bool {
@@ -131,4 +142,13 @@ func (p ParamsSendTransaction) IsValid() bool {
 
 func (p ParamsSendTransaction) Error() jrpc.Error {
 	return ParamsErrorSendTransaction
+}
+
+func (p ParamsSendTransaction) Entry() factom.Entry {
+	return factom.Entry{
+		ExtIDs:    p.ExtIDs,
+		Content:   p.Content,
+		Timestamp: &factom.Time{Time: time.Now()},
+		ChainID:   p.ChainID,
+	}
 }

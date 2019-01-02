@@ -1,6 +1,6 @@
 package srv
 
-import jrpc "github.com/AdamSLevy/jsonrpc2/v9"
+import jrpc "github.com/AdamSLevy/jsonrpc2/v10"
 
 var (
 	ParamsErrorNoParams = jrpc.NewInvalidParamsError(`no "params" accepted`)
@@ -24,6 +24,8 @@ var (
 	ErrorTransactionNotFound = jrpc.NewError(-32803, "Transaction Not Found",
 		"no matching tx-id was found")
 	ErrorInvalidTransaction = jrpc.NewError(-32804, "Invalid Transaction", nil)
-	ErrorTokenSyncing       = jrpc.NewError(-32804, "Transaction Not Found",
-		"no matching tx-id was found")
+	ErrorTokenSyncing       = jrpc.NewError(-32805, "Token Syncing",
+		"token is in the process of syncing")
+	ErrorNoEC = jrpc.NewError(-32806, "No Entry Credits",
+		"not configured with entry credits")
 )

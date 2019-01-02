@@ -219,6 +219,9 @@ func (chain *Chain) loadIssuance() error {
 		return err
 	}
 	chain.ChainStatus = ChainStatusIssued
+	if err := chain.Identity.Get(); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -319,7 +322,7 @@ func (chain Chain) getEntry(hash *factom.Bytes32) (*entry, error) {
 }
 
 func (chain Chain) GetTransactions(hash *factom.Bytes32,
-	adr *factom.Address,
+	adr *factom.Address, toFrom string,
 	start, limit uint) ([]fat0.Transaction, error) {
 	if limit == 0 {
 		limit = math.MaxUint32
@@ -332,13 +335,17 @@ func (chain Chain) GetTransactions(hash *factom.Bytes32,
 			return nil, err
 		}
 		var to, from []entry
-		if err := chain.Limit(limit).Model(&a).
-			Association("To").Find(&to).Error; err != nil {
-			return nil, err
+		if toFrom != "from" {
+			if err := chain.Limit(limit).Model(&a).
+				Association("To").Find(&to).Error; err != nil {
+				return nil, err
+			}
 		}
-		if err := chain.Limit(limit).Model(&a).
-			Association("From").Find(&from).Error; err != nil {
-			return nil, err
+		if toFrom != "to" {
+			if err := chain.Limit(limit).Model(&a).
+				Association("From").Find(&from).Error; err != nil {
+				return nil, err
+			}
 		}
 		if int(limit) > len(to)+len(from) {
 			limit = uint(len(to) + len(from))

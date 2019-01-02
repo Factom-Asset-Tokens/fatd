@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/AdamSLevy/factom"
+	"github.com/Factom-Asset-Tokens/base58"
 	"github.com/posener/complete"
 	"github.com/sirupsen/logrus"
 )
@@ -30,6 +31,15 @@ var (
 		"factomdpassword": "FACTOMD_PASSWORD",
 		"factomdcert":     "FACTOMD_TLS_CERT",
 		"factomdtls":      "FACTOMD_TLS_ENABLE",
+
+		"w":              "WALLETD_SERVER",
+		"wallettimeout":  "WALLETD_TIMEOUT",
+		"walletuser":     "WALLETD_USER",
+		"walletpassword": "WALLETD_PASSWORD",
+		"walletcert":     "WALLETD_TLS_CERT",
+		"wallettls":      "WALLETD_TLS_ENABLE",
+
+		"ecpub": "ECPUB",
 	}
 	defaults = map[string]interface{}{
 		"startscanheight": uint64(0),
@@ -45,6 +55,15 @@ var (
 		"factomdpassword": "",
 		"factomdcert":     "",
 		"factomdtls":      false,
+
+		"w":              "localhost:8089",
+		"wallettimeout":  time.Duration(0),
+		"walletuser":     "",
+		"walletpassword": "",
+		"walletcert":     "",
+		"wallettls":      false,
+
+		"ecpub": "",
 	}
 	descriptions = map[string]string{
 		"startscanheight": "Block height to start scanning for deposits on startup",
@@ -60,6 +79,15 @@ var (
 		"factomdpassword": "Password for API connections to factomd",
 		"factomdcert":     "The TLS certificate that will be provided by the factomd API server",
 		"factomdtls":      "Set to true to use TLS when accessing the factomd API",
+
+		"w":              "IPAddr:port# of factom-walletd API to use to access wallet",
+		"wallettimeout":  "Timeout for factom-walletd API requests, 0 means never timeout",
+		"walletuser":     "Username for API connections to factom-walletd",
+		"walletpassword": "Password for API connections to factom-walletd",
+		"walletcert":     "The TLS certificate that will be provided by the factom-walletd API server",
+		"wallettls":      "Set to true to use TLS when accessing the factom-walletd API",
+
+		"ecpub": "Entry Credit Public Address to use to pay for Factom entries",
 	}
 	flags = complete.Flags{
 		"-startscanheight": complete.PredictAnything,
@@ -76,14 +104,25 @@ var (
 		"-factomdcert":     complete.PredictFiles("*"),
 		"-factomdtls":      complete.PredictNothing,
 
+		"-w":              complete.PredictAnything,
+		"-wallettimeout":  complete.PredictAnything,
+		"-walletuser":     complete.PredictAnything,
+		"-walletpassword": complete.PredictAnything,
+		"-walletcert":     complete.PredictFiles("*"),
+		"-wallettls":      complete.PredictNothing,
+
 		"-y":                   complete.PredictNothing,
 		"-installcompletion":   complete.PredictNothing,
 		"-uninstallcompletion": complete.PredictNothing,
+
+		"-ecpub": predictAddress(false, 1, "-ecpub", ""),
 	}
 
 	startScanHeight uint64      // We parse the flag as unsigned.
 	StartScanHeight int64  = -1 // We work with the signed value.
 	LogDebug        bool
+
+	ECPub string
 
 	DBPath string
 
@@ -104,12 +143,21 @@ func init() {
 
 	flagVar(&APIAddress, "apiaddress")
 
+	flagVar((*ecpub)(&ECPub), "ecpub")
+
 	flagVar(&rpc.FactomdServer, "s")
 	flagVar(&rpc.FactomdTimeout, "factomdtimeout")
 	flagVar(&rpc.FactomdRPCUser, "factomduser")
 	flagVar(&rpc.FactomdRPCPassword, "factomdpassword")
 	flagVar(&rpc.FactomdTLSCertFile, "factomdcert")
 	flagVar(&rpc.FactomdTLSEnable, "factomdtls")
+
+	flagVar(&rpc.WalletServer, "w")
+	flagVar(&rpc.WalletTimeout, "wallettimeout")
+	flagVar(&rpc.WalletRPCUser, "walletuser")
+	flagVar(&rpc.WalletRPCPassword, "walletpassword")
+	flagVar(&rpc.WalletTLSCertFile, "walletcert")
+	flagVar(&rpc.WalletTLSEnable, "wallettls")
 
 	// Add flags for self installing the CLI completion tool
 	Completion = complete.New(os.Args[0], complete.Command{Flags: flags})
@@ -140,6 +188,15 @@ func Parse() {
 	loadFromEnv(&rpc.FactomdRPCPassword, "factomdpassword")
 	loadFromEnv(&rpc.FactomdTLSCertFile, "factomdcert")
 	loadFromEnv(&rpc.FactomdTLSEnable, "factomdtls")
+
+	loadFromEnv(&rpc.WalletServer, "w")
+	loadFromEnv(&rpc.WalletTimeout, "walletdtimeout")
+	loadFromEnv(&rpc.WalletRPCUser, "factomduser")
+	loadFromEnv(&rpc.WalletRPCPassword, "factomdpassword")
+	loadFromEnv(&rpc.WalletTLSCertFile, "factomdcert")
+	loadFromEnv(&rpc.WalletTLSEnable, "factomdtls")
+
+	loadFromEnv((*ecpub)(&ECPub), "ecpub")
 
 	if flagset["startscanheight"] {
 		StartScanHeight = int64(startScanHeight)
@@ -196,7 +253,7 @@ func loadFromEnv(v interface{}, flagName string) {
 	eVar, ok := os.LookupEnv(eName)
 	if len(eVar) > 0 {
 		switch v := v.(type) {
-		case *AddressList:
+		case flag.Value:
 			if err := v.Set(eVar); err != nil {
 				log.Fatalf("Environment Variable %v: %v", eName, err)
 			}
@@ -249,4 +306,25 @@ func setupLogger() {
 		_log.SetLevel(logrus.DebugLevel)
 	}
 	log = _log.WithField("pkg", "flag")
+}
+
+type ecpub string
+
+// String returns the hex encoded data of b.
+func (ec ecpub) String() string {
+	return string(ec)
+}
+func (ec *ecpub) Set(data string) error {
+	if len(data) != 52 {
+		return fmt.Errorf("invalid length")
+	}
+	if data[0:2] != "EC" {
+		return fmt.Errorf("invalid prefix")
+	}
+	_, _, err := base58.CheckDecode(data, 2)
+	if err != nil {
+		return err
+	}
+	*ec = ecpub(data)
+	return nil
 }

@@ -8,7 +8,7 @@ import (
 	"math/rand"
 	"net/http"
 
-	jrpc "github.com/AdamSLevy/jsonrpc2/v9"
+	jrpc "github.com/AdamSLevy/jsonrpc2/v10"
 )
 
 var DebugRPC bool
@@ -62,6 +62,9 @@ func Request(endpoint, method string, params, result interface{}) error {
 	if DebugRPC {
 		fmt.Println(resJrpc)
 		fmt.Println("")
+	}
+	if resJrpc.Error != nil {
+		return *resJrpc.Error
 	}
 	return nil
 }

@@ -35,7 +35,7 @@ func issue() error {
 	} else if !eb.IsPopulated() {
 		// Create the chain
 		e := factom.Entry{ExtIDs: fat0.NameIDs(token, identity.ChainID)}
-		txID, err := e.Create(ecpub)
+		txID, err := e.Create(ECPub)
 		if err != nil {
 			return err
 		}
@@ -68,7 +68,7 @@ func issue() error {
 	if err := issuance.Valid(identity.IDKey); err != nil {
 		return err
 	}
-	txID, err := issuance.Create(ecpub)
+	txID, err := issuance.Create(ECPub)
 	if err != nil {
 		return err
 	}

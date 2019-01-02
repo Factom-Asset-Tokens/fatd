@@ -3,10 +3,12 @@ package srv
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 
-	jrpc "github.com/AdamSLevy/jsonrpc2/v9"
+	jrpc "github.com/AdamSLevy/jsonrpc2/v10"
 	"github.com/Factom-Asset-Tokens/fatd/factom"
 	"github.com/Factom-Asset-Tokens/fatd/fat0"
+	"github.com/Factom-Asset-Tokens/fatd/flag"
 	"github.com/Factom-Asset-Tokens/fatd/state"
 )
 
@@ -86,7 +88,8 @@ func getTransactions(entry bool) jrpc.MethodFunc {
 		// Lookup Txs
 		chain := state.Chains.Get(chainID)
 		transactions, err := chain.GetTransactions(params.Hash,
-			params.FactoidAddress, *params.Start, *params.Limit)
+			params.FactoidAddress, params.ToFrom,
+			*params.Start, *params.Limit)
 		if err != nil {
 			log.Debug(err)
 			panic(err)
@@ -154,7 +157,7 @@ func getStats(data json.RawMessage) interface{} {
 	if err != nil {
 		panic(err)
 	}
-	txs, err := chain.GetTransactions(nil, nil, 0, 0)
+	txs, err := chain.GetTransactions(nil, nil, "", 0, 0)
 	if err != nil {
 		panic(err)
 	}
@@ -187,13 +190,64 @@ func getNFToken(data json.RawMessage) interface{} {
 }
 
 func sendTransaction(data json.RawMessage) interface{} {
+	if len(flag.ECPub) == 0 {
+		return ErrorNoEC
+	}
 	params := ParamsSendTransaction{}
-	chainID, err := validate(data, &params)
+	chainID, rpcErr := validate(data, &params)
 	if chainID == nil {
-		return err
+		return rpcErr
 	}
 
-	return ErrorTokenNotFound
+	chain := state.Chains.Get(chainID)
+	if !chain.IsIssued() {
+		rpcErr = ErrorTokenNotFound
+		rpcErr.Data = chainID
+		return rpcErr
+	}
+
+	tx := fat0.NewTransaction(params.Entry())
+	if err := tx.Valid(chain.IDKey); err != nil {
+		rpcErr = ErrorInvalidTransaction
+		rpcErr.Data = err
+		return rpcErr
+	}
+
+	// check balances
+	if tx.IsCoinbase() {
+		if tx.Inputs.Sum() > uint64(chain.Supply)-chain.Issued {
+			rpcErr := ErrorInvalidTransaction
+			rpcErr.Data = "insufficient coinbase supply"
+			return rpcErr
+		}
+	} else {
+		for rcdHash, amount := range tx.Inputs {
+			adr := factom.NewAddress(&rcdHash)
+			balance, err := chain.GetBalance(adr)
+			if err != nil {
+				log.Error(err)
+				panic(err)
+			}
+			if amount > balance {
+				rpcErr := ErrorInvalidTransaction
+				rpcErr.Data = fmt.Sprintf(
+					"insufficient balance: %v", adr)
+				return rpcErr
+			}
+		}
+	}
+
+	txID, err := tx.Create(flag.ECPub)
+	if err != nil {
+		log.Error(err)
+		panic(err)
+	}
+
+	return struct {
+		ChainID *factom.Bytes32 `json:"chainid"`
+		TxID    *factom.Bytes32 `json:"factom-tx-id"`
+		Hash    *factom.Bytes32 `json:"entryhash"`
+	}{ChainID: chainID, TxID: txID, Hash: tx.Hash}
 }
 
 func getDaemonTokens(data json.RawMessage) interface{} {

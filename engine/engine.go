@@ -86,9 +86,6 @@ func scanNewBlocks() error {
 		if err := dblock.Get(); err != nil {
 			return fmt.Errorf("%#v.Get(): %v", dblock, err)
 		}
-		if !dblock.IsPopulated() {
-			return fmt.Errorf("DBlock%+v.IsPopulated(): false")
-		}
 
 		wg := &sync.WaitGroup{}
 		chainIDs := make(map[factom.Bytes32]struct{}, len(dblock.EBlocks))

@@ -3,6 +3,7 @@ package state
 import (
 	"fmt"
 
+	jrpc "github.com/AdamSLevy/jsonrpc2/v10"
 	"github.com/Factom-Asset-Tokens/fatd/factom"
 	"github.com/Factom-Asset-Tokens/fatd/fat0"
 )
@@ -14,9 +15,6 @@ func (chain Chain) Process(eb factom.EBlock) error {
 	if err := eb.Get(); err != nil {
 		return fmt.Errorf("%#v.Get(): %v", eb, err)
 	}
-	if !eb.IsPopulated() {
-		return fmt.Errorf("%#v.IsPopulated(): false", eb)
-	}
 
 	// Check if the EBlock represents a new chain.
 	if eb.IsFirst() {
@@ -24,9 +22,6 @@ func (chain Chain) Process(eb factom.EBlock) error {
 		first := eb.Entries[0]
 		if err := first.Get(); err != nil {
 			return fmt.Errorf("%#v.Get: %v", first, err)
-		}
-		if !first.IsPopulated() {
-			return fmt.Errorf("%#v.IsPopulated(): false", first)
 		}
 
 		// Ignore chains with NameIDs that don't match the fat0
@@ -79,12 +74,10 @@ func (chain *Chain) processIssuance(es []factom.Entry) error {
 		// The Identity may not have existed when this chain was first tracked.
 		// Attempt to retrieve it.
 		if err := chain.Identity.Get(); err != nil {
+			if _, ok := err.(jrpc.Error); ok {
+				return nil
+			}
 			return err
-		}
-		// If the Identity isn't yet populated then Issuance entries can't be
-		// validated.
-		if !chain.Identity.IsPopulated() {
-			return nil
 		}
 	}
 	// If these entries were created in a lower block height than the
@@ -105,9 +98,6 @@ func (chain *Chain) processIssuance(es []factom.Entry) error {
 		if err := e.Get(); err != nil {
 			return fmt.Errorf("Entry%+v.Get(): %v", e, err)
 		}
-		if !e.IsPopulated() {
-			return fmt.Errorf("Entry%+v.IsPopulated(): false", e)
-		}
 		issuance := fat0.NewIssuance(e)
 		if err := issuance.Valid(chain.Identity.IDKey); err != nil {
 			log.Debugf("Invalid Issuance Entry: %v, %v", e.Hash, err)
@@ -125,24 +115,9 @@ func (chain *Chain) processIssuance(es []factom.Entry) error {
 }
 
 func (chain *Chain) processTransactions(es []factom.Entry) error {
-	if !chain.Identity.IsPopulated() {
-		// The Identity may not have existed when this chain was first tracked.
-		// Attempt to retrieve it.
-		if err := chain.Identity.Get(); err != nil {
-			return err
-		}
-		// If the Identity isn't yet populated then Issuance entries can't be
-		// validated.
-		if !chain.Identity.IsPopulated() {
-			return nil
-		}
-	}
 	for _, e := range es {
 		if err := e.Get(); err != nil {
 			return fmt.Errorf("Entry%v.Get(): %v", e, err)
-		}
-		if !e.IsPopulated() {
-			return fmt.Errorf("%#v.IsPopulated(): false", e)
 		}
 		transaction := fat0.NewTransaction(e)
 		if err := transaction.Valid(chain.Identity.IDKey); err != nil {

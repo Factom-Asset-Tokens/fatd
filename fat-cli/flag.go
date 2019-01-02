@@ -83,7 +83,7 @@ var (
 		"walletcert":     "The TLS certificate that will be provided by the factom-walletd API server",
 		"wallettls":      "Set to true to use TLS when accessing the factom-walletd API",
 
-		"s":               "IPAddr:port# of factomd API to use to access blockchain",
+		"s":               "IPAddr:port# of factomd API to use to access wallet",
 		"factomdtimeout":  "Timeout for factomd API requests, 0 means never timeout",
 		"factomduser":     "Username for API connections to factomd",
 		"factomdpassword": "Password for API connections to factomd",
@@ -101,7 +101,7 @@ var (
 		"symbol": "Ticker symbol for the token (optional)",
 		"name":   "Complete descriptive name of the token (optional)",
 
-		"coinbase": "Create a coinbase transaction with the given amount.",
+		"coinbase": "Create a coinbase transaction with the given amount. Requires -sk1.",
 		"input":    "Add an -input ADDRESS:AMOUNT to the transaction. Can be specified multiple times.",
 		"output":   "Add an -output ADDRESS:AMOUNT to the transaction. Can be specified multiple times.",
 	}
@@ -125,7 +125,7 @@ var (
 	sk1            = factom.Address{PrivateKey: new([ed25519.PrivateKeySize]byte)}
 	address        = factom.Address{}
 	token          string
-	ecpub          string
+	ECPub          string
 	metadata       string
 
 	cmd string
@@ -168,14 +168,14 @@ func init() {
 	flagVar(globalFlagSet, (*flagBytes32)(identity.ChainID), "identity")
 	flagVar(globalFlagSet, (*flagBytes32)(chainID), "chainid")
 
-	flagVar(issueFlagSet, &ecpub, "ecpub")
+	flagVar(issueFlagSet, (*ecpub)(&ECPub), "ecpub")
 	flagVar(issueFlagSet, (*SecretKey)(sk1.PrivateKey), "sk1")
 	flagVar(issueFlagSet, &issuance.Type, "type")
 	flagVar(issueFlagSet, &issuance.Supply, "supply")
 	flagVar(issueFlagSet, &issuance.Symbol, "symbol")
 	flagVar(issueFlagSet, &issuance.Name, "name")
 
-	flagVar(transactFlagSet, &ecpub, "ecpub")
+	flagVar(transactFlagSet, (*ecpub)(&ECPub), "ecpub")
 	flagVar(transactFlagSet, (*SecretKey)(sk1.PrivateKey), "sk1")
 	flagVar(transactFlagSet, &coinbaseAmount, "coinbase")
 	flagVar(transactFlagSet, (addressAmountMap)(transaction.Inputs), "input")
@@ -301,7 +301,7 @@ func Validate() error {
 			return fmt.Errorf("no address specified")
 		}
 	case "transact":
-		required := []string{"output", "ecpub"}
+		required := []string{"output"}
 		if flagIsSet["coinbase"] || flagIsSet["sk1"] {
 			if flagIsSet["input"] {
 				return fmt.Errorf(
@@ -444,6 +444,27 @@ func (sk *SecretKey) Set(data string) error {
 	}
 	copy(sk[:], b)
 	ed25519.GetPublicKey((*[ed25519.PrivateKeySize]byte)(sk))
+	return nil
+}
+
+type ecpub string
+
+// String returns the hex encoded data of b.
+func (ec ecpub) String() string {
+	return string(ec)
+}
+func (ec *ecpub) Set(data string) error {
+	if len(data) != 52 {
+		return fmt.Errorf("invalid length")
+	}
+	if data[0:2] != "EC" {
+		return fmt.Errorf("invalid prefix")
+	}
+	_, _, err := base58.CheckDecode(data, 2)
+	if err != nil {
+		return err
+	}
+	*ec = ecpub(data)
 	return nil
 }
 
