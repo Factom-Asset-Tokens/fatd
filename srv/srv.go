@@ -16,7 +16,7 @@ var (
 
 func Start() {
 	log = _log.New("srv")
-	//jrpc.DebugMethodFunc = true
+	jrpc.DebugMethodFunc = true
 	jrpcHandler := jrpc.HTTPRequestHandler(jrpcMethods)
 	// Set up server
 	srvMux := http.NewServeMux()

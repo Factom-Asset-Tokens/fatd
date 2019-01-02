@@ -321,6 +321,9 @@ func (chain Chain) getEntry(hash *factom.Bytes32) (*entry, error) {
 func (chain Chain) GetTransactions(hash *factom.Bytes32,
 	adr *factom.Address,
 	start, limit uint) ([]fat0.Transaction, error) {
+	if limit == 0 {
+		limit = math.MaxUint32
+	}
 	var e *entry
 	var es []entry
 	if adr != nil {

@@ -144,13 +144,34 @@ func getStats(data json.RawMessage) interface{} {
 		return res
 	}
 
+	chain := state.Chains.Get(chainID)
+	if !chain.IsIssued() {
+		return ErrorTokenNotFound
+	}
+
+	coinbase := factom.Address{}
+	burned, err := chain.GetBalance(coinbase)
+	if err != nil {
+		panic(err)
+	}
+	txs, err := chain.GetTransactions(nil, nil, 0, 0)
+	if err != nil {
+		panic(err)
+	}
+
 	return struct {
-		Supply                   int `json:"supply"`
-		CirculatingSupply        int `json:"circulating-supply"`
-		Transactions             int `json:"transactions"`
-		IssuanceTimestamp        int `json:"issuance-timestamp"`
-		LastTransactionTimestamp int `json:"last-transaction-timestamp"`
-	}{}
+		Supply                   int64  `json:"supply"`
+		CirculatingSupply        uint64 `json:"circulating-supply"`
+		Transactions             int    `json:"transactions"`
+		IssuanceTimestamp        int64  `json:"issuance-timestamp"`
+		LastTransactionTimestamp int64  `json:"last-transaction-timestamp"`
+	}{
+		Supply:                   chain.Supply,
+		CirculatingSupply:        chain.Issued - burned,
+		Transactions:             len(txs),
+		IssuanceTimestamp:        chain.Issuance.Timestamp.Unix(),
+		LastTransactionTimestamp: txs[len(txs)-1].Timestamp.Unix(),
+	}
 }
 
 func getNFToken(data json.RawMessage) interface{} {
