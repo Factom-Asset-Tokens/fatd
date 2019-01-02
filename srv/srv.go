@@ -10,21 +10,22 @@ import (
 )
 
 var (
-	log = _log.New("srv")
-	srv = func() http.Server {
-		jrpcHandler := jrpc.HTTPRequestHandler(jrpcMethods)
-		// Set up server
-		srvMux := http.NewServeMux()
-		srvMux.Handle("/", jrpcHandler)
-		srvMux.Handle("/v1", jrpcHandler)
-
-		cors := cors.New(cors.Options{AllowedOrigins: []string{"*"}})
-
-		return http.Server{Handler: cors.Handler(srvMux)}
-	}()
+	log _log.Log
+	srv http.Server
 )
 
 func Start() {
+	log = _log.New("srv")
+	//jrpc.DebugMethodFunc = true
+	jrpcHandler := jrpc.HTTPRequestHandler(jrpcMethods)
+	// Set up server
+	srvMux := http.NewServeMux()
+	srvMux.Handle("/", jrpcHandler)
+	srvMux.Handle("/v1", jrpcHandler)
+
+	cors := cors.New(cors.Options{AllowedOrigins: []string{"*"}})
+
+	srv = http.Server{Handler: cors.Handler(srvMux)}
 	srv.Addr = flag.APIAddress
 	go func() {
 		if err := srv.ListenAndServe(); err != http.ErrServerClosed {

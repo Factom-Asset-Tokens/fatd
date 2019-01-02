@@ -297,15 +297,111 @@ func (chain *Chain) rollbackUnlessCommitted(savedChain Chain, err *error) {
 }
 
 func (chain Chain) GetTransaction(hash *factom.Bytes32) (fat0.Transaction, error) {
+	e, err := chain.getEntry(hash)
+	if e == nil {
+		return fat0.Transaction{}, err
+	}
+	transaction := fat0.NewTransaction(e.Entry())
+	return transaction, nil
+}
+
+func (chain Chain) getEntry(hash *factom.Bytes32) (*entry, error) {
 	e := entry{}
 	if err := chain.Not("id = ?", 1).
 		Where("hash = ?", hash).First(&e).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			return fat0.Transaction{}, nil
+			return nil, nil
 		}
-		return fat0.Transaction{}, err
+		return nil, err
 	}
 	e.Hash = hash
-	transaction := fat0.NewTransaction(e.Entry())
-	return transaction, nil
+	return &e, nil
+}
+
+func (chain Chain) GetTransactions(hash *factom.Bytes32,
+	adr *factom.Address,
+	start, limit uint) ([]fat0.Transaction, error) {
+	var e *entry
+	var es []entry
+	if adr != nil {
+		a, err := chain.getAddress(adr.RCDHash())
+		if err != nil {
+			return nil, err
+		}
+		var to, from []entry
+		if err := chain.Limit(limit).Model(&a).
+			Association("To").Find(&to).Error; err != nil {
+			return nil, err
+		}
+		if err := chain.Limit(limit).Model(&a).
+			Association("From").Find(&from).Error; err != nil {
+			return nil, err
+		}
+		if int(limit) > len(to)+len(from) {
+			limit = uint(len(to) + len(from))
+		}
+		es = make([]entry, limit)
+		var t, f int
+		for i := range es {
+			if t < len(to) && f < len(from) {
+				var next entry
+				if to[t].ID < from[f].ID {
+					next = to[t]
+					t++
+				} else {
+					next = from[f]
+					f++
+				}
+				es[i] = next
+			} else {
+				var nexts []entry
+				if t < len(to) {
+					nexts = to
+				} else {
+					nexts = from
+				}
+				es = append(es[:i], nexts...)
+				break
+			}
+		}
+		if hash != nil {
+			hashId := uint(len(es))
+			for i, e := range es {
+				if *e.Hash == *hash {
+					hashId = uint(i)
+					break
+				}
+			}
+			start += hashId
+			if start > uint(len(es)) {
+				start = uint(len(es))
+			}
+		}
+		es = es[start:]
+	} else {
+		if hash != nil {
+			var err error
+			e, err = chain.getEntry(hash)
+			if e == nil {
+				return nil, err
+			}
+			start = uint(e.ID)
+		} else {
+			start++
+		}
+		if err := chain.Offset(start).Limit(limit).Find(&es).Error; err != nil {
+			if err == gorm.ErrRecordNotFound {
+				return nil, nil
+			}
+			return nil, err
+		}
+	}
+	txs := make([]fat0.Transaction, len(es))
+	for i, e := range es {
+		txs[i] = fat0.NewTransaction(e.Entry())
+		if err := txs[i].UnmarshalEntry(); err != nil {
+			return nil, err
+		}
+	}
+	return txs, nil
 }

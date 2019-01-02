@@ -70,13 +70,14 @@ type ParamsGetTransactions struct {
 }
 
 func (p *ParamsGetTransactions) IsValid() bool {
-	if p.Hash != nil {
-		if p.Start != nil {
-			return false
+	defer func() {
+		if p.Start == nil {
+			p.Start = new(uint)
 		}
-	} else if p.Start == nil {
-		p.Start = new(uint)
-	}
+		if p.Limit == nil {
+			p.Limit = new(uint)
+		}
+	}()
 	if p.Limit == nil {
 		p.Limit = new(uint)
 		*p.Limit = 25

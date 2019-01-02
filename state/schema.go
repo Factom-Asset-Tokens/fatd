@@ -22,7 +22,7 @@ type entry struct {
 	ID        uint64
 	Hash      *factom.Bytes32 `gorm:"type:VARCHAR(32); UNIQUE_INDEX; NOT NULL;"`
 	Timestamp time.Time       `gorm:"NOT NULL;"`
-	Data      []byte          `gorm:"NOT NULL;"`
+	Data      factom.Bytes    `gorm:"NOT NULL;"`
 }
 
 func newEntry(e factom.Entry) entry {
@@ -38,7 +38,7 @@ func (e entry) IsValid() bool {
 }
 
 func (e entry) Entry() factom.Entry {
-	fe := factom.Entry{Hash: e.Hash}
+	fe := factom.Entry{Hash: e.Hash, Timestamp: &factom.Time{Time: e.Timestamp}}
 	fe.UnmarshalBinary(e.Data)
 	return fe
 }

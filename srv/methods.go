@@ -6,18 +6,20 @@ import (
 
 	jrpc "github.com/AdamSLevy/jsonrpc2/v9"
 	"github.com/Factom-Asset-Tokens/fatd/factom"
+	"github.com/Factom-Asset-Tokens/fatd/fat0"
 	"github.com/Factom-Asset-Tokens/fatd/state"
 )
 
 var jrpcMethods = jrpc.MethodMap{
-	"get-issuance":          getIssuance(false),
-	"get-issuance-entry":    getIssuance(true),
-	"get-transaction":       getTransaction(false),
-	"get-transaction-entry": getTransaction(true),
-	"get-transactions":      getTransactions,
-	"get-balance":           getBalance,
-	"get-stats":             getStats,
-	"get-nf-token":          getNFToken,
+	"get-issuance":           getIssuance(false),
+	"get-issuance-entry":     getIssuance(true),
+	"get-transaction":        getTransaction(false),
+	"get-transaction-entry":  getTransaction(true),
+	"get-transactions":       getTransactions(false),
+	"get-transactions-entry": getTransactions(true),
+	"get-balance":            getBalance,
+	"get-stats":              getStats,
+	"get-nf-token":           getNFToken,
 
 	"send-transaction": sendTransaction,
 
@@ -73,16 +75,47 @@ func getTransaction(entry bool) jrpc.MethodFunc {
 	}
 }
 
-func getTransactions(data json.RawMessage) interface{} {
-	params := ParamsGetTransactions{}
-	chainID, res := validate(data, &params)
-	if chainID == nil {
-		return res
+func getTransactions(entry bool) jrpc.MethodFunc {
+	return func(data json.RawMessage) interface{} {
+		params := ParamsGetTransactions{}
+		chainID, res := validate(data, &params)
+		if chainID == nil {
+			return res
+		}
+
+		// Lookup Txs
+		chain := state.Chains.Get(chainID)
+		transactions, err := chain.GetTransactions(params.Hash, params.FactoidAddress,
+			*params.Start, *params.Limit)
+		if err != nil {
+			log.Debug(err)
+			panic(err)
+		}
+		if len(transactions) == 0 {
+			return ErrorTransactionNotFound
+		}
+		if entry {
+			txs := make([]factom.Entry, len(transactions))
+			for i := range txs {
+				txs[i] = transactions[i].Entry.Entry
+				txs[i].ChainID = nil
+			}
+			return txs
+		}
+
+		txs := make([]struct {
+			Hash *factom.Bytes32  `json:"entryhash"`
+			Time int64            `json:"timestamp"`
+			Tx   fat0.Transaction `json:"data"`
+		}, len(transactions))
+		for i := range txs {
+			txs[i].Hash = transactions[i].Hash
+			txs[i].Time = transactions[i].Timestamp.Unix()
+			txs[i].Tx = transactions[i]
+		}
+
+		return txs
 	}
-
-	// Lookup Txs
-
-	return ErrorTransactionNotFound
 }
 
 func getBalance(data json.RawMessage) interface{} {
