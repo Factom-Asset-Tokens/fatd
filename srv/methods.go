@@ -85,8 +85,8 @@ func getTransactions(entry bool) jrpc.MethodFunc {
 
 		// Lookup Txs
 		chain := state.Chains.Get(chainID)
-		transactions, err := chain.GetTransactions(params.Hash, params.FactoidAddress,
-			*params.Start, *params.Limit)
+		transactions, err := chain.GetTransactions(params.Hash,
+			params.FactoidAddress, *params.Start, *params.Limit)
 		if err != nil {
 			log.Debug(err)
 			panic(err)
@@ -162,12 +162,14 @@ func getStats(data json.RawMessage) interface{} {
 	return struct {
 		Supply                   int64  `json:"supply"`
 		CirculatingSupply        uint64 `json:"circulating-supply"`
+		Burned                   uint64 `json:"burned"`
 		Transactions             int    `json:"transactions"`
 		IssuanceTimestamp        int64  `json:"issuance-timestamp"`
 		LastTransactionTimestamp int64  `json:"last-transaction-timestamp"`
 	}{
 		Supply:                   chain.Supply,
 		CirculatingSupply:        chain.Issued - burned,
+		Burned:                   burned,
 		Transactions:             len(txs),
 		IssuanceTimestamp:        chain.Issuance.Timestamp.Unix(),
 		LastTransactionTimestamp: txs[len(txs)-1].Timestamp.Unix(),
