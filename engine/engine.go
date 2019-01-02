@@ -14,7 +14,7 @@ var (
 	returnError chan error
 	stop        chan error
 	log         _log.Log
-	scanTicker  = time.NewTicker(scanInterval)
+	scanTicker  *time.Ticker
 )
 
 const (
@@ -30,6 +30,7 @@ func Start() (chan error, error) {
 	returnError = make(chan error, 1)
 	stop = make(chan error)
 
+	scanTicker = time.NewTicker(scanInterval)
 	go engine()
 
 	return returnError, nil

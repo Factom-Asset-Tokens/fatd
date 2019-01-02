@@ -193,6 +193,7 @@ func Parse() {
 	if len(args) == 0 {
 		return
 	}
+	setupLogger()
 	globalFlagSet.Parse(args)
 	args = globalFlagSet.Args()
 	globalFlagSet.Visit(setFlagIsSet)
@@ -245,7 +246,6 @@ func Validate() error {
 	if len(cmd) == 0 {
 		return nil
 	}
-	setupLogger()
 	// Redact private data from debug output.
 	factomdRPCPassword := "\"\""
 	if len(rpc.FactomdRPCPassword) > 0 {

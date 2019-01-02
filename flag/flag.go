@@ -97,7 +97,6 @@ var (
 )
 
 func init() {
-
 	flagVar(&startScanHeight, "startscanheight")
 	flagVar(&LogDebug, "debug")
 
@@ -171,17 +170,21 @@ func Validate() {
 }
 
 func flagVar(v interface{}, name string) {
+	dflt := defaults[name]
+	desc := description(name)
 	switch v := v.(type) {
-	case *AddressList:
-		flag.Var(v, name, description(name))
 	case *string:
-		flag.StringVar(v, name, defaults[name].(string), description(name))
+		flag.StringVar(v, name, dflt.(string), desc)
 	case *time.Duration:
-		flag.DurationVar(v, name, defaults[name].(time.Duration), description(name))
+		flag.DurationVar(v, name, dflt.(time.Duration), desc)
 	case *uint64:
-		flag.Uint64Var(v, name, defaults[name].(uint64), description(name))
+		flag.Uint64Var(v, name, dflt.(uint64), desc)
+	case *int64:
+		flag.Int64Var(v, name, dflt.(int64), desc)
 	case *bool:
-		flag.BoolVar(v, name, defaults[name].(bool), description(name))
+		flag.BoolVar(v, name, dflt.(bool), desc)
+	case flag.Value:
+		flag.Var(v, name, desc)
 	}
 }
 

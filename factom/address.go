@@ -8,11 +8,6 @@ import (
 	"github.com/FactomProject/ed25519"
 )
 
-var (
-	prefixChars = [...]byte{'F', 'A'}
-	prefix      = [...]byte{0x5f, 0xb1}
-)
-
 const (
 	// RCDType is the magic number identifying the currenctly accepted RCD.
 	RCDType byte = 0x01
@@ -127,6 +122,8 @@ func (a *Address) RCDHash() *Bytes32 {
 	}
 	return a.rcdHash
 }
+
+var prefix = [...]byte{0x5f, 0xb1}
 
 // encodePub encodes data using a base58 checksum encoding with the two prefix
 // bytes used for Factoid public addresses.
