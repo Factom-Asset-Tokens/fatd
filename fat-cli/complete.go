@@ -34,7 +34,7 @@ var (
 			"-token":    complete.PredictAnything,
 			"-identity": complete.PredictAnything,
 			"-chainid":  complete.PredictAnything,
-			"-ecpub":    predictAddress(false, 1, "", ""),
+			"-ecpub":    predictAddress(false, 1, "-ecpub", ""),
 		},
 		Sub: complete.Commands{
 			"balance": complete.Command{
