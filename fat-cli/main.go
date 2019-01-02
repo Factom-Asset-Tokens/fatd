@@ -34,7 +34,13 @@ func _main() (ret int) {
 			fmt.Println(err)
 			return 1
 		}
+	default:
+		usage()
 	}
 
 	return 0
+}
+
+func usage() {
+	fmt.Println("usage: fat-cli -chainid TOKEN_CHAIN_ID [issue|transact|balance]")
 }

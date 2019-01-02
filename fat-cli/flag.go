@@ -187,12 +187,14 @@ func init() {
 }
 func setFlagIsSet(f *flag.Flag) { flagIsSet[f.Name] = true }
 
-func Parse() string {
+func Parse() {
 	args := os.Args[1:]
+	if len(args) == 0 {
+		return
+	}
 	globalFlagSet.Parse(args)
 	args = globalFlagSet.Args()
 	globalFlagSet.Visit(setFlagIsSet)
-	setupLogger()
 	if len(args) > 0 {
 		cmd = args[0]
 		args = args[1:]
@@ -236,11 +238,13 @@ func Parse() string {
 	loadFromEnv(&rpc.FactomdRPCPassword, "factomdpassword")
 	loadFromEnv(&rpc.FactomdTLSCertFile, "factomdcert")
 	loadFromEnv(&rpc.FactomdTLSEnable, "factomdtls")
-
-	return cmd
 }
 
 func Validate() error {
+	if len(cmd) == 0 {
+		return nil
+	}
+	setupLogger()
 	// Redact private data from debug output.
 	factomdRPCPassword := "\"\""
 	if len(rpc.FactomdRPCPassword) > 0 {
@@ -314,6 +318,7 @@ func Validate() error {
 		if err := requireFlags(required...); err != nil {
 			return err
 		}
+	case "help":
 	case "":
 		return fmt.Errorf("No command supplied")
 	default:
