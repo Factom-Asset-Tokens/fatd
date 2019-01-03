@@ -128,6 +128,8 @@ var (
 	metadata       string
 	tokenID        string
 
+	txHash *factom.Bytes32
+
 	cmd string
 
 	globalFlagSet = flag.NewFlagSet("fat-cli", flag.ContinueOnError)
@@ -212,6 +214,16 @@ func Parse() {
 		if len(args) == 1 {
 			if err := address.UnmarshalJSON(
 				[]byte(fmt.Sprintf("%#v", args[0]))); err != nil {
+				return
+			}
+		}
+	case "gettransaction":
+		if len(args) == 1 {
+			txHash = factom.NewBytes32(nil)
+			if err := txHash.UnmarshalJSON(
+				[]byte(fmt.Sprintf("%#v", args[0]))); err != nil {
+				txHash = nil
+				return
 			}
 		}
 	default:
@@ -274,21 +286,9 @@ func Validate() error {
 	debugPrintln()
 
 	// Validate options
-	if !flagIsSet["chainid"] {
-		if !flagIsSet["tokenid"] || !flagIsSet["identity"] {
-			return fmt.Errorf(
-				"You must specify -chainid OR -tokenid AND -identity")
-		}
-		chainID := fat0.ChainID(tokenID, identity.ChainID)
-		copy(issuance.ChainID[:], chainID[:])
-	} else {
-		if flagIsSet["tokenid"] || flagIsSet["identity"] {
-			return fmt.Errorf(
-				"You may not specify -chainid with -tokenid and -identity")
-		}
-	}
 	switch cmd {
 	case "issue":
+		requireTokenChain()
 		if err := requireFlags("sk1", "type", "supply", "ecpub"); err != nil {
 			return err
 		}
@@ -296,11 +296,13 @@ func Validate() error {
 			return err
 		}
 	case "balance":
+		requireTokenChain()
 		zero := factom.Address{}
 		if address.RCDHash() == zero.RCDHash() {
 			return fmt.Errorf("no address specified")
 		}
 	case "transact":
+		requireTokenChain()
 		required := []string{"output"}
 		if flagIsSet["coinbase"] || flagIsSet["sk1"] {
 			if flagIsSet["input"] {
@@ -319,11 +321,38 @@ func Validate() error {
 		if err := requireFlags(required...); err != nil {
 			return err
 		}
+	case "gettransaction":
+		requireTokenChain()
+		if txHash == nil {
+			return fmt.Errorf("no transaction entry hash specified")
+		}
+	case "stats":
+		fallthrough
+	case "getissuance":
+		requireTokenChain()
+	case "listtokens":
 	case "help":
 	case "":
 		return fmt.Errorf("No command supplied")
 	default:
 		return fmt.Errorf("Invalid command: %v", cmd)
+	}
+	return nil
+}
+
+func requireTokenChain() error {
+	if !flagIsSet["chainid"] {
+		if !flagIsSet["tokenid"] || !flagIsSet["identity"] {
+			return fmt.Errorf(
+				"You must specify -chainid OR -tokenid AND -identity")
+		}
+		chainID := fat0.ChainID(tokenID, identity.ChainID)
+		copy(issuance.ChainID[:], chainID[:])
+	} else {
+		if flagIsSet["tokenid"] || flagIsSet["identity"] {
+			return fmt.Errorf(
+				"You may not specify -chainid with -tokenid and -identity")
+		}
 	}
 	return nil
 }

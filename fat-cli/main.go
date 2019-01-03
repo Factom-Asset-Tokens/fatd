@@ -34,6 +34,26 @@ func _main() (ret int) {
 			fmt.Println(err)
 			return 1
 		}
+	case "getissuance":
+		if err := getIssuance(); err != nil {
+			fmt.Println(err)
+			return 1
+		}
+	case "getstats":
+		if err := getStats(); err != nil {
+			fmt.Println(err)
+			return 1
+		}
+	case "listtokens":
+		if err := listTokens(); err != nil {
+			fmt.Println(err)
+			return 1
+		}
+	case "gettransaction":
+		if err := getTransaction(); err != nil {
+			fmt.Println(err)
+			return 1
+		}
 	default:
 		usage()
 	}
