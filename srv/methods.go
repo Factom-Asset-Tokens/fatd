@@ -162,6 +162,10 @@ func getStats(data json.RawMessage) interface{} {
 		panic(err)
 	}
 
+	var lastTxTs int64
+	if len(txs) > 0 {
+		lastTxTs = txs[len(txs)-1].Timestamp.Unix()
+	}
 	return struct {
 		Supply                   int64  `json:"supply"`
 		CirculatingSupply        uint64 `json:"circulating"`
@@ -175,7 +179,7 @@ func getStats(data json.RawMessage) interface{} {
 		Burned:                   burned,
 		Transactions:             len(txs),
 		IssuanceTimestamp:        chain.Issuance.Timestamp.Unix(),
-		LastTransactionTimestamp: txs[len(txs)-1].Timestamp.Unix(),
+		LastTransactionTimestamp: lastTxTs,
 	}
 }
 
