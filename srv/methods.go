@@ -29,6 +29,12 @@ var jrpcMethods = jrpc.MethodMap{
 	"get-daemon-properties": getDaemonProperties,
 }
 
+type ResultsGetIssuance struct {
+	ParamsToken
+	Timestamp *factom.Time  `json:"timestamp"`
+	Issuance  fat0.Issuance `json:"issuance"`
+}
+
 func getIssuance(entry bool) jrpc.MethodFunc {
 	return func(data json.RawMessage) interface{} {
 		params := ParamsToken{}
@@ -45,17 +51,13 @@ func getIssuance(entry bool) jrpc.MethodFunc {
 		if entry {
 			return chain.Issuance.Entry.Entry
 		}
-		return struct {
-			ParamsToken
-			Timestamp int64         `json:"timestamp"`
-			Issuance  fat0.Issuance `json:"issuance"`
-		}{
+		return ResultsGetIssuance{
 			ParamsToken: ParamsToken{
 				ChainID:       chainID,
 				TokenID:       chain.Token,
 				IssuerChainID: chain.Identity.ChainID,
 			},
-			Timestamp: chain.Issuance.Timestamp.Unix(),
+			Timestamp: chain.Issuance.Timestamp,
 			Issuance:  chain.Issuance,
 		}
 	}
@@ -85,8 +87,18 @@ func getTransaction(entry bool) jrpc.MethodFunc {
 		if err := transaction.UnmarshalEntry(); err != nil {
 			panic(err)
 		}
-		return transaction
+		return ResultsGetTransaction{
+			Hash:      transaction.Hash,
+			Timestamp: transaction.Timestamp,
+			Tx:        transaction,
+		}
 	}
+}
+
+type ResultsGetTransaction struct {
+	Hash      *factom.Bytes32  `json:"entryhash"`
+	Timestamp *factom.Time     `json:"timestamp"`
+	Tx        fat0.Transaction `json:"data"`
 }
 
 func getTransactions(entry bool) jrpc.MethodFunc {
@@ -118,14 +130,10 @@ func getTransactions(entry bool) jrpc.MethodFunc {
 			return txs
 		}
 
-		txs := make([]struct {
-			Hash *factom.Bytes32  `json:"entryhash"`
-			Time int64            `json:"timestamp"`
-			Tx   fat0.Transaction `json:"data"`
-		}, len(transactions))
+		txs := make([]ResultsGetTransaction, len(transactions))
 		for i := range txs {
 			txs[i].Hash = transactions[i].Hash
-			txs[i].Time = transactions[i].Timestamp.Unix()
+			txs[i].Timestamp = transactions[i].Timestamp
 			txs[i].Tx = transactions[i]
 		}
 
@@ -152,6 +160,15 @@ func getBalance(data json.RawMessage) interface{} {
 	return balance
 }
 
+type ResultsGetStats struct {
+	Supply                   int64        `json:"supply"`
+	CirculatingSupply        uint64       `json:"circulating"`
+	Burned                   uint64       `json:"burned"`
+	Transactions             int          `json:"transactions"`
+	IssuanceTimestamp        *factom.Time `json:"issuancets"`
+	LastTransactionTimestamp *factom.Time `json:"lasttxts,omitempty"`
+}
+
 func getStats(data json.RawMessage) interface{} {
 	params := ParamsToken{}
 	chainID, res := validate(data, &params)
@@ -174,23 +191,16 @@ func getStats(data json.RawMessage) interface{} {
 		panic(err)
 	}
 
-	var lastTxTs int64
+	var lastTxTs *factom.Time
 	if len(txs) > 0 {
-		lastTxTs = txs[len(txs)-1].Timestamp.Unix()
+		lastTxTs = txs[len(txs)-1].Timestamp
 	}
-	return struct {
-		Supply                   int64  `json:"supply"`
-		CirculatingSupply        uint64 `json:"circulating"`
-		Burned                   uint64 `json:"burned"`
-		Transactions             int    `json:"transactions"`
-		IssuanceTimestamp        int64  `json:"issuancets"`
-		LastTransactionTimestamp int64  `json:"lasttxts"`
-	}{
+	return ResultsGetStats{
 		Supply:                   chain.Supply,
 		CirculatingSupply:        chain.Issued - burned,
 		Burned:                   burned,
 		Transactions:             len(txs),
-		IssuanceTimestamp:        chain.Issuance.Timestamp.Unix(),
+		IssuanceTimestamp:        chain.Issuance.Timestamp,
 		LastTransactionTimestamp: lastTxTs,
 	}
 }
@@ -225,7 +235,7 @@ func sendTransaction(data json.RawMessage) interface{} {
 	tx := fat0.NewTransaction(params.Entry())
 	if err := tx.Valid(chain.IDKey); err != nil {
 		rpcErr = ErrorInvalidTransaction
-		rpcErr.Data = err
+		rpcErr.Data = err.Error()
 		return rpcErr
 	}
 
@@ -272,16 +282,12 @@ func getDaemonTokens(data json.RawMessage) interface{} {
 	}
 
 	issuedIDs := state.Chains.GetIssued()
-	chains := make([]struct {
-		TokenID  string          `json:"tokenid"`
-		IssuerID *factom.Bytes32 `json:"issuerid"`
-		ChainID  *factom.Bytes32 `json:"chainid"`
-	}, len(issuedIDs))
+	chains := make([]ParamsToken, len(issuedIDs))
 	for i, chainID := range issuedIDs {
 		chain := state.Chains.Get(chainID)
 		chains[i].ChainID = chainID
 		chains[i].TokenID = chain.Token
-		chains[i].IssuerID = chain.Issuer
+		chains[i].IssuerChainID = chain.Issuer
 	}
 	return chains
 }
