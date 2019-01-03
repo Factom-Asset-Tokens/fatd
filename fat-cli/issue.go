@@ -30,11 +30,11 @@ func issue() error {
 		if !fat0.ValidTokenNameIDs(first.ExtIDs) {
 			return fmt.Errorf("Not a valid token chain")
 		}
-		issuance.TokenID = string(first.ExtIDs[1])
+		tokenID = string(first.ExtIDs[1])
 		copy(identity.ChainID[:], first.ExtIDs[3])
 	} else if !eb.IsPopulated() {
 		// Create the chain
-		e := factom.Entry{ExtIDs: fat0.NameIDs(issuance.TokenID, identity.ChainID)}
+		e := factom.Entry{ExtIDs: fat0.NameIDs(tokenID, identity.ChainID)}
 		txID, err := e.Create(ECPub)
 		if err != nil {
 			return err

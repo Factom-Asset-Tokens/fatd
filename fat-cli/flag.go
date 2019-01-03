@@ -126,6 +126,7 @@ var (
 	address        = factom.Address{}
 	ECPub          string
 	metadata       string
+	tokenID        string
 
 	cmd string
 
@@ -163,7 +164,7 @@ func init() {
 	flagVar(globalFlagSet, &rpc.FactomdTLSCertFile, "factomdcert")
 	flagVar(globalFlagSet, &rpc.FactomdTLSEnable, "factomdtls")
 
-	flagVar(globalFlagSet, &issuance.TokenID, "tokenid")
+	flagVar(globalFlagSet, &tokenID, "tokenid")
 	flagVar(globalFlagSet, (*flagBytes32)(identity.ChainID), "identity")
 	flagVar(globalFlagSet, (*flagBytes32)(chainID), "chainid")
 
@@ -278,7 +279,7 @@ func Validate() error {
 			return fmt.Errorf(
 				"You must specify -chainid OR -tokenid AND -identity")
 		}
-		chainID := fat0.ChainID(issuance.TokenID, identity.ChainID)
+		chainID := fat0.ChainID(tokenID, identity.ChainID)
 		copy(issuance.ChainID[:], chainID[:])
 	} else {
 		if flagIsSet["tokenid"] || flagIsSet["identity"] {
