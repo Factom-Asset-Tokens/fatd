@@ -45,7 +45,19 @@ func getIssuance(entry bool) jrpc.MethodFunc {
 		if entry {
 			return chain.Issuance.Entry.Entry
 		}
-		return chain.Issuance
+		return struct {
+			ParamsToken
+			Timestamp int64         `json:"timestamp"`
+			Issuance  fat0.Issuance `json:"issuance"`
+		}{
+			ParamsToken: ParamsToken{
+				ChainID:       chainID,
+				TokenID:       chain.Token,
+				IssuerChainID: chain.Identity.ChainID,
+			},
+			Timestamp: chain.Issuance.Timestamp.Unix(),
+			Issuance:  chain.Issuance,
+		}
 	}
 }
 

@@ -51,10 +51,10 @@ func (b Bytes32) MarshalJSON() ([]byte, error) {
 func (b *Bytes32) Scan(v interface{}) error {
 	data, ok := v.([]byte)
 	if !ok {
-		return fmt.Errorf("Bytes32: invalid type: %T", v)
+		return fmt.Errorf("%T: invalid type: %T", b, v)
 	}
 	if len(data) != 32 {
-		return fmt.Errorf("Bytes32: invalid length")
+		return fmt.Errorf("%T: invalid length", b)
 	}
 	copy(b[:], data)
 	return nil

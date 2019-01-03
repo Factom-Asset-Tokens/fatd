@@ -106,10 +106,8 @@ func TestDataStructures(t *testing.T) {
 		assert.Error(eb2.Get())
 		assert.Error(eb2.GetFirst())
 
-		// The invalid ChainID should not cause an error but should
-		// prevent the EBlock from being populated.
 		factom.RpcConfig.FactomdServer = courtesyNode
-		require.NoError(eb2.Get())
+		require.Error(eb2.Get())
 		require.False(eb2.IsPopulated())
 		assert.NoError(eb2.GetFirst())
 		ebs, err = eb2.GetAllPrev()

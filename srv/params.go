@@ -18,13 +18,13 @@ type Params interface {
 // ChainID or both the TokenID and the IssuerChainID.
 type ParamsToken struct {
 	ChainID       *factom.Bytes32 `json:"chainid,omitempty"`
-	TokenID       *string         `json:"tokenid,omitempty"`
+	TokenID       string          `json:"tokenid,omitempty"`
 	IssuerChainID *factom.Bytes32 `json:"issuerid,omitempty"`
 }
 
 func (p ParamsToken) IsValid() bool {
-	if (p.ChainID != nil && p.TokenID == nil && p.IssuerChainID == nil) ||
-		(p.ChainID == nil && p.TokenID != nil && p.IssuerChainID != nil) {
+	if (p.ChainID != nil && len(p.TokenID) == 0 && p.IssuerChainID == nil) ||
+		(p.ChainID == nil && len(p.TokenID) != 0 && p.IssuerChainID != nil) {
 		return true
 	}
 	return false
@@ -37,7 +37,7 @@ func (p ParamsToken) ValidChainID() *factom.Bytes32 {
 	if p.ChainID != nil {
 		return p.ChainID
 	}
-	chainID := fat0.ChainID(*p.TokenID, p.IssuerChainID)
+	chainID := fat0.ChainID(p.TokenID, p.IssuerChainID)
 	p.ChainID = &chainID
 	return p.ChainID
 }

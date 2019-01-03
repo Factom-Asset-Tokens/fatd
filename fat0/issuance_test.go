@@ -149,7 +149,7 @@ var issuanceTests = []struct {
 	Issuance:  setFieldIssuance("supply", -5),
 }, {
 	Name:      "invalid data (supply: omitted)",
-	Error:     `contentJSONLen (84) != expectedJSONLen (95)`,
+	Error:     `contentJSONLen (67) != expectedJSONLen (78)`,
 	IssuerKey: issuerKey,
 	Issuance:  omitFieldIssuance("supply"),
 }, {
@@ -196,7 +196,6 @@ func validIssuanceEntryContentMap() map[string]interface{} {
 	return map[string]interface{}{
 		"type":     "FAT-0",
 		"supply":   int64(100000),
-		"tokenid":  "test",
 		"symbol":   "TEST",
 		"name":     "Test Token",
 		"metadata": []int{0},
@@ -293,10 +292,9 @@ func TestIssuanceMarshalEntry(t *testing.T) {
 
 func newIssuance() Issuance {
 	return Issuance{
-		Type:    "FAT-0",
-		Supply:  1000000,
-		TokenID: "test",
-		Name:    "test coin",
-		Symbol:  "TEST",
+		Type:   "FAT-0",
+		Supply: 1000000,
+		Name:   "test coin",
+		Symbol: "TEST",
 	}
 }
