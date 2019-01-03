@@ -28,7 +28,6 @@ func transact() error {
 		if !fat0.ValidTokenNameIDs(first.ExtIDs) {
 			return fmt.Errorf("Not a valid token chain")
 		}
-		token = string(first.ExtIDs[1])
 		copy(identity.ChainID[:], first.ExtIDs[3])
 		if err := identity.Get(); err != nil {
 			return err
@@ -77,8 +76,8 @@ func transact() error {
 		txID = result.TxID
 	}
 
-	fmt.Println("Token Chain ID: ", chainID)
 	fmt.Println("Created Transaction Entry")
+	fmt.Println("Token Chain ID: ", chainID)
 	fmt.Println("Transaction Entry Hash: ", transaction.Hash)
 	fmt.Println("Factom TxID: ", txID)
 	return nil

@@ -164,11 +164,11 @@ func getStats(data json.RawMessage) interface{} {
 
 	return struct {
 		Supply                   int64  `json:"supply"`
-		CirculatingSupply        uint64 `json:"circulating-supply"`
+		CirculatingSupply        uint64 `json:"circulating"`
 		Burned                   uint64 `json:"burned"`
 		Transactions             int    `json:"transactions"`
-		IssuanceTimestamp        int64  `json:"issuance-timestamp"`
-		LastTransactionTimestamp int64  `json:"last-transaction-timestamp"`
+		IssuanceTimestamp        int64  `json:"issuancets"`
+		LastTransactionTimestamp int64  `json:"lasttxts"`
 	}{
 		Supply:                   chain.Supply,
 		CirculatingSupply:        chain.Issued - burned,

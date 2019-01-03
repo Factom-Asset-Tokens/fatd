@@ -33,18 +33,19 @@ func (t *Transaction) UnmarshalEntry() error {
 
 func (t Transaction) ExpectedJSONLength() int {
 	l := len(`{`)
-	l += len(`"inputs":`) + addressAmountMapJSONLen(t.Inputs)
+	l += len(`"inputs":`) + t.Inputs.jsonLen()
 	l += len(`,`)
-	l += len(`"outputs":`) + addressAmountMapJSONLen(t.Outputs)
+	l += len(`"outputs":`) + t.Outputs.jsonLen()
 	l += t.metadataLen()
 	l += len(`}`)
 	return l
 }
 
-func addressAmountMapJSONLen(m AddressAmountMap) int {
+func (m AddressAmountMap) jsonLen() int {
 	l := len(`{}`)
 	if len(m) > 0 {
-		l += len(m) * len(`"FA3p291ptJvHAFjf22naELozdFEKfbAPt8zLKaGiSVXfM6AUDVM5":,`)
+		l += len(m) *
+			len(`"FA3p291ptJvHAFjf22naELozdFEKfbAPt8zLKaGiSVXfM6AUDVM5":,`)
 		l -= len(`,`)
 		for _, a := range m {
 			l += digitLen(int64(a))

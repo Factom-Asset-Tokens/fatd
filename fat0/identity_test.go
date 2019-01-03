@@ -178,6 +178,7 @@ var identityTests = []struct {
 	Name: "non-existent chain id",
 	Identity: Identity{ChainID: factom.NewBytes32(hexToBytes(
 		"8888880000000000000000000000000000000000000000000000000000000000"))},
+	Error: `jsonrpc2.Error{Code:-32009, Message:"Missing Chain Head"}`,
 }}
 
 var factomServer = "courtesy-node.factom.com"

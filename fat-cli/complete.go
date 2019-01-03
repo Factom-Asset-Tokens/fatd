@@ -31,7 +31,7 @@ var (
 			"-installcompletion":   complete.PredictNothing,
 			"-uninstallcompletion": complete.PredictNothing,
 
-			"-token":    complete.PredictAnything,
+			"-tokenid":  complete.PredictAnything,
 			"-identity": complete.PredictAnything,
 			"-chainid":  complete.PredictAnything,
 		},

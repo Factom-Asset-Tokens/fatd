@@ -60,7 +60,7 @@ var (
 		"factomdtls":      false,
 
 		"chainid":  "Token Chain ID",
-		"token":    "Token name used in Token Chain ID derivation",
+		"tokenid":  "",
 		"identity": "Issuer Identity Chain used in Token Chain ID derivation",
 		"ecpub":    "",
 
@@ -91,7 +91,7 @@ var (
 		"factomdtls":      "Set to true to use TLS when accessing the factomd API",
 
 		"chainid":  "Token Chain ID",
-		"token":    "Token name used in Token Chain ID derivation",
+		"tokenid":  "Token ID used in Token Chain ID derivation",
 		"identity": "Issuer Identity Chain ID used in Token Chain ID derivation",
 		"ecpub":    "Entry Credit Public Address to use to pay for Factom entries",
 
@@ -124,7 +124,6 @@ var (
 	identity       = fat0.Identity{ChainID: factom.NewBytes32(nil)}
 	sk1            = factom.Address{PrivateKey: new([ed25519.PrivateKeySize]byte)}
 	address        = factom.Address{}
-	token          string
 	ECPub          string
 	metadata       string
 
@@ -164,7 +163,7 @@ func init() {
 	flagVar(globalFlagSet, &rpc.FactomdTLSCertFile, "factomdcert")
 	flagVar(globalFlagSet, &rpc.FactomdTLSEnable, "factomdtls")
 
-	flagVar(globalFlagSet, &token, "token")
+	flagVar(globalFlagSet, &issuance.TokenID, "tokenid")
 	flagVar(globalFlagSet, (*flagBytes32)(identity.ChainID), "identity")
 	flagVar(globalFlagSet, (*flagBytes32)(chainID), "chainid")
 
@@ -275,16 +274,16 @@ func Validate() error {
 
 	// Validate options
 	if !flagIsSet["chainid"] {
-		if !flagIsSet["token"] || !flagIsSet["identity"] {
+		if !flagIsSet["tokenid"] || !flagIsSet["identity"] {
 			return fmt.Errorf(
-				"You must specify -chainid OR -token AND -identity")
+				"You must specify -chainid OR -tokenid AND -identity")
 		}
-		chainID := fat0.ChainID(token, identity.ChainID)
+		chainID := fat0.ChainID(issuance.TokenID, identity.ChainID)
 		copy(issuance.ChainID[:], chainID[:])
 	} else {
-		if flagIsSet["token"] || flagIsSet["identity"] {
+		if flagIsSet["tokenid"] || flagIsSet["identity"] {
 			return fmt.Errorf(
-				"You may not specify -chainid with -token and -identity")
+				"You may not specify -chainid with -tokenid and -identity")
 		}
 	}
 	switch cmd {

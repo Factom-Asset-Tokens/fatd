@@ -100,6 +100,11 @@ func (chain *Chain) processIssuance(es []factom.Entry) error {
 			log.Debugf("Invalid Issuance Entry: %v, %v", e.Hash, err)
 			continue
 		}
+		if issuance.TokenID != chain.Token {
+			log.Debug("Invalid Issuance Entry: %v, %v", e.Hash,
+				`"tokenid" does not match NameIDs[1]`)
+			continue
+		}
 
 		if err := chain.issue(issuance); err != nil {
 			return err

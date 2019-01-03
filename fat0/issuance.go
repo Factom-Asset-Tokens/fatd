@@ -9,8 +9,9 @@ import (
 
 // Issuance represents the Issuance of a token.
 type Issuance struct {
-	Type   string `json:"type"`
-	Supply int64  `json:"supply"`
+	Type    string `json:"type"`
+	Supply  int64  `json:"supply"`
+	TokenID string `json:"tokenid"`
 
 	Symbol string `json:"symbol,omitempty"`
 	Name   string `json:"name,omitempty"`
@@ -19,8 +20,9 @@ type Issuance struct {
 
 func (i Issuance) ExpectedJSONLength() int {
 	l := len(`{`)
-	l += len(`"type":`) + len(`"`) + len(i.Type) + len(`"`)
+	l += jsonStringLen("type", i.Type) - 1
 	l += len(`,"supply":`) + digitLen(i.Supply)
+	l += jsonStringLen("tokenid", i.TokenID)
 	l += jsonStringLen("symbol", i.Symbol)
 	l += jsonStringLen("name", i.Name)
 	l += i.metadataLen()
@@ -76,6 +78,9 @@ func (i Issuance) ValidData() error {
 	}
 	if i.Supply == 0 || i.Supply < -1 {
 		return fmt.Errorf(`invalid "supply": must be positive or -1`)
+	}
+	if len(i.TokenID) == 0 {
+		return fmt.Errorf(`"tokenid" is empty`)
 	}
 	return nil
 }

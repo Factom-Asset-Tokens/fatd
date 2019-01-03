@@ -168,7 +168,7 @@ func TestTransaction(t *testing.T) {
 			assert := assert.New(t)
 			tx := test.Tx
 			key := test.IssuerKey
-			err := tx.Valid(*key.RCDHash())
+			err := tx.Valid(key.RCDHash())
 			if len(test.Error) != 0 {
 				assert.EqualError(err, test.Error)
 				return

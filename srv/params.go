@@ -63,9 +63,9 @@ func (p ParamsGetTransaction) Error() jrpc.Error {
 
 type ParamsGetTransactions struct {
 	ParamsToken
-	NonFungibleTokenID string          `json:"nf-token-id,omitempty"`
-	FactoidAddress     *factom.Address `json:"fa-address,omitempty"`
-	ToFrom             string          `json:"to-from"`
+	NonFungibleTokenID string          `json:"nftokenid,omitempty"`
+	FactoidAddress     *factom.Address `json:"address,omitempty"`
+	ToFrom             string          `json:"tofrom"`
 
 	// Pagination
 	Hash  *factom.Bytes32 `json:"entryhash,omitempty"`
@@ -106,7 +106,7 @@ func (p ParamsGetTransactions) Error() jrpc.Error {
 
 type ParamsGetNFToken struct {
 	ParamsToken
-	NonFungibleTokenID *string `json:"nf-token-id,omitempty"`
+	NonFungibleTokenID *string `json:"nftokenid,omitempty"`
 }
 
 func (p ParamsGetNFToken) IsValid() bool {
@@ -119,7 +119,7 @@ func (p ParamsGetNFToken) Error() jrpc.Error {
 
 type ParamsGetBalance struct {
 	ParamsToken
-	Address *factom.Address `json:"fa-address,omitempty"`
+	Address *factom.Address `json:"address,omitempty"`
 }
 
 func (p ParamsGetBalance) IsValid() bool {
