@@ -5,6 +5,7 @@ import (
 	"crypto/sha512"
 	"encoding/json"
 	"fmt"
+	"time"
 )
 
 // ChainID returns the chain ID for a set of NameIDs.
@@ -38,6 +39,10 @@ type Entry struct {
 // nil.
 func (e Entry) IsPopulated() bool {
 	return e.ExtIDs != nil || e.Content != nil
+}
+
+func (e *Entry) SetTimestampToNow() {
+	e.Timestamp = &Time{Time: time.Now()}
 }
 
 // Get queries factomd for the entry corresponding to e.Hash.

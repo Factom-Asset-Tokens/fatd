@@ -28,7 +28,7 @@ func NewTransaction(entry factom.Entry) Transaction {
 
 // UnmarshalEntry unmarshals the entry content as a Transaction.
 func (t *Transaction) UnmarshalEntry() error {
-	return t.unmarshalEntry(t)
+	return t.Entry.UnmarshalEntry(t)
 }
 
 func (t Transaction) ExpectedJSONLength() int {
@@ -38,31 +38,6 @@ func (t Transaction) ExpectedJSONLength() int {
 	l += len(`"outputs":`) + t.Outputs.jsonLen()
 	l += t.metadataLen()
 	l += len(`}`)
-	return l
-}
-
-func (m AddressAmountMap) jsonLen() int {
-	l := len(`{}`)
-	if len(m) > 0 {
-		l += len(m) *
-			len(`"FA3p291ptJvHAFjf22naELozdFEKfbAPt8zLKaGiSVXfM6AUDVM5":,`)
-		l -= len(`,`)
-		for _, a := range m {
-			l += digitLen(int64(a))
-		}
-	}
-	return l
-}
-
-func digitLen(d int64) int {
-	l := 1
-	if d < 0 {
-		l += 1
-		d *= -1
-	}
-	for pow := int64(10); d/pow != 0; pow *= 10 {
-		l++
-	}
 	return l
 }
 

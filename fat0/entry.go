@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"math"
 	"math/rand"
 	"strconv"
 	"time"
@@ -22,11 +21,17 @@ type Entry struct {
 	factom.Entry `json:"-"`
 }
 
-// unmarshalEntry unmarshals the content of the factom.Entry into the provided
-// variable v, disallowing all unknown fields.
-func (e Entry) unmarshalEntry(v interface {
+// ExpectedJSONLengther is the interface implemented by types that can return
+// their expected minified JSON length. This is used by UnmarshalEntry to
+// ensure that only strictly well-formed JSON with no duplicate fields are
+// unmarshaled successfully.
+type ExpectedJSONLengther interface {
 	ExpectedJSONLength() int
-}) error {
+}
+
+// UnmarshalEntry unmarshals the content of the factom.Entry into the provided
+// variable v, disallowing all unknown fields.
+func (e Entry) UnmarshalEntry(v ExpectedJSONLengther) error {
 	contentJSONLen := compactJSONLen(e.Content)
 	if contentJSONLen == 0 {
 		return fmt.Errorf("not a single valid JSON")
@@ -117,50 +122,62 @@ func (e Entry) validTimestamp() error {
 // validSignatures returns true if the first num RCD/signature pairs in the
 // ExtIDs are valid.
 func (e Entry) validSignatures() error {
-	num := len(e.ExtIDs) / 2
-	maxExtIDSaltSize := int(math.Log10(float64(num))) + 1
+	numRcdSigPairs := uint64(len(e.ExtIDs) / 2)
+	maxRcdSigIDSaltStrLen := digitStrLen(int64(numRcdSigPairs))
 	timeSalt := e.ExtIDs[0]
-	msg := make(factom.Bytes,
-		maxExtIDSaltSize+len(timeSalt)+len(e.ChainID)+len(e.Content))
-	i := maxExtIDSaltSize
+	maxMsgLen := maxRcdSigIDSaltStrLen + len(timeSalt) + len(e.ChainID) + len(e.Content)
+	msg := make(factom.Bytes, maxMsgLen)
+	i := maxRcdSigIDSaltStrLen
 	i += copy(msg[i:], timeSalt[:])
 	i += copy(msg[i:], e.ChainID[:])
 	copy(msg[i:], e.Content)
 	var pubKey [ed25519.PublicKeySize]byte
 	var sig [ed25519.SignatureSize]byte
 	var msgHash [sha512.Size]byte
-	extIDs := e.ExtIDs[1:]
-	for sigID := 0; sigID < num; sigID++ {
-		extIDSalt := strconv.FormatInt(int64(sigID), 10)
-		i = maxExtIDSaltSize - len(extIDSalt)
-		copy(msg[i:], extIDSalt)
-		copy(pubKey[:], extIDs[sigID*2][1:])
-		copy(sig[:], extIDs[sigID*2+1])
+	rcdSigs := e.ExtIDs[1:]
+	for rcdSigID := uint64(0); rcdSigID < numRcdSigPairs; rcdSigID++ {
+		rcdSigIDSalt := strconv.FormatUint(rcdSigID, 10)
+		i = maxRcdSigIDSaltStrLen - len(rcdSigIDSalt)
+		copy(msg[i:], rcdSigIDSalt)
 		msgHash = sha512.Sum512(msg)
+
+		copy(pubKey[:], rcdSigs[rcdSigID*2][1:])
+		copy(sig[:], rcdSigs[rcdSigID*2+1])
 		if !ed25519.VerifyCanonical(&pubKey, msgHash[:], &sig) {
-			return fmt.Errorf("ExtIDs[%v]: invalid signature", sigID*2+2)
+			return fmt.Errorf("ExtIDs[%v]: invalid signature", rcdSigID*2+2)
 		}
 	}
 	return nil
 }
 
-// Sign the ExtIDIndex Salt + Timestamp Salt + Chain ID Salt + Content of the
+// Sign the RCD/Sig ID Salt + Timestamp Salt + Chain ID Salt + Content of the
 // factom.Entry and add the RCD + signature pairs for the given addresses to
 // the ExtIDs. This clears any existing ExtIDs.
-func (e *Entry) Sign(as ...factom.Address) {
-	e.Timestamp = &factom.Time{Time: time.Now()}
-	ts := time.Now().Add(time.Duration(
-		-rand.Int63n(int64(12 * time.Hour))))
-	timeSalt := []byte(strconv.FormatInt(ts.Unix(), 10))
-	salt := append(timeSalt, e.ChainID[:]...)
-	msg := append(salt, e.Content...)
-	e.ExtIDs = make([]factom.Bytes, 1, len(as)*2+1)
+func (e *Entry) Sign(signingSet ...factom.Address) {
+	e.SetTimestampToNow()
+	maxRcdSigIDSaltStrLen := digitStrLen(int64(len(signingSet)))
+	timeSalt := newTimestampSalt()
+	maxMsgLen := maxRcdSigIDSaltStrLen + len(timeSalt) + len(e.ChainID) + len(e.Content)
+	msg := make(factom.Bytes, maxMsgLen)
+	i := maxRcdSigIDSaltStrLen
+	i += copy(msg[i:], timeSalt[:])
+	i += copy(msg[i:], e.ChainID[:])
+	copy(msg[i:], e.Content)
+	e.ExtIDs = make([]factom.Bytes, 1, len(signingSet)*2+1)
 	e.ExtIDs[0] = timeSalt
-	for sigID, a := range as {
-		extIDSalt := []byte(strconv.FormatInt(int64(sigID), 10))
-		msg := append(extIDSalt, msg...)
-		msgHash := sha512.Sum512(msg)
+	var msgHash [sha512.Size]byte
+	for rcdSigID, a := range signingSet {
+		rcdSigIDSalt := strconv.FormatUint(uint64(rcdSigID), 10)
+		i = maxRcdSigIDSaltStrLen - len(rcdSigIDSalt)
+		copy(msg[i:], rcdSigIDSalt)
+		msgHash = sha512.Sum512(msg)
+
 		sig := ed25519.Sign(a.PrivateKey, msgHash[:])
 		e.ExtIDs = append(e.ExtIDs, a.RCD(), sig[:])
 	}
+}
+
+func newTimestampSalt() []byte {
+	timestamp := time.Now().Add(time.Duration(-rand.Int63n(int64(12 * time.Hour))))
+	return []byte(strconv.FormatInt(timestamp.Unix(), 10))
 }

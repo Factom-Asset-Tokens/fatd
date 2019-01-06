@@ -55,7 +55,7 @@ var transactionTests = []struct {
 	Tx:    invalidField("outputs"),
 }, {
 	Name:  "invalid JSON (invalid inputs, zero amount)",
-	Error: "invalid amount (0) for address: FA1zT4aFpEvcnPqPCigB3fvGu4Q4mTXY22iiuV69DqE1pNhdF2MC",
+	Error: "*fat0.AddressAmountMap: invalid amount (0) for address: FA2HaNAq1f85f1cxzywDa7etvtYCGZUztERvExzQik3CJrGBM4sx",
 	Tx: func() Transaction {
 		in := inputs()
 		in[inputAddresses[0].String()] = 0

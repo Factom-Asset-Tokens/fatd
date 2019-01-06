@@ -28,7 +28,7 @@ func (b Bytes32) String() string {
 // UnmarshalJSON unmarshals a string with exactly 32 bytes of hex encoded data.
 func (b *Bytes32) UnmarshalJSON(data []byte) error {
 	if data[0] != '"' || data[len(data)-1] != '"' {
-		return fmt.Errorf("%T: invalid type", b)
+		return fmt.Errorf("%T: expected JSON string", b)
 	}
 	data = data[1 : len(data)-1]
 	if len(data) == 0 {
@@ -51,7 +51,7 @@ func (b Bytes32) MarshalJSON() ([]byte, error) {
 func (b *Bytes32) Scan(v interface{}) error {
 	data, ok := v.([]byte)
 	if !ok {
-		return fmt.Errorf("%T: invalid type: %T", b, v)
+		return fmt.Errorf("%T: expected []byte but got %T", b, v)
 	}
 	if len(data) != 32 {
 		return fmt.Errorf("%T: invalid length", b)
@@ -78,7 +78,7 @@ func (b Bytes) String() string {
 // UnmarshalJSON unmarshals a string of hex encoded data.
 func (b *Bytes) UnmarshalJSON(data []byte) error {
 	if data[0] != '"' || data[len(data)-1] != '"' {
-		return fmt.Errorf("%T: invalid type", b)
+		return fmt.Errorf("%T: expected JSON string", b)
 	}
 	data = data[1 : len(data)-1]
 	*b = make(Bytes, hex.DecodedLen(len(data)))

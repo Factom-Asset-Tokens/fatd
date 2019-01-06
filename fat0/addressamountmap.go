@@ -14,44 +14,73 @@ type AddressAmountMap map[factom.Bytes32]uint64
 // UnmarshalJSON unmarshals a list of addresses and amounts used in the inputs
 // or outputs of a transaction. Duplicate addresses or addresses with a 0
 // amount cause an error.
-func (a *AddressAmountMap) UnmarshalJSON(data []byte) error {
-	aam := make(AddressAmountMap)
-	var aaS map[string]uint64
-	if err := json.Unmarshal(data, &aaS); err != nil {
+func (mPtr *AddressAmountMap) UnmarshalJSON(data []byte) error {
+	var mS map[string]uint64
+	if err := json.Unmarshal(data, &mS); err != nil {
 		return err
 	}
-	for address, amount := range aaS {
-		data := []byte(fmt.Sprintf("%#v", address))
-		address := factom.Address{}
-		if amount == 0 {
-			return fmt.Errorf("invalid amount (0) for address: %v", address)
+	m := make(AddressAmountMap, len(mS))
+	for faAdrStr, amount := range mS {
+		adr, err := factom.NewAddressFromString(faAdrStr)
+		if err != nil {
+			return err
 		}
-		json.Unmarshal(data, &address)
-		aam[*address.RCDHash()] = amount
+		if amount == 0 {
+			return fmt.Errorf("%T: invalid amount (0) for address: %v",
+				mPtr, adr)
+		}
+		m[*adr.RCDHash()] = amount
 	}
-	*a = aam
+	*mPtr = m
 	return nil
 }
 
 // MarshalJSON marshals a list of addresses and amounts used in the inputs or
-// outputs of a transaction. Addresses with a 0 amount are omitted.
-func (a AddressAmountMap) MarshalJSON() ([]byte, error) {
-	as := make(map[string]uint64, len(a))
-	for rcdHash, amount := range a {
+// outputs of a transaction. Addresses with a 0 amount are omitted and pruned
+// from a.
+func (m AddressAmountMap) MarshalJSON() ([]byte, error) {
+	mS := make(map[string]uint64, len(m))
+	for rcdHash, amount := range m {
 		// Omit addresses with 0 amounts.
 		if amount == 0 {
+			delete(m, rcdHash)
 			continue
 		}
-		address := factom.NewAddress(&rcdHash)
-		as[address.String()] = amount
+		adr := factom.NewAddress(&rcdHash)
+		mS[adr.String()] = amount
 	}
-	return json.Marshal(as)
+	return json.Marshal(mS)
 }
 
-func (a AddressAmountMap) Sum() uint64 {
+func (m AddressAmountMap) Sum() uint64 {
 	var sum uint64
-	for _, amount := range a {
+	for _, amount := range m {
 		sum += amount
 	}
 	return sum
+}
+
+func (m AddressAmountMap) jsonLen() int {
+	l := len(`{}`)
+	if len(m) > 0 {
+		l += len(m) *
+			len(`"FA3p291ptJvHAFjf22naELozdFEKfbAPt8zLKaGiSVXfM6AUDVM5":,`)
+		l -= len(`,`)
+		for _, a := range m {
+			l += digitStrLen(int64(a))
+		}
+	}
+	return l
+}
+
+func digitStrLen(d int64) int {
+	l := 1
+	if d < 0 {
+		l++
+		d *= -1
+	}
+	for pow := int64(10); d/pow != 0; pow *= 10 {
+		l++
+	}
+	return l
 }

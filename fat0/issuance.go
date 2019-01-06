@@ -20,7 +20,7 @@ type Issuance struct {
 func (i Issuance) ExpectedJSONLength() int {
 	l := len(`{`)
 	l += jsonStringLen("type", i.Type) - 1
-	l += len(`,"supply":`) + digitLen(i.Supply)
+	l += len(`,"supply":`) + digitStrLen(i.Supply)
 	l += jsonStringLen("symbol", i.Symbol)
 	l += jsonStringLen("name", i.Name)
 	l += i.metadataLen()
@@ -42,7 +42,7 @@ func NewIssuance(entry factom.Entry) Issuance {
 
 // UnmarshalEntry unmarshals the entry content as an Issuance.
 func (i *Issuance) UnmarshalEntry() error {
-	return i.unmarshalEntry(i)
+	return i.Entry.UnmarshalEntry(i)
 }
 
 // MarshalEntry marshals the entry content as an Issuance.

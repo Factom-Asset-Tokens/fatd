@@ -30,6 +30,13 @@ func NewAddress(rcdHash *Bytes32) Address {
 	return Address{rcdHash: rcdHash}
 }
 
+// NewAddressFromString returns an Address
+func NewAddressFromString(faAdrStr string) (Address, error) {
+	adr := Address{}
+	err := adr.UnmarshalJSON([]byte(fmt.Sprintf("%#v", faAdrStr)))
+	return adr, err
+}
+
 func (a *Address) Get() error {
 	params := struct {
 		A *Address `json:"address"`
@@ -49,14 +56,14 @@ type privateKey [ed25519.PrivateKeySize]byte
 
 func (pk *privateKey) UnmarshalJSON(data []byte) error {
 	if data[0] != '"' || data[len(data)-1] != '"' {
-		return fmt.Errorf("invalid type")
+		return fmt.Errorf("%T: expected JSON string", pk)
 	}
 	data = data[1 : len(data)-1]
 	if len(data) != 52 {
-		return fmt.Errorf("invalid length")
+		return fmt.Errorf("%T: invalid length", pk)
 	}
 	if string(data[0:2]) != "Fs" {
-		return fmt.Errorf("invalid prefix")
+		return fmt.Errorf("%T: invalid prefix", pk)
 	}
 	b, _, err := base58.CheckDecode(string(data), 2)
 	if err != nil {
@@ -69,14 +76,14 @@ func (pk *privateKey) UnmarshalJSON(data []byte) error {
 // UnmarshalJSON unmarshals a string with a human readable Factoid Address.
 func (a *Address) UnmarshalJSON(data []byte) error {
 	if data[0] != '"' || data[len(data)-1] != '"' {
-		return fmt.Errorf("invalid type")
+		return fmt.Errorf("%T: expected JSON string", a)
 	}
 	data = data[1 : len(data)-1]
 	if len(data) != 52 {
-		return fmt.Errorf("invalid length")
+		return fmt.Errorf("%T: invalid length", a)
 	}
 	if string(data[0:2]) != "FA" {
-		return fmt.Errorf("invalid prefix")
+		return fmt.Errorf("%T: invalid prefix", a)
 	}
 	b, _, err := base58.CheckDecode(string(data), 2)
 	if err != nil {
