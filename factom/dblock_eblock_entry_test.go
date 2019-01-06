@@ -109,9 +109,11 @@ func TestDataStructures(t *testing.T) {
 		factom.RpcConfig.FactomdServer = courtesyNode
 		require.Error(eb2.Get())
 		require.False(eb2.IsPopulated())
-		assert.NoError(eb2.GetFirst())
+		assert.EqualError(eb2.GetFirst(),
+			`jsonrpc2.Error{Code:-32009, Message:"Missing Chain Head"}`)
 		ebs, err = eb2.GetAllPrev()
-		assert.NoError(err)
+		assert.EqualError(err,
+			`jsonrpc2.Error{Code:-32009, Message:"Missing Chain Head"}`)
 		assert.Nil(ebs)
 
 		// A valid ChainID should allow it to be populated.

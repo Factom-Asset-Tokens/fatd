@@ -33,13 +33,15 @@ var (
 
 func TestAddressUnmarshalJSON(t *testing.T) {
 	for _, json := range JSONAddressInvalidTypes {
-		testAddressUnmarshalJSON(t, "InvalidType", json, "invalid type")
+		testAddressUnmarshalJSON(t, "InvalidType", json,
+			"*factom.Address: expected JSON string")
 	}
 	for _, json := range JSONAddressInvalidLengths {
-		testAddressUnmarshalJSON(t, "InvalidLength", json, "invalid length")
+		testAddressUnmarshalJSON(t, "InvalidLength", json,
+			"*factom.Address: invalid length")
 	}
 	testAddressUnmarshalJSON(t, "InvalidPrefix", JSONAddressInvalidPrefix,
-		"invalid prefix")
+		"*factom.Address: invalid prefix")
 	testAddressUnmarshalJSON(t, "InvalidSymbol", JSONAddressInvalidSymbol,
 		"invalid format: version and/or checksum bytes missing")
 	testAddressUnmarshalJSON(t, "InvalidChecksum", JSONAddressInvalidChecksum,
