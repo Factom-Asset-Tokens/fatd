@@ -73,6 +73,9 @@ func getTransaction(entry bool) jrpc.MethodFunc {
 
 		// Lookup Tx by Hash
 		chain := state.Chains.Get(chainID)
+		if !chain.IsIssued() {
+			return ErrorTokenNotFound
+		}
 		transaction, err := chain.GetTransaction(params.Hash)
 		if err != nil {
 			panic(err)
@@ -111,6 +114,9 @@ func getTransactions(entry bool) jrpc.MethodFunc {
 
 		// Lookup Txs
 		chain := state.Chains.Get(chainID)
+		if !chain.IsIssued() {
+			return ErrorTokenNotFound
+		}
 		transactions, err := chain.GetTransactions(params.Hash,
 			params.FactoidAddress, params.ToFrom,
 			*params.Start, *params.Limit)
