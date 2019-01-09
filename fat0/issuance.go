@@ -17,6 +17,7 @@ type Issuance struct {
 	Entry
 }
 
+// ExpectedJSONLength returns the expected JSON length for i.
 func (i Issuance) ExpectedJSONLength() int {
 	l := len(`{`)
 	l += jsonStringLen("type", i.Type) - 1
@@ -52,7 +53,7 @@ func (i *Issuance) MarshalEntry() error {
 
 // Valid performs all validation checks and returns nil if i is a valid
 // Issuance.
-func (i *Issuance) Valid(idKey *factom.Bytes32) error {
+func (i *Issuance) Valid(idKey *factom.RCDHash) error {
 	if err := i.UnmarshalEntry(); err != nil {
 		return err
 	}

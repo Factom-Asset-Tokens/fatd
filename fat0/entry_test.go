@@ -153,7 +153,13 @@ func validEntry() Entry {
 func twoAddresses() []factom.Address {
 	adrs := make([]factom.Address, 2)
 	for i := range adrs {
-		adrs[i].PublicKey, adrs[i].PrivateKey, _ = ed25519.GenerateKey(randSource)
+		publicKey, privateKey, err := ed25519.GenerateKey(randSource)
+		if err != nil {
+			panic(err)
+		}
+		copy(adrs[i].PublicKey()[:], publicKey[:])
+		copy(adrs[i].PrivateKey()[:], privateKey[:])
+
 	}
 	return adrs
 }

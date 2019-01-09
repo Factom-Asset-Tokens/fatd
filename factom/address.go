@@ -4,7 +4,6 @@ import (
 	"crypto/sha256"
 	"fmt"
 
-	"github.com/Factom-Asset-Tokens/base58"
 	"github.com/FactomProject/ed25519"
 )
 
@@ -19,21 +18,20 @@ const (
 
 // Address represents a Factoid address.
 type Address struct {
-	PrivateKey *[ed25519.PrivateKeySize]byte
-	PublicKey  *[ed25519.PublicKeySize]byte
-	rcdHash    *Bytes32
+	privateKey *PrivateKey
+	rcdHash    *RCDHash
 	rcd        []byte
 }
 
 // NewAddress returns an Address with the given rcdHash.
-func NewAddress(rcdHash *Bytes32) Address {
+func NewAddress(rcdHash *RCDHash) Address {
 	return Address{rcdHash: rcdHash}
 }
 
 // NewAddressFromString returns an Address
-func NewAddressFromString(faAdrStr string) (Address, error) {
+func NewAddressFromString(adrStr string) (Address, error) {
 	adr := Address{}
-	err := adr.UnmarshalJSON([]byte(fmt.Sprintf("%#v", faAdrStr)))
+	err := adr.UnmarshalJSON([]byte(fmt.Sprintf("%#v", adrStr)))
 	return adr, err
 }
 
@@ -42,34 +40,11 @@ func (a *Address) Get() error {
 		A *Address `json:"address"`
 	}{A: a}
 	result := struct {
-		Key *privateKey `json:"secret"`
-	}{}
+		A *Address `json:"secret"`
+	}{A: a}
 	if err := WalletRequest("address", params, &result); err != nil {
 		return err
 	}
-	a.PrivateKey = (*[ed25519.PrivateKeySize]byte)(result.Key)
-	a.PublicKey = ed25519.GetPublicKey(a.PrivateKey)
-	return nil
-}
-
-type privateKey [ed25519.PrivateKeySize]byte
-
-func (pk *privateKey) UnmarshalJSON(data []byte) error {
-	if data[0] != '"' || data[len(data)-1] != '"' {
-		return fmt.Errorf("%T: expected JSON string", pk)
-	}
-	data = data[1 : len(data)-1]
-	if len(data) != 52 {
-		return fmt.Errorf("%T: invalid length", pk)
-	}
-	if string(data[0:2]) != "Fs" {
-		return fmt.Errorf("%T: invalid prefix", pk)
-	}
-	b, _, err := base58.CheckDecode(string(data), 2)
-	if err != nil {
-		return err
-	}
-	copy(pk[:], b)
 	return nil
 }
 
@@ -78,30 +53,39 @@ func (a *Address) UnmarshalJSON(data []byte) error {
 	if data[0] != '"' || data[len(data)-1] != '"' {
 		return fmt.Errorf("%T: expected JSON string", a)
 	}
-	data = data[1 : len(data)-1]
-	if len(data) != 52 {
+	if len(data) < 2 {
 		return fmt.Errorf("%T: invalid length", a)
 	}
-	if string(data[0:2]) != "FA" {
-		return fmt.Errorf("%T: invalid prefix", a)
+	adrStr := string(data[1 : len(data)-1])
+	if err := a.FromString(adrStr); err != nil {
+		return fmt.Errorf("%T: %v", a, err)
 	}
-	b, _, err := base58.CheckDecode(string(data), 2)
-	if err != nil {
-		return err
-	}
-	a.rcdHash = NewBytes32(b)
 	return nil
+}
+
+func (a *Address) FromString(adrStr string) error {
+	var address interface{ FromString(string) error }
+	switch adrStr[:2] {
+	case "FA":
+		a.rcdHash = new(RCDHash)
+		address = a.rcdHash
+	case "Fs":
+		a.privateKey = new(PrivateKey)
+		address = a.privateKey
+	default:
+		return fmt.Errorf("invalid prefix")
+	}
+	return address.FromString(adrStr)
 }
 
 // MarshalJSON marshals a string with the human readable Factoid Address.
 func (a Address) MarshalJSON() ([]byte, error) {
-	return []byte(fmt.Sprintf("%#v", a.String())), nil
+	return a.RCDHash().MarshalJSON()
 }
 
 // String returns the human readable Factoid Address.
 func (a Address) String() string {
-	a.RCDHash()
-	return encodePub(a.rcdHash[:])
+	return a.RCDHash().String()
 }
 
 // RCD returns the RCD of the Address. If the rcd is nil, then it is computed
@@ -109,33 +93,30 @@ func (a Address) String() string {
 // allocated with all zeroes.
 func (a *Address) RCD() []byte {
 	if a.rcd == nil {
-		if a.PrivateKey == nil {
-			a.PrivateKey = new([ed25519.PrivateKeySize]byte)
-		}
-		if a.PublicKey == nil {
-			a.PublicKey = ed25519.GetPublicKey(a.PrivateKey)
-		}
-		a.rcd = append([]byte{RCDType}, a.PublicKey[:]...)
+		a.rcd = make([]byte, RCDSize)
+		a.rcd[0] = RCDType
+		copy(a.rcd[1:], a.PublicKey()[:])
 	}
 	return a.rcd
 }
 
 // RCDHash returns the RCDHash of the Address. If the rcdHash is nil, then it
 // is computed and saved for future reuse.
-func (a *Address) RCDHash() *Bytes32 {
+func (a *Address) RCDHash() *RCDHash {
 	if a.rcdHash == nil {
-		rcdHash := Bytes32(sha256d(a.RCD()))
+		rcdHash := RCDHash(sha256d(a.RCD()))
 		a.rcdHash = &rcdHash
 	}
 	return a.rcdHash
 }
-
-var prefix = [...]byte{0x5f, 0xb1}
-
-// encodePub encodes data using a base58 checksum encoding with the two prefix
-// bytes used for Factoid public addresses.
-func encodePub(data []byte) string {
-	return base58.CheckEncode(data, prefix[0], prefix[1])
+func (a *Address) PrivateKey() *PrivateKey {
+	if a.privateKey == nil {
+		a.privateKey = new(PrivateKey)
+	}
+	return a.privateKey
+}
+func (a *Address) PublicKey() *[ed25519.PublicKeySize]byte {
+	return a.PrivateKey().PublicKey()
 }
 
 // sha256d computes two rounds of the sha256 hash on data.

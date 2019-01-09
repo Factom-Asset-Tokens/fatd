@@ -139,17 +139,19 @@ func (e Entry) MarshalBinary() []byte {
 		extIDTotalLen += len(extID)
 	}
 	// Header, version byte 0x00
-	data := make([]byte, 1, headerLen+extIDTotalLen+len(e.Content))
-	data = append(data, e.ChainID[:]...)
-	data = append(data, bigEndian(extIDTotalLen)...)
+	data := make([]byte, headerLen+extIDTotalLen+len(e.Content))
+	i := 1
+	i += copy(data[i:], e.ChainID[:])
+	i += copy(data[i:], bigEndian(extIDTotalLen))
 
 	// Payload
 	for _, extID := range e.ExtIDs {
 		n := len(extID)
-		data = append(data, bigEndian(n)...)
-		data = append(data, extID...)
+		i += copy(data[i:], bigEndian(n))
+		i += copy(data[i:], extID)
 	}
-	return append(data, e.Content...)
+	copy(data[i:], e.Content)
+	return data
 }
 
 const (
@@ -216,6 +218,8 @@ func (e Entry) ComputeHash() Bytes32 {
 // sha256(sha512(data) + data).
 func EntryHash(data []byte) Bytes32 {
 	sum := sha512.Sum512(data)
-	return sha256.Sum256(append(sum[:], data...))
-
+	saltedSum := make([]byte, len(sum)+len(data))
+	i := copy(saltedSum, sum[:])
+	copy(saltedSum[i:], data)
+	return sha256.Sum256(saltedSum)
 }

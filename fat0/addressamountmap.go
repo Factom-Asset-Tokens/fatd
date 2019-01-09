@@ -9,29 +9,28 @@ import (
 
 // AddressAmountMap relates the RCDHash of an address to its amount in a
 // Transaction.
-type AddressAmountMap map[factom.Bytes32]uint64
+type AddressAmountMap map[factom.RCDHash]uint64
 
 // UnmarshalJSON unmarshals a list of addresses and amounts used in the inputs
 // or outputs of a transaction. Duplicate addresses or addresses with a 0
 // amount cause an error.
-func (mPtr *AddressAmountMap) UnmarshalJSON(data []byte) error {
+func (m *AddressAmountMap) UnmarshalJSON(data []byte) error {
 	var mS map[string]uint64
 	if err := json.Unmarshal(data, &mS); err != nil {
 		return err
 	}
-	m := make(AddressAmountMap, len(mS))
+	*m = make(AddressAmountMap, len(mS))
+	var rcdHash factom.RCDHash
 	for faAdrStr, amount := range mS {
-		adr, err := factom.NewAddressFromString(faAdrStr)
-		if err != nil {
-			return err
+		if err := rcdHash.FromString(faAdrStr); err != nil {
+			return fmt.Errorf("%T: %v", m, err)
 		}
 		if amount == 0 {
 			return fmt.Errorf("%T: invalid amount (0) for address: %v",
-				mPtr, adr)
+				m, rcdHash)
 		}
-		m[*adr.RCDHash()] = amount
+		(*m)[rcdHash] = amount
 	}
-	*mPtr = m
 	return nil
 }
 
@@ -40,18 +39,22 @@ func (mPtr *AddressAmountMap) UnmarshalJSON(data []byte) error {
 // from a.
 func (m AddressAmountMap) MarshalJSON() ([]byte, error) {
 	mS := make(map[string]uint64, len(m))
+	deleteMap := AddressAmountMap{}
 	for rcdHash, amount := range m {
 		// Omit addresses with 0 amounts.
 		if amount == 0 {
-			delete(m, rcdHash)
+			deleteMap[rcdHash] = 0
 			continue
 		}
-		adr := factom.NewAddress(&rcdHash)
-		mS[adr.String()] = amount
+		mS[rcdHash.String()] = amount
+	}
+	for rcdHash := range deleteMap {
+		delete(m, rcdHash)
 	}
 	return json.Marshal(mS)
 }
 
+// Sum returns the sum of all amount values.
 func (m AddressAmountMap) Sum() uint64 {
 	var sum uint64
 	for _, amount := range m {

@@ -45,7 +45,7 @@ func ValidIdentityNameIDs(nameIDs []factom.Bytes) bool {
 // used to sign Issuance and coinbase Transaction Entries.
 type Identity struct {
 	ChainID   *factom.Bytes32
-	IDKey     *factom.Bytes32
+	IDKey     *factom.RCDHash
 	Height    uint64
 	Timestamp time.Time
 }
@@ -90,7 +90,7 @@ func (i *Identity) Get() error {
 		return nil
 	}
 
-	i.IDKey = factom.NewBytes32(first.ExtIDs[2])
+	i.IDKey = factom.NewRCDHash(first.ExtIDs[2])
 	i.Height = first.Height
 	i.Timestamp = first.Timestamp.Time
 

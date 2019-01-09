@@ -148,14 +148,14 @@ var identityTests = []struct {
 	Valid        bool
 	Error        string
 	Height       uint64
-	IDKey        *factom.Bytes32
+	IDKey        *factom.RCDHash
 	Identity
 }{{
 	Name:     "valid",
 	Valid:    true,
 	Identity: validIdentity(),
 	Height:   140744,
-	IDKey: factom.NewBytes32(hexToBytes(
+	IDKey: factom.NewRCDHash(hexToBytes(
 		"9656dbf91feb7d464971f31b28bfbf38ab201b8e33ec69ea4681e3bef779858e")),
 }, {
 	Name:     "nil chain ID",

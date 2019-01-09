@@ -172,7 +172,7 @@ func (e *Entry) Sign(signingSet ...factom.Address) {
 		copy(msg[i:], rcdSigIDSalt)
 		msgHash = sha512.Sum512(msg)
 
-		sig := ed25519.Sign(a.PrivateKey, msgHash[:])
+		sig := ed25519.Sign(a.PrivateKey().Bytes(), msgHash[:])
 		e.ExtIDs = append(e.ExtIDs, a.RCD(), sig[:])
 	}
 }

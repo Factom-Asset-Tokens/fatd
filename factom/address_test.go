@@ -26,7 +26,7 @@ var (
 	JSONAddressInvalidTypes   = []string{`{}`, `5.5`, `["hello"]`}
 	JSONAddressInvalidLengths = []string{
 		`"FA0"`, `"FA1zT4aFpEvcnPqPCigB3fvGu4Q4mTXY22iiuV69DqE1pNhdF2MC1zT4"`}
-	JSONAddressInvalidPrefix   = `"Fs1zT4aFpEvcnPqPCigB3fvGu4Q4mTXY22iiuV69DqE1pNhdF2MC"`
+	JSONAddressInvalidPrefix   = `"Fb1zT4aFpEvcnPqPCigB3fvGu4Q4mTXY22iiuV69DqE1pNhdF2MC"`
 	JSONAddressInvalidSymbol   = `"FA2zT4aFpEvcnPqPCigB3fvGu4Q4mTXY22l0uV69DqE1pNhdF2MC"`
 	JSONAddressInvalidChecksum = `"FA2zT4aFpEvcnPqPCigB3fvGu4Q4mTXY22iiuV69DqE1pNhdF2MC"`
 )
@@ -43,9 +43,9 @@ func TestAddressUnmarshalJSON(t *testing.T) {
 	testAddressUnmarshalJSON(t, "InvalidPrefix", JSONAddressInvalidPrefix,
 		"*factom.Address: invalid prefix")
 	testAddressUnmarshalJSON(t, "InvalidSymbol", JSONAddressInvalidSymbol,
-		"invalid format: version and/or checksum bytes missing")
+		"*factom.Address: invalid format: version and/or checksum bytes missing")
 	testAddressUnmarshalJSON(t, "InvalidChecksum", JSONAddressInvalidChecksum,
-		"checksum error")
+		"*factom.Address: checksum error")
 	json := fmt.Sprintf("%#v", humanReadableAddress)
 	t.Run("Valid", func(t *testing.T) {
 		var address factom.Address

@@ -208,7 +208,12 @@ func validIssuance() Issuance {
 
 var issuerKey = func() factom.Address {
 	a := factom.Address{}
-	a.PublicKey, a.PrivateKey, _ = ed25519.GenerateKey(randSource)
+	publicKey, privateKey, err := ed25519.GenerateKey(randSource)
+	if err != nil {
+		panic(err)
+	}
+	copy(a.PublicKey()[:], publicKey[:])
+	copy(a.PrivateKey()[:], privateKey[:])
 	return a
 }()
 

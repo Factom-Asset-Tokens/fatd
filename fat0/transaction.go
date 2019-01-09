@@ -31,6 +31,7 @@ func (t *Transaction) UnmarshalEntry() error {
 	return t.Entry.UnmarshalEntry(t)
 }
 
+// ExpectedJSONLength returns the expected JSON length for t.
 func (t Transaction) ExpectedJSONLength() int {
 	l := len(`{`)
 	l += len(`"inputs":`) + t.Inputs.jsonLen()
@@ -56,7 +57,7 @@ func (t Transaction) IsCoinbase() bool {
 // Valid performs all validation checks and returns nil if t is a valid
 // Transaction. If t is a coinbase transaction then idKey is used to validate
 // the RCD. Otherwise RCDs are checked against the input addresses.
-func (t *Transaction) Valid(idKey *factom.Bytes32) error {
+func (t *Transaction) Valid(idKey *factom.RCDHash) error {
 	if err := t.UnmarshalEntry(); err != nil {
 		return err
 	}

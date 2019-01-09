@@ -45,7 +45,7 @@ func (e entry) Entry() factom.Entry {
 
 type address struct {
 	ID      uint64
-	RCDHash *factom.Bytes32 `gorm:"type:varchar(32); UNIQUE_INDEX; NOT NULL;"`
+	RCDHash *factom.RCDHash `gorm:"type:varchar(32); UNIQUE_INDEX; NOT NULL;"`
 	Balance uint64          `gorm:"NOT NULL;"`
 
 	To   []entry `gorm:"many2many:address_transactions_to;"`
