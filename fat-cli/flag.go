@@ -122,7 +122,7 @@ var (
 	}()
 	coinbaseAmount uint64
 	identity       = fat0.Identity{ChainID: factom.NewBytes32(nil)}
-	sk1            = factom.Address{PrivateKey: new([ed25519.PrivateKeySize]byte)}
+	sk1            = factom.Address{}
 	address        = factom.Address{}
 	ECPub          string
 	metadata       string
@@ -171,14 +171,14 @@ func init() {
 	flagVar(globalFlagSet, (*flagBytes32)(chainID), "chainid")
 
 	flagVar(issueFlagSet, (*ecpub)(&ECPub), "ecpub")
-	flagVar(issueFlagSet, (*SecretKey)(sk1.PrivateKey), "sk1")
+	flagVar(issueFlagSet, (*SecretKey)(sk1.PrivateKey()), "sk1")
 	flagVar(issueFlagSet, &issuance.Type, "type")
 	flagVar(issueFlagSet, &issuance.Supply, "supply")
 	flagVar(issueFlagSet, &issuance.Symbol, "symbol")
 	flagVar(issueFlagSet, &issuance.Name, "name")
 
 	flagVar(transactFlagSet, (*ecpub)(&ECPub), "ecpub")
-	flagVar(transactFlagSet, (*SecretKey)(sk1.PrivateKey), "sk1")
+	flagVar(transactFlagSet, (*SecretKey)(sk1.PrivateKey()), "sk1")
 	flagVar(transactFlagSet, &coinbaseAmount, "coinbase")
 	flagVar(transactFlagSet, (addressAmountMap)(transaction.Inputs), "input")
 	flagVar(transactFlagSet, (addressAmountMap)(transaction.Outputs), "output")
