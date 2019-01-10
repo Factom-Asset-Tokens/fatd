@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"sort"
 )
 
 // NFTokenIDRange represents a contiguous range of NFTokenIDs.
@@ -15,32 +14,24 @@ type NFTokenIDRange struct {
 }
 
 func NewNFTokenIDRange(minMax ...NFTokenID) NFTokenIDRange {
+	var min, max NFTokenID
 	if len(minMax) >= 2 {
-		sort.Slice(minMax, func(i, j int) bool {
-			return minMax[i] < minMax[j]
-		})
-		return NFTokenIDRange{Min: minMax[0], Max: minMax[1]}
+		min, max = minMax[0], minMax[1]
+		if min > max {
+			min, max = max, min
+		}
+	} else if len(minMax) == 1 {
+		min, max = minMax[0], minMax[0]
 	}
-	if len(minMax) == 1 {
-		return NFTokenIDRange{Min: minMax[0], Max: minMax[0]}
-	}
-	return NFTokenIDRange{}
-}
-
-func (idRange NFTokenIDRange) JSONLen() int {
-	return len(`{"min":`) +
-		idRange.Min.JSONLen() +
-		len(`,"max":`) +
-		idRange.Max.JSONLen() +
-		len(`}`)
+	return NFTokenIDRange{Min: min, Max: max}
 }
 
 func (idRange NFTokenIDRange) IsEfficient() bool {
 	var expandedLen int
 	for id := idRange.Min; id <= idRange.Max; id++ {
-		expandedLen += id.JSONLen() + len(`,`)
+		expandedLen += id.jsonLen() + len(`,`)
 	}
-	return idRange.JSONLen() <= expandedLen
+	return idRange.jsonLen() <= expandedLen
 }
 
 func (idRange NFTokenIDRange) Slice() []NFTokenID {
@@ -64,7 +55,7 @@ func (idRange NFTokenIDRange) Set(nfTkns NFTokens) error {
 	return nil
 }
 
-func (idRange NFTokenIDRange) IsValid() error {
+func (idRange NFTokenIDRange) Valid() error {
 	if idRange.Min > idRange.Max {
 		return fmt.Errorf("Min is greater than Max")
 	}
@@ -74,8 +65,8 @@ func (idRange NFTokenIDRange) IsValid() error {
 type nfTokenIDRange NFTokenIDRange
 
 func (idRange NFTokenIDRange) MarshalJSON() ([]byte, error) {
-	if err := idRange.IsValid(); err != nil {
-		return nil, fmt.Errorf("%T: %v", idRange, err)
+	if err := idRange.Valid(); err != nil {
+		return nil, err
 	}
 	return json.Marshal(nfTokenIDRange(idRange))
 }
@@ -84,14 +75,20 @@ func (idRange *NFTokenIDRange) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, (*nfTokenIDRange)(idRange)); err != nil {
 		return fmt.Errorf("%T: %v", idRange, err)
 	}
-	jsonLen := compactJSONLen(data)
-	if jsonLen != idRange.JSONLen() {
-		return fmt.Errorf("%T: unexpected JSON length", idRange)
-	}
-	if err := idRange.IsValid(); err != nil {
+	if err := idRange.Valid(); err != nil {
 		return fmt.Errorf("%T: %v", idRange, err)
 	}
+	if compactJSONLen(data) != idRange.jsonLen() {
+		return fmt.Errorf("%T: unexpected JSON length", idRange)
+	}
 	return nil
+}
+func (idRange NFTokenIDRange) jsonLen() int {
+	return len(`{"min":`) +
+		idRange.Min.jsonLen() +
+		len(`,"max":`) +
+		idRange.Max.jsonLen() +
+		len(`}`)
 }
 
 func compactJSONLen(data []byte) int {

@@ -11,30 +11,21 @@ import (
 type AddressNFTokensMap map[factom.RCDHash]NFTokens
 
 func (m AddressNFTokensMap) MarshalJSON() ([]byte, error) {
-	if len(m) == 0 {
-		return nil, fmt.Errorf("%T: empty", m)
+	if m.NumNFTokenIDs() == 0 {
+		return nil, fmt.Errorf("empty")
 	}
-	if err := m.HasIntersection(); err != nil {
-		return nil, fmt.Errorf("%T: %v", m, err)
+	if err := m.NoInternalNFTokensIntersection(); err != nil {
+		return nil, err
 	}
-	strTknsMap := make(map[string]NFTokens, len(m))
-	deleteMap := AddressNFTokensMap{} // This will rarely get populated.
-	for rcdHash, nfTkns := range m {
-		// Omit addresses with 0 amounts.
-		if len(nfTkns) == 0 {
-			deleteMap[rcdHash] = nil
+	adrStrTknsMap := make(map[string]NFTokens, len(m))
+	for rcdHash, tkns := range m {
+		// Omit addresses with empty NFTokens.
+		if len(tkns) == 0 {
 			continue
 		}
-		adr := factom.NewAddress(&rcdHash)
-		strTknsMap[adr.String()] = nfTkns
+		adrStrTknsMap[rcdHash.String()] = tkns
 	}
-	for rcdHash := range deleteMap {
-		delete(m, rcdHash)
-	}
-	if len(strTknsMap) == 0 {
-		return nil, fmt.Errorf("%T: empty", m)
-	}
-	return json.Marshal(strTknsMap)
+	return json.Marshal(adrStrTknsMap)
 }
 
 func (m *AddressNFTokensMap) UnmarshalJSON(data []byte) error {
@@ -45,64 +36,110 @@ func (m *AddressNFTokensMap) UnmarshalJSON(data []byte) error {
 	if len(adrStrDataMap) == 0 {
 		return fmt.Errorf("%T: empty", m)
 	}
-	compactedJSONLen := compactJSONLen(data)
 	expectedJSONLen := len(`{}`) - len(`,`) +
 		len(adrStrDataMap)*
 			len(`"FA2MwhbJFxPckPahsmntwF1ogKjXGz8FSqo2cLWtshdU47GQVZDC":,`)
 	*m = make(AddressNFTokensMap, len(adrStrDataMap))
 	var rcdHash factom.RCDHash
-	var nfTkns NFTokens
-	for faAdrStr, data := range adrStrDataMap {
-		if err := rcdHash.FromString(faAdrStr); err != nil {
-			return fmt.Errorf("%T: %#v: %v", m, faAdrStr, err)
+	var tkns NFTokens
+	for adrStr, data := range adrStrDataMap {
+		if err := rcdHash.FromString(adrStr); err != nil {
+			return fmt.Errorf("%T: %#v: %v", m, adrStr, err)
 		}
-		if err := nfTkns.UnmarshalJSON(data); err != nil {
+		if err := tkns.UnmarshalJSON(data); err != nil {
 			return fmt.Errorf("%T: %v: %v", m, rcdHash, err)
 		}
-		if err := m.Intersects(nfTkns); err != nil {
+		if err := m.NoNFTokensIntersection(tkns); err != nil {
 			return fmt.Errorf("%T: %v and %v", m, rcdHash, err)
 		}
-		(*m)[rcdHash] = nfTkns
-		expectedJSONLen += len(data)
+		(*m)[rcdHash] = tkns
+		expectedJSONLen += compactJSONLen(data)
 	}
-	if expectedJSONLen != compactedJSONLen {
+	if expectedJSONLen != compactJSONLen(data) {
 		return fmt.Errorf("%T: unexpected JSON length", m)
 	}
 	return nil
 }
 
-func (m AddressNFTokensMap) Intersects(nfTkns NFTokens) error {
-	for rcdHash, existingNFTkns := range m {
-		if err := existingNFTkns.Intersects(nfTkns); err != nil {
+func (m AddressNFTokensMap) NoNFTokensIntersection(newTkns NFTokens) error {
+	for rcdHash, existingTkns := range m {
+		if err := existingTkns.NoIntersection(newTkns); err != nil {
 			return fmt.Errorf("%v: %v", rcdHash, err)
 		}
 	}
 	return nil
 }
 
-func (m AddressNFTokensMap) HasIntersection() error {
-	checked := make(map[factom.RCDHash]map[factom.RCDHash]bool, len(m))
-	for rcdHash := range m {
-		checked[rcdHash] = make(map[factom.RCDHash]bool, len(m))
+func (m AddressNFTokensMap) NoAddressIntersection(n AddressNFTokensMap) error {
+	short, long := m, n
+	if len(short) > len(long) {
+		short, long = long, short
 	}
-	for rcdHash, nfTkns := range m {
-		if len(checked[rcdHash]) == len(m)-1 {
+	for rcdHash, tkns := range short {
+		if len(tkns) == 0 {
 			continue
 		}
-		for rcdH, nfT := range m {
-			if rcdHash == rcdH || checked[rcdHash][rcdH] {
-				continue
-			}
-			if err := nfTkns.Intersects(nfT); err != nil {
-				return fmt.Errorf("%v and %v: %v",
-					rcdHash, rcdH, err)
-			}
-			checked[rcdHash][rcdH] = true
-			checked[rcdH][rcdHash] = true
-			if len(checked[rcdHash]) == len(m)-1 {
-				break
+		if tkns := long[rcdHash]; len(tkns) != 0 {
+			return fmt.Errorf("duplicate Address: %v", rcdHash)
+		}
+	}
+	return nil
+}
+
+func (m AddressNFTokensMap) NFTokenIDsConserved(n AddressNFTokensMap) error {
+	numTknIDs := m.NumNFTokenIDs()
+	if numTknIDs != n.NumNFTokenIDs() {
+		return fmt.Errorf("number of NFTokenIDs differ")
+	}
+	allTkns := make(NFTokens, numTknIDs)
+	for _, tkns := range m {
+		for tknID := range tkns {
+			allTkns[tknID] = struct{}{}
+		}
+	}
+	for _, tkns := range n {
+		for tknID := range tkns {
+			if _, ok := allTkns[tknID]; !ok {
+				return fmt.Errorf("missing NFTokenID: %v", tknID)
 			}
 		}
 	}
 	return nil
+}
+
+func (m AddressNFTokensMap) NumNFTokenIDs() int {
+	var numTknIDs int
+	for _, tkns := range m {
+		numTknIDs += len(tkns)
+	}
+	return numTknIDs
+}
+
+func (m AddressNFTokensMap) NoInternalNFTokensIntersection() error {
+	allTkns := make(NFTokens, m.NumNFTokenIDs())
+	for rcdHash, tkns := range m {
+		if err := allTkns.Append(tkns); err != nil {
+			// We found an intersection. To identify the other
+			// RCDHash that owns tknID, we temporarily remove
+			// rcdHash from m and restore it after we return.
+			tknID := NFTokenID(err.(errorNFTokenIDIntersection))
+			delete(m, rcdHash)
+			otherRCDHash := m.Owner(tknID)
+			m[rcdHash] = tkns
+			return fmt.Errorf("%v and %v: %v", rcdHash, otherRCDHash, err)
+
+		}
+	}
+	return nil
+}
+
+func (m AddressNFTokensMap) Owner(tknID NFTokenID) factom.RCDHash {
+	var rcdHash factom.RCDHash
+	var tkns NFTokens
+	for rcdHash, tkns = range m {
+		if _, ok := tkns[tknID]; ok {
+			break
+		}
+	}
+	return rcdHash
 }

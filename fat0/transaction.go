@@ -1,7 +1,7 @@
 package fat0
 
 import (
-	"crypto/sha256"
+	"encoding/json"
 	"fmt"
 
 	"github.com/Factom-Asset-Tokens/fatd/factom"
@@ -26,25 +26,51 @@ func NewTransaction(entry factom.Entry) Transaction {
 	return Transaction{Entry: Entry{Entry: entry}}
 }
 
+func (t *Transaction) UnmarshalJSON(data []byte) error {
+	tRaw := struct {
+		Inputs  json.RawMessage `json:"inputs"`
+		Outputs json.RawMessage `json:"outputs"`
+		Entry
+	}{}
+	if err := json.Unmarshal(data, &tRaw); err != nil {
+		return fmt.Errorf("%T: %v", t, err)
+	}
+	if err := json.Unmarshal(tRaw.Inputs, &t.Inputs); err != nil {
+		return fmt.Errorf("%T.Inputs: %v", t, err)
+	}
+	if err := json.Unmarshal(tRaw.Outputs, &t.Outputs); err != nil {
+		return fmt.Errorf("%T.Outputs: %v", t, err)
+	}
+	t.Metadata = tRaw.Metadata
+	if err := t.ValidData(); err != nil {
+		return fmt.Errorf("%T: %v", t, err)
+	}
+	expectedJSONLen := len(`{"inputs":,"outputs":}`) +
+		compactJSONLen(tRaw.Inputs) + compactJSONLen(tRaw.Outputs) +
+		tRaw.MetadataJSONLen()
+	if expectedJSONLen != compactJSONLen(data) {
+		return fmt.Errorf("%T: unexpected JSON length", t)
+	}
+	return nil
+}
+
+type transaction Transaction
+
+func (t Transaction) MarshalJSON() ([]byte, error) {
+	if err := t.ValidData(); err != nil {
+		return nil, err
+	}
+	return json.Marshal(transaction(t))
+}
+
 // UnmarshalEntry unmarshals the entry content as a Transaction.
 func (t *Transaction) UnmarshalEntry() error {
 	return t.Entry.UnmarshalEntry(t)
 }
 
-// ExpectedJSONLength returns the expected JSON length for t.
-func (t Transaction) ExpectedJSONLength() int {
-	l := len(`{`)
-	l += len(`"inputs":`) + t.Inputs.jsonLen()
-	l += len(`,`)
-	l += len(`"outputs":`) + t.Outputs.jsonLen()
-	l += t.metadataLen()
-	l += len(`}`)
-	return l
-}
-
-// MarshalEntry marshals the entry content as a Transaction.
+// MarshalEntry marshals the Transaction into the Entry content.
 func (t *Transaction) MarshalEntry() error {
-	return t.marshalEntry(t)
+	return t.Entry.MarshalEntry(t)
 }
 
 // IsCoinbase returns true if the coinbase address is in t.Input. This does not
@@ -61,14 +87,11 @@ func (t *Transaction) Valid(idKey *factom.RCDHash) error {
 	if err := t.UnmarshalEntry(); err != nil {
 		return err
 	}
-	if err := t.ValidData(); err != nil {
-		return err
-	}
 	if err := t.ValidExtIDs(); err != nil {
 		return err
 	}
 	if t.IsCoinbase() {
-		if t.RCDHash() != *idKey {
+		if t.RCDHash(0) != *idKey {
 			return fmt.Errorf("invalid RCD")
 		}
 	} else {
@@ -82,12 +105,6 @@ func (t *Transaction) Valid(idKey *factom.RCDHash) error {
 // ValidData validates the Transaction data and returns nil if no errors are
 // present. ValidData assumes that the entry content has been unmarshaled.
 func (t Transaction) ValidData() error {
-	if len(t.Inputs) == 0 {
-		return fmt.Errorf("no inputs")
-	}
-	if len(t.Outputs) == 0 {
-		return fmt.Errorf("no outputs")
-	}
 	if t.Inputs.Sum() != t.Outputs.Sum() {
 		return fmt.Errorf("sum(inputs) != sum(outputs)")
 	}
@@ -96,33 +113,10 @@ func (t Transaction) ValidData() error {
 		return fmt.Errorf("invalid coinbase transaction")
 	}
 	// Ensure that no address exists in both the Inputs and Outputs.
-	if !emptyIntersection(t.Inputs, t.Outputs) {
-		return fmt.Errorf("an address appears in both the inputs and the outputs")
+	if err := t.Inputs.NoAddressIntersection(t.Outputs); err != nil {
+		return err
 	}
 	return nil
-}
-
-// sum the amounts in aam.
-// emptyIntersection returns true if a and b have no keys with non-zero values
-// in common.
-func emptyIntersection(a, b AddressAmountMap) bool {
-	// Select the shortest map to range through.
-	short := a
-	long := b
-	if len(b) < len(a) {
-		short = b
-		long = a
-	}
-	for rcdHash, amount := range short {
-		// Omit addresses with 0 amounts.
-		if amount == 0 {
-			continue
-		}
-		if amount := long[rcdHash]; amount != 0 {
-			return false
-		}
-	}
-	return true
 }
 
 // ValidExtIDs validates the structure of the external IDs of the entry to make
@@ -136,36 +130,20 @@ func (t Transaction) ValidExtIDs() error {
 	return t.Entry.ValidExtIDs()
 }
 
-//// ValidSignatures returns true if the RCD/signature pairs are valid.
-//// ValidSignatures assumes that ValidExtIDs returns nil.
-//func (t Transaction) ValidSignatures() bool {
-//	return t.validSignatures(len(t.Inputs))
-//}
-
-// ValidRCDs returns true if for each input there is an external ID containing
-// an RCD corresponding to the input. ValidRCDs assumes that UnmarshalEntry has
-// been called and returned nil, and that ValidExtIDs returns nil.
 func (t Transaction) ValidRCDs() bool {
 	// Create a map of all RCDs that are present in the ExtIDs.
-	rcdHashes := make(AddressAmountMap)
+	rcdHashes := make(map[factom.RCDHash]struct{}, len(t.Inputs))
 	extIDs := t.ExtIDs[1:]
 	for i := 0; i < len(extIDs)/2; i++ {
-		rcdHashes[sha256d(extIDs[i*2])] = 0
+		rcdHashes[t.RCDHash(i)] = struct{}{}
 	}
 
 	// Ensure that for all Inputs there is a corresponding RCD in the
 	// ExtIDs.
-	for inputRCDHash := range t.Inputs {
-		if _, ok := rcdHashes[inputRCDHash]; !ok {
+	for rcdHash := range t.Inputs {
+		if _, ok := rcdHashes[rcdHash]; !ok {
 			return false
 		}
 	}
 	return true
-}
-
-// RCDHash returns the SHA256d hash of the first external ID of the entry,
-// which should be the RCD of the IDKey of the issuing Identity, if t is a
-// coinbase transaction.
-func (t Transaction) RCDHash() [sha256.Size]byte {
-	return sha256d(t.ExtIDs[1])
 }

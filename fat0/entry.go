@@ -2,6 +2,7 @@ package fat0
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"crypto/sha512"
 	"encoding/json"
 	"fmt"
@@ -21,41 +22,17 @@ type Entry struct {
 	factom.Entry `json:"-"`
 }
 
-// ExpectedJSONLengther is the interface implemented by types that can return
-// their expected minified JSON length. This is used by UnmarshalEntry to
-// ensure that only strictly well-formed JSON with no duplicate fields are
-// unmarshaled successfully.
-type ExpectedJSONLengther interface {
-	ExpectedJSONLength() int
-}
-
 // UnmarshalEntry unmarshals the content of the factom.Entry into the provided
 // variable v, disallowing all unknown fields.
-func (e Entry) UnmarshalEntry(v ExpectedJSONLengther) error {
-	contentJSONLen := compactJSONLen(e.Content)
-	if contentJSONLen == 0 {
-		return fmt.Errorf("not a single valid JSON")
-	}
-	d := json.NewDecoder(bytes.NewReader(e.Content))
-	d.DisallowUnknownFields()
-	if err := d.Decode(v); err != nil {
-		return err
-	}
-	expectedJSONLen := v.ExpectedJSONLength()
-	if contentJSONLen != expectedJSONLen {
-		return fmt.Errorf("contentJSONLen (%v) != expectedJSONLen (%v)",
-			contentJSONLen, expectedJSONLen)
-	}
-	return nil
+func (e Entry) UnmarshalEntry(v interface{}) error {
+	return json.Unmarshal(e.Content, v)
 }
 
-func (e Entry) metadataLen() int {
+func (e Entry) MetadataJSONLen() int {
 	if e.Metadata == nil {
 		return 0
 	}
-	l := len(`,`)
-	l += len(`"metadata":`) + compactJSONLen(e.Metadata)
-	return l
+	return len(`,"metadata":`) + compactJSONLen(e.Metadata)
 }
 
 func compactJSONLen(data []byte) int {
@@ -65,18 +42,10 @@ func compactJSONLen(data []byte) int {
 	return len(cmp)
 }
 
-func (e *Entry) marshalEntry(v interface {
-	ValidData() error
-}) error {
-	if err := v.ValidData(); err != nil {
-		return err
-	}
-	data, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-	e.Content = factom.Bytes(data)
-	return nil
+func (e *Entry) MarshalEntry(v interface{}) error {
+	var err error
+	e.Content, err = json.Marshal(v)
+	return err
 }
 
 // ValidExtIDs validates the structure of the ExtIDs of the factom.Entry to
@@ -123,7 +92,7 @@ func (e Entry) validTimestamp() error {
 // ExtIDs are valid.
 func (e Entry) validSignatures() error {
 	numRcdSigPairs := uint64(len(e.ExtIDs) / 2)
-	maxRcdSigIDSaltStrLen := digitStrLen(int64(numRcdSigPairs))
+	maxRcdSigIDSaltStrLen := uint64StrLen(numRcdSigPairs)
 	timeSalt := e.ExtIDs[0]
 	maxMsgLen := maxRcdSigIDSaltStrLen + len(timeSalt) + len(e.ChainID) + len(e.Content)
 	msg := make(factom.Bytes, maxMsgLen)
@@ -155,7 +124,7 @@ func (e Entry) validSignatures() error {
 // the ExtIDs. This clears any existing ExtIDs.
 func (e *Entry) Sign(signingSet ...factom.Address) {
 	e.SetTimestampToNow()
-	maxRcdSigIDSaltStrLen := digitStrLen(int64(len(signingSet)))
+	maxRcdSigIDSaltStrLen := uint64StrLen(uint64(len(signingSet)))
 	timeSalt := newTimestampSalt()
 	maxMsgLen := maxRcdSigIDSaltStrLen + len(timeSalt) + len(e.ChainID) + len(e.Content)
 	msg := make(factom.Bytes, maxMsgLen)
@@ -180,4 +149,17 @@ func (e *Entry) Sign(signingSet ...factom.Address) {
 func newTimestampSalt() []byte {
 	timestamp := time.Now().Add(time.Duration(-rand.Int63n(int64(12 * time.Hour))))
 	return []byte(strconv.FormatInt(timestamp.Unix(), 10))
+}
+
+// RCDHash returns the SHA256d hash of the first external ID of the entry,
+// which should be the RCD of the IDKey of the issuing Identity.
+func (e Entry) RCDHash(rcdSigID int) factom.RCDHash {
+	id := rcdSigID*2 + 1
+	return sha256d(e.ExtIDs[id])
+}
+
+// sha256d computes two rounds of the sha256 hash.
+func sha256d(data []byte) [sha256.Size]byte {
+	hash := sha256.Sum256(data)
+	return sha256.Sum256(hash[:])
 }

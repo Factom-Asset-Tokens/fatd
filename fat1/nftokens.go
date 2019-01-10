@@ -34,6 +34,16 @@ func NewNFTokens(ids ...NFTokensSetter) (NFTokens, error) {
 	return nfTkns, nil
 }
 
+func (nfTkns NFTokens) Append(nfTs NFTokens) error {
+	if err := nfTkns.NoIntersection(nfTs); err != nil {
+		return err
+	}
+	for nfTknID := range nfTs {
+		nfTkns[nfTknID] = struct{}{}
+	}
+	return nil
+}
+
 // Set all ids in nfTkns. Return an error if ids contains any duplicate or
 // previously set NFTokenIDs.
 func (nfTkns NFTokens) Set(ids ...NFTokensSetter) error {
@@ -45,14 +55,20 @@ func (nfTkns NFTokens) Set(ids ...NFTokensSetter) error {
 	return nil
 }
 
-func (nfTkns NFTokens) Intersects(nfTknsCmp NFTokens) error {
+type errorNFTokenIDIntersection NFTokenID
+
+func (id errorNFTokenIDIntersection) Error() string {
+	return fmt.Sprintf("duplicate NFTokenID: %v", NFTokenID(id))
+}
+
+func (nfTkns NFTokens) NoIntersection(nfTknsCmp NFTokens) error {
 	small, large := nfTkns, nfTknsCmp
 	if len(small) > len(large) {
 		small, large = large, small
 	}
 	for nfTknID := range small {
 		if _, ok := large[nfTknID]; ok {
-			return fmt.Errorf("duplicate NFTokenID: %v", nfTknID)
+			return errorNFTokenIDIntersection(nfTknID)
 		}
 	}
 	return nil

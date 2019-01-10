@@ -1,6 +1,7 @@
 package fat1
 
 import (
+	"encoding/json"
 	"testing"
 
 	"github.com/Factom-Asset-Tokens/fatd/factom"
@@ -27,30 +28,38 @@ var AddressNFTokensMapMarshalTests = []struct {
 	},
 	JSON: `{"FA1y5ZGuHSLmf2TqNf6hVMkPiNGyQpQDTFJvDLRkKQaoPo4bmbgu":[0,1],"FA1yX6omTQwz3WMuMgfTMexUP4Mks31VWAWAW8FMpPDsvhFY44yX":[2,3]}`,
 }, {
+	Name: "valid",
+	AdrNFTkns: AddressNFTokensMap{
+		factom.RCDHash{0x00}: newNFTokens(NewNFTokenIDRange(0, 1)),
+		factom.RCDHash{0x01}: newNFTokens(NewNFTokenIDRange(2, 3)),
+		factom.RCDHash{0x02}: newNFTokens(),
+	},
+	JSON: `{"FA1y5ZGuHSLmf2TqNf6hVMkPiNGyQpQDTFJvDLRkKQaoPo4bmbgu":[0,1],"FA1yX6omTQwz3WMuMgfTMexUP4Mks31VWAWAW8FMpPDsvhFY44yX":[2,3]}`,
+}, {
 	Name: "invalid, address with empty NFTokens",
 	AdrNFTkns: AddressNFTokensMap{
 		factom.RCDHash{0x00}: newNFTokens(),
 	},
-	Error: "fat1.AddressNFTokensMap: empty",
+	Error: "json: error calling MarshalJSON for type fat1.AddressNFTokensMap: empty",
 }, {
 	Name:      "invalid, no addresses",
 	AdrNFTkns: AddressNFTokensMap{},
-	Error:     "fat1.AddressNFTokensMap: empty",
+	Error:     "json: error calling MarshalJSON for type fat1.AddressNFTokensMap: empty",
 }, {
 	Name: "invalid, has intersection",
 	AdrNFTkns: AddressNFTokensMap{
 		factom.RCDHash{0x00}: newNFTokens(NewNFTokenIDRange(0, 1)),
 		factom.RCDHash{0x01}: newNFTokens(NewNFTokenIDRange(1, 3)),
 	},
-	Error:   "fat1.AddressNFTokensMap: FA1y5ZGuHSLmf2TqNf6hVMkPiNGyQpQDTFJvDLRkKQaoPo4bmbgu and FA1yX6omTQwz3WMuMgfTMexUP4Mks31VWAWAW8FMpPDsvhFY44yX: duplicate NFTokenID: 1",
-	ErrorOr: "fat1.AddressNFTokensMap: FA1yX6omTQwz3WMuMgfTMexUP4Mks31VWAWAW8FMpPDsvhFY44yX and FA1y5ZGuHSLmf2TqNf6hVMkPiNGyQpQDTFJvDLRkKQaoPo4bmbgu: duplicate NFTokenID: 1",
+	Error:   "json: error calling MarshalJSON for type fat1.AddressNFTokensMap: FA1yX6omTQwz3WMuMgfTMexUP4Mks31VWAWAW8FMpPDsvhFY44yX and FA1y5ZGuHSLmf2TqNf6hVMkPiNGyQpQDTFJvDLRkKQaoPo4bmbgu: duplicate NFTokenID: 1",
+	ErrorOr: "json: error calling MarshalJSON for type fat1.AddressNFTokensMap: FA1y5ZGuHSLmf2TqNf6hVMkPiNGyQpQDTFJvDLRkKQaoPo4bmbgu and FA1yX6omTQwz3WMuMgfTMexUP4Mks31VWAWAW8FMpPDsvhFY44yX: duplicate NFTokenID: 1",
 }}
 
 func TestAddressNFTokensMapMarshal(t *testing.T) {
 	for _, test := range AddressNFTokensMapMarshalTests {
 		t.Run(test.Name, func(t *testing.T) {
 			assert := assert.New(t)
-			data, err := test.AdrNFTkns.MarshalJSON()
+			data, err := json.Marshal(test.AdrNFTkns)
 			if len(test.Error) > 0 {
 				assert.True(err.Error() == test.Error ||
 					err.Error() == test.ErrorOr, err.Error())

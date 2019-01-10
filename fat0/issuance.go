@@ -1,7 +1,7 @@
 package fat0
 
 import (
-	"crypto/sha256"
+	"encoding/json"
 	"fmt"
 
 	"github.com/Factom-Asset-Tokens/fatd/factom"
@@ -17,23 +17,43 @@ type Issuance struct {
 	Entry
 }
 
-// ExpectedJSONLength returns the expected JSON length for i.
-func (i Issuance) ExpectedJSONLength() int {
-	l := len(`{`)
-	l += jsonStringLen("type", i.Type) - 1
-	l += len(`,"supply":`) + digitStrLen(i.Supply)
-	l += jsonStringLen("symbol", i.Symbol)
-	l += jsonStringLen("name", i.Name)
-	l += i.metadataLen()
-	l += len(`}`)
-	return l
+type issuance Issuance
+
+func (i *Issuance) UnmarshalJSON(data []byte) error {
+	if err := json.Unmarshal(data, (*issuance)(i)); err != nil {
+		return fmt.Errorf("%T: %v", i, err)
+	}
+	if err := i.ValidData(); err != nil {
+		return fmt.Errorf("%T: %v", i, err)
+	}
+	if i.expectedJSONLength() != compactJSONLen(data) {
+		return fmt.Errorf("%T: unexpected JSON length", i)
+	}
+	return nil
 }
 
-func jsonStringLen(name, value string) int {
-	if len(value) != 0 {
-		return len(`,"`) + len(name) + len(`":`) + len(`"`) + len(value) + len(`"`)
+// ExpectedJSONLength returns the expected JSON length for i.
+func (i Issuance) expectedJSONLength() int {
+	l := len(`{}`)
+	l += len(`"type":""`) + len(i.Type)
+	l += len(`,"supply":`) + int64StrLen(i.Supply)
+	l += jsonStrLen("symbol", i.Symbol)
+	l += jsonStrLen("name", i.Name)
+	l += i.MetadataJSONLen()
+	return l
+}
+func jsonStrLen(name, value string) int {
+	if len(value) == 0 {
+		return 0
 	}
-	return 0
+	return len(`,"":""`) + len(name) + len(value)
+}
+
+func (i Issuance) MarshalJSON() ([]byte, error) {
+	if err := i.ValidData(); err != nil {
+		return nil, err
+	}
+	return json.Marshal(issuance(i))
 }
 
 // NewIssuance returns an Issuance initialized with the given entry.
@@ -48,7 +68,7 @@ func (i *Issuance) UnmarshalEntry() error {
 
 // MarshalEntry marshals the entry content as an Issuance.
 func (i *Issuance) MarshalEntry() error {
-	return i.marshalEntry(i)
+	return i.Entry.MarshalEntry(i)
 }
 
 // Valid performs all validation checks and returns nil if i is a valid
@@ -57,13 +77,10 @@ func (i *Issuance) Valid(idKey *factom.RCDHash) error {
 	if err := i.UnmarshalEntry(); err != nil {
 		return err
 	}
-	if err := i.ValidData(); err != nil {
-		return err
-	}
 	if err := i.ValidExtIDs(); err != nil {
 		return err
 	}
-	if i.RCDHash() != *idKey {
+	if i.RCDHash(0) != *idKey {
 		return fmt.Errorf("invalid RCD")
 	}
 	return nil
@@ -89,16 +106,4 @@ func (i Issuance) ValidExtIDs() error {
 		return fmt.Errorf("incorrect number of ExtIDs")
 	}
 	return i.Entry.ValidExtIDs()
-}
-
-// RCDHash returns the SHA256d hash of the first external ID of the entry,
-// which should be the RCD of the IDKey of the issuing Identity.
-func (i Issuance) RCDHash() [sha256.Size]byte {
-	return sha256d(i.ExtIDs[1])
-}
-
-// sha256d computes two rounds of the sha256 hash.
-func sha256d(data []byte) [sha256.Size]byte {
-	hash := sha256.Sum256(data)
-	return sha256.Sum256(hash[:])
 }

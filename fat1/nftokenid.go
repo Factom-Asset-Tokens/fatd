@@ -19,8 +19,7 @@ func (id NFTokenID) Len() int {
 	return 1
 }
 
-// JSONLen returns the expected JSON encoded length of id.
-func (id NFTokenID) JSONLen() int {
+func (id NFTokenID) jsonLen() int {
 	l := 1
 	for pow := NFTokenID(10); id/pow > 0; pow *= 10 {
 		l++

@@ -99,57 +99,57 @@ var issuanceTests = []struct {
 	Issuance:  omitFieldIssuance("metadata"),
 }, {
 	Name:      "invalid JSON (unknown field)",
-	Error:     `json: unknown field "invalid"`,
+	Error:     `*fat0.Issuance: unexpected JSON length`,
 	IssuerKey: issuerKey,
-	Issuance:  issuance(factom.Bytes(`{"invalid":5}`)),
+	Issuance:  setFieldIssuance("invalid", 5),
 }, {
 	Name:      "invalid JSON (invalid type)",
-	Error:     `json: cannot unmarshal array into Go struct field Issuance.type of type string`,
+	Error:     `*fat0.Issuance: json: cannot unmarshal array into Go struct field issuance.type of type string`,
 	IssuerKey: issuerKey,
 	Issuance:  invalidIssuance("type"),
 }, {
 	Name:      "invalid JSON (invalid supply)",
-	Error:     `json: cannot unmarshal array into Go struct field Issuance.supply of type int64`,
+	Error:     `*fat0.Issuance: json: cannot unmarshal array into Go struct field issuance.supply of type int64`,
 	IssuerKey: issuerKey,
 	Issuance:  invalidIssuance("supply"),
 }, {
 	Name:      "invalid JSON (invalid symbol)",
-	Error:     `json: cannot unmarshal array into Go struct field Issuance.symbol of type string`,
+	Error:     `*fat0.Issuance: json: cannot unmarshal array into Go struct field issuance.symbol of type string`,
 	IssuerKey: issuerKey,
 	Issuance:  invalidIssuance("symbol"),
 }, {
 	Name:      "invalid JSON (invalid name)",
-	Error:     `json: cannot unmarshal array into Go struct field Issuance.name of type string`,
+	Error:     `*fat0.Issuance: json: cannot unmarshal array into Go struct field issuance.name of type string`,
 	IssuerKey: issuerKey,
 	Issuance:  invalidIssuance("name"),
 }, {
 	Name:      "invalid JSON (nil)",
-	Error:     `not a single valid JSON`,
+	Error:     `unexpected end of JSON input`,
 	IssuerKey: issuerKey,
 	Issuance:  issuance(nil),
 }, {
 	Name:      "invalid data (type)",
-	Error:     `invalid "type": "invalid"`,
+	Error:     `*fat0.Issuance: invalid "type": "invalid"`,
 	IssuerKey: issuerKey,
 	Issuance:  setFieldIssuance("type", "invalid"),
 }, {
 	Name:      "invalid data (type omitted)",
-	Error:     `invalid "type": ""`,
+	Error:     `*fat0.Issuance: invalid "type": ""`,
 	IssuerKey: issuerKey,
 	Issuance:  omitFieldIssuance("type"),
 }, {
 	Name:      "invalid data (supply: 0)",
-	Error:     `invalid "supply": must be positive or -1`,
+	Error:     `*fat0.Issuance: invalid "supply": must be positive or -1`,
 	IssuerKey: issuerKey,
 	Issuance:  setFieldIssuance("supply", 0),
 }, {
 	Name:      "invalid data (supply: -5)",
-	Error:     `invalid "supply": must be positive or -1`,
+	Error:     `*fat0.Issuance: invalid "supply": must be positive or -1`,
 	IssuerKey: issuerKey,
 	Issuance:  setFieldIssuance("supply", -5),
 }, {
 	Name:      "invalid data (supply: omitted)",
-	Error:     `contentJSONLen (67) != expectedJSONLen (78)`,
+	Error:     `*fat0.Issuance: invalid "supply": must be positive or -1`,
 	IssuerKey: issuerKey,
 	Issuance:  omitFieldIssuance("supply"),
 }, {
@@ -264,7 +264,7 @@ var issuanceMarshalEntryTests = []struct {
 	}(),
 }, {
 	Name:  "invalid data",
-	Error: `invalid "type": "invalid"`,
+	Error: `json: error calling MarshalJSON for type *fat0.Issuance: invalid "type": "invalid"`,
 	Issuance: func() Issuance {
 		i := newIssuance()
 		i.Type = "invalid"
@@ -272,7 +272,7 @@ var issuanceMarshalEntryTests = []struct {
 	}(),
 }, {
 	Name:  "invalid metadata JSON",
-	Error: "json: error calling MarshalJSON for type json.RawMessage: invalid character 'a' looking for beginning of object key string",
+	Error: `json: error calling MarshalJSON for type *fat0.Issuance: json: error calling MarshalJSON for type json.RawMessage: invalid character 'a' looking for beginning of object key string`,
 	Issuance: func() Issuance {
 		i := newIssuance()
 		i.Metadata = json.RawMessage("{asdf")

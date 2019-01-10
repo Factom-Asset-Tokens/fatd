@@ -1,6 +1,7 @@
 package fat1
 
 import (
+	"encoding/json"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -170,8 +171,8 @@ func TestNewNFTokens(t *testing.T) {
 
 func TestNFTokenIDRangeMarshal(t *testing.T) {
 	idRange := NFTokenIDRange{Min: 5}
-	_, err := idRange.MarshalJSON()
-	assert.EqualError(t, err, "fat1.NFTokenIDRange: Min is greater than Max")
+	_, err := json.Marshal(idRange)
+	assert.EqualError(t, err, "json: error calling MarshalJSON for type fat1.NFTokenIDRange: Min is greater than Max")
 }
 
 func TestNFTokensIntersect(t *testing.T) {
@@ -179,7 +180,7 @@ func TestNFTokensIntersect(t *testing.T) {
 	nfTkns2 := newNFTokens(NFTokenID(5))
 	nfTkns3 := newNFTokens(NewNFTokenIDRange(6, 8))
 	assert := assert.New(t)
-	assert.EqualError(nfTkns1.Intersects(nfTkns2), "duplicate NFTokenID: 5")
-	assert.EqualError(nfTkns2.Intersects(nfTkns1), "duplicate NFTokenID: 5")
-	assert.NoError(nfTkns1.Intersects(nfTkns3))
+	assert.EqualError(nfTkns1.NoIntersection(nfTkns2), "duplicate NFTokenID: 5")
+	assert.EqualError(nfTkns2.NoIntersection(nfTkns1), "duplicate NFTokenID: 5")
+	assert.NoError(nfTkns1.NoIntersection(nfTkns3))
 }

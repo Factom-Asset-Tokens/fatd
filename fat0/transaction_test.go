@@ -39,23 +39,23 @@ var transactionTests = []struct {
 	Tx:   omitFieldTransaction("metadata"),
 }, {
 	Name:  "invalid JSON (nil)",
-	Error: "not a single valid JSON",
+	Error: "unexpected end of JSON input",
 	Tx:    transaction(nil),
 }, {
 	Name:  "invalid JSON (unknown field)",
-	Error: `json: unknown field "invalid"`,
-	Tx:    transaction(factom.Bytes(`{"invalid":5}`)),
+	Error: `*fat0.Transaction: unexpected JSON length`,
+	Tx:    setFieldTransaction("invalid", 5),
 }, {
 	Name:  "invalid JSON (invalid inputs type)",
-	Error: "json: cannot unmarshal array into Go value of type map[string]uint64",
+	Error: "*fat0.Transaction.Inputs: json: cannot unmarshal array into Go value of type map[string]uint64",
 	Tx:    invalidField("inputs"),
 }, {
 	Name:  "invalid JSON (invalid outputs type)",
-	Error: "json: cannot unmarshal array into Go value of type map[string]uint64",
+	Error: "*fat0.Transaction.Outputs: json: cannot unmarshal array into Go value of type map[string]uint64",
 	Tx:    invalidField("outputs"),
 }, {
 	Name:  "invalid JSON (invalid inputs, zero amount)",
-	Error: "*fat0.AddressAmountMap: invalid amount (0) for address: FA2HaNAq1f85f1cxzywDa7etvtYCGZUztERvExzQik3CJrGBM4sx",
+	Error: "*fat0.Transaction.Inputs: *fat0.AddressAmountMap: FA2HaNAq1f85f1cxzywDa7etvtYCGZUztERvExzQik3CJrGBM4sx: invalid amount (0)",
 	Tx: func() Transaction {
 		in := inputs()
 		in[inputAddresses[0].String()] = 0
@@ -63,31 +63,31 @@ var transactionTests = []struct {
 	}(),
 }, {
 	Name:  "invalid JSON (invalid inputs, duplicate)",
-	Error: "contentJSONLen (389) != expectedJSONLen (330)",
+	Error: "*fat0.Transaction.Inputs: *fat0.AddressAmountMap: unexpected JSON length",
 	Tx:    transaction([]byte(`{"inputs":{"FA2HaNAq1f85f1cxzywDa7etvtYCGZUztERvExzQik3CJrGBM4sx":100,"FA2HaNAq1f85f1cxzywDa7etvtYCGZUztERvExzQik3CJrGBM4sx":100,"FA3rCRnpU95ieYCwh7YGH99YUWPjdVEjk73mpjqnVpTDt3rUUhX8":10},"metadata":[0],"outputs":{"FA1zT4aFpEvcnPqPCigB3fvGu4Q4mTXY22iiuV69DqE1pNhdF2MC":10,"FA2PJRLbuVDyAKire9BRnJYkh2NZc2Fjco4FCrPtXued7F26wGBP":90,"FA2uyZviB3vs28VkqkfnhoXRD8XdKP1zaq7iukq2gBfCq3hxeuE8":10}}`)),
 }, {
 	Name:  "invalid JSON (two objects)",
-	Error: "not a single valid JSON",
+	Error: "invalid character '{' after top-level value",
 	Tx:    transaction([]byte(`{"inputs":{"FA2HaNAq1f85f1cxzywDa7etvtYCGZUztERvExzQik3CJrGBM4sx":100,"FA3rCRnpU95ieYCwh7YGH99YUWPjdVEjk73mpjqnVpTDt3rUUhX8":10},"metadata":[0],"outputs":{"FA1zT4aFpEvcnPqPCigB3fvGu4Q4mTXY22iiuV69DqE1pNhdF2MC":10,"FA2PJRLbuVDyAKire9BRnJYkh2NZc2Fjco4FCrPtXued7F26wGBP":90,"FA2uyZviB3vs28VkqkfnhoXRD8XdKP1zaq7iukq2gBfCq3hxeuE8":10}}{}`)),
 }, {
 	Name:  "invalid data (no inputs)",
-	Error: "no inputs",
-	Tx:    setFieldTransaction("inputs", AddressAmountMap{}),
+	Error: "*fat0.Transaction.Inputs: *fat0.AddressAmountMap: empty",
+	Tx:    setFieldTransaction("inputs", json.RawMessage(`{}`)),
 }, {
 	Name:  "invalid data (no outputs)",
-	Error: "no outputs",
-	Tx:    setFieldTransaction("outputs", AddressAmountMap{}),
+	Error: "*fat0.Transaction.Outputs: *fat0.AddressAmountMap: empty",
+	Tx:    setFieldTransaction("outputs", json.RawMessage(`{}`)),
 }, {
 	Name:  "invalid data (omit inputs)",
-	Error: "contentJSONLen (202) != expectedJSONLen (214)",
+	Error: "*fat0.Transaction.Inputs: unexpected end of JSON input",
 	Tx:    omitFieldTransaction("inputs"),
 }, {
 	Name:  "invalid data (omit outputs)",
-	Error: "contentJSONLen (144) != expectedJSONLen (157)",
+	Error: "*fat0.Transaction.Outputs: unexpected end of JSON input",
 	Tx:    omitFieldTransaction("outputs"),
 }, {
 	Name:  "invalid data (sum mismatch)",
-	Error: "sum(inputs) != sum(outputs)",
+	Error: "*fat0.Transaction: sum(inputs) != sum(outputs)",
 	Tx: func() Transaction {
 		out := outputs()
 		out[outputAddresses[0].String()]++
@@ -95,7 +95,7 @@ var transactionTests = []struct {
 	}(),
 }, {
 	Name:      "invalid data (coinbase)",
-	Error:     "invalid coinbase transaction",
+	Error:     "*fat0.Transaction: invalid coinbase transaction",
 	IssuerKey: issuerKey,
 	Tx: func() Transaction {
 		m := validCoinbaseTxEntryContentMap()
@@ -109,7 +109,7 @@ var transactionTests = []struct {
 	}(),
 }, {
 	Name:      "invalid data (coinbase, coinbase outputs)",
-	Error:     "an address appears in both the inputs and the outputs",
+	Error:     "*fat0.Transaction: duplicate Address: FA1zT4aFpEvcnPqPCigB3fvGu4Q4mTXY22iiuV69DqE1pNhdF2MC",
 	IssuerKey: issuerKey,
 	Tx: func() Transaction {
 		m := validCoinbaseTxEntryContentMap()
@@ -123,7 +123,7 @@ var transactionTests = []struct {
 	}(),
 }, {
 	Name:  "invalid data (inputs outputs overlap)",
-	Error: "an address appears in both the inputs and the outputs",
+	Error: "*fat0.Transaction: duplicate Address: FA2PJRLbuVDyAKire9BRnJYkh2NZc2Fjco4FCrPtXued7F26wGBP",
 	Tx: func() Transaction {
 		m := validTxEntryContentMap()
 		in := inputs()
@@ -302,7 +302,7 @@ var transactionMarshalEntryTests = []struct {
 	}(),
 }, {
 	Name:  "invalid data",
-	Error: "sum(inputs) != sum(outputs)",
+	Error: "json: error calling MarshalJSON for type *fat0.Transaction: sum(inputs) != sum(outputs)",
 	Tx: func() Transaction {
 		t := newTransaction()
 		t.Inputs[*inputAddresses[0].RCDHash()]++
@@ -310,7 +310,7 @@ var transactionMarshalEntryTests = []struct {
 	}(),
 }, {
 	Name:  "invalid metadata JSON",
-	Error: "json: error calling MarshalJSON for type json.RawMessage: invalid character 'a' looking for beginning of object key string",
+	Error: "json: error calling MarshalJSON for type *fat0.Transaction: json: error calling MarshalJSON for type json.RawMessage: invalid character 'a' looking for beginning of object key string",
 	Tx: func() Transaction {
 		t := newTransaction()
 		t.Metadata = json.RawMessage("{asdf")
