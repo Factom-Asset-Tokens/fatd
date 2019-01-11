@@ -1,6 +1,8 @@
 package factom
 
 import (
+	"database/sql"
+	"database/sql/driver"
 	"fmt"
 
 	"github.com/Factom-Asset-Tokens/base58"
@@ -101,3 +103,13 @@ func (rcdHash RCDHash) String() string {
 func (pk PrivateKey) String() string {
 	return base58.CheckEncode(pk[:], fsPrefix[0], fsPrefix[1])
 }
+
+func (b *RCDHash) Scan(v interface{}) error {
+	return (*Bytes32)(b).Scan(v)
+}
+func (b RCDHash) Value() (driver.Value, error) {
+	return (Bytes32)(b).Value()
+}
+
+var _ sql.Scanner = &RCDHash{}
+var _ driver.Valuer = RCDHash{}
