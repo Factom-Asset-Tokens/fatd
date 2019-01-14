@@ -51,8 +51,8 @@ func (e *Entry) MarshalEntry(v interface{}) error {
 // ValidExtIDs validates the structure of the ExtIDs of the factom.Entry to
 // make sure that it has a valid timestamp salt and a valid set of
 // RCD/signature pairs.
-func (e Entry) ValidExtIDs() error {
-	if len(e.ExtIDs) < 3 || len(e.ExtIDs)%2 != 1 {
+func (e Entry) ValidExtIDs(numRCDSigPairs int) error {
+	if numRCDSigPairs == 0 || len(e.ExtIDs) != 2*numRCDSigPairs+1 {
 		return fmt.Errorf("invalid number of ExtIDs")
 	}
 	if err := e.validTimestamp(); err != nil {

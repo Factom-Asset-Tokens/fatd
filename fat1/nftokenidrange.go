@@ -34,21 +34,17 @@ func (idRange NFTokenIDRange) IsEfficient() bool {
 	return idRange.jsonLen() <= expandedLen
 }
 
-func (idRange NFTokenIDRange) Slice() []NFTokenID {
-	nfTknIDs := make([]NFTokenID, idRange.Len())
-	for i, id := 0, idRange.Min; id <= idRange.Max; i, id = i+1, id+1 {
-		nfTknIDs[i] = id
-	}
-	return nfTknIDs
-}
-
 func (idRange NFTokenIDRange) Len() int {
 	return int(idRange.Max - idRange.Min + 1)
 }
 
-func (idRange NFTokenIDRange) Set(nfTkns NFTokens) error {
+func (idRange NFTokenIDRange) Set(tkns NFTokens) error {
+	if len(tkns)+idRange.Len() > maxCapacity {
+		return fmt.Errorf("%T(len:%v): %T(%v): %v",
+			tkns, len(tkns), idRange, idRange, ErrorCapacity)
+	}
 	for id := idRange.Min; id <= idRange.Max; id++ {
-		if err := id.Set(nfTkns); err != nil {
+		if err := id.Set(tkns); err != nil {
 			return err
 		}
 	}
@@ -56,6 +52,9 @@ func (idRange NFTokenIDRange) Set(nfTkns NFTokens) error {
 }
 
 func (idRange NFTokenIDRange) Valid() error {
+	if idRange.Len() > maxCapacity {
+		return ErrorCapacity
+	}
 	if idRange.Min > idRange.Max {
 		return fmt.Errorf("Min is greater than Max")
 	}
@@ -78,7 +77,7 @@ func (idRange *NFTokenIDRange) UnmarshalJSON(data []byte) error {
 	if err := idRange.Valid(); err != nil {
 		return fmt.Errorf("%T: %v", idRange, err)
 	}
-	if compactJSONLen(data) != idRange.jsonLen() {
+	if len(compactJSON(data)) != idRange.jsonLen() {
 		return fmt.Errorf("%T: unexpected JSON length", idRange)
 	}
 	return nil
@@ -91,9 +90,9 @@ func (idRange NFTokenIDRange) jsonLen() int {
 		len(`}`)
 }
 
-func compactJSONLen(data []byte) int {
+func compactJSON(data []byte) []byte {
 	buf := bytes.NewBuffer(make([]byte, 0, len(data)))
 	json.Compact(buf, data)
 	cmp, _ := ioutil.ReadAll(buf)
-	return len(cmp)
+	return cmp
 }

@@ -31,8 +31,9 @@ var jrpcMethods = jrpc.MethodMap{
 
 type ResultsGetIssuance struct {
 	ParamsToken
-	Timestamp *factom.Time  `json:"timestamp"`
-	Issuance  fat0.Issuance `json:"issuance"`
+	Hash      *factom.Bytes32 `json:"entryhash"`
+	Timestamp *factom.Time    `json:"timestamp"`
+	Issuance  fat0.Issuance   `json:"issuance"`
 }
 
 func getIssuance(entry bool) jrpc.MethodFunc {
@@ -57,10 +58,17 @@ func getIssuance(entry bool) jrpc.MethodFunc {
 				TokenID:       chain.Token,
 				IssuerChainID: chain.Identity.ChainID,
 			},
+			Hash:      chain.Hash,
 			Timestamp: chain.Issuance.Timestamp,
 			Issuance:  chain.Issuance,
 		}
 	}
+}
+
+type ResultsGetTransaction struct {
+	Hash      *factom.Bytes32  `json:"entryhash"`
+	Timestamp *factom.Time     `json:"timestamp"`
+	Tx        fat0.Transaction `json:"data"`
 }
 
 func getTransaction(entry bool) jrpc.MethodFunc {
@@ -96,12 +104,6 @@ func getTransaction(entry bool) jrpc.MethodFunc {
 			Tx:        transaction,
 		}
 	}
-}
-
-type ResultsGetTransaction struct {
-	Hash      *factom.Bytes32  `json:"entryhash"`
-	Timestamp *factom.Time     `json:"timestamp"`
-	Tx        fat0.Transaction `json:"data"`
 }
 
 func getTransactions(entry bool) jrpc.MethodFunc {

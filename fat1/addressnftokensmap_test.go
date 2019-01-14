@@ -118,6 +118,20 @@ var AddressNFTokensMapUnmarshalTests = []struct {
 	Name:  "invalid, invalid JSON type",
 	JSON:  `[0,1]`,
 	Error: `*fat1.AddressNFTokensMap: json: cannot unmarshal array into Go value of type map[string]json.RawMessage`,
+}, {
+	Name:    "invalid, capacity exceeded",
+	JSON:    `{"FA1y5ZGuHSLmf2TqNf6hVMkPiNGyQpQDTFJvDLRkKQaoPo4bmbgu":[{"min":1,"max":400000}],"FA1yX6omTQwz3WMuMgfTMexUP4Mks31VWAWAW8FMpPDsvhFY44yX":[2,3]}`,
+	Error:   `*fat1.AddressNFTokensMap(len:400000): fat1.NFTokens(len:2): NFTokenID max capacity (400000) exceeded`,
+	ErrorOr: `*fat1.AddressNFTokensMap(len:2): fat1.NFTokens(len:400000): NFTokenID max capacity (400000) exceeded`,
+}, {
+	Name:    "invalid, capacity exceeded",
+	JSON:    `{"FA1y5ZGuHSLmf2TqNf6hVMkPiNGyQpQDTFJvDLRkKQaoPo4bmbgu":[{"min":2,"max":400000}],"FA1yX6omTQwz3WMuMgfTMexUP4Mks31VWAWAW8FMpPDsvhFY44yX":[2,3]}`,
+	Error:   `*fat1.AddressNFTokensMap(len:399999): fat1.NFTokens(len:2): NFTokenID max capacity (400000) exceeded`,
+	ErrorOr: `*fat1.AddressNFTokensMap(len:2): fat1.NFTokens(len:399999): NFTokenID max capacity (400000) exceeded`,
+}, {
+	Name:  "invalid, capacity exceeded",
+	JSON:  `{"FA1y5ZGuHSLmf2TqNf6hVMkPiNGyQpQDTFJvDLRkKQaoPo4bmbgu":[{"min":0,"max":400000}],"FA1yX6omTQwz3WMuMgfTMexUP4Mks31VWAWAW8FMpPDsvhFY44yX":[2,3]}`,
+	Error: `*fat1.AddressNFTokensMap: FA1y5ZGuHSLmf2TqNf6hVMkPiNGyQpQDTFJvDLRkKQaoPo4bmbgu: *fat1.NFTokens: *fat1.NFTokenIDRange: NFTokenID max capacity (400000) exceeded`,
 }}
 
 func TestAddressNFTokensMapUnmarshal(t *testing.T) {

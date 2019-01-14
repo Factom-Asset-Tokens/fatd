@@ -35,22 +35,25 @@ func (t *Transaction) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &tRaw); err != nil {
 		return fmt.Errorf("%T: %v", t, err)
 	}
-	if err := json.Unmarshal(tRaw.Inputs, &t.Inputs); err != nil {
+	if err := t.Inputs.UnmarshalJSON(tRaw.Inputs); err != nil {
 		return fmt.Errorf("%T.Inputs: %v", t, err)
 	}
-	if err := json.Unmarshal(tRaw.Outputs, &t.Outputs); err != nil {
+	if err := t.Outputs.UnmarshalJSON(tRaw.Outputs); err != nil {
 		return fmt.Errorf("%T.Outputs: %v", t, err)
 	}
 	t.Metadata = tRaw.Metadata
+
 	if err := t.ValidData(); err != nil {
 		return fmt.Errorf("%T: %v", t, err)
 	}
+
 	expectedJSONLen := len(`{"inputs":,"outputs":}`) +
 		compactJSONLen(tRaw.Inputs) + compactJSONLen(tRaw.Outputs) +
 		tRaw.MetadataJSONLen()
 	if expectedJSONLen != compactJSONLen(data) {
 		return fmt.Errorf("%T: unexpected JSON length", t)
 	}
+
 	return nil
 }
 
@@ -124,10 +127,7 @@ func (t Transaction) ValidData() error {
 // not validate the content of the RCD or signature. ValidExtIDs assumes that
 // the entry content has been unmarshaled and that ValidData returns nil.
 func (t Transaction) ValidExtIDs() error {
-	if len(t.ExtIDs) != 2*len(t.Inputs)+1 {
-		return fmt.Errorf("incorrect number of ExtIDs")
-	}
-	return t.Entry.ValidExtIDs()
+	return t.Entry.ValidExtIDs(len(t.Inputs))
 }
 
 func (t Transaction) ValidRCDs() bool {

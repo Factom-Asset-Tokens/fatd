@@ -129,7 +129,7 @@ func TestEntryValidExtIDs(t *testing.T) {
 	for _, test := range validExtIDsTests {
 		t.Run(test.Name, func(t *testing.T) {
 			assert := assert.New(t)
-			err := test.Entry.ValidExtIDs()
+			err := test.Entry.ValidExtIDs(len(test.Entry.ExtIDs) / 2)
 			if len(test.Error) == 0 {
 				assert.NoError(err)
 			} else {

@@ -12,8 +12,9 @@ import (
 // transaction or a coinbase transaction depending on the Inputs and the
 // RCD/signature pair.
 type Transaction struct {
-	Inputs  AddressNFTokensMap `json:"inputs"`
-	Outputs AddressNFTokensMap `json:"outputs"`
+	Inputs        AddressNFTokensMap   `json:"inputs"`
+	Outputs       AddressNFTokensMap   `json:"outputs"`
+	TokenMetadata NFTokenIDMetadataMap `json:"tokenmetadata,omitempty"`
 	fat0.Entry
 }
 
@@ -24,29 +25,49 @@ func NewTransaction(entry factom.Entry) Transaction {
 
 func (t *Transaction) UnmarshalJSON(data []byte) error {
 	tRaw := struct {
-		Inputs  json.RawMessage `json:"inputs"`
-		Outputs json.RawMessage `json:"outputs"`
+		Inputs        json.RawMessage `json:"inputs"`
+		Outputs       json.RawMessage `json:"outputs"`
+		TokenMetadata json.RawMessage `json:"tokenmetadata"`
 		fat0.Entry
 	}{}
 	if err := json.Unmarshal(data, &tRaw); err != nil {
 		return fmt.Errorf("%T: %v", t, err)
 	}
-	if err := json.Unmarshal(tRaw.Inputs, &t.Inputs); err != nil {
+	if err := t.Inputs.UnmarshalJSON(tRaw.Inputs); err != nil {
 		return fmt.Errorf("%T.Inputs: %v", t, err)
 	}
-	if err := json.Unmarshal(tRaw.Outputs, &t.Outputs); err != nil {
+	var expectedJSONLen int
+	if len(tRaw.TokenMetadata) > 0 {
+		if !t.IsCoinbase() {
+			return fmt.Errorf(`%T: %v`, t, `invalid field: "tokenmetadata"`)
+		}
+		if err := t.TokenMetadata.UnmarshalJSON(tRaw.TokenMetadata); err != nil {
+			return fmt.Errorf("%T.TokenMetadata: %v", t, err)
+
+		}
+		if err := t.TokenMetadata.IsSubsetOf(t.Inputs[*coinbase.RCDHash()]); err != nil {
+			return fmt.Errorf("%T.TokenMetadata: %v", t, err)
+		}
+
+		expectedJSONLen = len(`,"tokenmetadata":`) +
+			len(compactJSON(tRaw.TokenMetadata))
+	}
+	if err := t.Outputs.UnmarshalJSON(tRaw.Outputs); err != nil {
 		return fmt.Errorf("%T.Outputs: %v", t, err)
 	}
 	t.Metadata = tRaw.Metadata
+
 	if err := t.ValidData(); err != nil {
 		return fmt.Errorf("%T: %v", t, err)
 	}
-	expectedJSONLen := len(`{"inputs":,"outputs":}`) +
-		compactJSONLen(tRaw.Inputs) + compactJSONLen(tRaw.Outputs) +
+
+	expectedJSONLen += len(`{"inputs":,"outputs":}`) +
+		len(compactJSON(tRaw.Inputs)) + len(compactJSON(tRaw.Outputs)) +
 		tRaw.MetadataJSONLen()
-	if expectedJSONLen != compactJSONLen(data) {
+	if expectedJSONLen != len(compactJSON(data)) {
 		return fmt.Errorf("%T: unexpected JSON length", t)
 	}
+
 	return nil
 }
 
@@ -61,10 +82,10 @@ func (t Transaction) MarshalJSON() ([]byte, error) {
 
 func (t Transaction) ValidData() error {
 	if err := t.Inputs.NoAddressIntersection(t.Outputs); err != nil {
-		return err
+		return fmt.Errorf("Inputs and Outputs intersect: %v", err)
 	}
 	if err := t.Inputs.NFTokenIDsConserved(t.Outputs); err != nil {
-		return err
+		return fmt.Errorf("Inputs and Outputs mismatch: %v", err)
 	}
 	// Coinbase transactions must only have one input.
 	if t.IsCoinbase() && len(t.Inputs) != 1 {
@@ -112,10 +133,7 @@ func (t *Transaction) Valid(idKey *factom.RCDHash) error {
 }
 
 func (t Transaction) ValidExtIDs() error {
-	if len(t.ExtIDs) != 2*len(t.Inputs)+1 {
-		return fmt.Errorf("incorrect number of ExtIDs")
-	}
-	return t.Entry.ValidExtIDs()
+	return t.Entry.ValidExtIDs(len(t.Inputs))
 }
 
 func (t Transaction) ValidRCDs() bool {

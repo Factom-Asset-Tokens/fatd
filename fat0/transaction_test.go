@@ -142,7 +142,7 @@ var transactionTests = []struct {
 	}(),
 }, {
 	Name:  "invalid ExtIDs (length)",
-	Error: "incorrect number of ExtIDs",
+	Error: "invalid number of ExtIDs",
 	Tx: func() Transaction {
 		t := validTx()
 		t.ExtIDs = append(t.ExtIDs, factom.Bytes{})

@@ -42,6 +42,7 @@ func (m *AddressNFTokensMap) UnmarshalJSON(data []byte) error {
 	*m = make(AddressNFTokensMap, len(adrStrDataMap))
 	var rcdHash factom.RCDHash
 	var tkns NFTokens
+	var numTkns int
 	for adrStr, data := range adrStrDataMap {
 		if err := rcdHash.FromString(adrStr); err != nil {
 			return fmt.Errorf("%T: %#v: %v", m, adrStr, err)
@@ -49,13 +50,18 @@ func (m *AddressNFTokensMap) UnmarshalJSON(data []byte) error {
 		if err := tkns.UnmarshalJSON(data); err != nil {
 			return fmt.Errorf("%T: %v: %v", m, rcdHash, err)
 		}
+		numTkns += len(tkns)
+		if numTkns > maxCapacity {
+			return fmt.Errorf("%T(len:%v): %T(len:%v): %v",
+				m, numTkns-len(tkns), tkns, len(tkns), ErrorCapacity)
+		}
 		if err := m.NoNFTokensIntersection(tkns); err != nil {
 			return fmt.Errorf("%T: %v and %v", m, rcdHash, err)
 		}
 		(*m)[rcdHash] = tkns
-		expectedJSONLen += compactJSONLen(data)
+		expectedJSONLen += len(compactJSON(data))
 	}
-	if expectedJSONLen != compactJSONLen(data) {
+	if expectedJSONLen != len(compactJSON(data)) {
 		return fmt.Errorf("%T: unexpected JSON length", m)
 	}
 	return nil
