@@ -1,14 +1,18 @@
 package fat0_test
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"math/rand"
 	"testing"
 
 	"github.com/Factom-Asset-Tokens/fatd/factom"
-	. "github.com/Factom-Asset-Tokens/fatd/fat0"
+	"github.com/Factom-Asset-Tokens/fatd/fat"
+	. "github.com/Factom-Asset-Tokens/fatd/fat/fat0"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/crypto/ed25519"
 )
 
 var transactionTests = []struct {
@@ -55,7 +59,7 @@ var transactionTests = []struct {
 	Tx:    invalidField("outputs"),
 }, {
 	Name:  "invalid JSON (invalid inputs, zero amount)",
-	Error: "*fat0.Transaction.Inputs: *fat0.AddressAmountMap: FA2HaNAq1f85f1cxzywDa7etvtYCGZUztERvExzQik3CJrGBM4sx: invalid amount (0)",
+	Error: "*fat0.Transaction.Inputs: *fat0.AddressAmountMap: FA3tM2R3T2ZT2gPrTfxjqhnFsdiqQUyKboKxvka3z5c1JF9yQck5: invalid amount (0)",
 	Tx: func() Transaction {
 		in := inputs()
 		in[inputAddresses[0].String()] = 0
@@ -64,11 +68,11 @@ var transactionTests = []struct {
 }, {
 	Name:  "invalid JSON (invalid inputs, duplicate)",
 	Error: "*fat0.Transaction.Inputs: *fat0.AddressAmountMap: unexpected JSON length",
-	Tx:    transaction([]byte(`{"inputs":{"FA2HaNAq1f85f1cxzywDa7etvtYCGZUztERvExzQik3CJrGBM4sx":100,"FA2HaNAq1f85f1cxzywDa7etvtYCGZUztERvExzQik3CJrGBM4sx":100,"FA3rCRnpU95ieYCwh7YGH99YUWPjdVEjk73mpjqnVpTDt3rUUhX8":10},"metadata":[0],"outputs":{"FA1zT4aFpEvcnPqPCigB3fvGu4Q4mTXY22iiuV69DqE1pNhdF2MC":10,"FA2PJRLbuVDyAKire9BRnJYkh2NZc2Fjco4FCrPtXued7F26wGBP":90,"FA2uyZviB3vs28VkqkfnhoXRD8XdKP1zaq7iukq2gBfCq3hxeuE8":10}}`)),
+	Tx:    transaction([]byte(`{"inputs":{"FA3tM2R3T2ZT2gPrTfxjqhnFsdiqQUyKboKxvka3z5c1JF9yQck5":100,"FA3tM2R3T2ZT2gPrTfxjqhnFsdiqQUyKboKxvka3z5c1JF9yQck5":100,"FA3rCRnpU95ieYCwh7YGH99YUWPjdVEjk73mpjqnVpTDt3rUUhX8":10},"metadata":[0],"outputs":{"FA1zT4aFpEvcnPqPCigB3fvGu4Q4mTXY22iiuV69DqE1pNhdF2MC":10,"FA3sjgNF4hrJAiD9tQxAVjWS9Ca1hMqyxtuVSZTBqJiPwD7bnHkn":90,"FA2uyZviB3vs28VkqkfnhoXRD8XdKP1zaq7iukq2gBfCq3hxeuE8":10}}`)),
 }, {
 	Name:  "invalid JSON (two objects)",
 	Error: "invalid character '{' after top-level value",
-	Tx:    transaction([]byte(`{"inputs":{"FA2HaNAq1f85f1cxzywDa7etvtYCGZUztERvExzQik3CJrGBM4sx":100,"FA3rCRnpU95ieYCwh7YGH99YUWPjdVEjk73mpjqnVpTDt3rUUhX8":10},"metadata":[0],"outputs":{"FA1zT4aFpEvcnPqPCigB3fvGu4Q4mTXY22iiuV69DqE1pNhdF2MC":10,"FA2PJRLbuVDyAKire9BRnJYkh2NZc2Fjco4FCrPtXued7F26wGBP":90,"FA2uyZviB3vs28VkqkfnhoXRD8XdKP1zaq7iukq2gBfCq3hxeuE8":10}}{}`)),
+	Tx:    transaction([]byte(`{"inputs":{"FA2HaNAq1f85f1cxzywDa7etvtYCGZUztERvExzQik3CJrGBM4sx":100,"FA3rCRnpU95ieYCwh7YGH99YUWPjdVEjk73mpjqnVpTDt3rUUhX8":10},"metadata":[0],"outputs":{"FA1zT4aFpEvcnPqPCigB3fvGu4Q4mTXY22iiuV69DqE1pNhdF2MC":10,"FA3sjgNF4hrJAiD9tQxAVjWS9Ca1hMqyxtuVSZTBqJiPwD7bnHkn":90,"FA2uyZviB3vs28VkqkfnhoXRD8XdKP1zaq7iukq2gBfCq3hxeuE8":10}}{}`)),
 }, {
 	Name:  "invalid data (no inputs)",
 	Error: "*fat0.Transaction.Inputs: *fat0.AddressAmountMap: empty",
@@ -123,7 +127,7 @@ var transactionTests = []struct {
 	}(),
 }, {
 	Name:  "invalid data (inputs outputs overlap)",
-	Error: "*fat0.Transaction: duplicate Address: FA2PJRLbuVDyAKire9BRnJYkh2NZc2Fjco4FCrPtXued7F26wGBP",
+	Error: "*fat0.Transaction: duplicate Address: FA3sjgNF4hrJAiD9tQxAVjWS9Ca1hMqyxtuVSZTBqJiPwD7bnHkn",
 	Tx: func() Transaction {
 		m := validTxEntryContentMap()
 		in := inputs()
@@ -196,7 +200,9 @@ var (
 	coinbaseInputAmounts  = []uint64{110}
 	coinbaseOutputAmounts = []uint64{90, 20}
 
-	tokenChainID = ChainID("test", identityChainID)
+	tokenChainID = fat.ChainID("test", identityChainID)
+
+	identityChainID = factom.NewBytes32(validIdentityChainID())
 )
 
 // Transactions
@@ -356,4 +362,51 @@ func addressAmountMap(aas map[string]uint64) AddressAmountMap {
 		m[*a.RCDHash()] = amount
 	}
 	return m
+}
+
+var randSource = rand.New(rand.NewSource(100))
+var issuerKey = func() factom.Address {
+	a := factom.Address{}
+	publicKey, privateKey, err := ed25519.GenerateKey(randSource)
+	if err != nil {
+		panic(err)
+	}
+	copy(a.PublicKey()[:], publicKey[:])
+	copy(a.PrivateKey()[:], privateKey[:])
+	return a
+}()
+
+func twoAddresses() []factom.Address {
+	adrs := make([]factom.Address, 2)
+	for i := range adrs {
+		publicKey, privateKey, err := ed25519.GenerateKey(randSource)
+		if err != nil {
+			panic(err)
+		}
+		copy(adrs[i].PublicKey()[:], publicKey[:])
+		copy(adrs[i].PrivateKey()[:], privateKey[:])
+
+	}
+	return adrs
+}
+
+func marshal(v map[string]interface{}) []byte {
+	data, err := json.Marshal(v)
+	if err != nil {
+		panic(err)
+	}
+	return data
+}
+
+var validIdentityChainIDStr = "88888807e4f3bbb9a2b229645ab6d2f184224190f83e78761674c2362aca4425"
+
+func validIdentityChainID() factom.Bytes {
+	return hexToBytes(validIdentityChainIDStr)
+}
+func hexToBytes(hexStr string) factom.Bytes {
+	raw, err := hex.DecodeString(hexStr)
+	if err != nil {
+		panic(err)
+	}
+	return factom.Bytes(raw)
 }

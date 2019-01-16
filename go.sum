@@ -6,6 +6,7 @@ github.com/AdamSLevy/jsonrpc2/v10 v10.0.0 h1:JQStE6vDAIgW/L6CKXEpGnIca4wEKwGjJ4X
 github.com/AdamSLevy/jsonrpc2/v10 v10.0.0/go.mod h1:KnV+V6oP8VVBOm2XA6SxPQx/OhKP5P1X6zw5lF4tXfA=
 github.com/Factom-Asset-Tokens/base58 v0.0.0-20181227014902-61655c4dd885 h1:rfy2fwMrOZPqQgjsH7VCreGMSPzcvqQrfjeSs8nf+sY=
 github.com/Factom-Asset-Tokens/base58 v0.0.0-20181227014902-61655c4dd885/go.mod h1:RVXsRSp6VzXw5l1uiGazuf3qo23Qk0h1HzMcQk+X4LE=
+github.com/Factom-Asset-Tokens/fat v0.0.0-20181125004625-e596ceb088d9 h1:WOgfeDnJCGFAnVyasqSObiskw21nk0wxQnjoa1xvgb0=
 github.com/FactomProject/FactomCode v0.0.0-20171228170625-d7e03150a9d5 h1:3CMiYso42Xa4iGiXXhUBl8OXFJd3wDB5Gd64eWMzJTs=
 github.com/FactomProject/FactomCode v0.0.0-20171228170625-d7e03150a9d5/go.mod h1:7XksVta7THNbD031Ax0/dS5RKMS+ug+d7/Lmti8jAhE=
 github.com/FactomProject/basen v0.0.0-20150613233007-fe3947df716e h1:ahyvB3q25YnZWly5Gq1ekg6jcmWaGj/vG/MhF4aisoc=

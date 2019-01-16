@@ -4,22 +4,22 @@ import (
 	"fmt"
 
 	"github.com/Factom-Asset-Tokens/fatd/factom"
-	"github.com/Factom-Asset-Tokens/fatd/fat0"
+	"github.com/Factom-Asset-Tokens/fatd/fat"
 	"github.com/jinzhu/gorm"
 )
 
 type Chain struct {
 	ID *factom.Bytes32
 	ChainStatus
-	fat0.Identity
-	fat0.Issuance
+	fat.Identity
+	fat.Issuance
 	Metadata
 	*gorm.DB
 }
 
 func (chain Chain) String() string {
 	return fmt.Sprintf("{ChainStatus:%v, ID:%v, Metadata:%+v, "+
-		"fat0.Identity:%+v, fat0.Issuance:%+v}",
+		"fat.Identity:%+v, fat.Issuance:%+v}",
 		chain.ChainStatus, chain.ID, chain.Metadata,
 		chain.Identity, chain.Issuance)
 }
@@ -41,7 +41,7 @@ func (chain *Chain) track(first factom.Entry) error {
 	log.Debugf("Tracked: %v", chain)
 	return nil
 }
-func (chain *Chain) issue(issuance fat0.Issuance) error {
+func (chain *Chain) issue(issuance fat.Issuance) error {
 	chain.ChainStatus = ChainStatusIssued
 	chain.Issuance = issuance
 

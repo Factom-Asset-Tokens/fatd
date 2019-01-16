@@ -55,7 +55,7 @@ func (m *AddressAmountMap) UnmarshalJSON(data []byte) error {
 		(*m)[rcdHash] = amount
 		expectedJSONLen += uint64StrLen(amount)
 	}
-	if expectedJSONLen != compactJSONLen(data) {
+	if expectedJSONLen != len(data) {
 		return fmt.Errorf("%T: unexpected JSON length", m)
 	}
 	return nil

@@ -9,7 +9,8 @@ import (
 	"os"
 
 	"github.com/Factom-Asset-Tokens/fatd/factom"
-	"github.com/Factom-Asset-Tokens/fatd/fat0"
+	"github.com/Factom-Asset-Tokens/fatd/fat"
+	"github.com/Factom-Asset-Tokens/fatd/fat/fat0"
 	"github.com/Factom-Asset-Tokens/fatd/flag"
 	_log "github.com/Factom-Asset-Tokens/fatd/log"
 
@@ -195,8 +196,8 @@ func (chain *Chain) loadMetadata() error {
 	if err := chain.First(&chain.Metadata).Error; err != nil {
 		return err
 	}
-	if !fat0.ValidTokenNameIDs(fat0.NameIDs(chain.Token, chain.Issuer)) ||
-		*chain.ID != fat0.ChainID(chain.Token, chain.Issuer) {
+	if !fat.ValidTokenNameIDs(fat.NameIDs(chain.Token, chain.Issuer)) ||
+		*chain.ID != fat.ChainID(chain.Token, chain.Issuer) {
 		return fmt.Errorf(`corrupted "metadata" table for chain %v`, chain.ID)
 	}
 	chain.Identity.ChainID = chain.Metadata.Issuer
@@ -214,7 +215,7 @@ func (chain *Chain) loadIssuance() error {
 	if !e.IsValid() {
 		return fmt.Errorf("corrupted entry hash")
 	}
-	chain.Issuance = fat0.NewIssuance(e.Entry())
+	chain.Issuance = fat.NewIssuance(e.Entry())
 	if err := chain.Issuance.UnmarshalEntry(); err != nil {
 		return err
 	}

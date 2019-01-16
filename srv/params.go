@@ -5,7 +5,7 @@ import (
 
 	jrpc "github.com/AdamSLevy/jsonrpc2/v10"
 	"github.com/Factom-Asset-Tokens/fatd/factom"
-	"github.com/Factom-Asset-Tokens/fatd/fat0"
+	"github.com/Factom-Asset-Tokens/fatd/fat"
 )
 
 type Params interface {
@@ -37,7 +37,7 @@ func (p ParamsToken) ValidChainID() *factom.Bytes32 {
 	if p.ChainID != nil {
 		return p.ChainID
 	}
-	chainID := fat0.ChainID(p.TokenID, p.IssuerChainID)
+	chainID := fat.ChainID(p.TokenID, p.IssuerChainID)
 	p.ChainID = &chainID
 	return p.ChainID
 }

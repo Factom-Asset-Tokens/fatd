@@ -1,41 +1,42 @@
-package fat1
+package fat
 
 import (
 	"encoding/json"
 	"fmt"
 
 	"github.com/Factom-Asset-Tokens/fatd/factom"
-	"github.com/Factom-Asset-Tokens/fatd/fat0"
+	"github.com/Factom-Asset-Tokens/fatd/fat/jsonlen"
 )
 
 // Issuance represents the Issuance of a token.
 type Issuance struct {
-	Type   string `json:"type"`
-	Supply int64  `json:"supply"`
+	Type   Type  `json:"type"`
+	Supply int64 `json:"supply"`
 
 	Symbol string `json:"symbol,omitempty"`
 	Name   string `json:"name,omitempty"`
-	fat0.Entry
+	Entry
 }
 
 type issuance Issuance
 
 func (i *Issuance) UnmarshalJSON(data []byte) error {
+	data = jsonlen.Compact(data)
 	if err := json.Unmarshal(data, (*issuance)(i)); err != nil {
 		return fmt.Errorf("%T: %v", i, err)
 	}
 	if err := i.ValidData(); err != nil {
 		return fmt.Errorf("%T: %v", i, err)
 	}
-	if i.expectedJSONLength() != len(compactJSON(data)) {
+	if i.expectedJSONLength() != len(data) {
 		return fmt.Errorf("%T: unexpected JSON length", i)
 	}
 	return nil
 }
 func (i Issuance) expectedJSONLength() int {
 	l := len(`{}`)
-	l += len(`"type":""`) + len(i.Type)
-	l += len(`,"supply":`) + int64StrLen(i.Supply)
+	l += len(`"type":""`) + len(i.Type.String())
+	l += len(`,"supply":`) + jsonlen.Int64(i.Supply)
 	l += jsonStrLen("symbol", i.Symbol)
 	l += jsonStrLen("name", i.Name)
 	l += i.MetadataJSONLen()
@@ -47,21 +48,6 @@ func jsonStrLen(name, value string) int {
 	}
 	return len(`,"":""`) + len(name) + len(value)
 }
-func int64StrLen(d int64) int {
-	sign := 0
-	if d < 0 {
-		sign++
-		d *= -1
-	}
-	return sign + uint64StrLen(uint64(d))
-}
-func uint64StrLen(d uint64) int {
-	l := 1
-	for pow := uint64(10); d/pow != 0; pow *= 10 {
-		l++
-	}
-	return l
-}
 
 func (i Issuance) MarshalJSON() ([]byte, error) {
 	if err := i.ValidData(); err != nil {
@@ -72,7 +58,7 @@ func (i Issuance) MarshalJSON() ([]byte, error) {
 
 // NewIssuance returns an Issuance initialized with the given entry.
 func NewIssuance(entry factom.Entry) Issuance {
-	return Issuance{Entry: fat0.Entry{Entry: entry}}
+	return Issuance{Entry: Entry{Entry: entry}}
 }
 
 // UnmarshalEntry unmarshals the entry content as an Issuance.
@@ -103,8 +89,8 @@ func (i *Issuance) Valid(idKey *factom.RCDHash) error {
 // ValidData validates the Issuance data and returns nil if no errors are
 // present. ValidData assumes that the entry content has been unmarshaled.
 func (i Issuance) ValidData() error {
-	if i.Type != "FAT-1" {
-		return fmt.Errorf(`invalid "type": %#v`, i.Type)
+	if !i.Type.IsValid() {
+		return fmt.Errorf(`invalid "type": %v`, i.Type)
 	}
 	if i.Supply == 0 || i.Supply < -1 {
 		return fmt.Errorf(`invalid "supply": must be positive or -1`)

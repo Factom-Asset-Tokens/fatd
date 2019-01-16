@@ -1,11 +1,11 @@
-package fat0_test
+package fat_test
 
 import (
 	"encoding/hex"
 	"testing"
 
 	"github.com/Factom-Asset-Tokens/fatd/factom"
-	. "github.com/Factom-Asset-Tokens/fatd/fat0"
+	. "github.com/Factom-Asset-Tokens/fatd/fat"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -13,7 +13,7 @@ import (
 var validIdentityChainIDStr = "88888807e4f3bbb9a2b229645ab6d2f184224190f83e78761674c2362aca4425"
 
 func validIdentityChainID() factom.Bytes {
-	return hexToBytes("88888807e4f3bbb9a2b229645ab6d2f184224190f83e78761674c2362aca4425")
+	return hexToBytes(validIdentityChainIDStr)
 }
 
 func hexToBytes(hexStr string) factom.Bytes {

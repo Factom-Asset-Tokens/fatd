@@ -4,11 +4,12 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"math/rand"
 	"testing"
 
 	"github.com/Factom-Asset-Tokens/fatd/factom"
-	"github.com/Factom-Asset-Tokens/fatd/fat0"
-	. "github.com/Factom-Asset-Tokens/fatd/fat1"
+	"github.com/Factom-Asset-Tokens/fatd/fat"
+	. "github.com/Factom-Asset-Tokens/fatd/fat/fat1"
 	"github.com/FactomProject/ed25519"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -153,7 +154,7 @@ var transactionTests = []struct {
 	}(),
 }, {
 	Name:  "invalid data (inputs outputs overlap)",
-	Error: "*fat1.Transaction: Inputs and Outputs intersect: duplicate Address: FA3eYH5qH7mxtWpLp9k4aSw1tJiLkp171tKnbM9BW14MVLdiDviB",
+	Error: "*fat1.Transaction: Inputs and Outputs intersect: duplicate Address: FA3sjgNF4hrJAiD9tQxAVjWS9Ca1hMqyxtuVSZTBqJiPwD7bnHkn",
 	Tx: func() Transaction {
 		m := validTxEntryContentMap()
 		in := inputs()
@@ -202,7 +203,7 @@ func TestTransaction(t *testing.T) {
 			if len(test.Error) != 0 {
 				assert.Truef((err.Error() == test.Error ||
 					err.Error() == test.ErrorOr),
-					"%v\n%v", string(test.Tx.Content), err.Error())
+					"JSON: %v\nExpected: %v\nActual:   %v", string(test.Tx.Content), test.Error, err.Error())
 				return
 			}
 			require.NoError(t, err, string(test.Tx.Content))
@@ -233,7 +234,7 @@ var (
 		newNFTokens(NewNFTokenIDRange(6, 11))}
 
 	identityChainID = factom.NewBytes32(validIdentityChainID())
-	tokenChainID    = fat0.ChainID("test", identityChainID)
+	tokenChainID    = fat.ChainID("test", identityChainID)
 )
 
 func newNFTokens(ids ...NFTokensSetter) NFTokens {
@@ -425,18 +426,6 @@ func twoAddresses() []factom.Address {
 	return adrs
 }
 
-func validIdentityChainID() factom.Bytes {
-	return hexToBytes("88888807e4f3bbb9a2b229645ab6d2f184224190f83e78761674c2362aca4425")
-}
-
-func hexToBytes(hexStr string) factom.Bytes {
-	raw, err := hex.DecodeString(hexStr)
-	if err != nil {
-		panic(err)
-	}
-	return factom.Bytes(raw)
-}
-
 func tokenMetadata() NFTokenIDMetadataMap {
 	m := make(NFTokenIDMetadataMap, len(coinbaseInputNFTokens[0]))
 	for i, tkns := range inputNFTokens {
@@ -444,4 +433,37 @@ func tokenMetadata() NFTokenIDMetadataMap {
 			Metadata: json.RawMessage(fmt.Sprintf("%v", i))})
 	}
 	return m
+}
+
+var randSource = rand.New(rand.NewSource(100))
+var issuerKey = func() factom.Address {
+	a := factom.Address{}
+	publicKey, privateKey, err := ed25519.GenerateKey(randSource)
+	if err != nil {
+		panic(err)
+	}
+	copy(a.PublicKey()[:], publicKey[:])
+	copy(a.PrivateKey()[:], privateKey[:])
+	return a
+}()
+
+func marshal(v map[string]interface{}) []byte {
+	data, err := json.Marshal(v)
+	if err != nil {
+		panic(err)
+	}
+	return data
+}
+
+var validIdentityChainIDStr = "88888807e4f3bbb9a2b229645ab6d2f184224190f83e78761674c2362aca4425"
+
+func validIdentityChainID() factom.Bytes {
+	return hexToBytes(validIdentityChainIDStr)
+}
+func hexToBytes(hexStr string) factom.Bytes {
+	raw, err := hex.DecodeString(hexStr)
+	if err != nil {
+		panic(err)
+	}
+	return factom.Bytes(raw)
 }

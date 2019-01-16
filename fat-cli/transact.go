@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/Factom-Asset-Tokens/fatd/factom"
-	"github.com/Factom-Asset-Tokens/fatd/fat0"
+	"github.com/Factom-Asset-Tokens/fatd/fat"
 )
 
 func transact() error {
@@ -25,7 +25,7 @@ func transact() error {
 		if !first.IsPopulated() {
 			return fmt.Errorf("Failed to populate Entry%+v", eb.Entries[0])
 		}
-		if !fat0.ValidTokenNameIDs(first.ExtIDs) {
+		if !fat.ValidTokenNameIDs(first.ExtIDs) {
 			return fmt.Errorf("Not a valid token chain")
 		}
 		copy(identity.ChainID[:], first.ExtIDs[3])

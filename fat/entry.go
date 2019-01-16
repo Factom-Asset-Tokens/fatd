@@ -1,17 +1,16 @@
-package fat0
+package fat
 
 import (
-	"bytes"
 	"crypto/sha256"
 	"crypto/sha512"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"math/rand"
 	"strconv"
 	"time"
 
 	"github.com/Factom-Asset-Tokens/fatd/factom"
+	"github.com/Factom-Asset-Tokens/fatd/fat/jsonlen"
 	"github.com/FactomProject/ed25519"
 )
 
@@ -32,16 +31,8 @@ func (e Entry) MetadataJSONLen() int {
 	if e.Metadata == nil {
 		return 0
 	}
-	return len(`,"metadata":`) + compactJSONLen(e.Metadata)
+	return len(`,"metadata":`) + len(e.Metadata)
 }
-
-func compactJSONLen(data []byte) int {
-	buf := bytes.NewBuffer(make([]byte, 0, len(data)))
-	json.Compact(buf, data)
-	cmp, _ := ioutil.ReadAll(buf)
-	return len(cmp)
-}
-
 func (e *Entry) MarshalEntry(v interface{}) error {
 	var err error
 	e.Content, err = json.Marshal(v)
@@ -92,7 +83,7 @@ func (e Entry) validTimestamp() error {
 // ExtIDs are valid.
 func (e Entry) validSignatures() error {
 	numRcdSigPairs := uint64(len(e.ExtIDs) / 2)
-	maxRcdSigIDSaltStrLen := uint64StrLen(numRcdSigPairs)
+	maxRcdSigIDSaltStrLen := jsonlen.Uint64(numRcdSigPairs)
 	timeSalt := e.ExtIDs[0]
 	maxMsgLen := maxRcdSigIDSaltStrLen + len(timeSalt) + len(e.ChainID) + len(e.Content)
 	msg := make(factom.Bytes, maxMsgLen)
@@ -124,7 +115,7 @@ func (e Entry) validSignatures() error {
 // the ExtIDs. This clears any existing ExtIDs.
 func (e *Entry) Sign(signingSet ...factom.Address) {
 	e.SetTimestampToNow()
-	maxRcdSigIDSaltStrLen := uint64StrLen(uint64(len(signingSet)))
+	maxRcdSigIDSaltStrLen := jsonlen.Uint64(uint64(len(signingSet)))
 	timeSalt := newTimestampSalt()
 	maxMsgLen := maxRcdSigIDSaltStrLen + len(timeSalt) + len(e.ChainID) + len(e.Content)
 	msg := make(factom.Bytes, maxMsgLen)

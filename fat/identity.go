@@ -1,4 +1,4 @@
-package fat0
+package fat
 
 import (
 	"fmt"

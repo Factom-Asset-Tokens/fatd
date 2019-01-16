@@ -7,7 +7,8 @@ import (
 
 	jrpc "github.com/AdamSLevy/jsonrpc2/v10"
 	"github.com/Factom-Asset-Tokens/fatd/factom"
-	"github.com/Factom-Asset-Tokens/fatd/fat0"
+	"github.com/Factom-Asset-Tokens/fatd/fat"
+	"github.com/Factom-Asset-Tokens/fatd/fat/fat0"
 	"github.com/Factom-Asset-Tokens/fatd/flag"
 	"github.com/Factom-Asset-Tokens/fatd/state"
 )
@@ -33,7 +34,7 @@ type ResultsGetIssuance struct {
 	ParamsToken
 	Hash      *factom.Bytes32 `json:"entryhash"`
 	Timestamp *factom.Time    `json:"timestamp"`
-	Issuance  fat0.Issuance   `json:"issuance"`
+	Issuance  fat.Issuance    `json:"issuance"`
 }
 
 func getIssuance(entry bool) jrpc.MethodFunc {

@@ -5,11 +5,13 @@ import (
 
 	jrpc "github.com/AdamSLevy/jsonrpc2/v10"
 	"github.com/Factom-Asset-Tokens/fatd/factom"
-	"github.com/Factom-Asset-Tokens/fatd/fat0"
+	"github.com/Factom-Asset-Tokens/fatd/fat"
+	"github.com/Factom-Asset-Tokens/fatd/fat/fat0"
 )
 
-func (chain Chain) Process(eb factom.EBlock) error {
-	defer Chains.set(eb.ChainID, &chain)
+func (chain *Chain) Process(eb factom.EBlock) error {
+	// Ensure changes to chain are saved in Chains.
+	defer Chains.set(eb.ChainID, chain)
 
 	// Load this Entry Block.
 	if err := eb.Get(); err != nil {
@@ -24,9 +26,9 @@ func (chain Chain) Process(eb factom.EBlock) error {
 			return fmt.Errorf("%#v.Get: %v", first, err)
 		}
 
-		// Ignore chains with NameIDs that don't match the fat0
-		// pattern.
-		if !fat0.ValidTokenNameIDs(first.ExtIDs) {
+		// Ignore chains with NameIDs that don't match the fat pattern.
+		// FAT1 will also match here.
+		if !fat.ValidTokenNameIDs(first.ExtIDs) {
 			chain.ignore()
 			return nil
 		}
@@ -95,7 +97,7 @@ func (chain *Chain) processIssuance(es []factom.Entry) error {
 		if err := e.Get(); err != nil {
 			return fmt.Errorf("Entry%+v.Get(): %v", e, err)
 		}
-		issuance := fat0.NewIssuance(e)
+		issuance := fat.NewIssuance(e)
 		if err := issuance.Valid(chain.Identity.IDKey); err != nil {
 			log.Debugf("Invalid Issuance Entry: %v, %v", e.Hash, err)
 			continue

@@ -10,7 +10,8 @@ import (
 
 	"github.com/Factom-Asset-Tokens/base58"
 	"github.com/Factom-Asset-Tokens/fatd/factom"
-	"github.com/Factom-Asset-Tokens/fatd/fat0"
+	"github.com/Factom-Asset-Tokens/fatd/fat"
+	"github.com/Factom-Asset-Tokens/fatd/fat/fat0"
 	"github.com/FactomProject/ed25519"
 	"github.com/sirupsen/logrus"
 )
@@ -106,8 +107,8 @@ var (
 		"output":   "Add an -output ADDRESS:AMOUNT to the transaction. Can be specified multiple times.",
 	}
 
-	issuance = func() fat0.Issuance {
-		i := fat0.Issuance{}
+	issuance = func() fat.Issuance {
+		i := fat.Issuance{}
 		i.ChainID = factom.NewBytes32(nil)
 		return i
 	}()
@@ -121,7 +122,7 @@ var (
 		return tx
 	}()
 	coinbaseAmount uint64
-	identity       = fat0.Identity{ChainID: factom.NewBytes32(nil)}
+	identity       = fat.Identity{ChainID: factom.NewBytes32(nil)}
 	sk1            = factom.Address{}
 	address        = factom.Address{}
 	ECPub          string
@@ -346,7 +347,7 @@ func requireTokenChain() error {
 			return fmt.Errorf(
 				"You must specify -chainid OR -tokenid AND -identity")
 		}
-		chainID := fat0.ChainID(tokenID, identity.ChainID)
+		chainID := fat.ChainID(tokenID, identity.ChainID)
 		copy(issuance.ChainID[:], chainID[:])
 	} else {
 		if flagIsSet["tokenid"] || flagIsSet["identity"] {

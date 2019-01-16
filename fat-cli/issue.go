@@ -5,7 +5,7 @@ import (
 
 	jrpc "github.com/AdamSLevy/jsonrpc2/v10"
 	"github.com/Factom-Asset-Tokens/fatd/factom"
-	"github.com/Factom-Asset-Tokens/fatd/fat0"
+	"github.com/Factom-Asset-Tokens/fatd/fat"
 )
 
 func issue() error {
@@ -27,14 +27,14 @@ func issue() error {
 		if err := first.Get(); err != nil {
 			return err
 		}
-		if !fat0.ValidTokenNameIDs(first.ExtIDs) {
+		if !fat.ValidTokenNameIDs(first.ExtIDs) {
 			return fmt.Errorf("Not a valid token chain")
 		}
 		tokenID = string(first.ExtIDs[1])
 		copy(identity.ChainID[:], first.ExtIDs[3])
 	} else if !eb.IsPopulated() {
 		// Create the chain
-		e := factom.Entry{ExtIDs: fat0.NameIDs(tokenID, identity.ChainID)}
+		e := factom.Entry{ExtIDs: fat.NameIDs(tokenID, identity.ChainID)}
 		txID, err := e.Create(ECPub)
 		if err != nil {
 			return err

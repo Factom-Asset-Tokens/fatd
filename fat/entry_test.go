@@ -1,4 +1,4 @@
-package fat0_test
+package fat_test
 
 import (
 	"math/rand"
@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/Factom-Asset-Tokens/fatd/factom"
-	. "github.com/Factom-Asset-Tokens/fatd/fat0"
+	. "github.com/Factom-Asset-Tokens/fatd/fat"
 	"github.com/FactomProject/ed25519"
 	"github.com/stretchr/testify/assert"
 )
