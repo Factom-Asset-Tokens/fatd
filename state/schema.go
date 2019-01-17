@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/Factom-Asset-Tokens/fatd/factom"
+	"github.com/Factom-Asset-Tokens/fatd/fat/fat1"
 	"github.com/jinzhu/gorm"
 )
 
@@ -44,9 +45,10 @@ func (e entry) Entry() factom.Entry {
 }
 
 type address struct {
-	ID      uint64
+	gorm.Model
 	RCDHash *factom.RCDHash `gorm:"type:varchar(32); UNIQUE_INDEX; NOT NULL;"`
-	Balance uint64          `gorm:"NOT NULL;"`
+
+	Balance uint64 `gorm:"NOT NULL;"`
 
 	To   []entry `gorm:"many2many:address_transactions_to;"`
 	From []entry `gorm:"many2many:address_transactions_from;"`
@@ -58,4 +60,14 @@ func newAddress(fa factom.Address) address {
 
 func (a address) Address() factom.Address {
 	return factom.NewAddress(a.RCDHash)
+}
+
+type nftoken struct {
+	gorm.Model
+	NFTokenID fat1.NFTokenID `gorm:"UNIQUE_INDEX;"`
+	OwnerID   uint
+	Owner     address `gorm:"foreignkey:OwnerID"`
+
+	PreviousOwners []address `gorm:"many2many:nftoken_previousowners;"`
+	Transactions   []entry   `gorm:"many2many:nftoken_transactions;"`
 }

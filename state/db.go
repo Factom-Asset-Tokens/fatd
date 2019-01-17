@@ -11,6 +11,7 @@ import (
 	"github.com/Factom-Asset-Tokens/fatd/factom"
 	"github.com/Factom-Asset-Tokens/fatd/fat"
 	"github.com/Factom-Asset-Tokens/fatd/fat/fat0"
+	"github.com/Factom-Asset-Tokens/fatd/fat/fat1"
 	"github.com/Factom-Asset-Tokens/fatd/flag"
 	_log "github.com/Factom-Asset-Tokens/fatd/log"
 
@@ -157,6 +158,9 @@ func autoMigrate(db *gorm.DB) error {
 	if err := db.AutoMigrate(&Metadata{}).Error; err != nil {
 		return fmt.Errorf("db.AutoMigrate(&Metadata{}): %v", err)
 	}
+	if err := db.AutoMigrate(&nftoken{}).Error; err != nil {
+		return fmt.Errorf("db.AutoMigrate(&Metadata{}): %v", err)
+	}
 	return nil
 }
 
@@ -252,13 +256,26 @@ func (chain *Chain) createEntry(fe factom.Entry) (*entry, error) {
 	if !e.IsValid() {
 		return nil, fmt.Errorf("invalid hash: factom.Entry%+v", fe)
 	}
-	if chain.Where("hash = ?", e.Hash).First(&e).Error != gorm.ErrRecordNotFound {
-		return nil, nil
+	if err := chain.Where("hash = ?", e.Hash).First(&e).Error; err !=
+		gorm.ErrRecordNotFound {
+		return nil, err
 	}
 	if err := chain.Create(&e).Error; err != nil {
 		return nil, err
 	}
 	return &e, nil
+}
+
+func (chain *Chain) createNFToken(tknID fat1.NFTokenID) (*nftoken, error) {
+	tkn := nftoken{NFTokenID: tknID}
+	if err := chain.Where("nftokenid = ?", tknID).First(&tkn).Error; err !=
+		gorm.ErrRecordNotFound {
+		return nil, err
+	}
+	if err := chain.Create(&tkn).Error; err != nil {
+		return nil, err
+	}
+	return &tkn, nil
 }
 
 func (chain *Chain) saveHeight(height uint64) error {
@@ -279,6 +296,14 @@ func (chain Chain) getAddress(rcdHash *factom.RCDHash) (address, error) {
 		return a, err
 	}
 	return a, nil
+}
+
+func (chain Chain) getNFToken(tkn *nftoken) error {
+	if err := chain.Where("nf_token_id = ? AND owner_id =?",
+		tkn.ID, tkn.OwnerID).First(&tkn).Error; err != nil {
+		return err
+	}
+	return nil
 }
 
 func (chain *Chain) rollbackUnlessCommitted(savedChain Chain, err *error) {
@@ -313,9 +338,6 @@ func (chain Chain) getEntry(hash *factom.Bytes32) (*entry, error) {
 	e := entry{}
 	if err := chain.Not("id = ?", 1).
 		Where("hash = ?", hash).First(&e).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil, nil
-		}
 		return nil, err
 	}
 	e.Hash = hash
