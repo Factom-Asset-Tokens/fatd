@@ -286,10 +286,33 @@ func Validate() error {
 	log.Debugf("-factomdtimeout %v ", rpc.FactomdTimeout)
 	debugPrintln()
 
-	// Validate options
+	// Validate cmd
+	switch cmd {
+	// These cmds require further flag validation.
+	case "issue":
+	case "balance":
+	case "transact":
+	case "gettransaction":
+	case "stats":
+	case "getissuance":
+	// These cmds do not require any flags.
+	case "listtokens":
+		fallthrough
+	case "help":
+		return nil
+
+	case "":
+		return fmt.Errorf("No command supplied")
+	// Invalid cmds.
+	default:
+		return fmt.Errorf("Invalid command: %v", cmd)
+	}
+	if err := requireTokenChain(); err != nil {
+		return err
+	}
+
 	switch cmd {
 	case "issue":
-		requireTokenChain()
 		if err := requireFlags("sk1", "supply", "ecpub"); err != nil {
 			return err
 		}
@@ -297,13 +320,11 @@ func Validate() error {
 			return err
 		}
 	case "balance":
-		requireTokenChain()
 		zero := factom.Address{}
 		if address.RCDHash() == zero.RCDHash() {
 			return fmt.Errorf("no address specified")
 		}
 	case "transact":
-		requireTokenChain()
 		required := []string{"output"}
 		if flagIsSet["coinbase"] || flagIsSet["sk1"] {
 			if flagIsSet["input"] {
@@ -323,18 +344,11 @@ func Validate() error {
 			return err
 		}
 	case "gettransaction":
-		requireTokenChain()
 		if txHash == nil {
 			return fmt.Errorf("no transaction entry hash specified")
 		}
 	case "stats":
-		fallthrough
 	case "getissuance":
-		requireTokenChain()
-	case "listtokens":
-	case "help":
-	case "":
-		return fmt.Errorf("No command supplied")
 	default:
 		return fmt.Errorf("Invalid command: %v", cmd)
 	}
@@ -346,6 +360,10 @@ func requireTokenChain() error {
 		if !flagIsSet["tokenid"] || !flagIsSet["identity"] {
 			return fmt.Errorf(
 				"You must specify -chainid OR -tokenid AND -identity")
+		}
+		nameIDs := fat.NameIDs(tokenID, identity.ChainID)
+		if !fat.ValidTokenNameIDs(nameIDs) {
+			return fmt.Errorf("The given -tokenid and -identity do not form a valid FAT Chain.")
 		}
 		chainID := fat.ChainID(tokenID, identity.ChainID)
 		copy(issuance.ChainID[:], chainID[:])
