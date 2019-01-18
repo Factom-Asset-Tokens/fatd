@@ -290,7 +290,7 @@ func Validate() error {
 	switch cmd {
 	case "issue":
 		requireTokenChain()
-		if err := requireFlags("sk1", "type", "supply", "ecpub"); err != nil {
+		if err := requireFlags("sk1", "supply", "ecpub"); err != nil {
 			return err
 		}
 		if err := issuance.ValidData(); err != nil {

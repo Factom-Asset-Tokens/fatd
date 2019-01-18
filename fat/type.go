@@ -12,21 +12,25 @@ const (
 	TypeFAT1
 )
 
-func (t *Type) UnmarshalJSON(data []byte) error {
-	if data[0] != '"' || data[len(data)-1] != '"' {
-		return fmt.Errorf("%T: expected JSON string", t)
-	}
-	data = data[1 : len(data)-1]
-	format := string(data[0:len(`FAT-`)])
+func (t *Type) Set(s string) error {
+	format := s[0:len(`FAT-`)]
 	if format != `FAT-` {
 		return fmt.Errorf("%T: invalid format", t)
 	}
-	num := string(data[len(format):])
+	num := s[len(format):]
 	var err error
 	if *(*uint64)(t), err = strconv.ParseUint(num, 10, 64); err != nil {
 		return fmt.Errorf("%T: %v", t, err)
 	}
 	return nil
+}
+
+func (t *Type) UnmarshalJSON(data []byte) error {
+	if data[0] != '"' || data[len(data)-1] != '"' {
+		return fmt.Errorf("%T: expected JSON string", t)
+	}
+	data = data[1 : len(data)-1]
+	return t.Set(string(data))
 }
 
 func (t Type) MarshalJSON() ([]byte, error) {
