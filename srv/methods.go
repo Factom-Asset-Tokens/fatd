@@ -9,6 +9,7 @@ import (
 	"github.com/Factom-Asset-Tokens/fatd/factom"
 	"github.com/Factom-Asset-Tokens/fatd/fat"
 	"github.com/Factom-Asset-Tokens/fatd/fat/fat0"
+	"github.com/Factom-Asset-Tokens/fatd/fat/fat1"
 	"github.com/Factom-Asset-Tokens/fatd/flag"
 	"github.com/Factom-Asset-Tokens/fatd/state"
 )
@@ -30,7 +31,7 @@ var jrpcMethods = jrpc.MethodMap{
 	"get-daemon-properties": getDaemonProperties,
 }
 
-type ResultsGetIssuance struct {
+type ResultGetIssuance struct {
 	ParamsToken
 	Hash      *factom.Bytes32 `json:"entryhash"`
 	Timestamp *factom.Time    `json:"timestamp"`
@@ -53,7 +54,7 @@ func getIssuance(entry bool) jrpc.MethodFunc {
 		if entry {
 			return chain.Issuance.Entry.Entry
 		}
-		return ResultsGetIssuance{
+		return ResultGetIssuance{
 			ParamsToken: ParamsToken{
 				ChainID:       chainID,
 				TokenID:       chain.Token,
@@ -66,7 +67,7 @@ func getIssuance(entry bool) jrpc.MethodFunc {
 	}
 }
 
-type ResultsGetTransaction struct {
+type ResultGetTransaction struct {
 	Hash      *factom.Bytes32  `json:"entryhash"`
 	Timestamp *factom.Time     `json:"timestamp"`
 	Tx        fat0.Transaction `json:"data"`
@@ -99,7 +100,7 @@ func getTransaction(entry bool) jrpc.MethodFunc {
 		if err := transaction.UnmarshalEntry(); err != nil {
 			panic(err)
 		}
-		return ResultsGetTransaction{
+		return ResultGetTransaction{
 			Hash:      transaction.Hash,
 			Timestamp: transaction.Timestamp,
 			Tx:        transaction,
@@ -139,7 +140,7 @@ func getTransactions(entry bool) jrpc.MethodFunc {
 			return txs
 		}
 
-		txs := make([]ResultsGetTransaction, len(transactions))
+		txs := make([]ResultGetTransaction, len(transactions))
 		for i := range txs {
 			txs[i].Hash = transactions[i].Hash
 			txs[i].Timestamp = transactions[i].Timestamp
@@ -169,7 +170,7 @@ func getBalance(data json.RawMessage) interface{} {
 	return balance
 }
 
-type ResultsGetStats struct {
+type ResultGetStats struct {
 	Supply                   int64        `json:"supply"`
 	CirculatingSupply        uint64       `json:"circulating"`
 	Burned                   uint64       `json:"burned"`
@@ -204,7 +205,7 @@ func getStats(data json.RawMessage) interface{} {
 	if len(txs) > 0 {
 		lastTxTs = txs[len(txs)-1].Timestamp
 	}
-	return ResultsGetStats{
+	return ResultGetStats{
 		Supply:                   chain.Supply,
 		CirculatingSupply:        chain.Issued - burned,
 		Burned:                   burned,
@@ -214,6 +215,12 @@ func getStats(data json.RawMessage) interface{} {
 	}
 }
 
+type ResultGetNFToken struct {
+	NFTokenID fat1.NFTokenID
+	Owner     *factom.RCDHash
+	Metadata  json.RawMessage
+}
+
 func getNFToken(data json.RawMessage) interface{} {
 	params := ParamsGetNFToken{}
 	chainID, err := validate(data, &params)
@@ -221,7 +228,24 @@ func getNFToken(data json.RawMessage) interface{} {
 		return err
 	}
 
-	return ErrorTokenNotFound
+	chain := state.Chains.Get(chainID)
+	if !chain.IsIssued() {
+		return ErrorTokenNotFound
+	}
+	if chain.Type != fat1.Type {
+		err := ErrorTokenNotFound
+		err.Data = "Token Chain is not FAT-1"
+		return err
+	}
+
+	tkn := state.NFToken{NFTokenID: *params.NFTokenID}
+	chain.GetNFToken(&tkn)
+
+	return ResultGetNFToken{
+		NFTokenID: tkn.NFTokenID,
+		Metadata:  tkn.Metadata,
+		Owner:     tkn.Owner.RCDHash,
+	}
 }
 
 func sendTransaction(data json.RawMessage) interface{} {

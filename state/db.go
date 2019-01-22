@@ -48,6 +48,7 @@ func Load() error {
 		if chain.ID = fnameToChainID(fname); chain.ID == nil {
 			continue
 		}
+		log.Debugf("loading chain: %v", chain.ID)
 		var err error
 		if chain.DB, err = open(fname); err != nil {
 			return err
@@ -149,17 +150,58 @@ func open(fname string) (*gorm.DB, error) {
 	return db, nil
 }
 func autoMigrate(db *gorm.DB) error {
+	if err := deleteEmptyTables(db); err != nil {
+		return fmt.Errorf("deleteEmptyTables(): %v", err)
+	}
 	if err := db.AutoMigrate(&entry{}).Error; err != nil {
 		return fmt.Errorf("db.AutoMigrate(&Entry{}): %v", err)
 	}
-	if err := db.AutoMigrate(&address{}).Error; err != nil {
+	if err := db.AutoMigrate(&Address{}).Error; err != nil {
 		return fmt.Errorf("db.AutoMigrate(&Address{}): %v", err)
 	}
 	if err := db.AutoMigrate(&Metadata{}).Error; err != nil {
 		return fmt.Errorf("db.AutoMigrate(&Metadata{}): %v", err)
 	}
-	if err := db.AutoMigrate(&nftoken{}).Error; err != nil {
+	if err := db.AutoMigrate(&NFToken{}).Error; err != nil {
 		return fmt.Errorf("db.AutoMigrate(&Metadata{}): %v", err)
+	}
+	return nil
+}
+
+func deleteEmptyTables(db *gorm.DB) error {
+	var tables []struct{ Name string }
+	var selectQry = "SELECT name FROM sqlite_master "
+	qry := selectQry + "WHERE type = 'table';"
+	if err := db.Raw(qry).Find(&tables).Error; err != nil {
+		return fmt.Errorf("%#v: %v", qry, err)
+	}
+	fmt.Printf("%#v\n", tables)
+	for _, table := range tables {
+		table := table.Name
+		var count int
+		if err := db.Table(table).Count(&count).Error; err != nil {
+			return fmt.Errorf("db.Table(%v).Count(): %v", table, err)
+		}
+		if count > 0 {
+			continue
+		}
+		qry = fmt.Sprintf("DROP TABLE %v;", table)
+		if err := db.Exec(qry).Error; err != nil {
+			return fmt.Errorf("%#v: %v", qry, err)
+		}
+		var indexes []struct{ Name string }
+		qry = selectQry + "WHERE type = 'index' AND tbl_name = ?;"
+		if err := db.Raw(qry, table).
+			Scan(&indexes).Error; err != nil {
+			return fmt.Errorf("%#v: %v", qry, err)
+		}
+		for _, index := range indexes {
+			index := index.Name
+			qry = fmt.Sprintf("DROP INDEX %v;", index)
+			if err := db.Exec(qry, index).Error; err != nil {
+				return fmt.Errorf("%#v: %v", qry, err)
+			}
+		}
 	}
 	return nil
 }
@@ -266,9 +308,10 @@ func (chain *Chain) createEntry(fe factom.Entry) (*entry, error) {
 	return &e, nil
 }
 
-func (chain *Chain) createNFToken(tknID fat1.NFTokenID) (*nftoken, error) {
-	tkn := nftoken{NFTokenID: tknID}
-	if err := chain.Where("nftokenid = ?", tknID).First(&tkn).Error; err !=
+func (chain *Chain) createNFToken(tknID fat1.NFTokenID,
+	metadata json.RawMessage) (*NFToken, error) {
+	tkn := NFToken{NFTokenID: tknID, Metadata: metadata}
+	if err := chain.Where("NFTokenid = ?", tknID).First(&tkn).Error; err !=
 		gorm.ErrRecordNotFound {
 		return nil, err
 	}
@@ -289,8 +332,8 @@ func (chain Chain) GetBalance(adr factom.Address) (uint64, error) {
 	a, err := chain.getAddress(adr.RCDHash())
 	return a.Balance, err
 }
-func (chain Chain) getAddress(rcdHash *factom.RCDHash) (address, error) {
-	a := address{RCDHash: rcdHash}
+func (chain Chain) getAddress(rcdHash *factom.RCDHash) (Address, error) {
+	a := Address{RCDHash: rcdHash}
 	if err := chain.Where(&a).First(&a).Error; err != nil &&
 		err != gorm.ErrRecordNotFound {
 		return a, err
@@ -298,7 +341,7 @@ func (chain Chain) getAddress(rcdHash *factom.RCDHash) (address, error) {
 	return a, nil
 }
 
-func (chain Chain) getNFToken(tkn *nftoken) error {
+func (chain Chain) GetNFToken(tkn *NFToken) error {
 	if err := chain.Where("nf_token_id = ? AND owner_id =?",
 		tkn.ID, tkn.OwnerID).First(&tkn).Error; err != nil {
 		return err

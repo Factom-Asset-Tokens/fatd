@@ -232,7 +232,7 @@ func (chain *Chain) applyFAT1(transaction fat1.Transaction) (err error) {
 		return nil
 	}
 
-	allTkns := make(map[fat1.NFTokenID]nftoken, transaction.Inputs.NumNFTokenIDs())
+	allTkns := make(map[fat1.NFTokenID]NFToken, transaction.Inputs.NumNFTokenIDs())
 	for rcdHash, tkns := range transaction.Inputs {
 		adr, err := chain.getAddress(&rcdHash)
 		if err != nil {
@@ -256,7 +256,8 @@ func (chain *Chain) applyFAT1(transaction fat1.Transaction) (err error) {
 				return err
 			}
 			for tknID := range tkns {
-				tkn, err := chain.createNFToken(tknID)
+				tkn, err := chain.createNFToken(tknID,
+					transaction.TokenMetadata[tknID])
 				if err != nil {
 					return err
 				}
@@ -282,8 +283,8 @@ func (chain *Chain) applyFAT1(transaction fat1.Transaction) (err error) {
 			return err
 		}
 		for tknID := range tkns {
-			tkn := nftoken{NFTokenID: tknID, OwnerID: adr.ID}
-			err := chain.getNFToken(&tkn)
+			tkn := NFToken{NFTokenID: tknID, OwnerID: adr.ID}
+			err := chain.GetNFToken(&tkn)
 			if err != nil {
 				if err == gorm.ErrRecordNotFound {
 					log.Debugf("Invalid Transaction Entry: %v, "+
@@ -326,7 +327,7 @@ func (chain *Chain) applyFAT1(transaction fat1.Transaction) (err error) {
 			}
 		}
 	}
-	log.Debugf("Valid Transaction Entry: %+v", transaction)
+	log.Debugf("Valid Transaction Entry: %T%+v", transaction, transaction)
 
 	return chain.Commit().Error
 }

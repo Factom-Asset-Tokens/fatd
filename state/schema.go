@@ -44,7 +44,7 @@ func (e entry) Entry() factom.Entry {
 	return fe
 }
 
-type address struct {
+type Address struct {
 	gorm.Model
 	RCDHash *factom.RCDHash `gorm:"type:varchar(32); UNIQUE_INDEX; NOT NULL;"`
 
@@ -54,20 +54,21 @@ type address struct {
 	From []entry `gorm:"many2many:address_transactions_from;"`
 }
 
-func newAddress(fa factom.Address) address {
-	return address{RCDHash: fa.RCDHash()}
+func newAddress(fa factom.Address) Address {
+	return Address{RCDHash: fa.RCDHash()}
 }
 
-func (a address) Address() factom.Address {
+func (a Address) Address() factom.Address {
 	return factom.NewAddress(a.RCDHash)
 }
 
-type nftoken struct {
+type NFToken struct {
 	gorm.Model
-	NFTokenID fat1.NFTokenID `gorm:"UNIQUE_INDEX;"`
-	OwnerID   uint
-	Owner     address `gorm:"foreignkey:OwnerID"`
+	NFTokenID fat1.NFTokenID `gorm:"UNIQUE_INDEX"`
+	Metadata  []byte
+	OwnerID   uint    `gorm:"INDEX"`
+	Owner     Address `gorm:"foreignkey:OwnerID"`
 
-	PreviousOwners []address `gorm:"many2many:nftoken_previousowners;"`
-	Transactions   []entry   `gorm:"many2many:nftoken_transactions;"`
+	PreviousOwners []Address `gorm:"many2many:nf_token_previousowners;"`
+	Transactions   []entry   `gorm:"many2many:nf_token_transactions;"`
 }

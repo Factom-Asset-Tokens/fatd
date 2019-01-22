@@ -14,7 +14,7 @@ func getTransaction() error {
 		},
 		Hash: txHash,
 	}
-	result := srv.ResultsGetTransaction{}
+	result := srv.ResultGetTransaction{}
 	err := factom.Request(APIAddress, "get-transaction", params, &result)
 	if err != nil {
 		return err

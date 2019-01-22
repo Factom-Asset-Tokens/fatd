@@ -6,6 +6,7 @@ import (
 	jrpc "github.com/AdamSLevy/jsonrpc2/v10"
 	"github.com/Factom-Asset-Tokens/fatd/factom"
 	"github.com/Factom-Asset-Tokens/fatd/fat"
+	"github.com/Factom-Asset-Tokens/fatd/fat/fat1"
 )
 
 type Params interface {
@@ -106,11 +107,11 @@ func (p ParamsGetTransactions) Error() jrpc.Error {
 
 type ParamsGetNFToken struct {
 	ParamsToken
-	NonFungibleTokenID *string `json:"nftokenid,omitempty"`
+	NFTokenID *fat1.NFTokenID `json:"nftokenid"`
 }
 
 func (p ParamsGetNFToken) IsValid() bool {
-	return p.NonFungibleTokenID != nil
+	return p.NFTokenID != nil
 }
 
 func (p ParamsGetNFToken) Error() jrpc.Error {
