@@ -18,7 +18,7 @@ func _main() (ret int) {
 		return 1
 	}
 
-	switch cmd {
+	switch SubCommand {
 	case "issue":
 		if err := issue(); err != nil {
 			fmt.Println(err)

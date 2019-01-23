@@ -65,7 +65,7 @@ func (p ParamsGetTransaction) Error() jrpc.Error {
 type ParamsGetTransactions struct {
 	ParamsToken
 	NonFungibleTokenID string          `json:"nftokenid,omitempty"`
-	FactoidAddress     *factom.Address `json:"address,omitempty"`
+	FactoidAddress     *factom.RCDHash `json:"address,omitempty"`
 	ToFrom             string          `json:"tofrom"`
 
 	// Pagination
@@ -120,7 +120,7 @@ func (p ParamsGetNFToken) Error() jrpc.Error {
 
 type ParamsGetBalance struct {
 	ParamsToken
-	Address *factom.Address `json:"address,omitempty"`
+	Address *factom.RCDHash `json:"address,omitempty"`
 }
 
 func (p ParamsGetBalance) IsValid() bool {

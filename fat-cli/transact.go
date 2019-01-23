@@ -9,7 +9,7 @@ import (
 
 func transact() error {
 	inputAddresses := make([]factom.Address, 0, len(transaction.Inputs))
-	if flagIsSet["coinbase"] {
+	if flagMap["coinbase"].IsSet {
 		eb := factom.EBlock{ChainID: chainID}
 		if err := eb.GetFirst(); err != nil {
 			return err

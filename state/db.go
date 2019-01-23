@@ -60,7 +60,6 @@ func Load() error {
 			return err
 		}
 		Chains.set(chain.ID, &chain)
-		log.Debugf("loaded chain: %v", chain)
 		if chain.Metadata.Height == 0 {
 			continue
 		}
@@ -175,7 +174,6 @@ func deleteEmptyTables(db *gorm.DB) error {
 	if err := db.Raw(qry).Find(&tables).Error; err != nil {
 		return fmt.Errorf("%#v: %v", qry, err)
 	}
-	fmt.Printf("%#v\n", tables)
 	for _, table := range tables {
 		table := table.Name
 		var count int
@@ -328,11 +326,7 @@ func (chain *Chain) saveHeight(height uint64) error {
 	}
 	return nil
 }
-func (chain Chain) GetBalance(adr factom.Address) (uint64, error) {
-	a, err := chain.getAddress(adr.RCDHash())
-	return a.Balance, err
-}
-func (chain Chain) getAddress(rcdHash *factom.RCDHash) (Address, error) {
+func (chain Chain) GetAddress(rcdHash *factom.RCDHash) (Address, error) {
 	a := Address{RCDHash: rcdHash}
 	if err := chain.Where(&a).First(&a).Error; err != nil &&
 		err != gorm.ErrRecordNotFound {
@@ -388,15 +382,15 @@ func (chain Chain) getEntry(hash *factom.Bytes32) (*entry, error) {
 }
 
 func (chain Chain) GetTransactions(hash *factom.Bytes32,
-	adr *factom.Address, toFrom string,
+	rcdHash *factom.RCDHash, toFrom string,
 	start, limit uint) ([]fat0.Transaction, error) {
 	if limit == 0 {
 		limit = math.MaxUint32
 	}
 	var e *entry
 	var es []entry
-	if adr != nil {
-		a, err := chain.getAddress(adr.RCDHash())
+	if rcdHash != nil {
+		a, err := chain.GetAddress(rcdHash)
 		if err != nil {
 			return nil, err
 		}

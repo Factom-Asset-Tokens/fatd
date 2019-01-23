@@ -15,7 +15,7 @@ func issue() error {
 			return err
 		}
 	}
-	if flagIsSet["chainid"] {
+	if flagMap["chainid"].IsSet {
 		if !eb.IsPopulated() {
 			// The chain must already exist if the user specifies
 			// -chainid.

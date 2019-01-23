@@ -161,7 +161,7 @@ func (chain *Chain) applyFAT0(transaction fat0.Transaction) (err error) {
 	}
 
 	for rcdHash, amount := range transaction.Inputs {
-		adr, err := chain.getAddress(&rcdHash)
+		adr, err := chain.GetAddress(&rcdHash)
 		if err != nil {
 			return err
 		}
@@ -198,7 +198,7 @@ func (chain *Chain) applyFAT0(transaction fat0.Transaction) (err error) {
 	}
 
 	for rcdHash, amount := range transaction.Outputs {
-		a, err := chain.getAddress(&rcdHash)
+		a, err := chain.GetAddress(&rcdHash)
 		if err != nil {
 			return err
 		}
@@ -234,7 +234,7 @@ func (chain *Chain) applyFAT1(transaction fat1.Transaction) (err error) {
 
 	allTkns := make(map[fat1.NFTokenID]NFToken, transaction.Inputs.NumNFTokenIDs())
 	for rcdHash, tkns := range transaction.Inputs {
-		adr, err := chain.getAddress(&rcdHash)
+		adr, err := chain.GetAddress(&rcdHash)
 		if err != nil {
 			return err
 		}
@@ -303,7 +303,7 @@ func (chain *Chain) applyFAT1(transaction fat1.Transaction) (err error) {
 	}
 
 	for rcdHash, tkns := range transaction.Outputs {
-		a, err := chain.getAddress(&rcdHash)
+		a, err := chain.GetAddress(&rcdHash)
 		if err != nil {
 			return err
 		}

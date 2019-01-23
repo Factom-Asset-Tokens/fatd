@@ -64,7 +64,7 @@ func unmarshalBase58String(dst []byte, data string,
 	if len(data) != expectedLen {
 		return fmt.Errorf("invalid length")
 	}
-	if string(data[0:2]) != prefix {
+	if string(data[0:len(prefix)]) != prefix {
 		return fmt.Errorf("invalid prefix")
 	}
 	b, _, err := base58.CheckDecode(string(data), len(prefix))
@@ -80,7 +80,11 @@ func (rcdHash *RCDHash) FromString(faAdrStr string) error {
 }
 
 func (pk *PrivateKey) FromString(fsAdrStr string) error {
-	return unmarshalBase58String(pk[:], fsAdrStr, 52, fsPrefixStr)
+	if err := unmarshalBase58String(pk[:], fsAdrStr, 52, fsPrefixStr); err != nil {
+		return err
+	}
+	pk.PublicKey()
+	return nil
 }
 
 func (rcdHash RCDHash) MarshalJSON() ([]byte, error) {
