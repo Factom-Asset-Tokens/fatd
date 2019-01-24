@@ -111,7 +111,7 @@ func SaveHeight(height uint64) error {
 	defer Chains.Unlock()
 
 	for _, chain := range Chains.m {
-		if !chain.IsTracked() || chain.Metadata.Height >= height {
+		if !chain.IsTracked() || chain.Metadata.Height >= height || chain.DB.Error != nil {
 			continue
 		}
 		if err := chain.saveHeight(height); err != nil {
@@ -309,7 +309,7 @@ func (chain *Chain) createEntry(fe factom.Entry) (*entry, error) {
 func (chain *Chain) createNFToken(tknID fat1.NFTokenID,
 	metadata json.RawMessage) (*NFToken, error) {
 	tkn := NFToken{NFTokenID: tknID, Metadata: metadata}
-	if err := chain.Where("NFTokenid = ?", tknID).First(&tkn).Error; err !=
+	if err := chain.Where("nf_token_id = ?", tknID).First(&tkn).Error; err !=
 		gorm.ErrRecordNotFound {
 		return nil, err
 	}
