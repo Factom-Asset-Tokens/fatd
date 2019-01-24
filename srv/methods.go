@@ -147,11 +147,11 @@ func getBalance(data json.RawMessage) interface{} {
 	}
 
 	// Lookup Txs
-	balance, err := chain.GetAddress(params.Address)
+	adr, err := chain.GetAddress(params.Address)
 	if err != nil {
 		panic(err)
 	}
-	return balance
+	return adr.Balance
 }
 
 type ResultGetStats struct {
