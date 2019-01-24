@@ -239,14 +239,16 @@ func sendTransaction(data json.RawMessage) interface{} {
 	}
 
 	entry := params.Entry()
-	transaction, err := chain.GetTransaction(entry.Hash)
-	if err != nil {
-		panic(err)
-	}
+	hash := entry.ComputeHash()
+	transaction, err := chain.GetTransaction(&hash)
 	if transaction.IsPopulated() {
 		err := ErrorInvalidTransaction
 		err.Data = "duplicate transaction"
 		return err
+	}
+	if err != gorm.ErrRecordNotFound {
+		log.Error(err)
+		panic(err)
 	}
 
 	switch chain.Type {
