@@ -8,15 +8,15 @@ import (
 	"math"
 	"os"
 
+	"github.com/jinzhu/gorm"
+	_ "github.com/jinzhu/gorm/dialects/sqlite"
+
 	"github.com/Factom-Asset-Tokens/fatd/factom"
 	"github.com/Factom-Asset-Tokens/fatd/fat"
 	"github.com/Factom-Asset-Tokens/fatd/fat/fat0"
 	"github.com/Factom-Asset-Tokens/fatd/fat/fat1"
 	"github.com/Factom-Asset-Tokens/fatd/flag"
 	_log "github.com/Factom-Asset-Tokens/fatd/log"
-
-	"github.com/jinzhu/gorm"
-	_ "github.com/jinzhu/gorm/dialects/sqlite"
 )
 
 var (
@@ -336,8 +336,8 @@ func (chain Chain) GetAddress(rcdHash *factom.RCDHash) (Address, error) {
 }
 
 func (chain Chain) GetNFToken(tkn *NFToken) error {
-	if err := chain.Where("nf_token_id = ? AND owner_id =?",
-		tkn.ID, tkn.OwnerID).First(&tkn).Error; err != nil {
+	if err := chain.Where("nf_token_id = ?", tkn.ID).Where(tkn).
+		First(tkn).Error; err != nil {
 		return err
 	}
 	return nil

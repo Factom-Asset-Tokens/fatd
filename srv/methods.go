@@ -6,6 +6,8 @@ import (
 	"fmt"
 
 	jrpc "github.com/AdamSLevy/jsonrpc2/v10"
+	"github.com/jinzhu/gorm"
+
 	"github.com/Factom-Asset-Tokens/fatd/factom"
 	"github.com/Factom-Asset-Tokens/fatd/fat"
 	"github.com/Factom-Asset-Tokens/fatd/fat/fat0"
@@ -237,6 +239,16 @@ func sendTransaction(data json.RawMessage) interface{} {
 	}
 
 	entry := params.Entry()
+	transaction, err := chain.GetTransaction(entry.Hash)
+	if err != nil {
+		panic(err)
+	}
+	if transaction.IsPopulated() {
+		err := ErrorInvalidTransaction
+		err.Data = "duplicate transaction"
+		return err
+	}
+
 	switch chain.Type {
 	case fat0.Type:
 		if err := validFAT0Transaction(chain, entry); err != nil {
@@ -265,8 +277,8 @@ func sendTransaction(data json.RawMessage) interface{} {
 
 func validFAT0Transaction(chain *state.Chain, entry factom.Entry) error {
 	tx := fat0.NewTransaction(entry)
+	rpcErr := ErrorInvalidTransaction
 	if err := tx.Valid(chain.IDKey); err != nil {
-		rpcErr := ErrorInvalidTransaction
 		rpcErr.Data = err.Error()
 		return rpcErr
 	}
@@ -274,60 +286,82 @@ func validFAT0Transaction(chain *state.Chain, entry factom.Entry) error {
 	// check balances
 	if tx.IsCoinbase() {
 		if tx.Inputs.Sum() > uint64(chain.Supply)-chain.Issued {
-			rpcErr := ErrorInvalidTransaction
 			rpcErr.Data = "insufficient coinbase supply"
 			return rpcErr
 		}
-	} else {
-		for rcdHash, amount := range tx.Inputs {
-			adr, err := chain.GetAddress(&rcdHash)
-			if err != nil {
-				log.Error(err)
-				panic(err)
-			}
-			if amount > adr.Balance {
-				rpcErr := ErrorInvalidTransaction
-				rpcErr.Data = fmt.Sprintf(
-					"insufficient balance: %v", rcdHash)
-				return rpcErr
-			}
+		return nil
+	}
+	for rcdHash, amount := range tx.Inputs {
+		adr, err := chain.GetAddress(&rcdHash)
+		if err != nil {
+			log.Error(err)
+			panic(err)
+		}
+		if amount > adr.Balance {
+			rpcErr.Data = fmt.Sprintf("insufficient balance: %v", rcdHash)
+			return rpcErr
 		}
 	}
 	return nil
 }
 
 func validFAT1Transaction(chain *state.Chain, entry factom.Entry) error {
-	//tx := fat1.NewTransaction(entry)
-	//if err := tx.Valid(chain.IDKey); err != nil {
-	//	rpcErr := ErrorInvalidTransaction
-	//	rpcErr.Data = err.Error()
-	//	return rpcErr
-	//}
+	tx := fat1.NewTransaction(entry)
+	rpcErr := ErrorInvalidTransaction
+	if err := tx.Valid(chain.IDKey); err != nil {
+		rpcErr.Data = err.Error()
+		return rpcErr
+	}
 
-	//// check balances
-	//if tx.IsCoinbase() {
-	//	if tx.Inputs.Sum() > uint64(chain.Supply)-chain.Issued {
-	//		rpcErr := ErrorInvalidTransaction
-	//		rpcErr.Data = "insufficient coinbase supply"
-	//		return rpcErr
-	//	}
-	//} else {
-	//	for rcdHash, amount := range tx.Inputs {
-	//		adr := factom.NewAddress(&rcdHash)
-	//		balance, err := chain.GetBalance(adr)
-	//		if err != nil {
-	//			log.Error(err)
-	//			panic(err)
-	//		}
-	//		if amount > balance {
-	//			rpcErr := ErrorInvalidTransaction
-	//			rpcErr.Data = fmt.Sprintf(
-	//				"insufficient balance: %v", adr)
-	//			return rpcErr
-	//		}
-	//	}
-	//}
-	return ErrorInvalidTransaction
+	for rcdHash, tkns := range tx.Inputs {
+		adr, err := chain.GetAddress(&rcdHash)
+		if err != nil {
+			log.Error(err)
+			panic(err)
+		}
+		if tx.IsCoinbase() {
+			if chain.Supply > 0 &&
+				uint64(chain.Supply)-chain.Issued < uint64(len(tkns)) {
+				// insufficient coinbase supply
+				rpcErr.Data = "insufficient coinbase supply"
+				return rpcErr
+			}
+			for tknID := range tkns {
+				tkn := state.NFToken{NFTokenID: tknID}
+				err := chain.GetNFToken(&tkn)
+				if err == nil {
+					rpcErr.Data = fmt.Sprintf(
+						"NFTokenID(%v) already exists", tknID)
+					return rpcErr
+				}
+				if err != gorm.ErrRecordNotFound {
+					log.Error(err)
+					panic(err)
+				}
+			}
+			break
+		}
+		if adr.Balance < uint64(len(tkns)) {
+			rpcErr.Data = fmt.Sprintf("insufficient balance: %v", rcdHash)
+			return rpcErr
+		}
+		for tknID := range tkns {
+			tkn := state.NFToken{NFTokenID: tknID, OwnerID: adr.ID}
+			err := chain.GetNFToken(&tkn)
+			if err == gorm.ErrRecordNotFound {
+				rpcErr.Data = fmt.Sprintf(
+					"NFTokenID(%v) is not owned by %v",
+					tknID, rcdHash)
+				return rpcErr
+			}
+			if err != nil {
+				log.Error(err)
+				panic(err)
+			}
+		}
+	}
+
+	return nil
 }
 
 func getDaemonTokens(data json.RawMessage) interface{} {

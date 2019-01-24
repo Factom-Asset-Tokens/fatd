@@ -4,11 +4,12 @@ import (
 	"fmt"
 
 	jrpc "github.com/AdamSLevy/jsonrpc2/v10"
+	"github.com/jinzhu/gorm"
+
 	"github.com/Factom-Asset-Tokens/fatd/factom"
 	"github.com/Factom-Asset-Tokens/fatd/fat"
 	"github.com/Factom-Asset-Tokens/fatd/fat/fat0"
 	"github.com/Factom-Asset-Tokens/fatd/fat/fat1"
-	"github.com/jinzhu/gorm"
 )
 
 func (chain *Chain) Process(eb factom.EBlock) error {
@@ -285,13 +286,13 @@ func (chain *Chain) applyFAT1(transaction fat1.Transaction) (err error) {
 		for tknID := range tkns {
 			tkn := NFToken{NFTokenID: tknID, OwnerID: adr.ID}
 			err := chain.GetNFToken(&tkn)
+			if err == gorm.ErrRecordNotFound {
+				log.Debugf("Invalid Transaction Entry: %v, "+
+					"NFTokenID(%v) is not owned by %v",
+					entry.Hash, tknID, rcdHash)
+				return nil
+			}
 			if err != nil {
-				if err == gorm.ErrRecordNotFound {
-					log.Debugf("Invalid Transaction Entry: %v, "+
-						"NFTokenID(%v) already exists",
-						entry.Hash, tknID)
-					return nil
-				}
 				return err
 			}
 			if err := chain.DB.Model(&tkn).Association("PreviousOwners").
