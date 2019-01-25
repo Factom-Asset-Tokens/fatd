@@ -238,9 +238,8 @@ func getStats(data json.RawMessage) interface{} {
 }
 
 type ResultGetNFToken struct {
-	NFTokenID fat1.NFTokenID
-	Owner     *factom.RCDHash
-	Metadata  json.RawMessage
+	Owner    *factom.RCDHash `json:"owner"`
+	Metadata json.RawMessage `json:"metadata,omitempty"`
 }
 
 func getNFToken(data json.RawMessage) interface{} {
@@ -257,12 +256,17 @@ func getNFToken(data json.RawMessage) interface{} {
 	}
 
 	tkn := state.NFToken{NFTokenID: *params.NFTokenID}
-	chain.GetNFToken(&tkn)
-
+	if err := chain.GetNFToken(&tkn); err != nil {
+		if err == gorm.ErrRecordNotFound {
+			err := ErrorTokenNotFound
+			err.Data = "No such NFTokenID has been issued"
+			return err
+		}
+		panic(err)
+	}
 	return ResultGetNFToken{
-		NFTokenID: tkn.NFTokenID,
-		Metadata:  tkn.Metadata,
-		Owner:     tkn.Owner.RCDHash,
+		Metadata: tkn.Metadata,
+		Owner:    tkn.Owner.RCDHash,
 	}
 }
 

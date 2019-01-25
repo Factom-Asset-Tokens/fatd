@@ -335,12 +335,12 @@ func (chain Chain) GetAddress(rcdHash *factom.RCDHash) (Address, error) {
 }
 
 func (chain Chain) GetNFToken(tkn *NFToken) error {
-	qry := chain.Where("nf_token_id = ?", tkn.ID)
+	qry := chain.Where("nf_token_id = ?", tkn.NFTokenID)
 	if tkn.OwnerID != 0 {
 		qry = chain.Where("nf_token_id = ? AND owner_id = ?",
 			tkn.NFTokenID, tkn.OwnerID)
 	}
-	if err := qry.First(tkn).Error; err != nil {
+	if err := qry.Preload("Owner").First(tkn).Error; err != nil {
 		return err
 	}
 	return nil
