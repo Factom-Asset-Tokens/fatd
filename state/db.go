@@ -339,7 +339,7 @@ func (chain Chain) GetNFToken(tkn *NFToken) error {
 	qry := chain.Where("nf_token_id = ?", tkn.ID)
 	if tkn.OwnerID != 0 {
 		qry = chain.Where("nf_token_id = ? AND owner_id = ?",
-			tkn.ID, tkn.OwnerID)
+			tkn.NFTokenID, tkn.OwnerID)
 	}
 	if err := qry.First(tkn).Error; err != nil {
 		return err
