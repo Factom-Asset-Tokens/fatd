@@ -65,12 +65,12 @@ func getIssuance(entry bool) jrpc.MethodFunc {
 }
 
 type ResultGetTransaction struct {
-	Hash      *factom.Bytes32  `json:"entryhash"`
-	Timestamp *factom.Time     `json:"timestamp"`
-	Tx        fat0.Transaction `json:"data"`
+	Hash      *factom.Bytes32 `json:"entryhash"`
+	Timestamp *factom.Time    `json:"timestamp"`
+	Tx        interface{}     `json:"data"`
 }
 
-func getTransaction(entry bool) jrpc.MethodFunc {
+func getTransaction(getEntry bool) jrpc.MethodFunc {
 	return func(data json.RawMessage) interface{} {
 		params := ParamsGetTransaction{}
 		chain, err := validate(data, &params)
@@ -78,29 +78,46 @@ func getTransaction(entry bool) jrpc.MethodFunc {
 			return err
 		}
 
-		transaction, err := chain.GetTransaction(params.Hash)
+		entry, err := chain.GetEntry(params.Hash)
 		if err != nil {
 			panic(err)
 		}
-		if !transaction.IsPopulated() {
+		if !entry.IsPopulated() {
 			return ErrorTransactionNotFound
 		}
 
-		if entry {
-			return transaction.Entry.Entry
+		if getEntry {
+			return entry
 		}
-		if err := transaction.UnmarshalEntry(); err != nil {
-			panic(err)
-		}
-		return ResultGetTransaction{
-			Hash:      transaction.Hash,
-			Timestamp: transaction.Timestamp,
-			Tx:        transaction,
+
+		switch chain.Type {
+		case fat0.Type:
+			tx := fat0.NewTransaction(entry)
+			if err := tx.UnmarshalEntry(); err != nil {
+				panic(err)
+			}
+			return ResultGetTransaction{
+				Hash:      tx.Hash,
+				Timestamp: tx.Timestamp,
+				Tx:        tx,
+			}
+		case fat1.Type:
+			tx := fat1.NewTransaction(entry)
+			if err := tx.UnmarshalEntry(); err != nil {
+				panic(err)
+			}
+			return ResultGetTransaction{
+				Hash:      tx.Hash,
+				Timestamp: tx.Timestamp,
+				Tx:        tx,
+			}
+		default:
+			panic(fmt.Sprintf("unknown FAT type: %v", chain.Type))
 		}
 	}
 }
 
-func getTransactions(entry bool) jrpc.MethodFunc {
+func getTransactions(getEntry bool) jrpc.MethodFunc {
 	return func(data json.RawMessage) interface{} {
 		params := ParamsGetTransactions{}
 		chain, err := validate(data, &params)
@@ -109,33 +126,54 @@ func getTransactions(entry bool) jrpc.MethodFunc {
 		}
 
 		// Lookup Txs
-		transactions, err := chain.GetTransactions(params.Hash,
+		entries, err := chain.GetEntries(params.Hash,
 			params.FactoidAddress, params.ToFrom,
 			*params.Start, *params.Limit)
 		if err != nil {
 			log.Debug(err)
 			panic(err)
 		}
-		if len(transactions) == 0 {
+		if len(entries) == 0 {
 			return ErrorTransactionNotFound
 		}
-		if entry {
-			txs := make([]factom.Entry, len(transactions))
+		if getEntry {
+			// Omit the ChainID from the response since the client
+			// already knows it.
+			for i := range entries {
+				entries[i].ChainID = nil
+			}
+			return entries
+		}
+
+		switch chain.Type {
+		case fat0.Type:
+			txs := make([]ResultGetTransaction, len(entries))
 			for i := range txs {
-				txs[i] = transactions[i].Entry.Entry
-				txs[i].ChainID = nil
+				tx := fat0.NewTransaction(entries[i])
+				if err := tx.UnmarshalEntry(); err != nil {
+					panic(err)
+				}
+				txs[i].Hash = entries[i].Hash
+				txs[i].Timestamp = entries[i].Timestamp
+				txs[i].Tx = tx
 			}
 			return txs
+		case fat1.Type:
+			txs := make([]ResultGetTransaction, len(entries))
+			for i := range txs {
+				tx := fat1.NewTransaction(entries[i])
+				if err := tx.UnmarshalEntry(); err != nil {
+					panic(err)
+				}
+				txs[i].Hash = entries[i].Hash
+				txs[i].Timestamp = entries[i].Timestamp
+				txs[i].Tx = tx
+			}
+			return txs
+		default:
+			panic(fmt.Sprintf("unknown FAT type: %v", chain.Type))
 		}
 
-		txs := make([]ResultGetTransaction, len(transactions))
-		for i := range txs {
-			txs[i].Hash = transactions[i].Hash
-			txs[i].Timestamp = transactions[i].Timestamp
-			txs[i].Tx = transactions[i]
-		}
-
-		return txs
 	}
 }
 
@@ -180,7 +218,7 @@ func getStats(data json.RawMessage) interface{} {
 		panic(err)
 	}
 	burned := coinbase.Balance
-	txs, err := chain.GetTransactions(nil, nil, "", 0, 0)
+	txs, err := chain.GetEntries(nil, nil, "", 0, 0)
 	if err != nil {
 		panic(err)
 	}
@@ -240,7 +278,7 @@ func sendTransaction(data json.RawMessage) interface{} {
 
 	entry := params.Entry()
 	hash := entry.ComputeHash()
-	transaction, err := chain.GetTransaction(&hash)
+	transaction, err := chain.GetEntry(&hash)
 	if transaction.IsPopulated() {
 		err := ErrorInvalidTransaction
 		err.Data = "duplicate transaction"

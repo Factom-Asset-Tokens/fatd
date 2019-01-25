@@ -13,7 +13,6 @@ import (
 
 	"github.com/Factom-Asset-Tokens/fatd/factom"
 	"github.com/Factom-Asset-Tokens/fatd/fat"
-	"github.com/Factom-Asset-Tokens/fatd/fat/fat0"
 	"github.com/Factom-Asset-Tokens/fatd/fat/fat1"
 	"github.com/Factom-Asset-Tokens/fatd/flag"
 	_log "github.com/Factom-Asset-Tokens/fatd/log"
@@ -366,13 +365,12 @@ func (chain *Chain) rollbackUnlessCommitted(savedChain Chain, err *error) {
 	chain.Issued = savedChain.Issued
 }
 
-func (chain Chain) GetTransaction(hash *factom.Bytes32) (fat0.Transaction, error) {
+func (chain Chain) GetEntry(hash *factom.Bytes32) (factom.Entry, error) {
 	e, err := chain.getEntry(hash)
 	if e == nil {
-		return fat0.Transaction{}, err
+		return factom.Entry{}, err
 	}
-	transaction := fat0.NewTransaction(e.Entry())
-	return transaction, nil
+	return e.Entry(), nil
 }
 
 func (chain Chain) getEntry(hash *factom.Bytes32) (*entry, error) {
@@ -385,9 +383,9 @@ func (chain Chain) getEntry(hash *factom.Bytes32) (*entry, error) {
 	return &e, nil
 }
 
-func (chain Chain) GetTransactions(hash *factom.Bytes32,
+func (chain Chain) GetEntries(hash *factom.Bytes32,
 	rcdHash *factom.RCDHash, toFrom string,
-	start, limit uint) ([]fat0.Transaction, error) {
+	start, limit uint) ([]factom.Entry, error) {
 	if limit == 0 {
 		limit = math.MaxUint32
 	}
@@ -470,12 +468,9 @@ func (chain Chain) GetTransactions(hash *factom.Bytes32,
 			return nil, err
 		}
 	}
-	txs := make([]fat0.Transaction, len(es))
+	entries := make([]factom.Entry, len(es))
 	for i, e := range es {
-		txs[i] = fat0.NewTransaction(e.Entry())
-		if err := txs[i].UnmarshalEntry(); err != nil {
-			return nil, err
-		}
+		entries[i] = e.Entry()
 	}
-	return txs, nil
+	return entries, nil
 }
