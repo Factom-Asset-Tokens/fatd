@@ -355,6 +355,7 @@ func (chain Chain) GetNFTokensForOwner(rcdHash *factom.RCDHash,
 	var tkns []NFToken
 	if err := chain.Where(&NFToken{OwnerID: a.ID}).
 		Offset(page * limit).Limit(limit).
+		Order("nf_token_id").
 		Find(&tkns).Error; err != nil {
 		return nil, err
 	}
