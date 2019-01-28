@@ -9,7 +9,7 @@ import (
 
 func getStats() error {
 	params := srv.ParamsToken{ChainID: chainID}
-	var stats srv.ResultsGetStats
+	var stats srv.ResultGetStats
 	err := factom.Request(APIAddress, "get-stats", params, &stats)
 	if err != nil {
 		return err

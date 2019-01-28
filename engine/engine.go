@@ -37,9 +37,6 @@ func Start() (chan error, error) {
 }
 
 func Stop() error {
-	if stop == nil {
-		return fmt.Errorf("Already not running")
-	}
 	close(stop)
 	state.Close()
 	return nil
@@ -53,13 +50,12 @@ func errorStop(err error) {
 func engine() {
 	for {
 		if err := scanNewBlocks(); err != nil {
-			errorStop(fmt.Errorf("scanNewBlocks(): %v", err))
+			go errorStop(fmt.Errorf("scanNewBlocks(): %v", err))
 		}
 		select {
 		case <-scanTicker.C:
 			continue
 		case <-stop:
-			scanTicker.Stop()
 			return
 		}
 	}
@@ -89,6 +85,8 @@ func scanNewBlocks() error {
 
 		wg := &sync.WaitGroup{}
 		chainIDs := make(map[factom.Bytes32]struct{}, len(dblock.EBlocks))
+		processErrors := make(map[factom.Bytes32]error, len(dblock.EBlocks))
+		processErrorsMutex := &sync.Mutex{}
 		for _, eb := range dblock.EBlocks {
 			// Because chains are processed concurrently, there
 			// must never be a duplicate ChainID. Since the DBlock
@@ -115,15 +113,17 @@ func scanNewBlocks() error {
 			go func() {
 				defer wg.Done()
 				if err := chain.Process(eb); err != nil {
-					go errorStop(err)
+					processErrorsMutex.Lock()
+					defer processErrorsMutex.Unlock()
+					processErrors[*chain.ID] = err
 				}
 			}()
 		}
 		wg.Wait()
-		select {
-		case <-stop:
-			return nil
-		default:
+		if len(processErrors) > 0 {
+			for chainID, err := range processErrors {
+				return fmt.Errorf("ChainID(%v): %v", chainID, err)
+			}
 		}
 		if err := state.SaveHeight(height); err != nil {
 			return err

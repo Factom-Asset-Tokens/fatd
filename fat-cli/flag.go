@@ -12,7 +12,8 @@ import (
 	"github.com/Factom-Asset-Tokens/fatd/factom"
 	"github.com/Factom-Asset-Tokens/fatd/fat"
 	"github.com/Factom-Asset-Tokens/fatd/fat/fat0"
-	"github.com/FactomProject/ed25519"
+	"github.com/Factom-Asset-Tokens/fatd/fat/fat1"
+	"github.com/posener/complete"
 	"github.com/sirupsen/logrus"
 )
 
@@ -20,100 +21,208 @@ import (
 const envNamePrefix = "FATCLI_"
 
 var (
-	envNames = map[string]string{
-		"debug": "DEBUG",
+	flagMap = map[string]struct {
+		SubCommand  string
+		EnvName     string
+		Default     interface{}
+		Var         map[string]interface{}
+		Description string
+		Predictor   complete.Predictor
+		IsSet       bool
+	}{"debug": {
+		EnvName:     "DEBUG",
+		Description: "Log debug messages",
+		Predictor:   complete.PredictNothing,
+		Var:         map[string]interface{}{"global": &LogDebug},
+	}, "apiaddress": {
+		EnvName:     "API_ADDRESS",
+		Default:     "http://localhost:8078",
+		Description: "IPAddr:port# to bind to for serving the JSON RPC 2.0 API",
+		Predictor:   complete.PredictAnything,
+		Var:         map[string]interface{}{"global": &APIAddress},
+	}, "w": {
+		EnvName:     "WALLETD_SERVER",
+		Default:     "localhost:8089",
+		Description: "IPAddr:port# of factom-walletd API to use to access blockchain",
+		Predictor:   complete.PredictAnything,
+		Var:         map[string]interface{}{"global": &rpc.WalletServer},
+	}, "wallettimeout": {
+		EnvName:     "WALLETD_TIMEOUT",
+		Description: "Timeout for factom-walletd API requests, 0 means never timeout",
+		Predictor:   complete.PredictAnything,
+		Var:         map[string]interface{}{"global": &rpc.WalletTimeout},
+	}, "walletuser": {
+		EnvName:     "WALLETD_USER",
+		Description: "Username for API connections to factom-walletd",
+		Predictor:   complete.PredictAnything,
+		Var:         map[string]interface{}{"global": &rpc.WalletRPCUser},
+	}, "walletpassword": {
+		EnvName:     "WALLETD_PASSWORD",
+		Description: "Password for API connections to factom-walletd",
+		Predictor:   complete.PredictAnything,
+		Var:         map[string]interface{}{"global": &rpc.WalletRPCPassword},
+	}, "walletcert": {
+		EnvName:     "WALLETD_TLS_CERT",
+		Description: "The TLS certificate that will be provided by the factom-walletd API server",
+		Predictor:   complete.PredictFiles("*"),
+		Var:         map[string]interface{}{"global": &rpc.WalletTLSCertFile},
+	}, "wallettls": {
+		EnvName:     "WALLETD_TLS_ENABLE",
+		Description: "Set to true to use TLS when accessing the factom-walletd API",
+		Predictor:   complete.PredictNothing,
+		Var:         map[string]interface{}{"global": &rpc.WalletTLSEnable},
+	}, "s": {
+		EnvName:     "FACTOMD_SERVER",
+		Default:     "localhost:8088",
+		Description: "IPAddr:port# of factomd API to use to access wallet",
+		Predictor:   complete.PredictAnything,
+		Var:         map[string]interface{}{"global": &rpc.FactomdServer},
+	}, "factomdtimeout": {
+		EnvName:     "FACTOMD_TIMEOUT",
+		Description: "Timeout for factomd API requests, 0 means never timeout",
+		Predictor:   complete.PredictAnything,
+		Var:         map[string]interface{}{"global": &rpc.FactomdTimeout},
+	}, "factomduser": {
+		EnvName:     "FACTOMD_USER",
+		Description: "Username for API connections to factomd",
+		Predictor:   complete.PredictAnything,
+		Var:         map[string]interface{}{"global": &rpc.FactomdRPCUser},
+	}, "factomdpassword": {
+		EnvName:     "FACTOMD_PASSWORD",
+		Description: "Password for API connections to factomd",
+		Predictor:   complete.PredictAnything,
+		Var:         map[string]interface{}{"global": &rpc.FactomdRPCPassword},
+	}, "factomdcert": {
+		EnvName:     "FACTOMD_TLS_CERT",
+		Description: "The TLS certificate that will be provided by the factomd API server",
+		Predictor:   complete.PredictFiles("*"),
+		Var:         map[string]interface{}{"global": &rpc.FactomdTLSCertFile},
+	}, "factomdtls": {
+		EnvName:     "FACTOMD_TLS_ENABLE",
+		Description: "Set to true to use TLS when accessing the factomd API",
+		Predictor:   complete.PredictNothing,
+		Var:         map[string]interface{}{"global": &rpc.FactomdTLSEnable},
+	}, "ecpub": {
+		SubCommand:  "issue|transactFAT0|transactFAT1",
+		EnvName:     "ECPUB",
+		Description: "Entry Credit Public Address to use to pay for Factom entries",
+		Predictor:   predictAddress(false, 1, "-ecpub", ""),
+		Var:         map[string]interface{}{"global": (*ECPub)(&ecpub)},
+	}, "chainid": {
+		Description: "Token Chain ID",
+		Predictor:   complete.PredictAnything,
+		Var:         map[string]interface{}{"global": (*flagBytes32)(chainID)},
+	}, "tokenid": {
+		Description: "Token ID used in Token Chain ID derivation",
+		Predictor:   complete.PredictAnything,
+		Var:         map[string]interface{}{"global": &tokenID},
+	}, "identity": {
+		Description: "Issuer Identity Chain ID used in Token Chain ID derivation",
+		Predictor:   complete.PredictAnything,
+		Var:         map[string]interface{}{"global": (*flagBytes32)(identity.ChainID)},
+	}, "type": {
+		SubCommand:  "issue",
+		Description: `FAT Token Type (e.g. "FAT-0")`,
+		Predictor:   complete.PredictSet("FAT-0", "FAT-1"),
+		Var:         map[string]interface{}{"global": &issuance.Type},
+	}, "sk1": {
+		SubCommand:  "issue|transactFAT0|transactFAT1",
+		Description: "Issuer's SK1 key as defined by their Identity Chain.",
+		Predictor:   complete.PredictAnything,
+		Var:         map[string]interface{}{"global": (*SecretKey)(sk1.PrivateKey())},
+	}, "supply": {
+		SubCommand:  "issue",
+		Description: "Total number of issuable tokens. Must be a positive integer or -1 for unlimited.",
+		Predictor:   complete.PredictAnything,
+		Var:         map[string]interface{}{"global": &issuance.Supply},
+	}, "symbol": {
+		SubCommand:  "issue",
+		Description: "Ticker symbol for the token (optional)",
+		Predictor:   complete.PredictAnything,
+		Var:         map[string]interface{}{"global": &issuance.Symbol},
+	}, "name": {
+		SubCommand:  "issue",
+		Description: "Complete descriptive name of the token (optional)",
+		Predictor:   complete.PredictAnything,
+		Var:         map[string]interface{}{"global": &issuance.Name},
+	}, "coinbase": {
+		SubCommand:  "transactFAT0|transactFAT1",
+		Description: "Create a coinbase transaction with the given amount. Requires -sk1.",
+		Predictor:   complete.PredictAnything,
+		Var: map[string]interface{}{
+			"transactFAT0": (*Amount)(&coinbaseAmount),
+			"transactFAT1": (*NFTokens)(&coinbaseNFTokens)},
+	}, "input": {
+		SubCommand:  "transactFAT0|transactFAT1",
+		Description: "Add an -input ADDRESS:AMOUNT to the transaction. Can be specified multiple times.",
+		Predictor:   predictAddress(true, 1, "-input", ":"),
+		Var: map[string]interface{}{
+			"transactFAT0": (AddressAmountMap)(FAT0transaction.Inputs),
+			"transactFAT1": (AddressNFTokensMap)(FAT1transaction.Inputs)},
+	}, "output": {
+		SubCommand:  "transactFAT0|transactFAT1",
+		Description: "Add an -output ADDRESS:AMOUNT to the transaction. Can be specified multiple times.",
+		Predictor:   predictAddress(true, 1, "-output", ":"),
+		Var: map[string]interface{}{
+			"transactFAT0": (AddressAmountMap)(FAT0transaction.Outputs),
+			"transactFAT1": (AddressNFTokensMap)(FAT1transaction.Outputs)},
+	}, "y": {
+		Predictor: complete.PredictNothing,
+	}, "installcompletion": {
+		Predictor: complete.PredictNothing,
+	}, "uninstallcompletion": {
+		Predictor: complete.PredictNothing,
+	}}
 
-		"apiaddress": "API_ADDRESS",
+	Completion = func() *complete.Complete {
+		cmd := complete.Command{Flags: complete.Flags{},
+			Sub: complete.Commands{
+				"transactFAT0": complete.Command{Flags: complete.Flags{},
+					Args: complete.PredictAnything},
+				"transactFAT1": complete.Command{Flags: complete.Flags{},
+					Args: complete.PredictAnything},
+				"issue": complete.Command{Flags: complete.Flags{},
+					Args: complete.PredictAnything},
+				"balance": complete.Command{
+					Args: predictAddress(true, 1, "", "")},
+			}}
+		// Set sub command args
+		for name, flag := range flagMap {
+			// Set global flags
+			if len(flag.SubCommand) == 0 {
+				cmd.Flags["-"+name] = flag.Predictor
+				continue
+			}
+			// Set sub command flags
+			subCmds := strings.Split(flag.SubCommand, "|")
+			for _, subCmdName := range subCmds {
+				cmd.Sub[subCmdName].Flags["-"+name] = flag.Predictor
+			}
+		}
 
-		"w":              "WALLETD_SERVER",
-		"wallettimeout":  "WALLETD_TIMEOUT",
-		"walletuser":     "WALLETD_USER",
-		"walletpassword": "WALLETD_PASSWORD",
-		"walletcert":     "WALLETD_TLS_CERT",
-		"wallettls":      "WALLETD_TLS_ENABLE",
+		cmplt := complete.New("fat-cli", cmd)
+		// Add flags for self installing the CLI completion tool
+		cmplt.CLI.InstallName = "installcompletion"
+		cmplt.CLI.UninstallName = "uninstallcompletion"
+		cmplt.AddFlags(globalFlagSet)
+		return cmplt
+	}()
 
-		"s":               "FACTOMD_SERVER",
-		"factomdtimeout":  "FACTOMD_TIMEOUT",
-		"factomduser":     "FACTOMD_USER",
-		"factomdpassword": "FACTOMD_PASSWORD",
-		"factomdcert":     "FACTOMD_TLS_CERT",
-		"factomdtls":      "FACTOMD_TLS_ENABLE",
+	globalFlagSet       = flag.NewFlagSet("fat-cli", flag.ContinueOnError)
+	issueFlagSet        = flag.NewFlagSet("issue", flag.ExitOnError)
+	transactFAT0FlagSet = flag.NewFlagSet("transactFAT0", flag.ExitOnError)
+	transactFAT1FlagSet = flag.NewFlagSet("transactFAT1", flag.ExitOnError)
+	SubCommand          string
 
-		"ecpub": "ECPUB",
-	}
-	defaults = map[string]interface{}{
-		"debug": false,
-
-		"apiaddress": "http://localhost:8078",
-
-		"w":              "localhost:8089",
-		"wallettimeout":  time.Duration(0),
-		"walletuser":     "",
-		"walletpassword": "",
-		"walletcert":     "",
-		"wallettls":      false,
-
-		"s":               "localhost:8088",
-		"factomdtimeout":  time.Duration(0),
-		"factomduser":     "",
-		"factomdpassword": "",
-		"factomdcert":     "",
-		"factomdtls":      false,
-
-		"chainid":  "Token Chain ID",
-		"tokenid":  "",
-		"identity": "Issuer Identity Chain used in Token Chain ID derivation",
-		"ecpub":    "",
-
-		"type":   "FAT-0",
-		"supply": int64(0),
-		"symbol": "",
-		"name":   "",
-
-		"coinbase": uint64(0),
-	}
-	descriptions = map[string]string{
-		"debug": "Log debug messages",
-
-		"apiaddress": "IPAddr:port# to bind to for serving the JSON RPC 2.0 API",
-
-		"w":              "IPAddr:port# of factom-walletd API to use to access blockchain",
-		"wallettimeout":  "Timeout for factom-walletd API requests, 0 means never timeout",
-		"walletuser":     "Username for API connections to factom-walletd",
-		"walletpassword": "Password for API connections to factom-walletd",
-		"walletcert":     "The TLS certificate that will be provided by the factom-walletd API server",
-		"wallettls":      "Set to true to use TLS when accessing the factom-walletd API",
-
-		"s":               "IPAddr:port# of factomd API to use to access wallet",
-		"factomdtimeout":  "Timeout for factomd API requests, 0 means never timeout",
-		"factomduser":     "Username for API connections to factomd",
-		"factomdpassword": "Password for API connections to factomd",
-		"factomdcert":     "The TLS certificate that will be provided by the factomd API server",
-		"factomdtls":      "Set to true to use TLS when accessing the factomd API",
-
-		"chainid":  "Token Chain ID",
-		"tokenid":  "Token ID used in Token Chain ID derivation",
-		"identity": "Issuer Identity Chain ID used in Token Chain ID derivation",
-		"ecpub":    "Entry Credit Public Address to use to pay for Factom entries",
-
-		"sk1":    "Issuer's SK1 key as defined by their Identity Chain.",
-		"type":   `FAT Token Type (e.g. "FAT-0")`,
-		"supply": "Total number of issuable tokens. Must be a positive integer or -1 for unlimited.",
-		"symbol": "Ticker symbol for the token (optional)",
-		"name":   "Complete descriptive name of the token (optional)",
-
-		"coinbase": "Create a coinbase transaction with the given amount. Requires -sk1.",
-		"input":    "Add an -input ADDRESS:AMOUNT to the transaction. Can be specified multiple times.",
-		"output":   "Add an -output ADDRESS:AMOUNT to the transaction. Can be specified multiple times.",
-	}
-
+	// Global variables that hold flag vars
+	chainID  = factom.NewBytes32(nil)
 	issuance = func() fat.Issuance {
 		i := fat.Issuance{}
-		i.ChainID = factom.NewBytes32(nil)
+		i.ChainID = chainID
 		return i
 	}()
-	chainID     = issuance.ChainID
-	transaction = func() fat0.Transaction {
+
+	FAT0transaction = func() fat0.Transaction {
 		tx := fat0.Transaction{
 			Inputs:  fat0.AddressAmountMap{},
 			Outputs: fat0.AddressAmountMap{},
@@ -122,21 +231,26 @@ var (
 		return tx
 	}()
 	coinbaseAmount uint64
-	identity       = fat.Identity{ChainID: factom.NewBytes32(nil)}
-	sk1            = factom.Address{}
-	address        = factom.Address{}
-	ECPub          string
-	metadata       string
-	tokenID        string
+
+	FAT1transaction = func() fat1.Transaction {
+		tx := fat1.Transaction{
+			Inputs:  fat1.AddressNFTokensMap{},
+			Outputs: fat1.AddressNFTokensMap{},
+		}
+		tx.ChainID = chainID
+		return tx
+	}()
+	coinbaseNFTokens = fat1.NFTokens{}
+
+	identity = fat.Identity{ChainID: factom.NewBytes32(nil)}
+	sk1      = factom.Address{}
+	address  = factom.Address{}
+	coinbase = factom.Address{}
+	ecpub    string
+	metadata string
+	tokenID  string
 
 	txHash *factom.Bytes32
-
-	cmd string
-
-	globalFlagSet = flag.NewFlagSet("fat-cli", flag.ContinueOnError)
-
-	issueFlagSet    = flag.NewFlagSet("issue", flag.ExitOnError)
-	transactFlagSet = flag.NewFlagSet("transact", flag.ExitOnError)
 
 	LogDebug bool
 
@@ -144,52 +258,44 @@ var (
 
 	rpc = factom.RpcConfig
 
-	flagIsSet = map[string]bool{}
-	log       *logrus.Entry
+	log *logrus.Entry
 )
 
-func init() {
-	flagVar(globalFlagSet, &LogDebug, "debug")
-
-	flagVar(globalFlagSet, &APIAddress, "apiaddress")
-
-	flagVar(globalFlagSet, &rpc.WalletServer, "w")
-	flagVar(globalFlagSet, &rpc.WalletTimeout, "wallettimeout")
-	flagVar(globalFlagSet, &rpc.WalletRPCUser, "walletuser")
-	flagVar(globalFlagSet, &rpc.WalletRPCPassword, "walletpassword")
-	flagVar(globalFlagSet, &rpc.WalletTLSCertFile, "walletcert")
-	flagVar(globalFlagSet, &rpc.WalletTLSEnable, "wallettls")
-
-	flagVar(globalFlagSet, &rpc.FactomdServer, "s")
-	flagVar(globalFlagSet, &rpc.FactomdTimeout, "factomdtimeout")
-	flagVar(globalFlagSet, &rpc.FactomdRPCUser, "factomduser")
-	flagVar(globalFlagSet, &rpc.FactomdRPCPassword, "factomdpassword")
-	flagVar(globalFlagSet, &rpc.FactomdTLSCertFile, "factomdcert")
-	flagVar(globalFlagSet, &rpc.FactomdTLSEnable, "factomdtls")
-
-	flagVar(globalFlagSet, &tokenID, "tokenid")
-	flagVar(globalFlagSet, (*flagBytes32)(identity.ChainID), "identity")
-	flagVar(globalFlagSet, (*flagBytes32)(chainID), "chainid")
-
-	flagVar(issueFlagSet, (*ecpub)(&ECPub), "ecpub")
-	flagVar(issueFlagSet, (*SecretKey)(sk1.PrivateKey()), "sk1")
-	flagVar(issueFlagSet, &issuance.Type, "type")
-	flagVar(issueFlagSet, &issuance.Supply, "supply")
-	flagVar(issueFlagSet, &issuance.Symbol, "symbol")
-	flagVar(issueFlagSet, &issuance.Name, "name")
-
-	flagVar(transactFlagSet, (*ecpub)(&ECPub), "ecpub")
-	flagVar(transactFlagSet, (*SecretKey)(sk1.PrivateKey()), "sk1")
-	flagVar(transactFlagSet, &coinbaseAmount, "coinbase")
-	flagVar(transactFlagSet, (addressAmountMap)(transaction.Inputs), "input")
-	flagVar(transactFlagSet, (addressAmountMap)(transaction.Outputs), "output")
-
-	// Add flags for self installing the CLI completion tool
-	Completion.CLI.InstallName = "installcompletion"
-	Completion.CLI.UninstallName = "uninstallcompletion"
-	Completion.AddFlags(globalFlagSet)
+func setFlag(f *flag.Flag) {
+	flag := flagMap[f.Name]
+	flag.IsSet = true
+	flagMap[f.Name] = flag
 }
-func setFlagIsSet(f *flag.Flag) { flagIsSet[f.Name] = true }
+
+func init() {
+	for name, flagS := range flagMap {
+		// Set global flags
+		if len(flagS.SubCommand) == 0 {
+			flagVar(globalFlagSet, name, flagS.Var["global"])
+			continue
+		}
+		// Set sub command flags
+		subCmds := strings.Split(flagS.SubCommand, "|")
+		var flagSet *flag.FlagSet
+		for _, subCmdName := range subCmds {
+			Var := flagS.Var["global"]
+			if Var == nil {
+				Var = flagS.Var[subCmdName]
+			}
+			switch subCmdName {
+			case "issue":
+				flagSet = issueFlagSet
+			case "transactFAT0":
+				flagSet = transactFAT0FlagSet
+			case "transactFAT1":
+				flagSet = transactFAT1FlagSet
+			default:
+				panic("invalid sub command: " + subCmdName)
+			}
+			flagVar(flagSet, name, Var)
+		}
+	}
+}
 
 func Parse() {
 	args := os.Args[1:]
@@ -199,18 +305,20 @@ func Parse() {
 	setupLogger()
 	globalFlagSet.Parse(args)
 	args = globalFlagSet.Args()
-	globalFlagSet.Visit(setFlagIsSet)
+	globalFlagSet.Visit(setFlag)
 	if len(args) > 0 {
-		cmd = args[0]
+		SubCommand = args[0]
 		args = args[1:]
 	}
 
 	var flagSet *flag.FlagSet
-	switch cmd {
+	switch SubCommand {
 	case "issue":
 		flagSet = issueFlagSet
-	case "transact":
-		flagSet = transactFlagSet
+	case "transactFAT0":
+		flagSet = transactFAT0FlagSet
+	case "transactFAT1":
+		flagSet = transactFAT1FlagSet
 	case "balance":
 		if len(args) == 1 {
 			if err := address.UnmarshalJSON(
@@ -231,32 +339,31 @@ func Parse() {
 	}
 	if flagSet != nil {
 		flagSet.Parse(args)
-		flagSet.Visit(setFlagIsSet)
+		flagSet.Visit(setFlag)
 	}
 
 	// Load options from environment variables if they haven't been
 	// specified on the command line.
-	loadFromEnv(&LogDebug, "debug")
-
-	loadFromEnv(&APIAddress, "apiaddress")
-
-	loadFromEnv(&rpc.WalletServer, "w")
-	loadFromEnv(&rpc.WalletTimeout, "walletdtimeout")
-	loadFromEnv(&rpc.WalletRPCUser, "factomduser")
-	loadFromEnv(&rpc.WalletRPCPassword, "factomdpassword")
-	loadFromEnv(&rpc.WalletTLSCertFile, "factomdcert")
-	loadFromEnv(&rpc.WalletTLSEnable, "factomdtls")
-
-	loadFromEnv(&rpc.FactomdServer, "s")
-	loadFromEnv(&rpc.FactomdTimeout, "factomdtimeout")
-	loadFromEnv(&rpc.FactomdRPCUser, "factomduser")
-	loadFromEnv(&rpc.FactomdRPCPassword, "factomdpassword")
-	loadFromEnv(&rpc.FactomdTLSCertFile, "factomdcert")
-	loadFromEnv(&rpc.FactomdTLSEnable, "factomdtls")
+	for name, flag := range flagMap {
+		if len(flag.EnvName) == 0 {
+			continue
+		}
+		loadFromEnv(name, flag.Var["global"])
+	}
+}
+func setupLogger() {
+	_log := logrus.New()
+	_log.Formatter = &logrus.TextFormatter{ForceColors: true,
+		DisableTimestamp:       true,
+		DisableLevelTruncation: true}
+	if LogDebug {
+		_log.SetLevel(logrus.DebugLevel)
+	}
+	log = _log.WithField("pkg", "flag")
 }
 
 func Validate() error {
-	if len(cmd) == 0 {
+	if len(SubCommand) == 0 {
 		return nil
 	}
 	// Redact private data from debug output.
@@ -286,16 +393,17 @@ func Validate() error {
 	log.Debugf("-factomdtimeout %v ", rpc.FactomdTimeout)
 	debugPrintln()
 
-	// Validate cmd
-	switch cmd {
-	// These cmds require further flag validation.
+	// Validate SubCommand
+	switch SubCommand {
+	// These SubCommands require further flag validation.
 	case "issue":
 	case "balance":
-	case "transact":
+	case "transactFAT0":
+	case "transactFAT1":
 	case "gettransaction":
 	case "stats":
 	case "getissuance":
-	// These cmds do not require any flags.
+	// These SubCommands do not require any flags.
 	case "listtokens":
 		fallthrough
 	case "help":
@@ -303,15 +411,16 @@ func Validate() error {
 
 	case "":
 		return fmt.Errorf("No command supplied")
-	// Invalid cmds.
+	// Invalid SubCommands.
 	default:
-		return fmt.Errorf("Invalid command: %v", cmd)
+		return fmt.Errorf("Invalid command: %v", SubCommand)
 	}
+
 	if err := requireTokenChain(); err != nil {
 		return err
 	}
 
-	switch cmd {
+	switch SubCommand {
 	case "issue":
 		if err := requireFlags("sk1", "supply", "ecpub"); err != nil {
 			return err
@@ -324,19 +433,18 @@ func Validate() error {
 		if address.RCDHash() == zero.RCDHash() {
 			return fmt.Errorf("no address specified")
 		}
-	case "transact":
+	case "transactFAT0":
+		fallthrough
+	case "transactFAT1":
 		required := []string{"output"}
-		if flagIsSet["coinbase"] || flagIsSet["sk1"] {
-			if flagIsSet["input"] {
+		if flagMap["coinbase"].IsSet || flagMap["sk1"].IsSet {
+			if flagMap["input"].IsSet {
 				return fmt.Errorf(
 					"cannot specify -input with -coinbase and -sk1")
 			}
 			required = append(required, "coinbase", "sk1")
-			if coinbaseAmount == 0 {
-				return fmt.Errorf("-coinbase amount may not be zero")
-			}
-			a := factom.Address{}
-			transaction.Inputs[*a.RCDHash()] = coinbaseAmount
+			FAT0transaction.Inputs[*coinbase.RCDHash()] = coinbaseAmount
+			FAT1transaction.Inputs[*coinbase.RCDHash()] = coinbaseNFTokens
 		} else {
 			required = append(required, "input")
 		}
@@ -347,17 +455,18 @@ func Validate() error {
 		if txHash == nil {
 			return fmt.Errorf("no transaction entry hash specified")
 		}
-	case "stats":
-	case "getissuance":
-	default:
-		return fmt.Errorf("Invalid command: %v", cmd)
 	}
 	return nil
 }
+func debugPrintln() {
+	if LogDebug {
+		fmt.Println()
+	}
+}
 
 func requireTokenChain() error {
-	if !flagIsSet["chainid"] {
-		if !flagIsSet["tokenid"] || !flagIsSet["identity"] {
+	if !flagMap["chainid"].IsSet {
+		if !flagMap["tokenid"].IsSet || !flagMap["identity"].IsSet {
 			return fmt.Errorf(
 				"You must specify -chainid OR -tokenid AND -identity")
 		}
@@ -368,7 +477,7 @@ func requireTokenChain() error {
 		chainID := fat.ChainID(tokenID, identity.ChainID)
 		copy(issuance.ChainID[:], chainID[:])
 	} else {
-		if flagIsSet["tokenid"] || flagIsSet["identity"] {
+		if flagMap["tokenid"].IsSet || flagMap["identity"].IsSet {
 			return fmt.Errorf(
 				"You may not specify -chainid with -tokenid and -identity")
 		}
@@ -376,35 +485,65 @@ func requireTokenChain() error {
 	return nil
 }
 
-func flagVar(f *flag.FlagSet, v interface{}, name string) {
-	dflt := defaults[name]
+func flagVar(f *flag.FlagSet, name string, val interface{}) {
+	dflt := flagMap[name].Default
 	desc := description(name)
-	switch v := v.(type) {
+	switch val := val.(type) {
 	case *string:
-		f.StringVar(v, name, dflt.(string), desc)
+		Default := ""
+		if dflt != nil {
+			Default = dflt.(string)
+		}
+		f.StringVar(val, name, Default, desc)
 	case *time.Duration:
-		f.DurationVar(v, name, dflt.(time.Duration), desc)
+		Default := time.Duration(0)
+		if dflt != nil {
+			Default = dflt.(time.Duration)
+		}
+		f.DurationVar(val, name, Default, desc)
 	case *uint64:
-		f.Uint64Var(v, name, dflt.(uint64), desc)
+		Default := uint64(0)
+		if dflt != nil {
+			Default = dflt.(uint64)
+		}
+		f.Uint64Var(val, name, Default, desc)
 	case *int64:
-		f.Int64Var(v, name, dflt.(int64), desc)
+		Default := int64(0)
+		if dflt != nil {
+			Default = dflt.(int64)
+		}
+		f.Int64Var(val, name, Default, desc)
 	case *bool:
-		f.BoolVar(v, name, dflt.(bool), desc)
+		Default := false
+		if dflt != nil {
+			Default = dflt.(bool)
+		}
+		f.BoolVar(val, name, Default, desc)
 	case flag.Value:
-		f.Var(v, name, desc)
+		f.Var(val, name, desc)
 	}
 }
+func description(flagName string) string {
+	if len(flagMap[flagName].EnvName) == 0 {
+		return flagMap[flagName].Description
+	}
+	return fmt.Sprintf("%s\nEnvironment variable: %v",
+		flagMap[flagName].Description, envName(flagName))
+}
+func envName(flagName string) string {
+	return envNamePrefix + flagMap[flagName].EnvName
+}
 
-func loadFromEnv(v interface{}, flagName string) {
-	if flagIsSet[flagName] {
+func loadFromEnv(flagName string, val interface{}) {
+	if flagMap[flagName].IsSet {
 		return
 	}
 	eName := envName(flagName)
 	eVar, ok := os.LookupEnv(eName)
 	if len(eVar) > 0 {
-		switch v := v.(type) {
+		switch val := val.(type) {
 		case *string:
-			*v = eVar
+			*val = eVar
 		case *time.Duration:
 			duration, err := time.ParseDuration(eVar)
 			if err != nil {
@@ -412,49 +551,21 @@ func loadFromEnv(v interface{}, flagName string) {
 					"time.ParseDuration(\"%v\"): %v",
 					eName, eVar, err)
 			}
-			*v = duration
+			*val = duration
 		case *uint64:
-			val, err := strconv.ParseUint(eVar, 10, 64)
+			v, err := strconv.ParseUint(eVar, 10, 64)
 			if err != nil {
 				log.Fatalf("Environment Variable %v: "+
 					"strconv.ParseUint(\"%v\", 10, 64): %v",
 					eName, eVar, err)
 			}
-			*v = val
+			*val = v
 		case *bool:
 			if ok {
-				*v = true
+				*val = true
 			}
 		}
 	}
-}
-
-func debugPrintln() {
-	if LogDebug {
-		fmt.Println()
-	}
-}
-
-func envName(flagName string) string {
-	return envNamePrefix + envNames[flagName]
-}
-func description(flagName string) string {
-	if _, ok := envNames[flagName]; ok {
-		return fmt.Sprintf("%s\nEnvironment variable: %v",
-			descriptions[flagName], envName(flagName))
-	}
-	return descriptions[flagName]
-}
-
-func setupLogger() {
-	_log := logrus.New()
-	_log.Formatter = &logrus.TextFormatter{ForceColors: true,
-		DisableTimestamp:       true,
-		DisableLevelTruncation: true}
-	if LogDebug {
-		_log.SetLevel(logrus.DebugLevel)
-	}
-	log = _log.WithField("pkg", "flag")
 }
 
 type flagBytes32 factom.Bytes32
@@ -470,38 +581,41 @@ func (b *flagBytes32) Set(data string) error {
 	return (*factom.Bytes32)(b).UnmarshalJSON([]byte(fmt.Sprintf("%#v", data)))
 }
 
-type SecretKey [ed25519.PrivateKeySize]byte
+type SecretKey factom.PrivateKey
 
-// String returns the hex encoded data of b.
-func (sk *SecretKey) String() string {
-	if sk == nil {
-		return ""
-	}
+func (sk SecretKey) String() string {
 	return "<redacted>"
 }
 func (sk *SecretKey) Set(data string) error {
-	if len(data) != 53 {
+	if err := decodeBase58String(sk[:], data, 53, "sk1"); err != nil {
+		return err
+	}
+	(*factom.PrivateKey)(sk).PublicKey()
+	return nil
+}
+func decodeBase58String(dst []byte, data string,
+	expectedLen int, prefix string) error {
+	if len(data) != expectedLen {
 		return fmt.Errorf("invalid length")
 	}
-	if data[0:3] != "sk1" {
+	if string(data[0:len(prefix)]) != prefix {
 		return fmt.Errorf("invalid prefix")
 	}
-	b, _, err := base58.CheckDecode(data, 3)
+	b, _, err := base58.CheckDecode(string(data), len(prefix))
 	if err != nil {
 		return err
 	}
-	copy(sk[:], b)
-	ed25519.GetPublicKey((*[ed25519.PrivateKeySize]byte)(sk))
+	copy(dst, b)
 	return nil
 }
 
-type ecpub string
+type ECPub string
 
 // String returns the hex encoded data of b.
-func (ec ecpub) String() string {
+func (ec ECPub) String() string {
 	return string(ec)
 }
-func (ec *ecpub) Set(data string) error {
+func (ec *ECPub) Set(data string) error {
 	if len(data) != 52 {
 		return fmt.Errorf("invalid length")
 	}
@@ -512,14 +626,14 @@ func (ec *ecpub) Set(data string) error {
 	if err != nil {
 		return err
 	}
-	*ec = ecpub(data)
+	*ec = ECPub(data)
 	return nil
 }
 
 func requireFlags(names ...string) error {
 	missing := []string{}
 	for _, n := range names {
-		if !flagIsSet[n] {
+		if !flagMap[n].IsSet {
 			missing = append(missing, "-"+n)
 		}
 	}
@@ -529,33 +643,126 @@ func requireFlags(names ...string) error {
 	return nil
 }
 
-type addressAmountMap fat0.AddressAmountMap
+type AddressAmountMap fat0.AddressAmountMap
 
-func (a addressAmountMap) Set(data string) error {
+func (m AddressAmountMap) Set(data string) error {
 	s := strings.SplitN(data, ":", 2)
 	if len(s) != 2 {
 		return fmt.Errorf("invalid format")
 	}
-	adr := factom.Address{}
-	if s[0] != "coinbase" {
-		if err := adr.UnmarshalJSON(
-			[]byte(fmt.Sprintf("%#v", s[0]))); err != nil {
+	adr := factom.RCDHash{}
+	if s[0] == "coinbase" {
+		adr = *coinbase.RCDHash()
+	} else {
+		if err := adr.FromString(s[0]); err != nil {
 			return fmt.Errorf("invalid address: %v", err)
 		}
 	}
-	if _, ok := a[*adr.RCDHash()]; ok {
-		return fmt.Errorf("duplicate address: %v", adr.RCDHash())
+	if _, ok := m[adr]; ok {
+		return fmt.Errorf("duplicate address: %v", adr)
 	}
-	amount, err := strconv.ParseUint(s[1], 10, 64)
+	var amount uint64
+	if err := (*Amount)(&amount).Set(s[1]); err != nil {
+		return err
+	}
+	m[adr] = amount
+	return nil
+}
+func (m AddressAmountMap) String() string {
+	return fmt.Sprintf("%v", fat0.AddressAmountMap(m))
+}
+
+type AddressNFTokensMap fat1.AddressNFTokensMap
+
+func (m AddressNFTokensMap) Set(data string) error {
+	s := strings.SplitN(data, ":", 2)
+	if len(s) != 2 {
+		return fmt.Errorf("invalid format")
+	}
+	adr := factom.RCDHash{}
+	if s[0] == "coinbase" {
+		adr = *coinbase.RCDHash()
+	} else {
+		if err := adr.FromString(s[0]); err != nil {
+			return fmt.Errorf("invalid address: %v", err)
+		}
+	}
+	if _, ok := m[adr]; ok {
+		return fmt.Errorf("duplicate address: %v", adr)
+	}
+
+	tkns := make(fat1.NFTokens)
+	if err := NFTokens(tkns).Set(s[1]); err != nil {
+		return err
+	}
+
+	m[adr] = tkns
+	return nil
+}
+func (m AddressNFTokensMap) String() string {
+	return fmt.Sprintf("%v", fat1.AddressNFTokensMap(m))
+}
+
+type NFTokens fat1.NFTokens
+
+func (tkns NFTokens) Set(data string) error {
+	if data[0] != '[' || data[len(data)-1] != ']' {
+		return fmt.Errorf("invalid NFTokens format")
+	}
+	tknStrs := strings.Split(data[1:len(data)-1], ",")
+	for _, tknStr := range tknStrs {
+		var tknIDs fat1.NFTokensSetter
+		if strings.Contains(tknStr, "-") {
+			tknRangeStrs := strings.Split(tknStr, "-")
+			if len(tknRangeStrs) != 2 {
+				return fmt.Errorf("invalid NFTokenIDRange format: %v", tknStr)
+			}
+			var err error
+			var min, max uint64
+			if min, err = strconv.ParseUint(tknRangeStrs[0], 10, 64); err != nil {
+				return fmt.Errorf("invalid NFTokenIDRange.Min: %v", err)
+			}
+			if max, err = strconv.ParseUint(tknRangeStrs[1], 10, 64); err != nil {
+				return fmt.Errorf("invalid NFTokenIDRange.Max: %v", err)
+			}
+			tknIDRange := fat1.NFTokenIDRange{
+				Min: fat1.NFTokenID(min), Max: fat1.NFTokenID(max)}
+			if err := tknIDRange.Valid(); err != nil {
+				return fmt.Errorf("invalid NFTokenIDRange: %v", err)
+			}
+			tknIDs = tknIDRange
+		} else {
+			var tknID uint64
+			var err error
+			if tknID, err = strconv.ParseUint(tknStr, 10, 64); err != nil {
+				return fmt.Errorf("invalid NFTokenID: %v", err)
+
+			}
+			tknIDs = fat1.NFTokenID(tknID)
+		}
+		if err := fat1.NFTokens(tkns).Set(tknIDs); err != nil {
+			return fmt.Errorf("invalid NFTokens: %v", err)
+		}
+	}
+	return nil
+}
+func (tkns NFTokens) String() string {
+	return fmt.Sprintf("%v", fat1.NFTokens(tkns))
+}
+
+type Amount uint64
+
+func (a *Amount) Set(data string) error {
+	amount, err := strconv.ParseUint(data, 10, 64)
 	if err != nil {
 		return fmt.Errorf("invalid amount: %v", err)
 	}
 	if amount == 0 {
 		return fmt.Errorf("invalid amount: may not be zero")
 	}
-	a[*adr.RCDHash()] = amount
+	*a = Amount(amount)
 	return nil
 }
-func (a addressAmountMap) String() string {
-	return fmt.Sprintf("%v", fat0.AddressAmountMap(a))
+func (a Amount) String() string {
+	return fmt.Sprintf("%v", uint64(a))
 }

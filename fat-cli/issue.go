@@ -15,7 +15,7 @@ func issue() error {
 			return err
 		}
 	}
-	if flagIsSet["chainid"] {
+	if flagMap["chainid"].IsSet {
 		if !eb.IsPopulated() {
 			// The chain must already exist if the user specifies
 			// -chainid.
@@ -35,7 +35,7 @@ func issue() error {
 	} else if !eb.IsPopulated() {
 		// Create the chain
 		e := factom.Entry{ExtIDs: fat.NameIDs(tokenID, identity.ChainID)}
-		txID, err := e.Create(ECPub)
+		txID, err := e.Create(ecpub)
 		if err != nil {
 			return err
 		}
@@ -62,7 +62,7 @@ func issue() error {
 	if err := issuance.Valid(identity.IDKey); err != nil {
 		return err
 	}
-	txID, err := issuance.Create(ECPub)
+	txID, err := issuance.Create(ecpub)
 	if err != nil {
 		return err
 	}

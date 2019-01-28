@@ -14,20 +14,20 @@ func getTransaction() error {
 		},
 		Hash: txHash,
 	}
-	result := srv.ResultsGetTransaction{}
+	result := srv.ResultGetTransaction{}
 	err := factom.Request(APIAddress, "get-transaction", params, &result)
 	if err != nil {
 		return err
 	}
-	transaction = result.Tx
-	transaction.Hash = result.Hash
-	transaction.Timestamp = result.Timestamp
+	FAT0transaction = result.Tx
+	FAT0transaction.Hash = result.Hash
+	FAT0transaction.Timestamp = result.Timestamp
 	fmt.Printf("Transaction: \n")
-	fmt.Printf("\tHash: %v\n", transaction.Hash)
-	fmt.Printf("\tTimestamp: %v\n", transaction.Timestamp.Time)
+	fmt.Printf("\tHash: %v\n", FAT0transaction.Hash)
+	fmt.Printf("\tTimestamp: %v\n", FAT0transaction.Timestamp.Time)
 	fmt.Printf("\tInputs: \n")
-	for rcdHash, amount := range transaction.Inputs {
-		if transaction.IsCoinbase() {
+	for rcdHash, amount := range FAT0transaction.Inputs {
+		if FAT0transaction.IsCoinbase() {
 			fmt.Printf("\t\tCoinbase: %v\n", amount)
 			break
 		}
@@ -35,11 +35,11 @@ func getTransaction() error {
 		fmt.Printf("\t\t%v: %v\n", adr, amount)
 	}
 	fmt.Printf("\tOutputs: \n")
-	for rcdHash, amount := range transaction.Inputs {
+	for rcdHash, amount := range FAT0transaction.Inputs {
 		adr := factom.NewAddress(&rcdHash)
 		fmt.Printf("\t\t%v: %v\n", adr, amount)
 	}
-	fmt.Printf("\tMetadata: %v\n", transaction.Metadata)
+	fmt.Printf("\tMetadata: %v\n", FAT0transaction.Metadata)
 	fmt.Printf("\n")
 	return nil
 }

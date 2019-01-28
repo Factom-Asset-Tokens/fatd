@@ -5,65 +5,51 @@ import (
 	"os"
 )
 
-func main() { os.Exit(_main()) }
-func _main() (ret int) {
+func main() {
+	if err := _main(); err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+}
+func _main() error {
 	Parse()
 	// Attempt to run the completion program.
 	if Completion.Complete() {
 		// The completion program ran, so just return.
-		return 0
+		return nil
 	}
 	if err := Validate(); err != nil {
-		fmt.Println(err)
-		return 1
+		return err
 	}
 
-	switch cmd {
-	case "issue":
-		if err := issue(); err != nil {
-			fmt.Println(err)
-			return 1
-		}
-	case "transact":
-		if err := transact(); err != nil {
-			fmt.Println(err)
-			return 1
-		}
-	case "balance":
-		if err := getBalance(); err != nil {
-			fmt.Println(err)
-			return 1
-		}
-	case "getissuance":
-		if err := getIssuance(); err != nil {
-			fmt.Println(err)
-			return 1
-		}
-	case "getstats":
-		if err := getStats(); err != nil {
-			fmt.Println(err)
-			return 1
-		}
-	case "listtokens":
-		if err := listTokens(); err != nil {
-			fmt.Println(err)
-			return 1
-		}
-	case "gettransaction":
-		if err := getTransaction(); err != nil {
-			fmt.Println(err)
-			return 1
-		}
-	default:
-		usage()
+	var cmdFunc func() error
+	var ok bool
+	if cmdFunc, ok = cmdFuncMap[SubCommand]; !ok {
+		cmdFunc = usage
+	}
+	if err := cmdFunc(); err != nil {
+		return err
 	}
 
-	return 0
+	return nil
 }
 
-func usage() {
+func usage() error {
 	fmt.Println(`usage: fat-cli CHAIN_FLAGS [GLOBAL_FLAGS] COMMAND COMMAND_FLAGS
         CHAIN_FLAGS: -chainid OR -token AND -identity
         GLOBAL_FLAGS: -s, -w, -apiaddress, ...
         COMMAND: balance OR issue OR transact`)
+	return nil
+}
+
+var cmdFuncMap = map[string]func() error{
+	"issue":          issue,
+	"transactFAT0":   transactFAT0,
+	"transactFAT1":   transactFAT1,
+	"balance":        getBalance,
+	"getissuance":    getIssuance,
+	"getstats":       getStats,
+	"listtokens":     listTokens,
+	"gettransaction": getTransaction,
+	"usage":          usage,
 }

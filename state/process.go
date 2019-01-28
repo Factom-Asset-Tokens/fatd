@@ -4,9 +4,12 @@ import (
 	"fmt"
 
 	jrpc "github.com/AdamSLevy/jsonrpc2/v10"
+	"github.com/jinzhu/gorm"
+
 	"github.com/Factom-Asset-Tokens/fatd/factom"
 	"github.com/Factom-Asset-Tokens/fatd/fat"
 	"github.com/Factom-Asset-Tokens/fatd/fat/fat0"
+	"github.com/Factom-Asset-Tokens/fatd/fat/fat1"
 )
 
 func (chain *Chain) Process(eb factom.EBlock) error {
@@ -118,41 +121,53 @@ func (chain *Chain) processTransactions(es []factom.Entry) error {
 		if err := e.Get(); err != nil {
 			return fmt.Errorf("Entry%v.Get(): %v", e, err)
 		}
-		transaction := fat0.NewTransaction(e)
-		if err := transaction.Valid(chain.Identity.IDKey); err != nil {
-			log.Debugf("Invalid Transaction Entry: %v, %v", e.Hash, err)
-			continue
-		}
-		if err := chain.apply(transaction); err != nil {
-			return err
+		switch chain.Type {
+		case fat0.Type:
+			transaction := fat0.NewTransaction(e)
+			if err := transaction.Valid(chain.Identity.IDKey); err != nil {
+				log.Debugf("Invalid Transaction Entry: %v, %v", e.Hash, err)
+				continue
+			}
+			if err := chain.applyFAT0(transaction); err != nil {
+				return err
+			}
+		case fat1.Type:
+			transaction := fat1.NewTransaction(e)
+			if err := transaction.Valid(chain.Identity.IDKey); err != nil {
+				log.Debugf("Invalid Transaction Entry: %v, %v", e.Hash, err)
+				continue
+			}
+			if err := chain.applyFAT1(transaction); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
 }
 
-func (chain *Chain) apply(transaction fat0.Transaction) (err error) {
+func (chain *Chain) applyFAT0(transaction fat0.Transaction) (err error) {
 	db := chain.Begin()
 	defer chain.rollbackUnlessCommitted(*chain, &err)
 	chain.DB = db
 
 	entry, err := chain.createEntry(transaction.Entry.Entry)
+	if err != nil {
+		return err
+	}
 	if entry == nil {
 		// replayed transaction
-		if err == nil {
-			log.Debugf("Invalid Transaction Entry: %v, "+
-				"replayed transaction",
-				transaction.Hash)
-		}
-		return err
+		log.Debugf("Invalid Transaction Entry: %v, replayed transaction",
+			transaction.Hash)
+		return nil
 	}
 
 	for rcdHash, amount := range transaction.Inputs {
-		adr, err := chain.getAddress(&rcdHash)
+		adr, err := chain.GetAddress(&rcdHash)
 		if err != nil {
 			return err
 		}
-		if err := chain.DB.Model(&adr).
-			Association("From").Append(entry).Error; err != nil {
+		if err := chain.DB.Model(&adr).Association("From").
+			Append(entry).Error; err != nil {
 			return err
 		}
 		if transaction.IsCoinbase() {
@@ -184,7 +199,7 @@ func (chain *Chain) apply(transaction fat0.Transaction) (err error) {
 	}
 
 	for rcdHash, amount := range transaction.Outputs {
-		a, err := chain.getAddress(&rcdHash)
+		a, err := chain.GetAddress(&rcdHash)
 		if err != nil {
 			return err
 		}
@@ -192,12 +207,128 @@ func (chain *Chain) apply(transaction fat0.Transaction) (err error) {
 		if err := chain.Save(&a).Error; err != nil {
 			return err
 		}
-		if err := chain.DB.Model(&a).
-			Association("To").Append(entry).Error; err != nil {
+		if err := chain.DB.Model(&a).Association("To").
+			Append(entry).Error; err != nil {
 			return err
 		}
 	}
 	log.Debugf("Valid Transaction Entry: %+v", transaction)
+
+	return chain.Commit().Error
+}
+
+func (chain *Chain) applyFAT1(transaction fat1.Transaction) (err error) {
+	db := chain.Begin()
+	defer chain.rollbackUnlessCommitted(*chain, &err)
+	chain.DB = db
+
+	entry, err := chain.createEntry(transaction.Entry.Entry)
+	if err != nil {
+		return err
+	}
+	if entry == nil {
+		// replayed transaction
+		log.Debugf("Invalid Transaction Entry: %v, replayed transaction",
+			transaction.Hash)
+		return nil
+	}
+
+	allTkns := make(map[fat1.NFTokenID]NFToken, transaction.Inputs.NumNFTokenIDs())
+	for rcdHash, tkns := range transaction.Inputs {
+		adr, err := chain.GetAddress(&rcdHash)
+		if err != nil {
+			return err
+		}
+		if err := chain.DB.Model(&adr).Association("From").
+			Append(entry).Error; err != nil {
+			return err
+		}
+		if transaction.IsCoinbase() {
+			if chain.Supply > 0 &&
+				uint64(chain.Supply)-chain.Issued < uint64(len(tkns)) {
+				// insufficient coinbase supply
+				log.Debugf("Invalid Transaction Entry: %v, "+
+					"insufficient coinbase supply",
+					entry.Hash)
+				return nil
+			}
+			chain.Issued += uint64(len(tkns))
+			if err := chain.saveMetadata(); err != nil {
+				return err
+			}
+			for tknID := range tkns {
+				tkn, err := chain.createNFToken(tknID,
+					transaction.TokenMetadata[tknID])
+				if err != nil {
+					return err
+				}
+				if tkn == nil {
+					log.Debugf("Invalid Transaction Entry: %v, "+
+						"NFTokenID(%v) already exists",
+						entry.Hash, tknID)
+					return nil
+				}
+				allTkns[tknID] = *tkn
+			}
+			break
+		}
+		if adr.Balance < uint64(len(tkns)) {
+			// insufficient balance
+			log.Debugf("Invalid Transaction Entry: %v, "+
+				"insufficient balance: %v",
+				entry.Hash, adr.Address())
+			return nil
+		}
+		adr.Balance -= uint64(len(tkns))
+		if err := chain.Save(&adr).Error; err != nil {
+			return err
+		}
+		for tknID := range tkns {
+			tkn := NFToken{NFTokenID: tknID, OwnerID: adr.ID}
+			err := chain.GetNFToken(&tkn)
+			if err == gorm.ErrRecordNotFound {
+				log.Debugf("Invalid Transaction Entry: %v, "+
+					"NFTokenID(%v) is not owned by %v",
+					entry.Hash, tknID, rcdHash)
+				return nil
+			}
+			if err != nil {
+				return err
+			}
+			if err := chain.DB.Model(&tkn).Association("PreviousOwners").
+				Append(&adr).Error; err != nil {
+				return err
+			}
+			allTkns[tknID] = tkn
+		}
+	}
+
+	for rcdHash, tkns := range transaction.Outputs {
+		a, err := chain.GetAddress(&rcdHash)
+		if err != nil {
+			return err
+		}
+		a.Balance += uint64(len(tkns))
+		if err := chain.Save(&a).Error; err != nil {
+			return err
+		}
+		if err := chain.DB.Model(&a).Association("To").
+			Append(entry).Error; err != nil {
+			return err
+		}
+		for tknID := range tkns {
+			tkn := allTkns[tknID]
+			tkn.OwnerID = a.ID
+			if err := chain.Save(&tkn).Error; err != nil {
+				return err
+			}
+			if err := chain.DB.Model(&tkn).Association("Transactions").
+				Append(entry).Error; err != nil {
+				return err
+			}
+		}
+	}
+	log.Debugf("Valid Transaction Entry: %T%+v", transaction, transaction)
 
 	return chain.Commit().Error
 }

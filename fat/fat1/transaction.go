@@ -51,7 +51,13 @@ func (t *Transaction) UnmarshalJSON(data []byte) error {
 
 		expectedJSONLen = len(`,"tokenmetadata":`) +
 			len(compactJSON(tRaw.TokenMetadata))
+	} else {
+		if t.IsCoinbase() {
+			// Avoid a nil map.
+			t.TokenMetadata = make(NFTokenIDMetadataMap, 0)
+		}
 	}
+
 	if err := t.Outputs.UnmarshalJSON(tRaw.Outputs); err != nil {
 		return fmt.Errorf("%T.Outputs: %v", t, err)
 	}

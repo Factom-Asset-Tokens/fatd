@@ -8,14 +8,14 @@ import (
 	"math"
 	"os"
 
-	"github.com/Factom-Asset-Tokens/fatd/factom"
-	"github.com/Factom-Asset-Tokens/fatd/fat"
-	"github.com/Factom-Asset-Tokens/fatd/fat/fat0"
-	"github.com/Factom-Asset-Tokens/fatd/flag"
-	_log "github.com/Factom-Asset-Tokens/fatd/log"
-
 	"github.com/jinzhu/gorm"
 	_ "github.com/jinzhu/gorm/dialects/sqlite"
+
+	"github.com/Factom-Asset-Tokens/fatd/factom"
+	"github.com/Factom-Asset-Tokens/fatd/fat"
+	"github.com/Factom-Asset-Tokens/fatd/fat/fat1"
+	"github.com/Factom-Asset-Tokens/fatd/flag"
+	_log "github.com/Factom-Asset-Tokens/fatd/log"
 )
 
 var (
@@ -47,6 +47,7 @@ func Load() error {
 		if chain.ID = fnameToChainID(fname); chain.ID == nil {
 			continue
 		}
+		log.Debugf("loading chain: %v", chain.ID)
 		var err error
 		if chain.DB, err = open(fname); err != nil {
 			return err
@@ -58,7 +59,6 @@ func Load() error {
 			return err
 		}
 		Chains.set(chain.ID, &chain)
-		log.Debugf("loaded chain: %v", chain)
 		if chain.Metadata.Height == 0 {
 			continue
 		}
@@ -110,7 +110,7 @@ func SaveHeight(height uint64) error {
 	defer Chains.Unlock()
 
 	for _, chain := range Chains.m {
-		if !chain.IsTracked() || chain.Metadata.Height >= height {
+		if !chain.IsTracked() || chain.Metadata.Height >= height || chain.DB.Error != nil {
 			continue
 		}
 		if err := chain.saveHeight(height); err != nil {
@@ -148,14 +148,57 @@ func open(fname string) (*gorm.DB, error) {
 	return db, nil
 }
 func autoMigrate(db *gorm.DB) error {
+	if err := deleteEmptyTables(db); err != nil {
+		return fmt.Errorf("deleteEmptyTables(): %v", err)
+	}
 	if err := db.AutoMigrate(&entry{}).Error; err != nil {
 		return fmt.Errorf("db.AutoMigrate(&Entry{}): %v", err)
 	}
-	if err := db.AutoMigrate(&address{}).Error; err != nil {
+	if err := db.AutoMigrate(&Address{}).Error; err != nil {
 		return fmt.Errorf("db.AutoMigrate(&Address{}): %v", err)
 	}
 	if err := db.AutoMigrate(&Metadata{}).Error; err != nil {
 		return fmt.Errorf("db.AutoMigrate(&Metadata{}): %v", err)
+	}
+	if err := db.AutoMigrate(&NFToken{}).Error; err != nil {
+		return fmt.Errorf("db.AutoMigrate(&Metadata{}): %v", err)
+	}
+	return nil
+}
+
+func deleteEmptyTables(db *gorm.DB) error {
+	var tables []struct{ Name string }
+	var selectQry = "SELECT name FROM sqlite_master "
+	qry := selectQry + "WHERE type = 'table';"
+	if err := db.Raw(qry).Find(&tables).Error; err != nil {
+		return fmt.Errorf("%#v: %v", qry, err)
+	}
+	for _, table := range tables {
+		table := table.Name
+		var count int
+		if err := db.Table(table).Count(&count).Error; err != nil {
+			return fmt.Errorf("db.Table(%v).Count(): %v", table, err)
+		}
+		if count > 0 {
+			continue
+		}
+		qry = fmt.Sprintf("DROP TABLE %v;", table)
+		if err := db.Exec(qry).Error; err != nil {
+			return fmt.Errorf("%#v: %v", qry, err)
+		}
+		var indexes []struct{ Name string }
+		qry = selectQry + "WHERE type = 'index' AND tbl_name = ?;"
+		if err := db.Raw(qry, table).
+			Scan(&indexes).Error; err != nil {
+			return fmt.Errorf("%#v: %v", qry, err)
+		}
+		for _, index := range indexes {
+			index := index.Name
+			qry = fmt.Sprintf("DROP INDEX %v;", index)
+			if err := db.Exec(qry, index).Error; err != nil {
+				return fmt.Errorf("%#v: %v", qry, err)
+			}
+		}
 	}
 	return nil
 }
@@ -252,13 +295,27 @@ func (chain *Chain) createEntry(fe factom.Entry) (*entry, error) {
 	if !e.IsValid() {
 		return nil, fmt.Errorf("invalid hash: factom.Entry%+v", fe)
 	}
-	if chain.Where("hash = ?", e.Hash).First(&e).Error != gorm.ErrRecordNotFound {
-		return nil, nil
+	if err := chain.Where("hash = ?", e.Hash).First(&e).Error; err !=
+		gorm.ErrRecordNotFound {
+		return nil, err
 	}
 	if err := chain.Create(&e).Error; err != nil {
 		return nil, err
 	}
 	return &e, nil
+}
+
+func (chain *Chain) createNFToken(tknID fat1.NFTokenID,
+	metadata json.RawMessage) (*NFToken, error) {
+	tkn := NFToken{NFTokenID: tknID, Metadata: metadata}
+	if err := chain.Where("nf_token_id = ?", tknID).First(&tkn).Error; err !=
+		gorm.ErrRecordNotFound {
+		return nil, err
+	}
+	if err := chain.Create(&tkn).Error; err != nil {
+		return nil, err
+	}
+	return &tkn, nil
 }
 
 func (chain *Chain) saveHeight(height uint64) error {
@@ -268,12 +325,8 @@ func (chain *Chain) saveHeight(height uint64) error {
 	}
 	return nil
 }
-func (chain Chain) GetBalance(adr factom.Address) (uint64, error) {
-	a, err := chain.getAddress(adr.RCDHash())
-	return a.Balance, err
-}
-func (chain Chain) getAddress(rcdHash *factom.RCDHash) (address, error) {
-	a := address{RCDHash: rcdHash}
+func (chain Chain) GetAddress(rcdHash *factom.RCDHash) (Address, error) {
+	a := Address{RCDHash: rcdHash}
 	if err := chain.Where(&a).First(&a).Error; err != nil &&
 		err != gorm.ErrRecordNotFound {
 		return a, err
@@ -281,6 +334,47 @@ func (chain Chain) getAddress(rcdHash *factom.RCDHash) (address, error) {
 	return a, nil
 }
 
+func (chain Chain) GetNFToken(tkn *NFToken) error {
+	qry := chain.Where("nf_token_id = ?", tkn.NFTokenID)
+	if tkn.OwnerID != 0 {
+		qry = chain.Where("nf_token_id = ? AND owner_id = ?",
+			tkn.NFTokenID, tkn.OwnerID)
+	}
+	if err := qry.Preload("Owner").First(tkn).Error; err != nil {
+		return err
+	}
+	return nil
+}
+
+func (chain Chain) GetNFTokensForOwner(rcdHash *factom.RCDHash,
+	page, limit uint) ([]fat1.NFTokenID, error) {
+	a, err := chain.GetAddress(rcdHash)
+	if err != nil {
+		return nil, err
+	}
+	var tkns []NFToken
+	if err := chain.Where(&NFToken{OwnerID: a.ID}).
+		Offset(page * limit).Limit(limit).
+		Order("nf_token_id").
+		Find(&tkns).Error; err != nil {
+		return nil, err
+	}
+	tknIDs := make([]fat1.NFTokenID, len(tkns))
+	for i, tkn := range tkns {
+		tknIDs[i] = tkn.NFTokenID
+	}
+	return tknIDs, nil
+}
+
+func (chain Chain) GetAllNFTokens(page, limit uint) ([]NFToken, error) {
+	var tkns []NFToken
+	if err := chain.Offset(page * limit).Limit(limit).
+		Order("nf_token_id").
+		Preload("Owner").Find(&tkns).Error; err != nil {
+		return nil, err
+	}
+	return tkns, nil
+}
 func (chain *Chain) rollbackUnlessCommitted(savedChain Chain, err *error) {
 	// This rollback will silently fail if the db tx has already
 	// been committed.
@@ -300,38 +394,34 @@ func (chain *Chain) rollbackUnlessCommitted(savedChain Chain, err *error) {
 	chain.Issued = savedChain.Issued
 }
 
-func (chain Chain) GetTransaction(hash *factom.Bytes32) (fat0.Transaction, error) {
+func (chain Chain) GetEntry(hash *factom.Bytes32) (factom.Entry, error) {
 	e, err := chain.getEntry(hash)
 	if e == nil {
-		return fat0.Transaction{}, err
+		return factom.Entry{}, err
 	}
-	transaction := fat0.NewTransaction(e.Entry())
-	return transaction, nil
+	return e.Entry(), nil
 }
 
 func (chain Chain) getEntry(hash *factom.Bytes32) (*entry, error) {
 	e := entry{}
 	if err := chain.Not("id = ?", 1).
 		Where("hash = ?", hash).First(&e).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil, nil
-		}
 		return nil, err
 	}
 	e.Hash = hash
 	return &e, nil
 }
 
-func (chain Chain) GetTransactions(hash *factom.Bytes32,
-	adr *factom.Address, toFrom string,
-	start, limit uint) ([]fat0.Transaction, error) {
+func (chain Chain) GetEntries(hash *factom.Bytes32,
+	rcdHash *factom.RCDHash, toFrom string,
+	page, limit uint) ([]factom.Entry, error) {
 	if limit == 0 {
 		limit = math.MaxUint32
 	}
 	var e *entry
 	var es []entry
-	if adr != nil {
-		a, err := chain.getAddress(adr.RCDHash())
+	if rcdHash != nil {
+		a, err := chain.GetAddress(rcdHash)
 		if err != nil {
 			return nil, err
 		}
@@ -383,12 +473,12 @@ func (chain Chain) GetTransactions(hash *factom.Bytes32,
 					break
 				}
 			}
-			start += hashId
-			if start > uint(len(es)) {
-				start = uint(len(es))
+			page += hashId
+			if page > uint(len(es)) {
+				page = uint(len(es))
 			}
 		}
-		es = es[start:]
+		es = es[page:]
 	} else {
 		if hash != nil {
 			var err error
@@ -396,23 +486,20 @@ func (chain Chain) GetTransactions(hash *factom.Bytes32,
 			if e == nil {
 				return nil, err
 			}
-			start = uint(e.ID)
+			page = uint(e.ID)
 		} else {
-			start++
+			page++
 		}
-		if err := chain.Offset(start).Limit(limit).Find(&es).Error; err != nil {
+		if err := chain.Offset(page).Limit(limit).Find(&es).Error; err != nil {
 			if err == gorm.ErrRecordNotFound {
 				return nil, nil
 			}
 			return nil, err
 		}
 	}
-	txs := make([]fat0.Transaction, len(es))
+	entries := make([]factom.Entry, len(es))
 	for i, e := range es {
-		txs[i] = fat0.NewTransaction(e.Entry())
-		if err := txs[i].UnmarshalEntry(); err != nil {
-			return nil, err
-		}
+		entries[i] = e.Entry()
 	}
-	return txs, nil
+	return entries, nil
 }

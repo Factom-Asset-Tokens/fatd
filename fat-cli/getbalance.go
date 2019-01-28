@@ -12,7 +12,7 @@ func getBalance() error {
 		ParamsToken: srv.ParamsToken{
 			ChainID: chainID,
 		},
-		Address: &address,
+		Address: address.RCDHash(),
 	}
 	var balance uint64
 	err := factom.Request(APIAddress, "get-balance", params, &balance)

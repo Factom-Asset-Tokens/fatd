@@ -9,7 +9,7 @@ import (
 
 func getIssuance() error {
 	params := srv.ParamsToken{ChainID: chainID}
-	var issuance srv.ResultsGetIssuance
+	var issuance srv.ResultGetIssuance
 	err := factom.Request(APIAddress, "get-issuance", params, &issuance)
 	if err != nil {
 		return err

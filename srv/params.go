@@ -1,11 +1,13 @@
 package srv
 
 import (
+	"strings"
 	"time"
 
 	jrpc "github.com/AdamSLevy/jsonrpc2/v10"
 	"github.com/Factom-Asset-Tokens/fatd/factom"
 	"github.com/Factom-Asset-Tokens/fatd/fat"
+	"github.com/Factom-Asset-Tokens/fatd/fat/fat1"
 )
 
 type Params interface {
@@ -63,33 +65,29 @@ func (p ParamsGetTransaction) Error() jrpc.Error {
 
 type ParamsGetTransactions struct {
 	ParamsToken
+	// Transaction filters
 	NonFungibleTokenID string          `json:"nftokenid,omitempty"`
-	FactoidAddress     *factom.Address `json:"address,omitempty"`
+	StartHash          *factom.Bytes32 `json:"entryhash,omitempty"`
+	FactoidAddress     *factom.RCDHash `json:"address,omitempty"`
 	ToFrom             string          `json:"tofrom"`
 
 	// Pagination
-	Hash  *factom.Bytes32 `json:"entryhash,omitempty"`
-	Start *uint           `json:"start,omitempty"`
-	Limit *uint           `json:"limit,omitempty"`
+	Page  *uint `json:"page,omitempty"`
+	Limit *uint `json:"limit,omitempty"`
 }
 
 func (p *ParamsGetTransactions) IsValid() bool {
-	defer func() {
-		if p.Start == nil {
-			p.Start = new(uint)
-		}
-		if p.Limit == nil {
-			p.Limit = new(uint)
-		}
-	}()
+	if p.Page == nil {
+		p.Page = new(uint)
+	}
 	if p.Limit == nil {
 		p.Limit = new(uint)
 		*p.Limit = 25
-	} else {
-		if *p.Limit == 0 {
-			return false
-		}
 	}
+	if *p.Limit == 0 {
+		return false
+	}
+	p.ToFrom = strings.ToLower(p.ToFrom)
 	switch p.ToFrom {
 	case "to":
 	case "from":
@@ -106,11 +104,11 @@ func (p ParamsGetTransactions) Error() jrpc.Error {
 
 type ParamsGetNFToken struct {
 	ParamsToken
-	NonFungibleTokenID *string `json:"nftokenid,omitempty"`
+	NFTokenID *fat1.NFTokenID `json:"nftokenid"`
 }
 
 func (p ParamsGetNFToken) IsValid() bool {
-	return p.NonFungibleTokenID != nil
+	return p.NFTokenID != nil
 }
 
 func (p ParamsGetNFToken) Error() jrpc.Error {
@@ -119,7 +117,7 @@ func (p ParamsGetNFToken) Error() jrpc.Error {
 
 type ParamsGetBalance struct {
 	ParamsToken
-	Address *factom.Address `json:"address,omitempty"`
+	Address *factom.RCDHash `json:"address,omitempty"`
 }
 
 func (p ParamsGetBalance) IsValid() bool {
@@ -127,6 +125,59 @@ func (p ParamsGetBalance) IsValid() bool {
 }
 
 func (p ParamsGetBalance) Error() jrpc.Error {
+	return ParamsErrorGetBalance
+}
+
+type ParamsGetNFBalance struct {
+	ParamsToken
+	Address *factom.RCDHash `json:"address,omitempty"`
+
+	// Pagination
+	Page  *uint `json:"page,omitempty"`
+	Limit *uint `json:"limit,omitempty"`
+}
+
+func (p *ParamsGetNFBalance) IsValid() bool {
+	if p.Page == nil {
+		p.Page = new(uint)
+	}
+	if p.Limit == nil {
+		p.Limit = new(uint)
+		*p.Limit = 25
+	}
+	if *p.Limit == 0 {
+		return false
+	}
+	return p.Address != nil
+}
+
+func (p ParamsGetNFBalance) Error() jrpc.Error {
+	return ParamsErrorGetBalance
+}
+
+type ParamsGetAllNFTokens struct {
+	ParamsToken
+
+	// Pagination
+	Page  *uint `json:"page,omitempty"`
+	Limit *uint `json:"limit,omitempty"`
+}
+
+func (p *ParamsGetAllNFTokens) IsValid() bool {
+	if p.Page == nil {
+		p.Page = new(uint)
+	}
+	if p.Limit == nil {
+		p.Limit = new(uint)
+		*p.Limit = 25
+	}
+	if *p.Limit == 0 {
+		return false
+	}
+	return true
+}
+
+func (p ParamsGetAllNFTokens) Error() jrpc.Error {
 	return ParamsErrorGetBalance
 }
 
