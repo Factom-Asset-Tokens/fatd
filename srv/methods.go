@@ -24,6 +24,7 @@ var jrpcMethods = jrpc.MethodMap{
 	"get-transactions":       getTransactions(false),
 	"get-transactions-entry": getTransactions(true),
 	"get-balance":            getBalance,
+	"get-nf-balance":         getNFBalance,
 	"get-stats":              getStats,
 	"get-nf-token":           getNFToken,
 
@@ -126,9 +127,9 @@ func getTransactions(getEntry bool) jrpc.MethodFunc {
 		}
 
 		// Lookup Txs
-		entries, err := chain.GetEntries(params.Hash,
+		entries, err := chain.GetEntries(params.StartHash,
 			params.FactoidAddress, params.ToFrom,
-			*params.Start, *params.Limit)
+			*params.Page, *params.Limit)
 		if err != nil {
 			log.Debug(err)
 			panic(err)
@@ -184,12 +185,32 @@ func getBalance(data json.RawMessage) interface{} {
 		return err
 	}
 
-	// Lookup Txs
 	adr, err := chain.GetAddress(params.Address)
 	if err != nil {
 		panic(err)
 	}
 	return adr.Balance
+}
+
+func getNFBalance(data json.RawMessage) interface{} {
+	params := ParamsGetNFBalance{}
+	chain, err := validate(data, &params)
+	if err != nil {
+		return err
+	}
+
+	if chain.Type != fat1.Type {
+		err := ErrorTokenNotFound
+		err.Data = "Token Chain is not FAT-1"
+		return err
+	}
+
+	tkns, err := chain.GetNFTokensForOwner(params.Address, *params.Page, *params.Limit)
+	if err != nil {
+		panic(err)
+	}
+
+	return tkns
 }
 
 type ResultGetStats struct {

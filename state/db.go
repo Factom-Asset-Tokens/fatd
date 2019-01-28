@@ -346,6 +346,25 @@ func (chain Chain) GetNFToken(tkn *NFToken) error {
 	return nil
 }
 
+func (chain Chain) GetNFTokensForOwner(rcdHash *factom.RCDHash,
+	page, limit uint) ([]fat1.NFTokenID, error) {
+	a, err := chain.GetAddress(rcdHash)
+	if err != nil {
+		return nil, err
+	}
+	var tkns []NFToken
+	if err := chain.Where(&NFToken{OwnerID: a.ID}).
+		Offset(page * limit).Limit(limit).
+		Find(&tkns).Error; err != nil {
+		return nil, err
+	}
+	tknIDs := make([]fat1.NFTokenID, len(tkns))
+	for i, tkn := range tkns {
+		tknIDs[i] = tkn.NFTokenID
+	}
+	return tknIDs, nil
+}
+
 func (chain *Chain) rollbackUnlessCommitted(savedChain Chain, err *error) {
 	// This rollback will silently fail if the db tx has already
 	// been committed.
@@ -385,7 +404,7 @@ func (chain Chain) getEntry(hash *factom.Bytes32) (*entry, error) {
 
 func (chain Chain) GetEntries(hash *factom.Bytes32,
 	rcdHash *factom.RCDHash, toFrom string,
-	start, limit uint) ([]factom.Entry, error) {
+	page, limit uint) ([]factom.Entry, error) {
 	if limit == 0 {
 		limit = math.MaxUint32
 	}
@@ -444,12 +463,12 @@ func (chain Chain) GetEntries(hash *factom.Bytes32,
 					break
 				}
 			}
-			start += hashId
-			if start > uint(len(es)) {
-				start = uint(len(es))
+			page += hashId
+			if page > uint(len(es)) {
+				page = uint(len(es))
 			}
 		}
-		es = es[start:]
+		es = es[page:]
 	} else {
 		if hash != nil {
 			var err error
@@ -457,11 +476,11 @@ func (chain Chain) GetEntries(hash *factom.Bytes32,
 			if e == nil {
 				return nil, err
 			}
-			start = uint(e.ID)
+			page = uint(e.ID)
 		} else {
-			start++
+			page++
 		}
-		if err := chain.Offset(start).Limit(limit).Find(&es).Error; err != nil {
+		if err := chain.Offset(page).Limit(limit).Find(&es).Error; err != nil {
 			if err == gorm.ErrRecordNotFound {
 				return nil, nil
 			}
