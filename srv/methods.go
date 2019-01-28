@@ -27,6 +27,7 @@ var jrpcMethods = jrpc.MethodMap{
 	"get-nf-balance":         getNFBalance,
 	"get-stats":              getStats,
 	"get-nf-token":           getNFToken,
+	"get-all-nf-tokens":      getAllNFTokens,
 
 	"send-transaction": sendTransaction,
 
@@ -259,8 +260,9 @@ func getStats(data json.RawMessage) interface{} {
 }
 
 type ResultGetNFToken struct {
-	Owner    *factom.RCDHash `json:"owner"`
-	Metadata json.RawMessage `json:"metadata,omitempty"`
+	NFTokenID fat1.NFTokenID  `json:"nftokenid"`
+	Owner     *factom.RCDHash `json:"owner"`
+	Metadata  json.RawMessage `json:"metadata,omitempty"`
 }
 
 func getNFToken(data json.RawMessage) interface{} {
@@ -286,9 +288,38 @@ func getNFToken(data json.RawMessage) interface{} {
 		panic(err)
 	}
 	return ResultGetNFToken{
-		Metadata: tkn.Metadata,
-		Owner:    tkn.Owner.RCDHash,
+		NFTokenID: tkn.NFTokenID,
+		Metadata:  tkn.Metadata,
+		Owner:     tkn.Owner.RCDHash,
 	}
+}
+
+func getAllNFTokens(data json.RawMessage) interface{} {
+	params := ParamsGetAllNFTokens{}
+	chain, err := validate(data, &params)
+	if err != nil {
+		return err
+	}
+
+	if chain.Type != fat1.Type {
+		err := ErrorTokenNotFound
+		err.Data = "Token Chain is not FAT-1"
+		return err
+	}
+
+	tkns, err := chain.GetAllNFTokens(*params.Page, *params.Limit)
+	if err != nil {
+		panic(err)
+	}
+
+	res := make([]ResultGetNFToken, len(tkns))
+	for i, tkn := range tkns {
+		res[i].NFTokenID = tkn.NFTokenID
+		res[i].Metadata = tkn.Metadata
+		res[i].Owner = tkn.Owner.RCDHash
+	}
+
+	return res
 }
 
 func sendTransaction(data json.RawMessage) interface{} {

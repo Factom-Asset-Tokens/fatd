@@ -155,6 +155,32 @@ func (p ParamsGetNFBalance) Error() jrpc.Error {
 	return ParamsErrorGetBalance
 }
 
+type ParamsGetAllNFTokens struct {
+	ParamsToken
+
+	// Pagination
+	Page  *uint `json:"page,omitempty"`
+	Limit *uint `json:"limit,omitempty"`
+}
+
+func (p *ParamsGetAllNFTokens) IsValid() bool {
+	if p.Page == nil {
+		p.Page = new(uint)
+	}
+	if p.Limit == nil {
+		p.Limit = new(uint)
+		*p.Limit = 25
+	}
+	if *p.Limit == 0 {
+		return false
+	}
+	return true
+}
+
+func (p ParamsGetAllNFTokens) Error() jrpc.Error {
+	return ParamsErrorGetBalance
+}
+
 type ParamsSendTransaction struct {
 	ParamsToken
 	ExtIDs  []factom.Bytes `json:"extids"`

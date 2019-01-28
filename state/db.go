@@ -365,6 +365,15 @@ func (chain Chain) GetNFTokensForOwner(rcdHash *factom.RCDHash,
 	return tknIDs, nil
 }
 
+func (chain Chain) GetAllNFTokens(page, limit uint) ([]NFToken, error) {
+	var tkns []NFToken
+	if err := chain.Offset(page * limit).Limit(limit).
+		Order("nf_token_id").
+		Preload("Owner").Find(&tkns).Error; err != nil {
+		return nil, err
+	}
+	return tkns, nil
+}
 func (chain *Chain) rollbackUnlessCommitted(savedChain Chain, err *error) {
 	// This rollback will silently fail if the db tx has already
 	// been committed.
