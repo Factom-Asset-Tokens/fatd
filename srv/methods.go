@@ -27,7 +27,7 @@ var jrpcMethods = jrpc.MethodMap{
 	"get-nf-balance":         getNFBalance,
 	"get-stats":              getStats,
 	"get-nf-token":           getNFToken,
-	"get-all-nf-tokens":      getAllNFTokens,
+	"get-nf-tokens":          getNFTokens,
 
 	"send-transaction": sendTransaction,
 
@@ -294,7 +294,7 @@ func getNFToken(data json.RawMessage) interface{} {
 	}
 }
 
-func getAllNFTokens(data json.RawMessage) interface{} {
+func getNFTokens(data json.RawMessage) interface{} {
 	params := ParamsGetAllNFTokens{}
 	chain, err := validate(data, &params)
 	if err != nil {
