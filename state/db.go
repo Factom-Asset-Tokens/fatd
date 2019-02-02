@@ -347,7 +347,7 @@ func (chain Chain) GetNFToken(tkn *NFToken) error {
 }
 
 func (chain Chain) GetNFTokensForOwner(rcdHash *factom.RCDHash,
-	page, limit uint) ([]fat1.NFTokenID, error) {
+	page, limit uint, order string) ([]fat1.NFTokenID, error) {
 	a, err := chain.GetAddress(rcdHash)
 	if err != nil {
 		return nil, err
@@ -355,7 +355,7 @@ func (chain Chain) GetNFTokensForOwner(rcdHash *factom.RCDHash,
 	var tkns []NFToken
 	if err := chain.Where(&NFToken{OwnerID: a.ID}).
 		Offset(page * limit).Limit(limit).
-		Order("nf_token_id").
+		Order("nf_token_id " + order).
 		Find(&tkns).Error; err != nil {
 		return nil, err
 	}
@@ -366,10 +366,10 @@ func (chain Chain) GetNFTokensForOwner(rcdHash *factom.RCDHash,
 	return tknIDs, nil
 }
 
-func (chain Chain) GetAllNFTokens(page, limit uint) ([]NFToken, error) {
+func (chain Chain) GetAllNFTokens(page, limit uint, order string) ([]NFToken, error) {
 	var tkns []NFToken
 	if err := chain.Offset(page * limit).Limit(limit).
-		Order("nf_token_id").
+		Order("nf_token_id " + order).
 		Preload("Owner").Find(&tkns).Error; err != nil {
 		return nil, err
 	}

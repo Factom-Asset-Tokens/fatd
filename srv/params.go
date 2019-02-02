@@ -133,8 +133,9 @@ type ParamsGetNFBalance struct {
 	Address *factom.RCDHash `json:"address,omitempty"`
 
 	// Pagination
-	Page  *uint `json:"page,omitempty"`
-	Limit *uint `json:"limit,omitempty"`
+	Page  *uint  `json:"page,omitempty"`
+	Limit *uint  `json:"limit,omitempty"`
+	Order string `json:"order,omitempty"`
 }
 
 func (p *ParamsGetNFBalance) IsValid() bool {
@@ -148,6 +149,14 @@ func (p *ParamsGetNFBalance) IsValid() bool {
 	if *p.Limit == 0 {
 		return false
 	}
+	p.Order = strings.ToLower(p.Order)
+	switch p.Order {
+	case "asc":
+	case "desc":
+	case "":
+	default:
+		return false
+	}
 	return p.Address != nil
 }
 
@@ -159,8 +168,9 @@ type ParamsGetAllNFTokens struct {
 	ParamsToken
 
 	// Pagination
-	Page  *uint `json:"page,omitempty"`
-	Limit *uint `json:"limit,omitempty"`
+	Page  *uint  `json:"page,omitempty"`
+	Limit *uint  `json:"limit,omitempty"`
+	Order string `json:"order,omitempty"`
 }
 
 func (p *ParamsGetAllNFTokens) IsValid() bool {
@@ -172,6 +182,14 @@ func (p *ParamsGetAllNFTokens) IsValid() bool {
 		*p.Limit = 25
 	}
 	if *p.Limit == 0 {
+		return false
+	}
+	p.Order = strings.ToLower(p.Order)
+	switch p.Order {
+	case "asc":
+	case "desc":
+	case "":
+	default:
 		return false
 	}
 	return true
