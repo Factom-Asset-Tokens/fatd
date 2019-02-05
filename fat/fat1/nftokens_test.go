@@ -88,6 +88,18 @@ var NFTokensUnmarshalTests = []struct {
 	JSON:   `[{"min":0,"max":100000}]`,
 	NFTkns: newNFTokens(NewNFTokenIDRange(0, 100000)),
 }, {
+	Name:   "valid, single",
+	JSON:   `[0]`,
+	NFTkns: newNFTokens(NewNFTokenIDRange(0)),
+}, {
+	Name:   "valid, single min/max",
+	JSON:   `[{"min":0,"max":0}]`,
+	NFTkns: newNFTokens(NewNFTokenIDRange(0)),
+}, {
+	Name:   "valid, single min/max",
+	JSON:   `[{"min":9,"max":9}]`,
+	NFTkns: newNFTokens(NewNFTokenIDRange(9)),
+}, {
 	Name: "valid, large, len 200001",
 	JSON: `[{"min":0,"max":100000},{"min":100001,"max":200000}]`,
 	NFTkns: newNFTokens(NewNFTokenIDRange(0, 100000),
@@ -155,6 +167,10 @@ var NFTokensUnmarshalTests = []struct {
 	Name:  "invalid, empty",
 	JSON:  `[]`,
 	Error: "*fat1.NFTokens: empty",
+}, {
+	Name:  "invalid, min greater than max",
+	JSON:  `[{"min":900,"max":0}]`,
+	Error: "*fat1.NFTokens: *fat1.NFTokenIDRange: Min is greater than Max",
 }, {
 	Name:  "invalid, duplicates",
 	JSON:  `[0,0]`,
