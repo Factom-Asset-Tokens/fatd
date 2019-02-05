@@ -1,12 +1,14 @@
 cloud.google.com/go v0.30.0 h1:xKvyLgk56d0nksWq49J0UyGEeUIicTl4+UBiX1NPX9g=
 cloud.google.com/go v0.30.0/go.mod h1:aQUYkXzVsufM+DwF1aE+0xfcU+56JwCaLick0ClmMTw=
+github.com/AdamSLevy/dbr v0.0.0-20190204220409-06403a96499f/go.mod h1:fo0r7csDBOuQbCRTkMTk775Gt6K8AW1pwlBZW3EVkk0=
 github.com/AdamSLevy/factom v0.0.0-20181009222153-a7ad13c1f605 h1:b/8E4LxUcjmNw4lTML18fmsW2ghHDNdOabBByd8gUEE=
 github.com/AdamSLevy/factom v0.0.0-20181009222153-a7ad13c1f605/go.mod h1:S5R9T6+CUDDZQ784neTGuKR3nsBSwBBEty5n1ipyezM=
 github.com/AdamSLevy/jsonrpc2/v10 v10.0.0 h1:JQStE6vDAIgW/L6CKXEpGnIca4wEKwGjJ4XYInLNMcs=
 github.com/AdamSLevy/jsonrpc2/v10 v10.0.0/go.mod h1:KnV+V6oP8VVBOm2XA6SxPQx/OhKP5P1X6zw5lF4tXfA=
+github.com/DATA-DOG/go-sqlmock v1.3.0 h1:ljjRxlddjfChBJdFKJs5LuCwCWPLaC1UZLwAo3PBBMk=
+github.com/DATA-DOG/go-sqlmock v1.3.0/go.mod h1:f/Ixk793poVmq4qj/V1dPUg2JEAKC73Q5eFN3EC/SaM=
 github.com/Factom-Asset-Tokens/base58 v0.0.0-20181227014902-61655c4dd885 h1:rfy2fwMrOZPqQgjsH7VCreGMSPzcvqQrfjeSs8nf+sY=
 github.com/Factom-Asset-Tokens/base58 v0.0.0-20181227014902-61655c4dd885/go.mod h1:RVXsRSp6VzXw5l1uiGazuf3qo23Qk0h1HzMcQk+X4LE=
-github.com/Factom-Asset-Tokens/fat v0.0.0-20181125004625-e596ceb088d9 h1:WOgfeDnJCGFAnVyasqSObiskw21nk0wxQnjoa1xvgb0=
 github.com/FactomProject/FactomCode v0.0.0-20171228170625-d7e03150a9d5 h1:3CMiYso42Xa4iGiXXhUBl8OXFJd3wDB5Gd64eWMzJTs=
 github.com/FactomProject/FactomCode v0.0.0-20171228170625-d7e03150a9d5/go.mod h1:7XksVta7THNbD031Ax0/dS5RKMS+ug+d7/Lmti8jAhE=
 github.com/FactomProject/basen v0.0.0-20150613233007-fe3947df716e h1:ahyvB3q25YnZWly5Gq1ekg6jcmWaGj/vG/MhF4aisoc=
@@ -65,6 +67,8 @@ github.com/fsnotify/fsnotify v1.4.7 h1:IXs+QLmnXW2CcXuY+8Mzv/fWEsPGWxqefPtCP5CnV
 github.com/fsnotify/fsnotify v1.4.7/go.mod h1:jwhsz4b93w/PPRr/qN1Yymfu8t87LnFCMoQvtojpjFo=
 github.com/go-sql-driver/mysql v1.4.0 h1:7LxgVwFb2hIQtMm87NdgAVfXjnt4OePseqT1tKx+opk=
 github.com/go-sql-driver/mysql v1.4.0/go.mod h1:zAC/RDZ24gD3HViQzih4MyKcchzm+sOG5ZlKdlhCg5w=
+github.com/gocraft/dbr v0.0.0-20190131145710-48a049970bd2 h1:zPA5FYTrmWSPMYWc3xJOTMGiqqm8lrdawrQqnamsw6w=
+github.com/gocraft/dbr v0.0.0-20190131145710-48a049970bd2/go.mod h1:K/9g3pPouf13kP5K7pdriQEJAy272R9yXuWuDIEWJTM=
 github.com/golang/protobuf v1.2.0 h1:P3YflyNX/ehuJFLhxviNdFxQPkGK5cDcApsge1SqnvM=
 github.com/golang/protobuf v1.2.0/go.mod h1:6lQm79b+lXiMfvg/cZm0SGofjICqVBUtrP5yJMmIC1U=
 github.com/google/go-cmp v0.2.0 h1:+dTQ8DZQJz0Mb/HjFlkptS1FeQ4cWSnN941F8aEG4SQ=
@@ -83,6 +87,8 @@ github.com/jinzhu/inflection v0.0.0-20180308033659-04140366298a h1:eeaG9XMUvRBYX
 github.com/jinzhu/inflection v0.0.0-20180308033659-04140366298a/go.mod h1:h+uFLlag+Qp1Va5pdKtLDYj+kHp5pxUVkryuEj+Srlc=
 github.com/jinzhu/now v0.0.0-20180511015916-ed742868f2ae h1:8bBMcboXYVuo0WYH+rPe5mB8obO89a993hdTZ3phTjc=
 github.com/jinzhu/now v0.0.0-20180511015916-ed742868f2ae/go.mod h1:oHTiXerJ20+SfYcrdlBO7rzZRJWGwSTQ0iUY2jI6Gfc=
+github.com/jmoiron/sqlx v1.2.0 h1:41Ip0zITnmWNR/vHV+S4m+VoUivnWY5E4OJfLZjCJMA=
+github.com/jmoiron/sqlx v1.2.0/go.mod h1:1FEQNm3xlJgrMD+FBdI9+xvCksHtbpVBBw5dYhBSsks=
 github.com/konsorten/go-windows-terminal-sequences v0.0.0-20180402223658-b729f2633dfe h1:CHRGQ8V7OlCYtwaKPJi3iA7J+YdNKdo8j7nG5IgDhjs=
 github.com/konsorten/go-windows-terminal-sequences v0.0.0-20180402223658-b729f2633dfe/go.mod h1:T0+1ngSBFLxvqU3pZ+m/2kptfBszLMUkC4ZK/EgS/cQ=
 github.com/kr/pretty v0.1.0 h1:L/CwN0zerZDmRFUapSPitk6f+Q3+0za1rQkzVuMiMFI=

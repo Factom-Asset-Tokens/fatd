@@ -126,10 +126,16 @@ func getTransactions(getEntry bool) jrpc.MethodFunc {
 		if err != nil {
 			return err
 		}
+		if params.NFTokenID != nil && chain.Type != fat1.Type {
+			err := ErrorTokenNotFound
+			err.Data = "Token Chain is not FAT-1"
+			return err
+		}
 
 		// Lookup Txs
 		entries, err := chain.GetEntries(params.StartHash,
-			params.FactoidAddress, params.ToFrom,
+			params.Address, params.NFTokenID,
+			params.ToFrom, params.Order,
 			*params.Page, *params.Limit)
 		if err != nil {
 			log.Debug(err)
@@ -240,7 +246,7 @@ func getStats(data json.RawMessage) interface{} {
 		panic(err)
 	}
 	burned := coinbase.Balance
-	txs, err := chain.GetEntries(nil, nil, "", 0, 0)
+	txs, err := chain.GetEntries(nil, nil, nil, "", "", 0, 0)
 	if err != nil {
 		panic(err)
 	}
@@ -260,7 +266,7 @@ func getStats(data json.RawMessage) interface{} {
 }
 
 type ResultGetNFToken struct {
-	NFTokenID fat1.NFTokenID  `json:"nftokenid"`
+	NFTokenID fat1.NFTokenID  `json:"id"`
 	Owner     *factom.RCDHash `json:"owner"`
 	Metadata  json.RawMessage `json:"metadata,omitempty"`
 }

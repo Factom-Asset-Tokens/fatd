@@ -66,10 +66,11 @@ func (p ParamsGetTransaction) Error() jrpc.Error {
 type ParamsGetTransactions struct {
 	ParamsToken
 	// Transaction filters
-	NonFungibleTokenID string          `json:"nftokenid,omitempty"`
-	StartHash          *factom.Bytes32 `json:"entryhash,omitempty"`
-	FactoidAddress     *factom.RCDHash `json:"address,omitempty"`
-	ToFrom             string          `json:"tofrom"`
+	NFTokenID *fat1.NFTokenID `json:"nftokenid,omitempty"`
+	Address   *factom.RCDHash `json:"address,omitempty"`
+	StartHash *factom.Bytes32 `json:"entryhash,omitempty"`
+	ToFrom    string          `json:"tofrom"`
+	Order     string          `json:"order"`
 
 	// Pagination
 	Page  *uint `json:"page,omitempty"`
@@ -89,9 +90,17 @@ func (p *ParamsGetTransactions) IsValid() bool {
 	}
 	p.ToFrom = strings.ToLower(p.ToFrom)
 	switch p.ToFrom {
-	case "to":
-	case "from":
+	case "to", "from":
+		if p.Address == nil {
+			return false
+		}
 	case "":
+	default:
+		return false
+	}
+	p.Order = strings.ToLower(p.Order)
+	switch p.Order {
+	case "", "asc", "desc":
 	default:
 		return false
 	}

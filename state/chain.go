@@ -5,6 +5,7 @@ import (
 
 	"github.com/Factom-Asset-Tokens/fatd/factom"
 	"github.com/Factom-Asset-Tokens/fatd/fat"
+	"github.com/gocraft/dbr"
 	"github.com/jinzhu/gorm"
 )
 
@@ -15,6 +16,7 @@ type Chain struct {
 	fat.Issuance
 	Metadata
 	*gorm.DB
+	DBR *dbr.Connection
 }
 
 func (chain Chain) String() string {

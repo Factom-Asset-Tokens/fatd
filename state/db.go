@@ -8,6 +8,8 @@ import (
 	"math"
 	"os"
 
+	"github.com/gocraft/dbr"
+	"github.com/gocraft/dbr/dialect"
 	"github.com/jinzhu/gorm"
 	_ "github.com/jinzhu/gorm/dialects/sqlite"
 
@@ -57,6 +59,11 @@ func Load() error {
 		}
 		if err := chain.loadIssuance(); err != nil {
 			return err
+		}
+
+		chain.DBR = &dbr.Connection{
+			DB: chain.DB.DB(), Dialect: dialect.SQLite3,
+			EventReceiver: &dbr.NullEventReceiver{},
 		}
 		Chains.set(chain.ID, &chain)
 		if chain.Metadata.Height == 0 {
@@ -412,94 +419,90 @@ func (chain Chain) getEntry(hash *factom.Bytes32) (*entry, error) {
 	return &e, nil
 }
 
+const LimitMax = 1000
+
 func (chain Chain) GetEntries(hash *factom.Bytes32,
-	rcdHash *factom.RCDHash, toFrom string,
+	rcdHash *factom.RCDHash, tknID *fat1.NFTokenID,
+	toFrom, order string,
 	page, limit uint) ([]factom.Entry, error) {
-	if limit == 0 {
-		limit = math.MaxUint32
+	if limit == 0 || limit > LimitMax {
+		limit = LimitMax
 	}
-	var e *entry
-	var es []entry
+
+	sess := chain.DBR.NewSession(nil)
+	stmt := sess.Select("*").From("entries").Where("id != 1").
+		Limit(uint64(limit)).
+		Offset(uint64(page * limit))
+
+	switch order {
+	case "", "asc":
+		stmt.OrderAsc("timestamp")
+	case "desc":
+		stmt.OrderDesc("timestamp")
+	default:
+		panic(fmt.Sprintf("invalid order value: %#v", order))
+	}
+
 	if rcdHash != nil {
-		a, err := chain.GetAddress(rcdHash)
-		if err != nil {
-			return nil, err
+		addressIDStmt := dbr.Select("id").From("addresses").
+			Where("rcd_hash = ?", rcdHash)
+		var entryIDs dbr.Builder
+		switch toFrom {
+		case "to", "from":
+			entryIDs = dbr.Select("entry_id").
+				From("address_transactions_"+toFrom).
+				Where("address_id == ?", addressIDStmt)
+		case "":
+			entryIDs = dbr.UnionAll(
+				dbr.Select("entry_id").From("address_transactions_to").
+					Where("address_id == ?", addressIDStmt),
+				dbr.Select("entry_id").From("address_transactions_from").
+					Where("address_id == ?", addressIDStmt))
+		default:
+			panic(fmt.Sprintf("invalid toFrom value: %#v", toFrom))
 		}
-		var to, from []entry
-		if toFrom != "from" {
-			if err := chain.Limit(limit).Model(&a).
-				Association("To").Find(&to).Error; err != nil {
-				return nil, err
-			}
-		}
-		if toFrom != "to" {
-			if err := chain.Limit(limit).Model(&a).
-				Association("From").Find(&from).Error; err != nil {
-				return nil, err
-			}
-		}
-		if int(limit) > len(to)+len(from) {
-			limit = uint(len(to) + len(from))
-		}
-		es = make([]entry, limit)
-		var t, f int
-		for i := range es {
-			if t < len(to) && f < len(from) {
-				var next entry
-				if to[t].ID < from[f].ID {
-					next = to[t]
-					t++
-				} else {
-					next = from[f]
-					f++
-				}
-				es[i] = next
-			} else {
-				var nexts []entry
-				if t < len(to) {
-					nexts = to
-				} else {
-					nexts = from
-				}
-				es = append(es[:i], nexts...)
-				break
-			}
-		}
-		if hash != nil {
-			hashId := uint(len(es))
-			for i, e := range es {
-				if *e.Hash == *hash {
-					hashId = uint(i)
-					break
-				}
-			}
-			page += hashId
-			if page > uint(len(es)) {
-				page = uint(len(es))
-			}
-		}
-		es = es[page:]
-	} else {
-		if hash != nil {
-			var err error
-			e, err = chain.getEntry(hash)
-			if e == nil {
-				return nil, err
-			}
-			page = uint(e.ID)
-		} else {
-			page++
-		}
-		if err := chain.Offset(page).Limit(limit).Find(&es).Error; err != nil {
-			if err == gorm.ErrRecordNotFound {
-				return nil, nil
-			}
-			return nil, err
-		}
+		stmt.Where("id IN ?", entryIDs)
+	}
+
+	if tknID != nil {
+		tokenIDStmt := dbr.Select("id").From("nf_tokens").
+			Where("nf_token_id = ?", tknID)
+		entryIDs := dbr.Select("entry_id").
+			From("nf_token_transactions").
+			Where("nf_token_id == ?", tokenIDStmt)
+		stmt.Where("id IN ?", entryIDs)
+	}
+
+	var es []entry
+	if _, err := stmt.Load(&es); err != nil {
+		return nil, err
 	}
 	entries := make([]factom.Entry, len(es))
 	for i, e := range es {
 		entries[i] = e.Entry()
 	}
 	return entries, nil
+}
+
+type erlog struct{}
+
+func (e erlog) Event(eventName string) {
+	log.Debugf("Event: %#v", eventName)
+}
+func (e erlog) EventKv(eventName string, kvs map[string]string) {
+	log.Debugf("Event: %#v Kv: %v", eventName, kvs)
+}
+func (e erlog) EventErr(eventName string, err error) error {
+	log.Debugf("Event: %#v Err: %v", eventName, err)
+	return err
+}
+func (e erlog) EventErrKv(eventName string, err error, kvs map[string]string) error {
+	log.Debugf("Event: %#v Err: %v Kvs: %v", eventName, err, kvs)
+	return err
+}
+func (e erlog) Timing(eventName string, nanoseconds int64) {
+	log.Debugf("Event: %#v Timing: %v", eventName, nanoseconds)
+}
+func (e erlog) TimingKv(eventName string, nanoseconds int64, kvs map[string]string) {
+	log.Debugf("Event: %#v Timing: %v Kvs: %v", eventName, nanoseconds, kvs)
 }
