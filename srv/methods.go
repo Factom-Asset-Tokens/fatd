@@ -221,6 +221,7 @@ func getNFBalance(data json.RawMessage) interface{} {
 }
 
 type ResultGetStats struct {
+	Type                     fat.Type     `json:"type"`
 	Supply                   int64        `json:"supply"`
 	CirculatingSupply        uint64       `json:"circulating"`
 	Burned                   uint64       `json:"burned"`
@@ -256,6 +257,7 @@ func getStats(data json.RawMessage) interface{} {
 		lastTxTs = txs[len(txs)-1].Timestamp
 	}
 	return ResultGetStats{
+		Type:                     chain.Type,
 		Supply:                   chain.Supply,
 		CirculatingSupply:        chain.Issued - burned,
 		Burned:                   burned,
