@@ -212,7 +212,8 @@ func getNFBalance(data json.RawMessage) interface{} {
 		return err
 	}
 
-	tkns, err := chain.GetNFTokensForOwner(params.Address, *params.Page, *params.Limit, params.Order)
+	tkns, err := chain.GetNFTokensForOwner(params.Address,
+		*params.Page, *params.Limit, params.Order)
 	if err != nil {
 		panic(err)
 	}

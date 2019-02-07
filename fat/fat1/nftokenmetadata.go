@@ -9,7 +9,7 @@ type NFTokenIDMetadataMap map[NFTokenID]json.RawMessage
 
 type NFTokenMetadata struct {
 	Tokens   NFTokens        `json:"ids"`
-	Metadata json.RawMessage `json:"metadata"`
+	Metadata json.RawMessage `json:"metadata,omitempty"`
 }
 
 func (m *NFTokenIDMetadataMap) UnmarshalJSON(data []byte) error {
@@ -45,7 +45,8 @@ func (m *NFTokenIDMetadataMap) UnmarshalJSON(data []byte) error {
 	expectedJSONLen += len(`[]`) - len(`,`) +
 		len(tknMs)*len(`{"ids":,"metadata":},`)
 	if expectedJSONLen != len(compactJSON(data)) {
-		return fmt.Errorf("%T: unexpected JSON length %v %v ", m, expectedJSONLen, len(compactJSON(data)))
+		return fmt.Errorf("%T: unexpected JSON length %v %v ",
+			m, expectedJSONLen, len(compactJSON(data)))
 
 	}
 	return nil

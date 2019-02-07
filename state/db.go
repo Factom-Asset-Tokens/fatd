@@ -354,23 +354,31 @@ func (chain Chain) GetNFToken(tkn *NFToken) error {
 }
 
 func (chain Chain) GetNFTokensForOwner(rcdHash *factom.RCDHash,
-	page, limit uint, order string) ([]fat1.NFTokenID, error) {
-	a, err := chain.GetAddress(rcdHash)
-	if err != nil {
+	page, limit uint, order string) (fat1.NFTokens, error) {
+	sess := chain.DBR.NewSession(nil)
+	ownerID := dbr.Select("id").From("addresses").
+		Where("rcd_hash = ?", rcdHash)
+	stmt := sess.Select("nf_token_id").From("nf_tokens").
+		Where("owner_id = ?", ownerID)
+
+	switch order {
+	case "", "asc":
+		stmt.OrderAsc("nf_token_id")
+	case "desc":
+		stmt.OrderDesc("nf_token_id")
+	default:
+		panic(fmt.Sprintf("invalid order value: %#v", order))
+	}
+
+	var dbtkns []NFToken
+	if _, err := stmt.Load(&dbtkns); err != nil {
 		return nil, err
 	}
-	var tkns []NFToken
-	if err := chain.Where(&NFToken{OwnerID: a.ID}).
-		Offset(page * limit).Limit(limit).
-		Order("nf_token_id " + order).
-		Find(&tkns).Error; err != nil {
-		return nil, err
+	tkns := make(fat1.NFTokens, len(dbtkns))
+	for _, tkn := range dbtkns {
+		tkns[tkn.NFTokenID] = struct{}{}
 	}
-	tknIDs := make([]fat1.NFTokenID, len(tkns))
-	for i, tkn := range tkns {
-		tknIDs[i] = tkn.NFTokenID
-	}
-	return tknIDs, nil
+	return tkns, nil
 }
 
 func (chain Chain) GetAllNFTokens(page, limit uint, order string) ([]NFToken, error) {
@@ -444,20 +452,20 @@ func (chain Chain) GetEntries(hash *factom.Bytes32,
 	}
 
 	if rcdHash != nil {
-		addressIDStmt := dbr.Select("id").From("addresses").
+		addressID := dbr.Select("id").From("addresses").
 			Where("rcd_hash = ?", rcdHash)
 		var entryIDs dbr.Builder
 		switch toFrom {
 		case "to", "from":
 			entryIDs = dbr.Select("entry_id").
 				From("address_transactions_"+toFrom).
-				Where("address_id == ?", addressIDStmt)
+				Where("address_id == ?", addressID)
 		case "":
 			entryIDs = dbr.UnionAll(
 				dbr.Select("entry_id").From("address_transactions_to").
-					Where("address_id == ?", addressIDStmt),
+					Where("address_id == ?", addressID),
 				dbr.Select("entry_id").From("address_transactions_from").
-					Where("address_id == ?", addressIDStmt))
+					Where("address_id == ?", addressID))
 		default:
 			panic(fmt.Sprintf("invalid toFrom value: %#v", toFrom))
 		}
