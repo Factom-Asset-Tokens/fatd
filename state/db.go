@@ -51,7 +51,7 @@ func Load() error {
 		}
 		log.Debugf("loading chain: %v", chain.ID)
 		var err error
-		if chain.DB, err = open(fname); err != nil {
+		if err = chain.open(fname); err != nil {
 			return err
 		}
 		if err := chain.loadMetadata(); err != nil {
@@ -61,10 +61,6 @@ func Load() error {
 			return err
 		}
 
-		chain.DBR = &dbr.Connection{
-			DB: chain.DB.DB(), Dialect: dialect.SQLite3,
-			EventReceiver: &dbr.NullEventReceiver{},
-		}
 		Chains.set(chain.ID, &chain)
 		if chain.Metadata.Height == 0 {
 			continue
@@ -136,11 +132,11 @@ const (
 )
 
 // open a database
-func open(fname string) (*gorm.DB, error) {
+func (c *Chain) open(fname string) error {
 	fpath := flag.DBPath + "/" + fname
 	db, err := gorm.Open(dbDriver, fpath)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	// Ensure the db gets closed if there are any issues.
 	defer func() {
@@ -150,9 +146,14 @@ func open(fname string) (*gorm.DB, error) {
 	}()
 	db.LogMode(false)
 	if err = autoMigrate(db); err != nil {
-		return nil, err
+		return err
 	}
-	return db, nil
+	c.DB = db
+	c.DBR = &dbr.Connection{
+		DB: db.DB(), Dialect: dialect.SQLite3,
+		EventReceiver: &dbr.NullEventReceiver{},
+	}
+	return nil
 }
 func autoMigrate(db *gorm.DB) error {
 	if err := deleteEmptyTables(db); err != nil {
@@ -214,7 +215,7 @@ func deleteEmptyTables(db *gorm.DB) error {
 func (chain *Chain) setupDB() error {
 	fname := fmt.Sprintf("%v%v", chain.ID, dbFileExtension)
 	var err error
-	if chain.DB, err = open(fname); err != nil {
+	if err = chain.open(fname); err != nil {
 		return err
 	}
 	// Ensure the db gets closed if there are any issues.
