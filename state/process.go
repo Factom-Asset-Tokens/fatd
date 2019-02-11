@@ -318,6 +318,7 @@ func (chain *Chain) applyFAT1(transaction fat1.Transaction) (err error) {
 		}
 		for tknID := range tkns {
 			tkn := allTkns[tknID]
+			tkn.Owner = a
 			tkn.OwnerID = a.ID
 			if err := chain.Save(&tkn).Error; err != nil {
 				return err
