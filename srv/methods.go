@@ -218,6 +218,12 @@ func getNFBalance(data json.RawMessage) interface{} {
 		panic(err)
 	}
 
+	// Empty fat1.NFTokens cannot be marshalled by design so substitute an
+	// empty slice.
+	if len(tkns) == 0 {
+		return []struct{}{}
+	}
+
 	return tkns
 }
 
