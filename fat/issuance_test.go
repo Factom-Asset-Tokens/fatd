@@ -118,11 +118,6 @@ var issuanceTests = []struct {
 	IssuerKey: issuerKey,
 	Issuance:  invalidIssuance("symbol"),
 }, {
-	Name:      "invalid JSON (invalid name)",
-	Error:     `*fat.Issuance: json: cannot unmarshal array into Go struct field issuance.name of type string`,
-	IssuerKey: issuerKey,
-	Issuance:  invalidIssuance("name"),
-}, {
 	Name:      "invalid JSON (nil)",
 	Error:     `unexpected end of JSON input`,
 	IssuerKey: issuerKey,
@@ -197,7 +192,6 @@ func validIssuanceEntryContentMap() map[string]interface{} {
 		"type":     "FAT-0",
 		"supply":   int64(100000),
 		"symbol":   "TEST",
-		"name":     "Test Token",
 		"metadata": []int{0},
 	}
 }
@@ -302,7 +296,6 @@ func newIssuance() Issuance {
 	return Issuance{
 		Type:   TypeFAT0,
 		Supply: 1000000,
-		Name:   "test coin",
 		Symbol: "TEST",
 	}
 }

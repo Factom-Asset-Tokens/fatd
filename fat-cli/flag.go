@@ -140,11 +140,6 @@ var (
 		Description: "Ticker symbol for the token (optional)",
 		Predictor:   complete.PredictAnything,
 		Var:         map[string]interface{}{"global": &issuance.Symbol},
-	}, "name": {
-		SubCommand:  "issue",
-		Description: "Complete descriptive name of the token (optional)",
-		Predictor:   complete.PredictAnything,
-		Var:         map[string]interface{}{"global": &issuance.Name},
 	}, "coinbase": {
 		SubCommand:  "transactFAT0|transactFAT1",
 		Description: "Create a coinbase transaction with the given amount. Requires -sk1.",

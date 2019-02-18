@@ -14,7 +14,6 @@ type Issuance struct {
 	Supply int64 `json:"supply"`
 
 	Symbol string `json:"symbol,omitempty"`
-	Name   string `json:"name,omitempty"`
 	Entry
 }
 
@@ -38,7 +37,6 @@ func (i Issuance) expectedJSONLength() int {
 	l += len(`"type":""`) + len(i.Type.String())
 	l += len(`,"supply":`) + jsonlen.Int64(i.Supply)
 	l += jsonStrLen("symbol", i.Symbol)
-	l += jsonStrLen("name", i.Name)
 	l += i.MetadataJSONLen()
 	return l
 }

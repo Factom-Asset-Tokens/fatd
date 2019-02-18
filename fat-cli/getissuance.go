@@ -22,7 +22,6 @@ func getIssuance() error {
 	fmt.Printf("\tType: %v\n", issuance.Issuance.Type)
 	fmt.Printf("\tSupply: %v\n", issuance.Issuance.Supply)
 	fmt.Printf("\tSymbol: %v\n", issuance.Issuance.Symbol)
-	fmt.Printf("\tName: %v\n", issuance.Issuance.Name)
 	fmt.Printf("\tMetadata: %v\n", issuance.Issuance.Metadata)
 	return nil
 }
