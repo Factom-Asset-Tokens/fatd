@@ -81,11 +81,11 @@ func getTransaction(getEntry bool) jrpc.MethodFunc {
 		}
 
 		entry, err := chain.GetEntry(params.Hash)
+		if err == gorm.ErrRecordNotFound {
+			return ErrorTransactionNotFound
+		}
 		if err != nil {
 			panic(err)
-		}
-		if !entry.IsPopulated() {
-			return ErrorTransactionNotFound
 		}
 
 		if getEntry {
@@ -137,8 +137,10 @@ func getTransactions(getEntry bool) jrpc.MethodFunc {
 			params.Address, params.NFTokenID,
 			params.ToFrom, params.Order,
 			*params.Page, *params.Limit)
+		if err == gorm.ErrRecordNotFound {
+			return ErrorTransactionNotFound
+		}
 		if err != nil {
-			log.Debug(err)
 			panic(err)
 		}
 		if len(entries) == 0 {

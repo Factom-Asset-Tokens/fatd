@@ -31,10 +31,7 @@ func (b *Bytes32) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("%T: expected JSON string", b)
 	}
 	data = data[1 : len(data)-1]
-	if len(data) == 0 {
-		return nil
-	}
-	if len(data) != len(b)*2 {
+	if len(data) != hex.EncodedLen(len(b)) {
 		return fmt.Errorf("%T: invalid length", b)
 	}
 	if _, err := hex.Decode(b[:], data); err != nil {
