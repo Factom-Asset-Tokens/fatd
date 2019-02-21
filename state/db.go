@@ -443,13 +443,21 @@ func (chain Chain) GetEntries(hash *factom.Bytes32,
 		Limit(uint64(limit)).
 		Offset(uint64(page * limit))
 
+	var sign string
 	switch order {
 	case "", "asc":
-		stmt.OrderAsc("timestamp")
+		stmt.OrderAsc("id")
+		sign = ">"
 	case "desc":
-		stmt.OrderDesc("timestamp")
+		stmt.OrderDesc("id")
+		sign = "<"
 	default:
 		panic(fmt.Sprintf("invalid order value: %#v", order))
+	}
+
+	if hash != nil {
+		entryID := dbr.Select("id").From("entries").Where("hash = ?", hash)
+		stmt.Where(fmt.Sprintf("id %v= ?", sign), entryID)
 	}
 
 	if rcdHash != nil {

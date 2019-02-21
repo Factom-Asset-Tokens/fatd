@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	jrpc "github.com/AdamSLevy/jsonrpc2/v10"
+	"github.com/gocraft/dbr"
 	"github.com/jinzhu/gorm"
 
 	"github.com/Factom-Asset-Tokens/fatd/factom"
@@ -137,7 +138,7 @@ func getTransactions(getEntry bool) jrpc.MethodFunc {
 			params.Address, params.NFTokenID,
 			params.ToFrom, params.Order,
 			*params.Page, *params.Limit)
-		if err == gorm.ErrRecordNotFound {
+		if err == dbr.ErrNotFound {
 			return ErrorTransactionNotFound
 		}
 		if err != nil {
