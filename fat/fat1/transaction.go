@@ -39,7 +39,8 @@ func (t *Transaction) UnmarshalJSON(data []byte) error {
 	var expectedJSONLen int
 	if len(tRaw.TokenMetadata) > 0 {
 		if !t.IsCoinbase() {
-			return fmt.Errorf(`%T: %v`, t, `invalid field: "tokenmetadata"`)
+			return fmt.Errorf(`%T: %v`, t,
+				`invalid field for non-coinbase transaction: "tokenmetadata"`)
 		}
 		if err := t.TokenMetadata.UnmarshalJSON(tRaw.TokenMetadata); err != nil {
 			return fmt.Errorf("%T.TokenMetadata: %v", t, err)
