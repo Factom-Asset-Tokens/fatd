@@ -3,4 +3,6 @@ fatd.sqlite3
 .idea
 coverage.out
 fatd.db/
-fat-cli/fat-cli
+cli/fat-cli
+cli/cli
+fat-cli
