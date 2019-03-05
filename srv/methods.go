@@ -135,7 +135,7 @@ func getTransactions(getEntry bool) jrpc.MethodFunc {
 
 		// Lookup Txs
 		entries, err := chain.GetEntries(params.StartHash,
-			params.Address, params.NFTokenID,
+			params.Addresses, params.NFTokenID,
 			params.ToFrom, params.Order,
 			*params.Page, *params.Limit)
 		if err == dbr.ErrNotFound {

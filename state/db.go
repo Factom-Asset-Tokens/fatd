@@ -431,7 +431,7 @@ func (chain Chain) getEntry(hash *factom.Bytes32) (*entry, error) {
 const LimitMax = 1000
 
 func (chain Chain) GetEntries(hash *factom.Bytes32,
-	rcdHash *factom.RCDHash, tknID *fat1.NFTokenID,
+	rcdHashes []factom.RCDHash, tknID *fat1.NFTokenID,
 	toFrom, order string,
 	page, limit uint) ([]factom.Entry, error) {
 	if limit == 0 || limit > LimitMax {
@@ -460,21 +460,21 @@ func (chain Chain) GetEntries(hash *factom.Bytes32,
 		stmt.Where(fmt.Sprintf("id %v= ?", sign), entryID)
 	}
 
-	if rcdHash != nil {
-		addressID := dbr.Select("id").From("addresses").
-			Where("rcd_hash = ?", rcdHash)
+	if len(rcdHashes) > 0 {
+		addressIDs := dbr.Select("id").From("addresses").
+			Where("rcd_hash IN ?", rcdHashes)
 		var entryIDs dbr.Builder
 		switch toFrom {
 		case "to", "from":
 			entryIDs = dbr.Select("entry_id").
 				From("address_transactions_"+toFrom).
-				Where("address_id == ?", addressID)
+				Where("address_id IN ?", addressIDs)
 		case "":
 			entryIDs = dbr.UnionAll(
 				dbr.Select("entry_id").From("address_transactions_to").
-					Where("address_id == ?", addressID),
+					Where("address_id IN ?", addressIDs),
 				dbr.Select("entry_id").From("address_transactions_from").
-					Where("address_id == ?", addressID))
+					Where("address_id IN ?", addressIDs))
 		default:
 			panic(fmt.Sprintf("invalid toFrom value: %#v", toFrom))
 		}
@@ -483,7 +483,7 @@ func (chain Chain) GetEntries(hash *factom.Bytes32,
 
 	if tknID != nil {
 		tokenIDStmt := dbr.Select("id").From("nf_tokens").
-			Where("nf_token_id = ?", tknID)
+			Where("nf_token_id == ?", tknID)
 		entryIDs := dbr.Select("entry_id").
 			From("nf_token_transactions").
 			Where("nf_token_id == ?", tokenIDStmt)
