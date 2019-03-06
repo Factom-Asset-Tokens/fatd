@@ -180,6 +180,8 @@ var (
 					Args: complete.PredictAnything},
 				"balance": complete.Command{
 					Args: predictAddress(true, 1, "", "")},
+				"version": complete.Command{Flags: complete.Flags{},
+					Args: complete.PredictNothing},
 			}}
 		// Set sub command args
 		for name, flag := range flagMap {
@@ -391,17 +393,10 @@ func Validate() error {
 	// Validate SubCommand
 	switch SubCommand {
 	// These SubCommands require further flag validation.
-	case "issue":
-	case "balance":
-	case "transactFAT0":
-	case "transactFAT1":
-	case "gettransaction":
-	case "stats":
-	case "getissuance":
+	case "issue", "balance", "transactFAT0", "transactFAT1",
+		"gettransaction", "stats", "getissuance":
 	// These SubCommands do not require any flags.
-	case "listtokens":
-		fallthrough
-	case "help":
+	case "listtokens", "version", "help":
 		return nil
 
 	case "":
@@ -428,9 +423,7 @@ func Validate() error {
 		if address.RCDHash() == zero.RCDHash() {
 			return fmt.Errorf("no address specified")
 		}
-	case "transactFAT0":
-		fallthrough
-	case "transactFAT1":
+	case "transactFAT0", "transactFAT1":
 		required := []string{"output"}
 		if flagMap["coinbase"].IsSet || flagMap["sk1"].IsSet {
 			if flagMap["input"].IsSet {

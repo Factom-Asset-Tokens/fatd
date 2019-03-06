@@ -5,6 +5,8 @@ import (
 	"os"
 )
 
+var Revision string
+
 func main() {
 	if err := _main(); err != nil {
 		fmt.Println(err)
@@ -42,6 +44,11 @@ func usage() error {
 	return nil
 }
 
+func version() error {
+	fmt.Println("fat-cli Revision:", Revision)
+	return nil
+}
+
 var cmdFuncMap = map[string]func() error{
 	"issue":          issue,
 	"transactFAT0":   transactFAT0,
@@ -52,4 +59,5 @@ var cmdFuncMap = map[string]func() error{
 	"listtokens":     listTokens,
 	"gettransaction": getTransaction,
 	"usage":          usage,
+	"version":        version,
 }
