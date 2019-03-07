@@ -2,7 +2,7 @@ all: fatd fat-cli
 
 dev: fatd-dev fat-cli-dev
 
-REVISION = $$(./revision.sh)
+REVISION = $$(./revision)
 LDFLAGS	 = "-X main.Revision=$(REVISION)"
 
 CLI_SRC = $(wildcard cli/*.go)
