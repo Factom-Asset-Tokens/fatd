@@ -1,3 +1,5 @@
+#!/usr/bin/bash
+
 gitver() {
   ( set -o pipefail
     git describe --long 2>/dev/null | sed 's/\([^-]*-g\)/r\1/;s/-/./g' ||
