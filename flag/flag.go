@@ -13,6 +13,8 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+var Revision string
+
 // Environment variable name prefix
 const envNamePrefix = "FATD_"
 
@@ -221,9 +223,6 @@ func Validate() {
 	log.Debugf("-factomdcert    %#v", rpc.FactomdTLSCertFile)
 	log.Debugf("-factomdtimeout %v ", rpc.FactomdTimeout)
 	debugPrintln()
-
-	// Validate options
-
 }
 
 func flagVar(v interface{}, name string) {

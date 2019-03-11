@@ -494,14 +494,16 @@ func getDaemonTokens(data json.RawMessage) interface{} {
 	return chains
 }
 
+type ResultGetDaemonProperties struct {
+	FatdVersion string `json:"fatdversion"`
+	APIVersion  string `json:"apiversion"`
+}
+
 func getDaemonProperties(data json.RawMessage) interface{} {
 	if data != nil {
 		return ParamsErrorNoParams
 	}
-	return struct {
-		FatdVersion string `json:"fatdversion"`
-		APIVersion  string `json:"apiversion"`
-	}{FatdVersion: "0.0.0", APIVersion: "v0"}
+	return ResultGetDaemonProperties{FatdVersion: flag.Revision, APIVersion: "0"}
 }
 
 func validate(data json.RawMessage, params Params) (*state.Chain, error) {

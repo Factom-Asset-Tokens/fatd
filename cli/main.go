@@ -44,11 +44,6 @@ func usage() error {
 	return nil
 }
 
-func version() error {
-	fmt.Println("fat-cli Revision:", Revision)
-	return nil
-}
-
 var cmdFuncMap = map[string]func() error{
 	"issue":          issue,
 	"transactFAT0":   transactFAT0,

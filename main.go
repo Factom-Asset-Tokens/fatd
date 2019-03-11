@@ -10,8 +10,6 @@ import (
 	"github.com/Factom-Asset-Tokens/fatd/srv"
 )
 
-var Revision string
-
 func main() { os.Exit(_main()) }
 func _main() (ret int) {
 	flag.Parse()
@@ -23,7 +21,7 @@ func _main() (ret int) {
 	flag.Validate()
 
 	log := log.New("main")
-	log.Debug("Revision: ", Revision)
+	log.Info("Fatd Version: ", flag.Revision)
 
 	engineErrCh, err := engine.Start()
 	if err != nil {

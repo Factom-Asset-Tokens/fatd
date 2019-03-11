@@ -2,7 +2,7 @@
 
 gitver() {
   ( set -o pipefail
-    git describe --long 2>/dev/null | sed 's/\([^-]*-g\)/r\1/;s/-/./g' ||
+    git describe --long --tags 2>/dev/null | sed 's/\([^-]*-g\)/r\1/;s/-/./g' | tr -d '\n' ||
     printf "r%s.%s" "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)"
   )
 }
@@ -36,7 +36,7 @@ parse_git_dirty() {
 		bits="!${bits}"
 	fi
 	if [ ! "${bits}" == "" ]; then
-		echo -n ".${bits}"
+		echo -n "${bits}"
 	fi
 }
 
