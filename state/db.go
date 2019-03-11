@@ -113,7 +113,9 @@ func SaveHeight(height uint64) error {
 	defer Chains.Unlock()
 
 	for _, chain := range Chains.m {
-		if !chain.IsTracked() || chain.Metadata.Height >= height || chain.DB.Error != nil {
+		if !chain.IsTracked() ||
+			chain.Metadata.Height >= height ||
+			chain.DB.Error != nil {
 			continue
 		}
 		if err := chain.saveHeight(height); err != nil {

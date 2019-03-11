@@ -9,6 +9,7 @@ import (
 	"github.com/gocraft/dbr"
 	"github.com/jinzhu/gorm"
 
+	"github.com/Factom-Asset-Tokens/fatd/engine"
 	"github.com/Factom-Asset-Tokens/fatd/factom"
 	"github.com/Factom-Asset-Tokens/fatd/fat"
 	"github.com/Factom-Asset-Tokens/fatd/fat/fat0"
@@ -34,6 +35,7 @@ var jrpcMethods = jrpc.MethodMap{
 
 	"get-daemon-tokens":     getDaemonTokens,
 	"get-daemon-properties": getDaemonProperties,
+	"get-sync-status":       getSyncStatus,
 }
 
 type ResultGetIssuance struct {
@@ -504,6 +506,16 @@ func getDaemonProperties(data json.RawMessage) interface{} {
 		return ParamsErrorNoParams
 	}
 	return ResultGetDaemonProperties{FatdVersion: flag.Revision, APIVersion: "0"}
+}
+
+type ResultGetSyncStatus struct {
+	Sync    uint64 `json:"syncheight"`
+	Current uint64 `json:"factomheight"`
+}
+
+func getSyncStatus(data json.RawMessage) interface{} {
+	sync, current := engine.GetSyncStatus()
+	return ResultGetSyncStatus{Sync: sync, Current: current}
 }
 
 func validate(data json.RawMessage, params Params) (*state.Chain, error) {

@@ -26,6 +26,8 @@ func Start() (chan error, error) {
 		return nil, err
 	}
 
+	setSyncHeight(state.SavedHeight)
+
 	log = _log.New("engine")
 	returnError = make(chan error, 1)
 	stop = make(chan error)
@@ -61,7 +63,28 @@ func engine() {
 	}
 }
 
-var synced bool
+var (
+	synced                    bool
+	syncHeight, currentHeight uint64
+	heightMtx                 = &sync.RWMutex{}
+)
+
+func GetSyncStatus() (sync, current uint64) {
+	heightMtx.RLock()
+	defer heightMtx.RUnlock()
+	return syncHeight, currentHeight
+}
+
+func setSyncHeight(sync uint64) {
+	heightMtx.Lock()
+	defer heightMtx.Unlock()
+	syncHeight = sync
+}
+func setCurrentHeight(current uint64) {
+	heightMtx.Lock()
+	defer heightMtx.Unlock()
+	currentHeight = current
+}
 
 func scanNewBlocks() error {
 	// Get the current leader's block height
@@ -69,7 +92,7 @@ func scanNewBlocks() error {
 	if err != nil {
 		return fmt.Errorf("factom.GetHeights(): %v", err)
 	}
-	currentHeight := uint64(heights.EntryHeight)
+	setCurrentHeight(uint64(heights.EntryHeight))
 	if !synced && currentHeight > state.SavedHeight {
 		log.Infof("Syncing from block %v to %v...",
 			state.SavedHeight, currentHeight)
@@ -125,6 +148,7 @@ func scanNewBlocks() error {
 				return fmt.Errorf("ChainID(%v): %v", chainID, err)
 			}
 		}
+		setSyncHeight(height)
 		if err := state.SaveHeight(height); err != nil {
 			return err
 		}
