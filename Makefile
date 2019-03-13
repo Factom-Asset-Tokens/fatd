@@ -16,10 +16,10 @@ fat-cli: $(CLI_SRC)
 	go build -ldflags=$(CLI_LDFLAGS) -o fat-cli ./cli
 
 fatd-dev: $(FATD_SRC)
-	go build -ldflags=$(FATD_LDFLAGS) -race ./
+	go build -race -ldflags=$(FATD_LDFLAGS) ./
 
 fat-cli-dev: $(CLI_SRC)
-	go build -ldflags=$(CLI_LDFLAGS) -race -o fat-cli ./cli
+	go build -race -ldflags=$(CLI_LDFLAGS) -o fat-cli ./cli
 
 .PHONY: clean purge unpurge
 
