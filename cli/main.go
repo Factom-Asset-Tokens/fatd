@@ -7,14 +7,8 @@ import (
 
 var Revision string
 
-func main() {
-	if err := _main(); err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-}
 func _main() error {
-	Parse()
+	ParseCLI()
 	// Attempt to run the completion program.
 	if Completion.Complete() {
 		// The completion program ran, so just return.
@@ -34,6 +28,12 @@ func _main() error {
 	}
 
 	return nil
+}
+func main() {
+	if err := _main(); err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
 }
 
 func usage() error {
