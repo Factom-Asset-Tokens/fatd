@@ -2,7 +2,7 @@ all: fatd fat-cli
 
 dev: fatd-dev fat-cli-dev
 
-REVISION = $$(./revision)
+REVISION := $(shell ./revision)
 FATD_LDFLAGS	 = "-X github.com/Factom-Asset-Tokens/fatd/flag.Revision=$(REVISION)"
 CLI_LDFLAGS	 = "-X main.Revision=$(REVISION)"
 
