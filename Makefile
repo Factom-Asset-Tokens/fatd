@@ -2,12 +2,12 @@ all: fatd fat-cli
 
 dev: fatd-dev fat-cli-dev
 
-REVISION := $(shell ./revision)
-FATD_LDFLAGS	 = "-X github.com/Factom-Asset-Tokens/fatd/flag.Revision=$(REVISION)"
-CLI_LDFLAGS	 = "-X main.Revision=$(REVISION)"
+REVISION     = $(shell ./revision)
+FATD_LDFLAGS = "-X github.com/Factom-Asset-Tokens/fatd/flag.Revision=$(REVISION)"
+CLI_LDFLAGS  = "-X main.Revision=$(REVISION)"
 
-CLI_SRC = $(wildcard cli/*.go)
-FATD_SRC := $(filter-out $(CLI_SRC), $(wildcard *.go */*.go */*/*.go))
+CLI_SRC  = go.mod go.sum $(wildcard cli/*.go)
+FATD_SRC = go.mod go.sum $(filter-out $(CLI_SRC), $(wildcard *.go */*.go */*/*.go))
 
 fatd: $(FATD_SRC)
 	go build -ldflags=$(FATD_LDFLAGS) ./
