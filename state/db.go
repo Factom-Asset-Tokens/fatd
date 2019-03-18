@@ -23,6 +23,7 @@ import (
 var (
 	SavedHeight uint64 = 163180
 	log         _log.Log
+	c           = flag.FactomClient
 )
 
 // Load state from all existing databases
@@ -276,7 +277,7 @@ func (chain *Chain) loadIssuance() error {
 		return err
 	}
 	chain.ChainStatus = ChainStatusIssued
-	if err := chain.Identity.Get(); err != nil {
+	if err := chain.Identity.Get(c); err != nil {
 		return err
 	}
 	return nil

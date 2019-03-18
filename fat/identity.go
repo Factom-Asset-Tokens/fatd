@@ -60,7 +60,7 @@ func (i Identity) IsPopulated() bool {
 // Get returns any networking or marshaling errors, but not JSON RPC or chain
 // parsing errors. To check if the Identity has been successfully populated,
 // call IsPopulated().
-func (i *Identity) Get() error {
+func (i *Identity) Get(c *factom.Client) error {
 	if i.ChainID == nil {
 		return fmt.Errorf("ChainID is nil")
 	}
@@ -73,7 +73,7 @@ func (i *Identity) Get() error {
 
 	// Get first entry block of Identity Chain.
 	eb := factom.EBlock{ChainID: i.ChainID}
-	if err := eb.GetFirst(); err != nil {
+	if err := eb.GetFirst(c); err != nil {
 		return err
 	}
 	if !eb.IsFirst() {
@@ -82,7 +82,7 @@ func (i *Identity) Get() error {
 
 	// Get first entry of first entry block.
 	first := eb.Entries[0]
-	if err := first.Get(); err != nil {
+	if err := first.Get(c); err != nil {
 		return err
 	}
 

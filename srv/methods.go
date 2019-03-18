@@ -18,6 +18,8 @@ import (
 	"github.com/Factom-Asset-Tokens/fatd/state"
 )
 
+var c = flag.FactomClient
+
 var jrpcMethods = jrpc.MethodMap{
 	"get-issuance":           getIssuance(false),
 	"get-issuance-entry":     getIssuance(true),
@@ -378,7 +380,7 @@ func sendTransaction(data json.RawMessage) interface{} {
 		panic("invalid FAT type")
 	}
 
-	txID, err := entry.Create(flag.ECPub)
+	txID, err := entry.Create(c, flag.ECPub)
 	if err != nil {
 		log.Error(err)
 		panic(err)

@@ -17,16 +17,16 @@ func (chain *Chain) Process(eb factom.EBlock) error {
 	defer Chains.set(eb.ChainID, chain)
 
 	// Load this Entry Block.
-	if err := eb.Get(); err != nil {
-		return fmt.Errorf("%#v.Get(): %v", eb, err)
+	if err := eb.Get(c); err != nil {
+		return fmt.Errorf("%#v.Get(c): %v", eb, err)
 	}
 
 	// Check if the EBlock represents a new chain.
 	if eb.IsFirst() {
 		// Load first entry of new chain.
 		first := eb.Entries[0]
-		if err := first.Get(); err != nil {
-			return fmt.Errorf("%#v.Get: %v", first, err)
+		if err := first.Get(c); err != nil {
+			return fmt.Errorf("%#v.Get(c): %v", first, err)
 		}
 
 		// Ignore chains with NameIDs that don't match the fat pattern.
@@ -75,7 +75,7 @@ func (chain *Chain) processIssuance(es []factom.Entry) error {
 	if !chain.Identity.IsPopulated() {
 		// The Identity may not have existed when this chain was first tracked.
 		// Attempt to retrieve it.
-		if err := chain.Identity.Get(); err != nil {
+		if err := chain.Identity.Get(c); err != nil {
 			if _, ok := err.(jrpc.Error); ok {
 				return nil
 			}
@@ -97,8 +97,8 @@ func (chain *Chain) processIssuance(es []factom.Entry) error {
 			continue
 		}
 		// Get the data for the entry.
-		if err := e.Get(); err != nil {
-			return fmt.Errorf("Entry%+v.Get(): %v", e, err)
+		if err := e.Get(c); err != nil {
+			return fmt.Errorf("Entry%+v.Get(c): %v", e, err)
 		}
 		issuance := fat.NewIssuance(e)
 		if err := issuance.Valid(chain.Identity.IDKey); err != nil {
@@ -118,8 +118,8 @@ func (chain *Chain) processIssuance(es []factom.Entry) error {
 
 func (chain *Chain) processTransactions(es []factom.Entry) error {
 	for _, e := range es {
-		if err := e.Get(); err != nil {
-			return fmt.Errorf("Entry%v.Get(): %v", e, err)
+		if err := e.Get(c); err != nil {
+			return fmt.Errorf("Entry%v.Get(c): %v", e, err)
 		}
 		switch chain.Type {
 		case fat0.Type:
