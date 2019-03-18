@@ -49,7 +49,7 @@ func (e *Entry) SetTimestampToNow() {
 //
 // Get returns any networking or marshaling errors, but not JSON RPC errors. To
 // check if the Entry has been successfully populated, call IsPopulated().
-func (e *Entry) Get() error {
+func (e *Entry) Get(c *Client) error {
 	// If the Hash is nil then we have nothing to query for.
 	if e.Hash == nil {
 		return fmt.Errorf("Hash is nil")
@@ -65,7 +65,7 @@ func (e *Entry) Get() error {
 	var result struct {
 		Data Bytes `json:"data"`
 	}
-	if err := FactomdRequest("raw-data", params, &result); err != nil {
+	if err := c.FactomdRequest("raw-data", params, &result); err != nil {
 		return err
 	}
 	return e.UnmarshalBinary(result.Data)
@@ -95,7 +95,7 @@ type commitResult struct {
 	TxID *Bytes32
 }
 
-func (e *Entry) Create(ecpub string) (*Bytes32, error) {
+func (e *Entry) Create(c *Client, ecpub string) (*Bytes32, error) {
 	var params interface{}
 	var method string
 	if e.ChainID == nil {
@@ -112,7 +112,7 @@ func (e *Entry) Create(ecpub string) (*Bytes32, error) {
 		}
 	}
 	result := composeResult{}
-	if err := WalletRequest(method, params, &result); err != nil {
+	if err := c.WalletRequest(method, params, &result); err != nil {
 		return nil, err
 	}
 	if len(result.Commit.Method) == 0 {
@@ -120,11 +120,11 @@ func (e *Entry) Create(ecpub string) (*Bytes32, error) {
 	}
 
 	var commit commitResult
-	if err := FactomdRequest(result.Commit.Method, result.Commit.Params,
+	if err := c.FactomdRequest(result.Commit.Method, result.Commit.Params,
 		&commit); err != nil {
 		return nil, err
 	}
-	if err := FactomdRequest(result.Reveal.Method, result.Reveal.Params,
+	if err := c.FactomdRequest(result.Reveal.Method, result.Reveal.Params,
 		e); err != nil {
 		return nil, err
 	}

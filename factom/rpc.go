@@ -11,21 +11,26 @@ import (
 	jrpc "github.com/AdamSLevy/jsonrpc2/v10"
 )
 
-var DebugRPC bool
+type Client struct {
+	http.Client
+	FactomdServer string
+	WalletServer  string
+	DebugRPC      bool
+}
 
-// request makes a JSON RPC request with the given method and params, and then
+// Request makes a JSON RPC request with the given method and params, and then
 // parses the response with the given result type. request only returns
 // networking and unmarshaling errors. JSON RPC Errors are not returned. It is
 // up to the caller to determine whether their result is properly populated
 // after request returns. Since data will need to be marshaled into result, the
 // result type should be passed as a pointer.
-func Request(endpoint, method string, params, result interface{}) error {
+func (c *Client) request(endpoint, method string, params, result interface{}) error {
 	// Generate a random ID for this request.
 	id := rand.Uint32()%200 + 500
 
 	// Marshal the JSON RPC Request.
 	reqJrpc := jrpc.NewRequest(method, id, params)
-	if DebugRPC {
+	if c.DebugRPC {
 		fmt.Println(reqJrpc)
 	}
 	reqBytes, err := json.Marshal(reqJrpc)
@@ -39,7 +44,6 @@ func Request(endpoint, method string, params, result interface{}) error {
 		return err
 	}
 	req.Header.Add("Content-Type", "application/json")
-	c := http.Client{Timeout: RpcConfig.FactomdTimeout}
 	res, err := c.Do(req)
 	if err != nil {
 		return err
@@ -60,7 +64,7 @@ func Request(endpoint, method string, params, result interface{}) error {
 	if err := json.Unmarshal(resBytes, &resJrpc); err != nil {
 		return fmt.Errorf("json.Unmarshal(%v): %v", string(resBytes), err)
 	}
-	if DebugRPC {
+	if c.DebugRPC {
 		fmt.Println(resJrpc)
 		fmt.Println("")
 	}
@@ -70,11 +74,11 @@ func Request(endpoint, method string, params, result interface{}) error {
 	return nil
 }
 
-func FactomdRequest(method string, params, result interface{}) error {
-	endpoint := "http://" + RpcConfig.FactomdServer + "/v2"
-	return Request(endpoint, method, params, result)
+func (c *Client) FactomdRequest(method string, params, result interface{}) error {
+	endpoint := "http://" + c.FactomdServer + "/v2"
+	return c.request(endpoint, method, params, result)
 }
-func WalletRequest(method string, params, result interface{}) error {
-	endpoint := "http://" + RpcConfig.WalletServer + "/v2"
-	return Request(endpoint, method, params, result)
+func (c *Client) WalletRequest(method string, params, result interface{}) error {
+	endpoint := "http://" + c.WalletServer + "/v2"
+	return c.request(endpoint, method, params, result)
 }

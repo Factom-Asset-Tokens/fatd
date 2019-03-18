@@ -18,7 +18,7 @@ func (db DBlock) IsPopulated() bool {
 //
 // Get returns any networking or marshaling errors, but not JSON RPC errors. To
 // check if the DBlock has been successfully populated, call IsPopulated().
-func (db *DBlock) Get() error {
+func (db *DBlock) Get(c *Client) error {
 	if db.IsPopulated() {
 		return nil
 	}
@@ -28,7 +28,7 @@ func (db *DBlock) Get() error {
 	result := struct {
 		*DBlock `json:"dblock"`
 	}{DBlock: db}
-	if err := FactomdRequest("dblock-by-height", db, &result); err != nil {
+	if err := c.FactomdRequest("dblock-by-height", db, &result); err != nil {
 		return err
 	}
 

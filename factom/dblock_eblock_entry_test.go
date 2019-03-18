@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Factom-Asset-Tokens/fatd/factom"
+	. "github.com/Factom-Asset-Tokens/fatd/factom"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -13,8 +13,8 @@ var courtesyNode = "courtesy-node.factom.com"
 
 func TestDataStructures(t *testing.T) {
 	height := uint64(166587)
-	factom.RpcConfig.FactomdTimeout = 3 * time.Second
-	db := &factom.DBlock{Height: height}
+	c := newClient()
+	db := &DBlock{Height: height}
 	t.Run("DBlock", func(t *testing.T) {
 		assert := assert.New(t)
 		require := require.New(t)
@@ -23,14 +23,14 @@ func TestDataStructures(t *testing.T) {
 		require.False(db.IsPopulated())
 
 		// A bad URL will cause an error.
-		factom.RpcConfig.FactomdServer = "example.com"
-		assert.Error(db.Get())
+		c.FactomdServer = "example.com"
+		assert.Error(db.Get(c))
 
-		factom.RpcConfig.FactomdServer = courtesyNode
-		require.NoError(db.Get())
+		c.FactomdServer = courtesyNode
+		require.NoError(db.Get(c))
 
 		require.True(db.IsPopulated())
-		assert.NoError(db.Get()) // Take the early exit code path.
+		assert.NoError(db.Get(c)) // Take the early exit code path.
 
 		// Validate this DBlock.
 		assert.Len(db.EBlocks, 7)
@@ -45,8 +45,8 @@ func TestDataStructures(t *testing.T) {
 		require := require.New(t)
 
 		// An EBlock without a KeyMR or ChainID should cause an error.
-		blank := factom.EBlock{}
-		assert.EqualError(blank.Get(), "KeyMR and ChainID are both nil")
+		blank := EBlock{}
+		assert.EqualError(blank.Get(c), "KeyMR and ChainID are both nil")
 
 		// We'll use the DBlock from the last test, so it must be
 		// populated to proceed.
@@ -61,14 +61,14 @@ func TestDataStructures(t *testing.T) {
 		require.False(eb.IsPopulated())
 
 		// A bad URL will cause an error.
-		factom.RpcConfig.FactomdServer = "example.com"
-		assert.Error(eb.Get())
+		c.FactomdServer = "example.com"
+		assert.Error(eb.Get(c))
 
-		factom.RpcConfig.FactomdServer = courtesyNode
-		require.NoError(eb.Get())
+		c.FactomdServer = courtesyNode
+		require.NoError(eb.Get(c))
 
 		require.True(eb.IsPopulated())
-		assert.NoError(eb.Get()) // Take the early exit code path.
+		assert.NoError(eb.Get(c)) // Take the early exit code path.
 
 		// Validate the entries.
 		assert.Len(eb.Entries, 5)
@@ -84,13 +84,13 @@ func TestDataStructures(t *testing.T) {
 		assert.False(eb.IsFirst())
 
 		// A bad URL will cause an error.
-		factom.RpcConfig.FactomdServer = "example.com"
-		_, err := eb.GetAllPrev()
+		c.FactomdServer = "example.com"
+		_, err := eb.GetAllPrev(c)
 		assert.Error(err)
 
-		factom.RpcConfig.FactomdServer = courtesyNode
-		factom.RpcConfig.FactomdTimeout = 5 * time.Second
-		ebs, err := eb.GetAllPrev()
+		c.FactomdServer = courtesyNode
+		c.Timeout = 5 * time.Second
+		ebs, err := eb.GetAllPrev(c)
 		assert.NoError(err)
 		assert.Len(ebs, 6)
 		assert.True(ebs[0].IsFirst())
@@ -101,26 +101,26 @@ func TestDataStructures(t *testing.T) {
 
 		// Fetch the chain head EBlock via the ChainID.
 		// First use an invalid ChainID and an invalid URL.
-		eb2 := factom.EBlock{ChainID: factom.NewBytes32(nil)}
-		factom.RpcConfig.FactomdServer = "example.com"
-		assert.Error(eb2.Get())
-		assert.Error(eb2.GetFirst())
+		eb2 := EBlock{ChainID: NewBytes32(nil)}
+		c.FactomdServer = "example.com"
+		assert.Error(eb2.Get(c))
+		assert.Error(eb2.GetFirst(c))
 
-		factom.RpcConfig.FactomdServer = courtesyNode
-		require.Error(eb2.Get())
+		c.FactomdServer = courtesyNode
+		require.Error(eb2.Get(c))
 		require.False(eb2.IsPopulated())
-		assert.EqualError(eb2.GetFirst(),
+		assert.EqualError(eb2.GetFirst(c),
 			`jsonrpc2.Error{Code:-32009, Message:"Missing Chain Head"}`)
-		ebs, err = eb2.GetAllPrev()
+		ebs, err = eb2.GetAllPrev(c)
 		assert.EqualError(err,
 			`jsonrpc2.Error{Code:-32009, Message:"Missing Chain Head"}`)
 		assert.Nil(ebs)
 
 		// A valid ChainID should allow it to be populated.
 		eb2.ChainID = eb.ChainID
-		require.NoError(eb2.Get())
+		require.NoError(eb2.Get(c))
 		require.True(eb2.IsPopulated())
-		assert.NoError(eb2.GetFirst())
+		assert.NoError(eb2.GetFirst(c))
 		assert.Equal(first.KeyMR, eb2.KeyMR)
 	})
 	t.Run("Entry", func(t *testing.T) {
@@ -128,8 +128,8 @@ func TestDataStructures(t *testing.T) {
 		require := require.New(t)
 
 		// An EBlock without a KeyMR or ChainID should cause an error.
-		blank := factom.Entry{}
-		assert.EqualError(blank.Get(), "Hash is nil")
+		blank := Entry{}
+		assert.EqualError(blank.Get(c), "Hash is nil")
 
 		// We'll use the DBlock and EBlock from the last test, so they
 		// must be populated to proceed.
@@ -142,14 +142,14 @@ func TestDataStructures(t *testing.T) {
 		require.False(e.IsPopulated())
 
 		// A bad URL will cause an error.
-		factom.RpcConfig.FactomdServer = "example.com"
-		assert.Error(e.Get())
+		c.FactomdServer = "example.com"
+		assert.Error(e.Get(c))
 
-		factom.RpcConfig.FactomdServer = courtesyNode
-		require.NoError(e.Get())
+		c.FactomdServer = courtesyNode
+		require.NoError(e.Get(c))
 
 		require.True(e.IsPopulated())
-		assert.NoError(e.Get()) // Take the early exit code path.
+		assert.NoError(e.Get(c)) // Take the early exit code path.
 
 		// Validate the entry.
 		assert.Len(e.ExtIDs, 6)
@@ -159,9 +159,9 @@ func TestDataStructures(t *testing.T) {
 		assert.Equal(*e.Hash, e.ComputeHash())
 
 		e = eb.Entries[1]
-		require.NoError(e.Get())
+		require.NoError(e.Get(c))
 		assert.Equal(*e.Hash, e.ComputeHash())
 	})
 
-	assert.Equal(t, factom.Bytes32{}, factom.ZeroBytes32())
+	assert.Equal(t, Bytes32{}, ZeroBytes32())
 }

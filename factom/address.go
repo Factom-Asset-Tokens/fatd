@@ -35,7 +35,7 @@ func NewAddressFromString(adrStr string) (Address, error) {
 	return adr, err
 }
 
-func (a *Address) Get() error {
+func (a *Address) Get(c *Client) error {
 	if a.privateKey != nil {
 		return nil
 	}
@@ -45,7 +45,7 @@ func (a *Address) Get() error {
 	result := struct {
 		A *Address `json:"secret"`
 	}{A: a}
-	if err := WalletRequest("address", params, &result); err != nil {
+	if err := c.WalletRequest("address", params, &result); err != nil {
 		return err
 	}
 	return nil

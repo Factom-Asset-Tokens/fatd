@@ -34,7 +34,7 @@ func (eb EBlock) IsPopulated() bool {
 //
 // Get returns any networking or marshaling errors, but not JSON RPC errors. To
 // check if the EBlock has been successfully populated, call IsPopulated().
-func (eb *EBlock) Get() error {
+func (eb *EBlock) Get(c *Client) error {
 	// If the EBlock is already populated then there is nothing to do.
 	if eb.IsPopulated() {
 		return nil
@@ -46,7 +46,7 @@ func (eb *EBlock) Get() error {
 
 	// If we don't have a KeyMR, fetch the chain head's KeyMR.
 	if eb.KeyMR == nil {
-		if err := eb.GetChainHead(); err != nil {
+		if err := eb.GetChainHead(c); err != nil {
 			return err
 		}
 		// If we don't get a KeyMR back for the chain head then we just
@@ -60,7 +60,7 @@ func (eb *EBlock) Get() error {
 	// Make RPC request for this Entry Block.
 	params := map[string]interface{}{"keymr": eb.KeyMR}
 	method := "entry-block"
-	if err := FactomdRequest(method, params, eb); err != nil {
+	if err := c.FactomdRequest(method, params, eb); err != nil {
 		return err
 	}
 
@@ -72,13 +72,13 @@ func (eb *EBlock) Get() error {
 	return nil
 }
 
-func (eb *EBlock) GetChainHead() error {
+func (eb *EBlock) GetChainHead(c *Client) error {
 	params := eb
 	method := "chain-head"
 	result := struct {
 		KeyMR *Bytes32 `json:"chainhead"`
 	}{}
-	if err := FactomdRequest(method, params, &result); err != nil {
+	if err := c.FactomdRequest(method, params, &result); err != nil {
 		return err
 	}
 	eb.KeyMR = result.KeyMR
@@ -116,10 +116,10 @@ func (eb EBlock) Prev() EBlock {
 // JSON RPC errors. However, failing to populate any EBlock in the chain will
 // result in returning a nil slice, thus it is unneccessary to call IsPopulated
 // on any of the EBlocks in the returned slice.
-func (eb EBlock) GetAllPrev() ([]EBlock, error) {
+func (eb EBlock) GetAllPrev(c *Client) ([]EBlock, error) {
 	ebs := []EBlock{eb}
 	for ; !ebs[0].IsFirst(); ebs = append([]EBlock{ebs[0].Prev()}, ebs...) {
-		if err := ebs[0].Get(); err != nil {
+		if err := ebs[0].Get(c); err != nil {
 			return nil, err
 		}
 		if !ebs[0].IsPopulated() {
@@ -139,9 +139,9 @@ func (eb EBlock) GetAllPrev() ([]EBlock, error) {
 // Like Get, GetFirst returns any networking or marshaling errors, but not JSON
 // RPC errors. To check if the EBlock has been successfully populated, call
 // IsPopulated().
-func (eb *EBlock) GetFirst() error {
+func (eb *EBlock) GetFirst(c *Client) error {
 	for ; !eb.IsFirst(); *eb = eb.Prev() {
-		if err := eb.Get(); err != nil {
+		if err := eb.Get(c); err != nil {
 			return err
 		}
 		if !eb.IsPopulated() {
