@@ -2,7 +2,9 @@ package fat_test
 
 import (
 	"encoding/hex"
+	"net/http"
 	"testing"
+	"time"
 
 	"github.com/Factom-Asset-Tokens/fatd/factom"
 	. "github.com/Factom-Asset-Tokens/fatd/fat"
@@ -183,6 +185,8 @@ var identityTests = []struct {
 
 var factomServer = "courtesy-node.factom.com"
 
+var c = &factom.Client{Client: http.Client{Timeout: 5 * time.Second}}
+
 func TestIdentity(t *testing.T) {
 	for _, test := range identityTests {
 		t.Run(test.Name, func(t *testing.T) {
@@ -191,9 +195,9 @@ func TestIdentity(t *testing.T) {
 			if len(test.FactomServer) == 0 {
 				test.FactomServer = factomServer
 			}
-			factom.RpcConfig.FactomdServer = test.FactomServer
+			c.FactomdServer = test.FactomServer
 			i := test.Identity
-			err := i.Get()
+			err := i.Get(c)
 			populated := i.IsPopulated()
 			if len(test.Error) > 0 {
 				assert.EqualError(err, test.Error)
@@ -207,7 +211,7 @@ func TestIdentity(t *testing.T) {
 			assert.True(populated)
 			assert.Equal(int(test.Height), int(i.Height))
 			assert.Equal(*test.IDKey, *i.IDKey)
-			assert.NoError(i.Get())
+			assert.NoError(i.Get(c))
 		})
 	}
 }
