@@ -197,6 +197,7 @@ Get the tokens belonging to an address on a non-fungible token
       "min": 143,
       "max": 162
     }
+  ]
 }
 ```
 
@@ -281,6 +282,7 @@ List all issued non fungible tokens in circulation
       "id": 13,
       "owner": "FA3aECpw3gEZ7CMQvRNxEtKBGKAos3922oqYLcHQ9NqXHudC6YBM"
     }
+  ]
 }
 ```
 
