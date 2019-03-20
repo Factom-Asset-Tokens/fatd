@@ -34,8 +34,9 @@ libraries.
   commands.
 
 #### How To Build
-Ensure that Go Modules are enables by cloning this project *outside* of your
+Ensure that Go Modules are enabled by cloning this project *outside* of your
 `GOPATH`.
+
 ```bash
 $ git clone https://github.com/Factom-Asset-Tokens/fatd.git
 $ cd fatd
@@ -48,9 +49,9 @@ You should now see the `fatd` and `fat-cli` binaries in the current directory.
 TODO
 
 ## Running
-From the command line:
+Start the daemon from the command line:
 ```
-$ fatd
+$ ./fatd
 INFO Fatd Version: r155.c812dd1                    pkg=main
 INFO State engine started.                         pkg=main
 INFO JSON RPC API server started.                  pkg=main
@@ -59,7 +60,7 @@ INFO Syncing from block 183396 to 183520...        pkg=engine
 INFO Synced.                                       pkg=engine
 ```
 
-#### Exiting
+### Exiting
 To tell `fatd` to safely exit send a `SIGINT`. From most shells this can be
 done by simply pressing `CTRL`+`c`.
 ```
@@ -71,11 +72,51 @@ INFO State engine stopped.                         pkg=main
 $
 ```
 
-## RPC Endpoint
 
-`http://localhost:8078/v0`
 
-## [RPC Reference](https://github.com/Factom-Asset-Tokens/FAT/blob/FATIP-300-FAT-RPC-API-Standard/fatips/300.md)
+## Startup Flags & Options
+
+Control how fatd runs using additional options at startup. For example:
+
+```bash
+./fatd -debug -dbpath /home/ubuntu/mycustomfolder
+```
+
+
+
+| Name              | Description                                                  | Validation               | Default                   |
+| ----------------- | ------------------------------------------------------------ | ------------------------ | ------------------------- |
+| `startscanheight` | The Factom block height to begin scanning for new FAT chains and transactions | Positive Integer         | 0                         |
+| `debug`           | Enable debug mode for extra information during runtime. No value needed. | -                        | -                         |
+| `dbpath`          | Specify the path to use as fatd's sqlite database.           | Valid system path        | Current working directory |
+| `ecpub`           | The public Entry Credit address used to pay for submitting transactions | Valid EC address         | -                         |
+| `apiaddress`      | What port string the FAT daemon RPC will be bound to         | String                   | `:8078`                   |
+|                   |                                                              |                          |                           |
+| `s`               | The URL of the Factom API host                               | Valid URL                | `localhost:8088`          |
+| `factomdtimeout`  | The timeout in seconds to time out requests to factomd       | integer                  | 0                         |
+| `factomduser`     | The username of the user for factomd API authentication      | string                   | -                         |
+| `factomdpassword` | The password of the user for factomd API authentication      | string                   | -                         |
+| `factomdcert`     | Path to the factomd connection TLS certificate file          | Valid system path string | -                         |
+| `factomdtls`      | Whether to use TLS on connection to factomd                  | boolean                  | false                     |
+|                   |                                                              |                          |                           |
+| `w`               | The URL of the Factom Wallet Daemon API host                 | Valid URL                | `localhost:8089`          |
+| `wallettimeout`   | The timeout in seconds to time out requests to factomd       | integer                  | 0                         |
+| `walletuser`      | The username of the user for walletd API authentication      | string                   | -                         |
+| `walletpassword`  | The username of the user for walletd API authentication      | string                   | -                         |
+| `walletcert`      | Path to the walletd connection TLS certificate file          | Valid system path string | -                         |
+| `wallettls`       | Whether to use TLS on connection to walletd                  | boolean                  | false                     |
+
+For a complete up to date list of flags & options please see `flag/flag.go`
+
+
+
+## Default RPC Endpoint
+
+`http://localhost:8078/v1`
+
+## [RPC Reference](RPC.md)
+
+
 
 ## Troubleshooting
 TODO
