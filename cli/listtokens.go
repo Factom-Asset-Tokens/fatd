@@ -3,13 +3,12 @@ package main
 import (
 	"fmt"
 
-	"github.com/Factom-Asset-Tokens/fatd/factom"
 	"github.com/Factom-Asset-Tokens/fatd/srv"
 )
 
 func listTokens() error {
 	var tkns []srv.ParamsToken
-	err := factom.Request(APIAddress, "get-daemon-tokens", nil, &tkns)
+	err := FactomClient.Request(APIAddress, "get-daemon-tokens", nil, &tkns)
 	if err != nil {
 		return err
 	}

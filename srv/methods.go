@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	jrpc "github.com/AdamSLevy/jsonrpc2/v10"
+	jrpc "github.com/AdamSLevy/jsonrpc2/v11"
 	"github.com/gocraft/dbr"
 	"github.com/jinzhu/gorm"
 
@@ -525,7 +525,7 @@ func validate(data json.RawMessage, params Params) (*state.Chain, error) {
 		return nil, params.Error()
 	}
 	if err := unmarshalStrict(data, params); err != nil {
-		return nil, jrpc.NewInvalidParamsError(err.Error())
+		return nil, jrpc.InvalidParams(err.Error())
 	}
 	chainID := params.ValidChainID()
 	if chainID == nil || !params.IsValid() {

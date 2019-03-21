@@ -12,7 +12,7 @@ func transactFAT0() error {
 	signingAddresses := make([]factom.Address, 0, len(FAT0transaction.Inputs))
 	if flagMap["coinbase"].IsSet {
 		eb := factom.EBlock{ChainID: chainID}
-		if err := eb.GetFirst(); err != nil {
+		if err := eb.GetFirst(FactomClient); err != nil {
 			return err
 		}
 		if !eb.IsPopulated() {
@@ -20,7 +20,7 @@ func transactFAT0() error {
 		}
 		// Get NameIDs for chain to check if this chain is valid.
 		first := eb.Entries[0]
-		if err := first.Get(); err != nil {
+		if err := first.Get(FactomClient); err != nil {
 			return err
 		}
 		if !first.IsPopulated() {
@@ -30,7 +30,7 @@ func transactFAT0() error {
 			return fmt.Errorf("Not a valid token chain")
 		}
 		copy(identity.ChainID[:], first.ExtIDs[3])
-		if err := identity.Get(); err != nil {
+		if err := identity.Get(FactomClient); err != nil {
 			return err
 		}
 		if !identity.IsPopulated() {
@@ -41,12 +41,9 @@ func transactFAT0() error {
 		}
 		signingAddresses = append(signingAddresses, sk1)
 	} else {
-		for i := range allAddresses {
-			adr := allAddresses[i]
-			if _, ok := FAT0transaction.Inputs[*adr.RCDHash()]; !ok {
-				continue
-			}
-			if err := adr.Get(); err != nil {
+		for rcd := range FAT0transaction.Inputs {
+			adr := factom.NewAddress(&rcd)
+			if err := adr.Get(FactomClient); err != nil {
 				return err
 			}
 			signingAddresses = append(signingAddresses, adr)
@@ -59,24 +56,12 @@ func transactFAT0() error {
 	if err := FAT0transaction.Valid(sk1.RCDHash()); err != nil {
 		return err
 	}
-	var txID *fctm.Bytes32
-	var Hash *fctm.Bytes32
-	zeroEC := fctm.ECAddress{}
-	zeroEs := fctm.EsAddress{}
-	if ecadr != zeroEC || esadr != zeroEs {
-		e := fctmEntry(FAT0transaction.Entry.Entry)
-		zero := fctm.EsAddress{}
-		var err error
-		if esadr != zero {
-			txID, err = e.ComposeCreate(FactomClient, esadr)
-			if err != nil {
-				return err
-			}
-		} else {
-			txID, err = e.Create(FactomClient, ecadr)
-			if err != nil {
-				return err
-			}
+	var txID *factom.Bytes32
+	var err error
+	if len(ecpub) != 0 {
+		txID, err = FAT0transaction.Create(FactomClient, ecpub)
+		if err != nil {
+			return err
 		}
 		Hash = e.Hash
 	} else {
@@ -85,7 +70,7 @@ func transactFAT0() error {
 			*factom.Entry
 			TxID *factom.Bytes32 `json:"txid"`
 		}{Entry: &FAT0transaction.Entry.Entry}
-		err := factom.Request(APIAddress, "send-transaction",
+		err := FactomClient.Request(APIAddress, "send-transaction",
 			FAT0transaction.Entry.Entry, &result)
 		if err != nil {
 			return err
@@ -105,7 +90,7 @@ func transactFAT1() error {
 	signingAddresses := make([]factom.Address, 0, len(FAT1transaction.Inputs))
 	if flagMap["coinbase"].IsSet {
 		eb := factom.EBlock{ChainID: chainID}
-		if err := eb.GetFirst(); err != nil {
+		if err := eb.GetFirst(FactomClient); err != nil {
 			return err
 		}
 		if !eb.IsPopulated() {
@@ -113,7 +98,7 @@ func transactFAT1() error {
 		}
 		// Get NameIDs for chain to check if this chain is valid.
 		first := eb.Entries[0]
-		if err := first.Get(); err != nil {
+		if err := first.Get(FactomClient); err != nil {
 			return err
 		}
 		if !first.IsPopulated() {
@@ -123,7 +108,7 @@ func transactFAT1() error {
 			return fmt.Errorf("Not a valid token chain")
 		}
 		copy(identity.ChainID[:], first.ExtIDs[3])
-		if err := identity.Get(); err != nil {
+		if err := identity.Get(FactomClient); err != nil {
 			return err
 		}
 		if !identity.IsPopulated() {
@@ -134,12 +119,9 @@ func transactFAT1() error {
 		}
 		signingAddresses = append(signingAddresses, sk1)
 	} else {
-		for i := range allAddresses {
-			adr := allAddresses[i]
-			if _, ok := FAT1transaction.Inputs[*adr.RCDHash()]; !ok {
-				continue
-			}
-			if err := adr.Get(); err != nil {
+		for rcd := range FAT1transaction.Inputs {
+			adr := factom.NewAddress(&rcd)
+			if err := adr.Get(FactomClient); err != nil {
 				return err
 			}
 			signingAddresses = append(signingAddresses, adr)
@@ -152,24 +134,12 @@ func transactFAT1() error {
 	if err := FAT1transaction.Valid(sk1.RCDHash()); err != nil {
 		return err
 	}
-	var txID *fctm.Bytes32
-	zeroEC := fctm.ECAddress{}
-	zeroEs := fctm.EsAddress{}
-	if ecadr != zeroEC || esadr != zeroEs {
-		e := fctmEntry(FAT1transaction.Entry.Entry)
-		zero := fctm.EsAddress{}
-		var err error
-		if esadr != zero {
-			txID, err = e.ComposeCreate(FactomClient, esadr)
-			if err != nil {
-				return err
-			}
-
-		} else {
-			txID, err = e.Create(FactomClient, ecadr)
-			if err != nil {
-				return err
-			}
+	var txID *factom.Bytes32
+	var err error
+	if len(ecpub) != 0 {
+		txID, err = FAT1transaction.Create(FactomClient, ecpub)
+		if err != nil {
+			return err
 		}
 	} else {
 		FAT1transaction.Timestamp = nil
@@ -177,7 +147,7 @@ func transactFAT1() error {
 			*factom.Entry
 			TxID *factom.Bytes32 `json:"txid"`
 		}{Entry: &FAT1transaction.Entry.Entry}
-		err := factom.Request(APIAddress, "send-transaction",
+		err := FactomClient.Request(APIAddress, "send-transaction",
 			FAT1transaction.Entry.Entry, &result)
 		if err != nil {
 			return err

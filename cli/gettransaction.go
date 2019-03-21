@@ -20,7 +20,7 @@ func getTransaction() error {
 	stats := struct {
 		Type fat.Type `json:"type"`
 	}{}
-	if err := factom.Request(APIAddress, "get-stats",
+	if err := FactomClient.Request(APIAddress, "get-stats",
 		params.ParamsToken, &stats); err != nil {
 		return err
 	}
@@ -33,7 +33,8 @@ func getTransaction() error {
 	default:
 		panic(fmt.Sprintf("unknown FAT type: %v", stats.Type))
 	}
-	if err := factom.Request(APIAddress, "get-transaction", params, &result); err != nil {
+	if err := FactomClient.Request(
+		APIAddress, "get-transaction", params, &result); err != nil {
 		return err
 	}
 	fmt.Printf("Transaction: \n")

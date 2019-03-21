@@ -46,63 +46,18 @@ var (
 		Default:     "localhost:8089",
 		Description: "IPAddr:port# of factom-walletd API to use to access blockchain",
 		Predictor:   complete.PredictAnything,
-		Var:         map[string]interface{}{"global": &rpc.WalletServer},
-	}, "wallettimeout": {
-		EnvName:     "WALLETD_TIMEOUT",
-		Description: "Timeout for factom-walletd API requests, 0 means never timeout",
-		Predictor:   complete.PredictAnything,
-		Var:         map[string]interface{}{"global": &rpc.WalletTimeout},
-	}, "walletuser": {
-		EnvName:     "WALLETD_USER",
-		Description: "Username for API connections to factom-walletd",
-		Predictor:   complete.PredictAnything,
-		Var:         map[string]interface{}{"global": &rpc.WalletRPCUser},
-	}, "walletpassword": {
-		EnvName:     "WALLETD_PASSWORD",
-		Description: "Password for API connections to factom-walletd",
-		Predictor:   complete.PredictAnything,
-		Var:         map[string]interface{}{"global": &rpc.WalletRPCPassword},
-	}, "walletcert": {
-		EnvName:     "WALLETD_TLS_CERT",
-		Description: "The TLS certificate that will be provided by the factom-walletd API server",
-		Predictor:   complete.PredictFiles("*"),
-		Var:         map[string]interface{}{"global": &rpc.WalletTLSCertFile},
-	}, "wallettls": {
-		EnvName:     "WALLETD_TLS_ENABLE",
-		Description: "Set to true to use TLS when accessing the factom-walletd API",
-		Predictor:   complete.PredictNothing,
-		Var:         map[string]interface{}{"global": &rpc.WalletTLSEnable},
+		Var:         map[string]interface{}{"global": &FactomClient.WalletServer},
 	}, "s": {
 		EnvName:     "FACTOMD_SERVER",
 		Default:     "localhost:8088",
 		Description: "IPAddr:port# of factomd API to use to access wallet",
 		Predictor:   complete.PredictAnything,
-		Var:         map[string]interface{}{"global": &rpc.FactomdServer},
+		Var:         map[string]interface{}{"global": &FactomClient.FactomdServer},
 	}, "factomdtimeout": {
 		EnvName:     "FACTOMD_TIMEOUT",
 		Description: "Timeout for factomd API requests, 0 means never timeout",
 		Predictor:   complete.PredictAnything,
-		Var:         map[string]interface{}{"global": &rpc.FactomdTimeout},
-	}, "factomduser": {
-		EnvName:     "FACTOMD_USER",
-		Description: "Username for API connections to factomd",
-		Predictor:   complete.PredictAnything,
-		Var:         map[string]interface{}{"global": &rpc.FactomdRPCUser},
-	}, "factomdpassword": {
-		EnvName:     "FACTOMD_PASSWORD",
-		Description: "Password for API connections to factomd",
-		Predictor:   complete.PredictAnything,
-		Var:         map[string]interface{}{"global": &rpc.FactomdRPCPassword},
-	}, "factomdcert": {
-		EnvName:     "FACTOMD_TLS_CERT",
-		Description: "The TLS certificate that will be provided by the factomd API server",
-		Predictor:   complete.PredictFiles("*"),
-		Var:         map[string]interface{}{"global": &rpc.FactomdTLSCertFile},
-	}, "factomdtls": {
-		EnvName:     "FACTOMD_TLS_ENABLE",
-		Description: "Set to true to use TLS when accessing the factomd API",
-		Predictor:   complete.PredictNothing,
-		Var:         map[string]interface{}{"global": &rpc.FactomdTLSEnable},
+		Var:         map[string]interface{}{"global": &FactomClient.Timeout},
 	}, "ecadr": {
 		SubCommand:  "issue|transactFAT0|transactFAT1",
 		EnvName:     "ECADR",
@@ -261,8 +216,7 @@ var (
 
 	APIAddress string
 
-	rpc          = factom.RpcConfig
-	FactomClient = fctm.NewClient()
+	FactomClient = factom.NewClient()
 
 	log *logrus.Entry
 )
@@ -381,31 +335,13 @@ func Validate() error {
 
 	FactomClient.FactomdServer = "http://" + rpc.FactomdServer
 	FactomClient.WalletdServer = "http://" + rpc.WalletServer
-	// Redact private data from debug output.
-	factomdRPCPassword := "\"\""
-	if len(rpc.FactomdRPCPassword) > 0 {
-		factomdRPCPassword = "<redacted>"
-	}
-	walletRPCPassword := "\"\""
-	if len(rpc.WalletRPCPassword) > 0 {
-		walletRPCPassword = "<redacted>"
-	}
 
 	log.Debugf("-apiaddress      %#v", APIAddress)
 	debugPrintln()
 
-	log.Debugf("-w             %#v", rpc.WalletServer)
-	log.Debugf("-walletuser    %#v", rpc.WalletRPCUser)
-	log.Debugf("-walletpass    %v ", walletRPCPassword)
-	log.Debugf("-walletcert    %#v", rpc.WalletTLSCertFile)
-	log.Debugf("-wallettimeout %v ", rpc.WalletTimeout)
-	debugPrintln()
-
-	log.Debugf("-s              %#v", rpc.FactomdServer)
-	log.Debugf("-factomduser    %#v", rpc.FactomdRPCUser)
-	log.Debugf("-factomdpass    %v ", factomdRPCPassword)
-	log.Debugf("-factomdcert    %#v", rpc.FactomdTLSCertFile)
-	log.Debugf("-factomdtimeout %v ", rpc.FactomdTimeout)
+	log.Debugf("-s              %#v", FactomClient.FactomdServer)
+	log.Debugf("-w              %#v", FactomClient.WalletServer)
+	log.Debugf("-factomdtimeout %v ", FactomClient.Timeout)
 	debugPrintln()
 
 	// Validate SubCommand

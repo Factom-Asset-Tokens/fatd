@@ -4,7 +4,7 @@ import (
 	"strings"
 	"time"
 
-	jrpc "github.com/AdamSLevy/jsonrpc2/v10"
+	jrpc "github.com/AdamSLevy/jsonrpc2/v11"
 	"github.com/Factom-Asset-Tokens/fatd/factom"
 	"github.com/Factom-Asset-Tokens/fatd/fat"
 	"github.com/Factom-Asset-Tokens/fatd/fat/fat1"
@@ -45,7 +45,7 @@ func (p ParamsToken) ValidChainID() *factom.Bytes32 {
 }
 
 func (p ParamsToken) Error() jrpc.Error {
-	return ParamsErrorToken
+	return *ParamsErrorToken
 }
 
 // ParamsGetTransaction is used to query for a single particular transaction
@@ -60,7 +60,7 @@ func (p ParamsGetTransaction) IsValid() bool {
 }
 
 func (p ParamsGetTransaction) Error() jrpc.Error {
-	return ParamsErrorGetTransaction
+	return *ParamsErrorGetTransaction
 }
 
 type ParamsGetTransactions struct {
@@ -111,7 +111,7 @@ func (p *ParamsGetTransactions) IsValid() bool {
 }
 
 func (p ParamsGetTransactions) Error() jrpc.Error {
-	return ParamsErrorGetTransactions
+	return *ParamsErrorGetTransactions
 }
 
 type ParamsGetNFToken struct {
@@ -124,7 +124,7 @@ func (p ParamsGetNFToken) IsValid() bool {
 }
 
 func (p ParamsGetNFToken) Error() jrpc.Error {
-	return ParamsErrorGetNFToken
+	return *ParamsErrorGetNFToken
 }
 
 type ParamsGetBalance struct {
@@ -137,7 +137,7 @@ func (p ParamsGetBalance) IsValid() bool {
 }
 
 func (p ParamsGetBalance) Error() jrpc.Error {
-	return ParamsErrorGetBalance
+	return *ParamsErrorGetBalance
 }
 
 type ParamsGetNFBalance struct {
@@ -173,7 +173,7 @@ func (p *ParamsGetNFBalance) IsValid() bool {
 }
 
 func (p ParamsGetNFBalance) Error() jrpc.Error {
-	return ParamsErrorGetBalance
+	return *ParamsErrorGetBalance
 }
 
 type ParamsGetAllNFTokens struct {
@@ -208,7 +208,7 @@ func (p *ParamsGetAllNFTokens) IsValid() bool {
 }
 
 func (p ParamsGetAllNFTokens) Error() jrpc.Error {
-	return ParamsErrorGetBalance
+	return *ParamsErrorGetBalance
 }
 
 type ParamsSendTransaction struct {
@@ -222,7 +222,7 @@ func (p ParamsSendTransaction) IsValid() bool {
 }
 
 func (p ParamsSendTransaction) Error() jrpc.Error {
-	return ParamsErrorSendTransaction
+	return *ParamsErrorSendTransaction
 }
 
 func (p ParamsSendTransaction) Entry() factom.Entry {

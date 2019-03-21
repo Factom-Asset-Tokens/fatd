@@ -3,7 +3,7 @@ package state
 import (
 	"fmt"
 
-	jrpc "github.com/AdamSLevy/jsonrpc2/v10"
+	jrpc "github.com/AdamSLevy/jsonrpc2/v11"
 	"github.com/jinzhu/gorm"
 
 	"github.com/Factom-Asset-Tokens/fatd/factom"

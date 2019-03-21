@@ -3,15 +3,14 @@ package main
 import (
 	"fmt"
 
-	jrpc "github.com/AdamSLevy/jsonrpc2/v10"
+	jrpc "github.com/AdamSLevy/jsonrpc2/v11"
 	"github.com/Factom-Asset-Tokens/fatd/factom"
 	"github.com/Factom-Asset-Tokens/fatd/fat"
-	fctm "github.com/Factom-Asset-Tokens/fatd/fctm"
 )
 
 func issue() error {
 	eb := factom.EBlock{ChainID: chainID}
-	if err := eb.GetFirst(); err != nil {
+	if err := eb.GetFirst(FactomClient); err != nil {
 		if _, ok := err.(jrpc.Error); !ok {
 			return err
 		}
@@ -25,7 +24,7 @@ func issue() error {
 		}
 		// Get NameIDs for chain to check if this chain is valid.
 		first := eb.Entries[0]
-		if err := first.Get(); err != nil {
+		if err := first.Get(FactomClient); err != nil {
 			return err
 		}
 		if !fat.ValidTokenNameIDs(first.ExtIDs) {
@@ -35,21 +34,10 @@ func issue() error {
 		copy(identity.ChainID[:], first.ExtIDs[3])
 	} else if !eb.IsPopulated() {
 		// Create the chain
-		e := fctmEntry(factom.Entry{ExtIDs: fat.NameIDs(tokenID, identity.ChainID)})
-		zero := fctm.EsAddress{}
-		var txID *fctm.Bytes32
-		var err error
-		if esadr != zero {
-			txID, err = e.ComposeCreate(FactomClient, esadr)
-			if err != nil {
-				return err
-			}
-
-		} else {
-			txID, err = e.Create(FactomClient, ecadr)
-			if err != nil {
-				return err
-			}
+		e := factom.Entry{ExtIDs: fat.NameIDs(tokenID, identity.ChainID)}
+		txID, err := e.Create(FactomClient, ecpub)
+		if err != nil {
+			return err
 		}
 		fmt.Println("Created Token Chain")
 		fmt.Println("Token Chain ID: ", e.ChainID)
@@ -59,7 +47,7 @@ func issue() error {
 			"before issuing the token. \nThis can take up to 10 minutes.")
 		return nil
 	}
-	if err := identity.Get(); err != nil {
+	if err := identity.Get(FactomClient); err != nil {
 		return err
 	}
 	if *identity.IDKey != *sk1.RCDHash() {
@@ -74,21 +62,9 @@ func issue() error {
 	if err := issuance.Valid(identity.IDKey); err != nil {
 		return err
 	}
-	e := fctmEntry(issuance.Entry.Entry)
-	zero := fctm.EsAddress{}
-	var txID *fctm.Bytes32
-	var err error
-	if esadr != zero {
-		txID, err = e.ComposeCreate(FactomClient, esadr)
-		if err != nil {
-			return err
-		}
-
-	} else {
-		txID, err = e.Create(FactomClient, ecadr)
-		if err != nil {
-			return err
-		}
+	txID, err := issuance.Create(FactomClient, ecpub)
+	if err != nil {
+		return err
 	}
 	fmt.Println("Created Issuance Entry")
 	fmt.Println("Token Chain ID: ", chainID)
