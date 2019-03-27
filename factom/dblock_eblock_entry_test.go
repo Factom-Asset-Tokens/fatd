@@ -13,7 +13,7 @@ var courtesyNode = "courtesy-node.factom.com"
 
 func TestDataStructures(t *testing.T) {
 	height := uint64(166587)
-	c := newClient()
+	c := NewClient()
 	db := &DBlock{Height: height}
 	t.Run("DBlock", func(t *testing.T) {
 		assert := assert.New(t)

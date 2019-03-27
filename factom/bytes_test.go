@@ -19,10 +19,10 @@ var (
 
 func TestBytes32UnmarshalJSON(t *testing.T) {
 	for _, json := range JSONBytesInvalidTypes {
-		testBytes32UnmarshalJSON(t, "InvalidType", json, "*factom.Bytes32: expected JSON string")
+		testBytes32UnmarshalJSON(t, "InvalidType", json, "json: cannot unmarshal object into Go value of type string")
 	}
 	for _, json := range JSONBytes32InvalidLengths {
-		testBytes32UnmarshalJSON(t, "InvalidLength", json, "*factom.Bytes32: invalid length")
+		testBytes32UnmarshalJSON(t, "InvalidLength", json, "json: cannot unmarshal number into Go value of type string")
 	}
 	testBytes32UnmarshalJSON(t, "InvalidSymbol", JSONBytesInvalidSymbol,
 		"*factom.Bytes32: encoding/hex: invalid byte: U+0078 'x'")
