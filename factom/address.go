@@ -45,6 +45,9 @@ type Address interface {
 	// addresses return themselves.
 	GetPrivateAddress(*Client) (PrivateAddress, error)
 
+	// GetBalance returns the current balance for the address.
+	GetBalance(*Client) (uint64, error)
+
 	// Remove queries factom-walletd to remove the public and private
 	// addresses from its database.
 	// WARNING: DESTRUCTIVE ACTION! LOSS OF KEYS AND FUNDS MAY RESULT!
@@ -610,6 +613,40 @@ func (c *Client) SavePrivateAddresses(adrs ...PrivateAddress) error {
 		return err
 	}
 	return nil
+}
+
+// GetBalance queries factomd for the Factoid Balance for adr.
+func (adr FAAddress) GetBalance(c *Client) (uint64, error) {
+	return c.getBalance("factoid-balance", adr)
+}
+
+// GetBalance queries factomd for the Factoid Balance for adr.
+func (adr FsAddress) GetBalance(c *Client) (uint64, error) {
+	return adr.PublicAddress().GetBalance(c)
+}
+
+// GetBalance queries factomd for the Entry Credit Balance for adr.
+func (adr ECAddress) GetBalance(c *Client) (uint64, error) {
+	return c.getBalance("entry-credit-balance", adr)
+}
+
+// GetBalance queries factomd for the Entry Credit Balance for adr.
+func (adr EsAddress) GetBalance(c *Client) (uint64, error) {
+	return adr.PublicAddress().GetBalance(c)
+}
+
+type getBalanceParams struct {
+	Adr Address `json:"address"`
+}
+type balanceResult struct{ Balance uint64 }
+
+func (c *Client) getBalance(method string, adr Address) (uint64, error) {
+	var result balanceResult
+	params := getBalanceParams{Adr: adr}
+	if err := c.FactomdRequest(method, params, &result); err != nil {
+		return 0, err
+	}
+	return result.Balance, nil
 }
 
 // Remove adr from factom-walletd. WARNING: THIS IS DESTRUCTIVE.

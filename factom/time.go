@@ -22,9 +22,3 @@ func (t *Time) UnmarshalJSON(data []byte) error {
 	t.Time = time.Unix(int64(sec), 0)
 	return nil
 }
-
-// MarshalJSON marshals a string containing a Unix seconds since epoch
-// timestamp.
-func (t *Time) MarshalJSON() ([]byte, error) {
-	return []byte(fmt.Sprintf("%v", t.Unix())), nil
-}

@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var courtesyNode = "courtesy-node.factom.com"
+var courtesyNode = "https://courtesy-node.factom.com"
 
 func TestDataStructures(t *testing.T) {
 	height := uint64(166587)
@@ -23,7 +23,7 @@ func TestDataStructures(t *testing.T) {
 		require.False(db.IsPopulated())
 
 		// A bad URL will cause an error.
-		c.FactomdServer = "example.com"
+		c.FactomdServer = "http://example.com"
 		assert.Error(db.Get(c))
 
 		c.FactomdServer = courtesyNode
@@ -89,7 +89,6 @@ func TestDataStructures(t *testing.T) {
 		assert.Error(err)
 
 		c.FactomdServer = courtesyNode
-		c.Timeout = 5 * time.Second
 		ebs, err := eb.GetAllPrev(c)
 		assert.NoError(err)
 		assert.Len(ebs, 6)
@@ -156,11 +155,15 @@ func TestDataStructures(t *testing.T) {
 		assert.NotEmpty(e.Content)
 		assert.Equal(height, e.Height)
 		assert.Equal(time.Unix(1542223080, 0), e.Timestamp.Time)
-		assert.Equal(*e.Hash, e.ComputeHash())
+		hash, err := e.ComputeHash()
+		assert.NoError(err)
+		assert.Equal(*e.Hash, hash)
 
 		e = eb.Entries[1]
 		require.NoError(e.Get(c))
-		assert.Equal(*e.Hash, e.ComputeHash())
+		hash, err = e.ComputeHash()
+		assert.NoError(err)
+		assert.Equal(*e.Hash, hash)
 	})
 
 	assert.Equal(t, Bytes32{}, ZeroBytes32())

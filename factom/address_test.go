@@ -307,6 +307,22 @@ func TestAddress(t *testing.T) {
 		assert.NotEmpty(adrs)
 	})
 
+	for _, adr := range strToAdr {
+		t.Run("GetBalance/"+adr.PrefixString(), func(t *testing.T) {
+			balance, err := adr.GetBalance(c)
+			assert := assert.New(t)
+			assert.NoError(err)
+			assert.Equal(uint64(0), balance)
+		})
+	}
+	fundedEC, _ := NewECAddress("EC1zANmWuEMYoH6VizJg6uFaEdi8Excn1VbLN99KRuxh3GSvB7YQ")
+	t.Run("GetBalance/"+fundedEC.String(), func(t *testing.T) {
+		balance, err := fundedEC.GetBalance(c)
+		assert := assert.New(t)
+		assert.NoError(err)
+		assert.NotEqual(uint64(0), balance)
+	})
+
 	t.Run("Remove/Fs", func(t *testing.T) {
 		err := fs.Remove(c)
 		assert.NoError(t, err)

@@ -5,10 +5,10 @@
 // All of the Factom data structure types in this package have the Get and
 // IsPopulated methods.
 //
-// Methods that accept a *Client, like those that start with Get, make calls to
-// the factomd or factom-walletd API queries to populate the data in the
-// variable on which it is called. The returned error can be checked to see if
-// it is a jsonrpc2.Error type, indicating that the networking calls were
+// Methods that accept a *Client, like those that start with Get, may make
+// calls to the factomd or factom-walletd API queries to populate the data in
+// the variable on which it is called. The returned error can be checked to see
+// if it is a jsonrpc2.Error type, indicating that the networking calls were
 // successful, but that there is some error returned by the RPC method.
 //
 // IsPopulated methods return whether the data in the variable has been
@@ -23,4 +23,12 @@
 //
 // The Address interfaces and types allow for working with the four Factom
 // address types.
+//
+// Currently this package supports creating new chains and entries using both
+// the factom-walletd "compose" methods, and by locally generating the commit
+// and reveal data, if the private entry credit key is available locally. See
+// Entry.Create and Entry.ComposeCreate.
+//
+// This package does not yet support Factoid transactions, nor does it support
+// the binary data structures for DBlocks or EBlocks.
 package factom
