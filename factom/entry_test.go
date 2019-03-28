@@ -180,6 +180,21 @@ func TestEntry(t *testing.T) {
 		fmt.Println("Entry Hash: ", e.Hash)
 		fmt.Println("Chain ID: ", e.ChainID)
 	})
+	t.Run("Compose/too large", func(t *testing.T) {
+		assert := assert.New(t)
+		e := Entry{Content: make(Bytes, 11000),
+			ExtIDs:  []Bytes{Bytes(ec[:])},
+			ChainID: &chainID}
+		_, _, _, err := e.Compose(EsAddress(ec))
+		assert.EqualError(err, "Entry cannot be larger than 10KB")
+	})
+	t.Run("EntryCost", func(t *testing.T) {
+		assert := assert.New(t)
+		_, err := EntryCost(11000)
+		assert.EqualError(err, "Entry cannot be larger than 10KB")
+		cost, _ := EntryCost(0)
+		assert.Equal(int8(1), cost)
+	})
 }
 
 func hexToBytes(hexStr string) Bytes {
