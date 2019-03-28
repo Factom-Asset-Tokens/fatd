@@ -111,28 +111,28 @@ func testAddressUnmarshalJSON(t *testing.T, test addressUnmarshalJSONTest) {
 		assert.EqualError(err, test.Err)
 		return
 	}
+	assert.NoError(err)
 	assert.Equal(test.ExpAdr, test.Adr)
 }
 
 func TestAddress(t *testing.T) {
-	t.Run("UnmarshalJSON", func(t *testing.T) {
-		for _, test := range addressUnmarshalJSONTests {
-			t.Run(test.Name, func(t *testing.T) {
-				if test.Adr != nil {
-					testAddressUnmarshalJSON(t, test)
-					return
-				}
-				test.ExpAdr, test.Adr = &FAAddress{}, &FAAddress{}
-				t.Run("FA", func(t *testing.T) {
-					testAddressUnmarshalJSON(t, test)
-				})
-				test.ExpAdr, test.Adr = &ECAddress{}, &ECAddress{}
-				t.Run("EC", func(t *testing.T) {
-					testAddressUnmarshalJSON(t, test)
-				})
+	for _, test := range addressUnmarshalJSONTests {
+		if test.Adr != nil {
+			t.Run("UnmarshalJSON/"+test.Name, func(t *testing.T) {
+				testAddressUnmarshalJSON(t, test)
 			})
+			continue
 		}
-	})
+		test.ExpAdr, test.Adr = &FAAddress{}, &FAAddress{}
+		t.Run("UnmarshalJSON/FA", func(t *testing.T) {
+			testAddressUnmarshalJSON(t, test)
+		})
+		test.ExpAdr, test.Adr = &ECAddress{}, &ECAddress{}
+		t.Run("UnmarshalJSON/EC", func(t *testing.T) {
+			testAddressUnmarshalJSON(t, test)
+		})
+	}
+
 	fa, _ := NewFAAddress(FAAddressStr)
 	fs, _ := NewFsAddress(FsAddressStr)
 	ec, _ := NewECAddress(ECAddressStr)
@@ -315,4 +315,30 @@ func TestAddress(t *testing.T) {
 		err := es.Remove(c)
 		assert.NoError(t, err)
 	})
+
+	t.Run("Scan", func(t *testing.T) {
+		var adr FAAddress
+		err := adr.Scan(5)
+		assert := assert.New(t)
+		assert.EqualError(err, "invalid type")
+
+		in := make([]byte, 32)
+		in[0] = 0xff
+		err = adr.Scan(in[:10])
+		assert.EqualError(err, "invalid length")
+
+		err = adr.Scan(in)
+		assert.NoError(err)
+		assert.EqualValues(in, adr[:])
+	})
+
+	t.Run("Value", func(t *testing.T) {
+		var adr FAAddress
+		adr[0] = 0xff
+		val, err := adr.Value()
+		assert := assert.New(t)
+		assert.NoError(err)
+		assert.Equal(adr[:], val)
+	})
+
 }

@@ -474,7 +474,7 @@ type walletAddress struct{ Address Address }
 func (c *Client) GetAddress(pubAdr Address, privAdr PrivateAddress) error {
 	params := walletAddress{Address: pubAdr}
 	result := struct{ Secret PrivateAddress }{Secret: privAdr}
-	if err := c.WalletRequest("address", params, &result); err != nil {
+	if err := c.WalletdRequest("address", params, &result); err != nil {
 		return err
 	}
 	return nil
@@ -488,7 +488,7 @@ type walletAddressesSecret struct{ Addresses []walletAddressSecret }
 // GetAllAddresses queries factom-walletd for all public addresses.
 func (c *Client) GetAllAddresses() ([]Address, error) {
 	var result walletAddressesPublic
-	if err := c.WalletRequest("all-addresses", nil, &result); err != nil {
+	if err := c.WalletdRequest("all-addresses", nil, &result); err != nil {
 		return nil, err
 	}
 	addresses := make([]Address, 0, len(result.Addresses))
@@ -505,7 +505,7 @@ func (c *Client) GetAllAddresses() ([]Address, error) {
 // GetAllPrivateAddresses queries factom-walletd for all private addresses.
 func (c *Client) GetAllPrivateAddresses() ([]PrivateAddress, error) {
 	var result walletAddressesSecret
-	if err := c.WalletRequest("all-addresses", nil, &result); err != nil {
+	if err := c.WalletdRequest("all-addresses", nil, &result); err != nil {
 		return nil, err
 	}
 	addresses := make([]PrivateAddress, 0, len(result.Addresses))
@@ -522,7 +522,7 @@ func (c *Client) GetAllPrivateAddresses() ([]PrivateAddress, error) {
 // GetAllFAAddresses queries factom-walletd for all public Factoid addresses.
 func (c *Client) GetAllFAAddresses() ([]FAAddress, error) {
 	var result walletAddressesPublic
-	if err := c.WalletRequest("all-addresses", nil, &result); err != nil {
+	if err := c.WalletdRequest("all-addresses", nil, &result); err != nil {
 		return nil, err
 	}
 	addresses := make([]FAAddress, 0, len(result.Addresses))
@@ -539,7 +539,7 @@ func (c *Client) GetAllFAAddresses() ([]FAAddress, error) {
 // GetAllFsAddresses queries factom-walletd for all secret Factoid addresses.
 func (c *Client) GetAllFsAddresses() ([]FsAddress, error) {
 	var result walletAddressesSecret
-	if err := c.WalletRequest("all-addresses", nil, &result); err != nil {
+	if err := c.WalletdRequest("all-addresses", nil, &result); err != nil {
 		return nil, err
 	}
 	addresses := make([]FsAddress, 0, len(result.Addresses))
@@ -557,7 +557,7 @@ func (c *Client) GetAllFsAddresses() ([]FsAddress, error) {
 // addresses.
 func (c *Client) GetAllECAddresses() ([]ECAddress, error) {
 	var result walletAddressesPublic
-	if err := c.WalletRequest("all-addresses", nil, &result); err != nil {
+	if err := c.WalletdRequest("all-addresses", nil, &result); err != nil {
 		return nil, err
 	}
 	addresses := make([]ECAddress, 0, len(result.Addresses))
@@ -575,7 +575,7 @@ func (c *Client) GetAllECAddresses() ([]ECAddress, error) {
 // addresses.
 func (c *Client) GetAllEsAddresses() ([]EsAddress, error) {
 	var result walletAddressesSecret
-	if err := c.WalletRequest("all-addresses", nil, &result); err != nil {
+	if err := c.WalletdRequest("all-addresses", nil, &result); err != nil {
 		return nil, err
 	}
 	addresses := make([]EsAddress, 0, len(result.Addresses))
@@ -606,7 +606,7 @@ func (c *Client) SavePrivateAddresses(adrs ...PrivateAddress) error {
 	for i, adr := range adrs {
 		params.Addresses[i].Secret = adr.String()
 	}
-	if err := c.WalletRequest("import-addresses", params, nil); err != nil {
+	if err := c.WalletdRequest("import-addresses", params, nil); err != nil {
 		return err
 	}
 	return nil
@@ -635,7 +635,7 @@ func (adr EsAddress) Remove(c *Client) error {
 // RemoveAddress removes adr from factom-walletd. WARNING: THIS IS DESTRUCTIVE.
 func (c *Client) RemoveAddress(adr Address) error {
 	params := walletAddress{Address: adr.PublicAddress()}
-	if err := c.WalletRequest("remove-address", params, nil); err != nil {
+	if err := c.WalletdRequest("remove-address", params, nil); err != nil {
 		return err
 	}
 	return nil

@@ -41,9 +41,6 @@ func (e Entry) IsPopulated() bool {
 }
 
 // Get queries factomd for the entry corresponding to e.Hash.
-//
-// Get returns any networking or marshaling errors, but not JSON RPC errors. To
-// check if the Entry has been successfully populated, call IsPopulated().
 func (e *Entry) Get(c *Client) error {
 	// If the Hash is nil then we have nothing to query for.
 	if e.Hash == nil {
@@ -90,6 +87,8 @@ type commitResult struct {
 	TxID *Bytes32
 }
 
+// Create queries factom-walletd and factomd to create a new Entry or Chain, if
+// e.ChainID is nil.
 func (e *Entry) Create(c *Client, ecpub string) (*Bytes32, error) {
 	var params interface{}
 	var method string
@@ -107,7 +106,7 @@ func (e *Entry) Create(c *Client, ecpub string) (*Bytes32, error) {
 		}
 	}
 	result := composeResult{}
-	if err := c.WalletRequest(method, params, &result); err != nil {
+	if err := c.WalletdRequest(method, params, &result); err != nil {
 		return nil, err
 	}
 	if len(result.Commit.Method) == 0 {

@@ -1,35 +1,26 @@
 // Package factom provides data types corresponding to some of the Factom
 // blockchain's data structures, as well as methods on those types for querying
-// the data from factomd's JSON RPC API. This is not intended to be a general
-// purpose package for querying factomd's JSON RPC API. Only the data required
-// for use in fatd is queried and retained.
+// the data from factomd and factom-walletd's APIs.
 //
 // All of the Factom data structure types in this package have the Get and
 // IsPopulated methods.
 //
-// Get makes the appropriate factomd JSON RPC API queries to populate the data
-// in the variable on which it is called.
+// Methods that accept a *Client, like those that start with Get, make calls to
+// the factomd or factom-walletd API queries to populate the data in the
+// variable on which it is called. The returned error can be checked to see if
+// it is a jsonrpc2.Error type, indicating that the networking calls were
+// successful, but that there is some error returned by the RPC method.
 //
-// IsPopulated returns whether the data in the variable has been populated by a
-// successful call to Get.
+// IsPopulated methods return whether the data in the variable has been
+// populated by a successful call to Get.
 //
-// Certain data already stored in the struct are used as the arguments for the
-// factomd JSON RPC API queries. Which data needs to be populated prior to
-// calling Get varies by the data type and is documented with the respective
-// functions.
+// The Bytes and Bytes32 types are used by other types when JSON marshaling and
+// unmarshaling to and from hex encoded data is required. Bytes32 is used for
+// Chain IDs and KeyMRs.
 //
-// Get returns any critical errors, like networking or marshaling errors, but
-// not JSON RPC errors, such as factomd not being able to find the given KeyMR.
-// To check if the variable has been successfully populated, call
-// IsPopulated().
+// The DBlock, EBlock and Entry types allow for exploring the Factom
+// blockchain.
 //
-// The provided Factom types are designed to reduce moving around large chucks
-// of memory when passing them around by copy. All raw data is held in either
-// slices or pointers to arrays in the case of fixed length data that needs to
-// be compared, like chain IDs, key MRs, hashes, etc. You should normally pass
-// the Factom data structure types around by copy, but keep in mind that the
-// underlying byte data is shared.
-//
-// The Bytes and Bytes32 types are used when JSON marshaling and unmarshaling
-// to and from hex encoded data is required.
+// The Address interfaces and types allow for working with the four Factom
+// address types.
 package factom

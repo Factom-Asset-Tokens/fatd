@@ -28,10 +28,10 @@ func NewBytes32(s32 []byte) *Bytes32 {
 // Set decodes a string with exactly 32 bytes of hex encoded data.
 func (b *Bytes32) Set(hexStr string) error {
 	if len(hexStr) != hex.EncodedLen(len(b)) {
-		return fmt.Errorf("%T: invalid length", b)
+		return fmt.Errorf("invalid length")
 	}
 	if _, err := hex.Decode(b[:], []byte(hexStr)); err != nil {
-		return fmt.Errorf("%T: %v", b, err)
+		return err
 	}
 	return nil
 }
@@ -40,7 +40,7 @@ func (b *Bytes32) Set(hexStr string) error {
 func (b *Bytes) Set(hexStr string) error {
 	*b = make(Bytes, hex.DecodedLen(len(hexStr)))
 	if _, err := hex.Decode(*b, []byte(hexStr)); err != nil {
-		return fmt.Errorf("%T: %v", b, err)
+		return err
 	}
 	return nil
 }
@@ -88,10 +88,10 @@ func (b Bytes) MarshalJSON() ([]byte, error) {
 func (b *Bytes32) Scan(v interface{}) error {
 	data, ok := v.([]byte)
 	if !ok {
-		return fmt.Errorf("%T: expected []byte but got %T", b, v)
+		return fmt.Errorf("invalid type")
 	}
 	if len(data) != 32 {
-		return fmt.Errorf("%T: invalid length", b)
+		return fmt.Errorf("invalid length")
 	}
 	copy(b[:], data)
 	return nil

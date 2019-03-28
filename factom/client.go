@@ -1,28 +1,41 @@
 package factom
 
 import (
-	"net/http"
 	"time"
 
 	jrpc "github.com/AdamSLevy/jsonrpc2/v11"
 )
 
+// Client makes RPC requests to factomd's and factom-walletd's APIs.  Client
+// embeds two jsonrpc2.Clients, and thus also two http.Client, one for requests
+// to factomd and one for requests to factom-walletd.  Use jsonrpc2.Client's
+// BasicAuth settings to set up BasicAuth and http.Client's transport settings
+// to configure TLS.
 type Client struct {
-	jrpc.Client
+	Factomd       jrpc.Client
 	FactomdServer string
+	Walletd       jrpc.Client
 	WalletServer  string
 }
 
+// NewClient returns a pointer to a Client initialized with the default
+// localhost endpoints for factomd and factom-walletd, and 15 second timeouts
+// for each of the http.Clients.
 func NewClient() *Client {
-	return &Client{Client: jrpc.Client{Client: http.Client{Timeout: 5 * time.Second}},
-		FactomdServer: "localhost:8088", WalletServer: "localhost:8089"}
+	c := &Client{FactomdServer: "localhost:8088", WalletServer: "localhost:8089"}
+	c.Factomd.Timeout = 15 * time.Second
+	c.Walletd.Timeout = 15 * time.Second
+	return c
 }
 
+// FactomdRequest makes a request to factomd's v2 API.
 func (c *Client) FactomdRequest(method string, params, result interface{}) error {
-	url := "http://" + c.FactomdServer + "/v2"
-	return c.Request(url, method, params, result)
+	url := c.FactomdServer + "/v2"
+	return c.Factomd.Request(url, method, params, result)
 }
-func (c *Client) WalletRequest(method string, params, result interface{}) error {
-	url := "http://" + c.WalletServer + "/v2"
-	return c.Request(url, method, params, result)
+
+// WalletdRequest makes a request to factom-walletd's v2 API.
+func (c *Client) WalletdRequest(method string, params, result interface{}) error {
+	url := c.WalletServer + "/v2"
+	return c.Walletd.Request(url, method, params, result)
 }

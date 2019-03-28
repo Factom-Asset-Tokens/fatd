@@ -42,10 +42,10 @@ require (
 	github.com/rs/cors v1.3.0
 	github.com/sirupsen/logrus v1.1.1
 	github.com/stretchr/testify v1.3.0
-	golang.org/x/crypto v0.0.0-20180904163835-0709b304e793
+	golang.org/x/crypto v0.0.0-20190325154230-a5d413f7728c
 	golang.org/x/net v0.0.0-20181201002055-351d144fa1fc // indirect
 	golang.org/x/sync v0.0.0-20181221193216-37e7f081c4d4 // indirect
-	golang.org/x/sys v0.0.0-20190129075346-302c3dd5f1cc // indirect
+	golang.org/x/sys v0.0.0-20190322080309-f49334f85ddc // indirect
 	google.golang.org/appengine v1.2.0 // indirect
 	gopkg.in/gcfg.v1 v1.2.3 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
