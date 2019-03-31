@@ -11,7 +11,7 @@ import (
 
 	"github.com/Factom-Asset-Tokens/fatd/factom"
 	"github.com/Factom-Asset-Tokens/fatd/fat/jsonlen"
-	"github.com/FactomProject/ed25519"
+	"golang.org/x/crypto/ed25519"
 )
 
 // Entry has variables and methods common to all fat0 entries.
@@ -78,32 +78,30 @@ func (e Entry) validTimestamp() error {
 	}
 	return nil
 }
-
-// validSignatures returns true if the first num RCD/signature pairs in the
-// ExtIDs are valid.
 func (e Entry) validSignatures() error {
-	numRcdSigPairs := uint64(len(e.ExtIDs) / 2)
-	maxRcdSigIDSaltStrLen := jsonlen.Uint64(numRcdSigPairs)
+	// Compose the signed message data using exactly allocated bytes.
+	numRcdSigPairs := len(e.ExtIDs) / 2
+	maxRcdSigIDSalt := numRcdSigPairs - 1
+	maxRcdSigIDSaltStrLen := jsonlen.Uint64(uint64(maxRcdSigIDSalt))
 	timeSalt := e.ExtIDs[0]
 	maxMsgLen := maxRcdSigIDSaltStrLen + len(timeSalt) + len(e.ChainID) + len(e.Content)
-	msg := make(factom.Bytes, maxMsgLen)
+	msg := make([]byte, maxMsgLen)
 	i := maxRcdSigIDSaltStrLen
 	i += copy(msg[i:], timeSalt[:])
 	i += copy(msg[i:], e.ChainID[:])
 	copy(msg[i:], e.Content)
-	var pubKey [ed25519.PublicKeySize]byte
-	var sig [ed25519.SignatureSize]byte
-	var msgHash [sha512.Size]byte
-	rcdSigs := e.ExtIDs[1:]
-	for rcdSigID := uint64(0); rcdSigID < numRcdSigPairs; rcdSigID++ {
-		rcdSigIDSalt := strconv.FormatUint(rcdSigID, 10)
-		i = maxRcdSigIDSaltStrLen - len(rcdSigIDSalt)
-		copy(msg[i:], rcdSigIDSalt)
-		msgHash = sha512.Sum512(msg)
 
-		copy(pubKey[:], rcdSigs[rcdSigID*2][1:])
-		copy(sig[:], rcdSigs[rcdSigID*2+1])
-		if !ed25519.VerifyCanonical(&pubKey, msgHash[:], &sig) {
+	rcdSigs := e.ExtIDs[1:] // Skip over timestamp salt in ExtID[0]
+	for rcdSigID := 0; rcdSigID < numRcdSigPairs; rcdSigID++ {
+		// Prepend the RCD Sig ID Salt to the message data
+		rcdSigIDSaltStr := strconv.FormatUint(uint64(rcdSigID), 10)
+		start := maxRcdSigIDSaltStrLen - len(rcdSigIDSaltStr)
+		copy(msg[start:], rcdSigIDSaltStr)
+
+		msgHash := sha512.Sum512(msg[start:])
+		pubKey := []byte(rcdSigs[rcdSigID*2][1:]) // Omit RCD Type byte
+		sig := rcdSigs[rcdSigID*2+1]
+		if !ed25519.Verify(pubKey, msgHash[:], sig) {
 			return fmt.Errorf("ExtIDs[%v]: invalid signature", rcdSigID*2+2)
 		}
 	}
@@ -114,31 +112,36 @@ func (e Entry) validSignatures() error {
 // factom.Entry and add the RCD + signature pairs for the given addresses to
 // the ExtIDs. This clears any existing ExtIDs.
 func (e *Entry) Sign(signingSet ...factom.Address) {
-	e.SetTimestampToNow()
-	maxRcdSigIDSaltStrLen := jsonlen.Uint64(uint64(len(signingSet)))
+	// Set the Entry's timestamp so that the signatures will verify against
+	// this time salt.
 	timeSalt := newTimestampSalt()
+	e.Timestamp = &factom.Time{Time: time.Now()}
+
+	// Compose the signed message data using exactly allocated bytes.
+	maxRcdSigIDSaltStrLen := jsonlen.Uint64(uint64(len(signingSet)))
 	maxMsgLen := maxRcdSigIDSaltStrLen + len(timeSalt) + len(e.ChainID) + len(e.Content)
 	msg := make(factom.Bytes, maxMsgLen)
 	i := maxRcdSigIDSaltStrLen
 	i += copy(msg[i:], timeSalt[:])
 	i += copy(msg[i:], e.ChainID[:])
 	copy(msg[i:], e.Content)
+
+	// Generate the ExtIDs for each address in the signing set.
 	e.ExtIDs = make([]factom.Bytes, 1, len(signingSet)*2+1)
 	e.ExtIDs[0] = timeSalt
-	var msgHash [sha512.Size]byte
 	for rcdSigID, a := range signingSet {
+		// Compose the RcdSigID salt and prepend it to the message.
 		rcdSigIDSalt := strconv.FormatUint(uint64(rcdSigID), 10)
-		i = maxRcdSigIDSaltStrLen - len(rcdSigIDSalt)
-		copy(msg[i:], rcdSigIDSalt)
-		msgHash = sha512.Sum512(msg)
+		start := maxRcdSigIDSaltStrLen - len(rcdSigIDSalt)
+		copy(msg[start:], rcdSigIDSalt)
 
-		sig := ed25519.Sign(a.PrivateKey().Bytes(), msgHash[:])
-		e.ExtIDs = append(e.ExtIDs, a.RCD(), sig[:])
+		msgHash := sha512.Sum512(msg[start:])
+		sig := ed25519.Sign(a.PrivateKey()[:], msgHash[:])
+		e.ExtIDs = append(e.ExtIDs, a.RCD(), sig)
 	}
 }
-
 func newTimestampSalt() []byte {
-	timestamp := time.Now().Add(time.Duration(-rand.Int63n(int64(12 * time.Hour))))
+	timestamp := time.Now().Add(time.Duration(-rand.Int63n(int64(1 * time.Hour))))
 	return []byte(strconv.FormatInt(timestamp.Unix(), 10))
 }
 
