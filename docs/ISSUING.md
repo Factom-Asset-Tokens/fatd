@@ -37,7 +37,7 @@ Now that you have all this done, you're ready to initialize your token.
 
 Run the following command:
 ```bash
-fat-cli -identity <ROOT CHAIN> -tokenid <INTEGER TOKEN ID> issue -ecpub <EC Public> -name <STRING TOKEN NAME> -sk1 <SK1> -supply <INTEGER MAX TOKEN SUPPLY> -symbol <STRING TOKEN SYMBOL> -type <"FAT-0" | "FAT-1>
+fat-cli -identity <ROOT CHAIN> -tokenid <STRING TOKEN ID> issue -ecpub <EC Public> -name <STRING TOKEN NAME> -sk1 <SK1> -supply <INTEGER MAX TOKEN SUPPLY> -symbol <STRING TOKEN SYMBOL> -type <"FAT-0" | "FAT-1>
 ```
 
 The token symbol can be up to 4 letters.
@@ -69,10 +69,10 @@ Now that the token have been initialized, you actually need to distribute the to
 
 The coinbase commmand looks like this:
 ```bash
-fat-cli -chainid <token CHAIN ID> transact -sk1 <SK1> -coinbase <AMOUNT TO DISTRIBUTE> -output <FA1:AMOUNT> ... -ecpub <EC PUBLIC KEY>
+fat-cli -chainid <token CHAIN ID> <transactFAT0 | transactFAT1> -sk1 <SK1> -coinbase <AMOUNT/IDS TO DISTRIBUTE> -output <FA1:AMOUNT/IDS> ... -ecpub <EC PUBLIC KEY>
 ```
 
-There can be many outputs. You may want to supply tokens to multiple accounts in the coinbase command, just remember the sum of the output amounts should equal `AMOUNT TO DISTRIBUTE`.
+There can be many outputs. You may want to supply tokens to multiple accounts in the coinbase command, just remember the sum of the output amounts should equal `AMOUNT TO DISTRIBUTE`. In the case of FAT-1 tokens the inputs and outputs must contain the same set of NF token IDs.
 
 An entry credit address needs to be provided so that fatd can pay for the transaction. 
 

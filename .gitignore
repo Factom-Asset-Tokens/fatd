@@ -1,8 +1,4 @@
-fatd
-fatd.sqlite3
+fatd*
 .idea
 coverage.out
-fatd.db/
-cli/fat-cli
-cli/cli
-fat-cli
+fat-cli*

@@ -3,13 +3,19 @@
 # fatd - Factom Asset Token Daemon
 
 A daemon written in Golang that maintains the current state of Factom Asset
-Tokens (FAT) tokens.
+Tokens (FAT) tokens. Includes a CLI for interacting with the FAT Daemon from the command line.
 
 Provides a standard RPC API to access FAT data.
 
 
 
-## Building
+## Binaries
+
+Visit our [distribution repository](https://github.com/Factom-Asset-Tokens/fatd-distribution) to find the latest pre-compiled fatd & fat-cli binaries for Linux Windows & Mac!
+
+
+
+## Building From Source
 
 #### Build Dependencies
 This project uses SQLite3 which uses [CGo](https://blog.golang.org/c-go-cgo) to
@@ -42,11 +48,23 @@ $ git clone https://github.com/Factom-Asset-Tokens/fatd.git
 $ cd fatd
 $ make
 ```
-You should now see the `fatd` and `fat-cli` binaries in the current directory.
+You should now see the `fatd` and `fat-cli` binaries for your platform in the current directory.
+
+You can also build binaries for all platforms (Linux, Windows, Mac):
+
+```bash
+$ make distribution
+```
+
+
+
+
 
 ## Installing
 
 TODO
+
+
 
 ## Running
 Start the daemon from the command line:
@@ -115,6 +133,14 @@ For a complete up to date list of flags & options please see `flag/flag.go`
 `http://localhost:8078/v1`
 
 ## [RPC Reference](RPC.md)
+
+
+
+## FAT CLI
+
+Interact with the FAT daemon RPC from the command line:
+
+[Token Initialization & Transaction Walk Through](docs/ISSUING.md)
 
 
 
