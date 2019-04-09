@@ -9,7 +9,7 @@ import (
 func getIssuance() error {
 	params := srv.ParamsToken{ChainID: chainID}
 	var issuance srv.ResultGetIssuance
-	err := FactomClient.Request(APIAddress, "get-issuance", params, &issuance)
+	err := FactomClient.Factomd.Request(APIAddress, "get-issuance", params, &issuance)
 	if err != nil {
 		return err
 	}

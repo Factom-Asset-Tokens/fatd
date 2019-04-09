@@ -91,7 +91,7 @@ func (chain *Chain) processIssuance(es []factom.Entry) error {
 	for i, e := range es {
 		// If this entry was created before the Identity entry then it
 		// can't be valid.
-		if e.Timestamp.Before(chain.Identity.Timestamp) {
+		if e.Timestamp.Before(chain.Identity.Timestamp.Time) {
 			log.Debugf("Invalid Issuance Entry: %v, %v", e.Hash,
 				"created before identity")
 			continue
@@ -101,7 +101,7 @@ func (chain *Chain) processIssuance(es []factom.Entry) error {
 			return fmt.Errorf("Entry%+v.Get(c): %v", e, err)
 		}
 		issuance := fat.NewIssuance(e)
-		if err := issuance.Valid(chain.Identity.IDKey); err != nil {
+		if err := issuance.Valid(&chain.Identity.ID1); err != nil {
 			log.Debugf("Invalid Issuance Entry: %v, %v", e.Hash, err)
 			continue
 		}
@@ -124,7 +124,7 @@ func (chain *Chain) processTransactions(es []factom.Entry) error {
 		switch chain.Type {
 		case fat0.Type:
 			transaction := fat0.NewTransaction(e)
-			if err := transaction.Valid(chain.Identity.IDKey); err != nil {
+			if err := transaction.Valid(chain.Identity.ID1); err != nil {
 				log.Debugf("Invalid Transaction Entry: %v, %v", e.Hash, err)
 				continue
 			}
@@ -133,7 +133,7 @@ func (chain *Chain) processTransactions(es []factom.Entry) error {
 			}
 		case fat1.Type:
 			transaction := fat1.NewTransaction(e)
-			if err := transaction.Valid(chain.Identity.IDKey); err != nil {
+			if err := transaction.Valid(chain.Identity.ID1); err != nil {
 				log.Debugf("Invalid Transaction Entry: %v, %v", e.Hash, err)
 				continue
 			}

@@ -30,7 +30,7 @@ func ChainID(nameIDs []Bytes) Bytes32 {
 type Entry struct {
 	// EBlock.Get populates the Hash, Timestamp, ChainID, and Height.
 	Hash      *Bytes32 `json:"entryhash,omitempty"`
-	Timestamp *Time    `json:"timestamp,omitempty"`
+	Timestamp Time     `json:"timestamp,omitempty"`
 	ChainID   *Bytes32 `json:"chainid,omitempty"`
 	Height    uint64   `json:"-"`
 
@@ -40,13 +40,19 @@ type Entry struct {
 }
 
 // IsPopulated returns true if e has already been successfully populated by a
-// call to Get. IsPopulated returns false if both e.ExtIDs and e.Content are
-// nil.
+// call to Get. IsPopulated returns false if e.ExtIDs, e.Content, or e.Hash are
+// nil, or if e.Timestamp is zero.
 func (e Entry) IsPopulated() bool {
-	return e.ExtIDs != nil || e.Content != nil
+	return e.ExtIDs != nil &&
+		e.Content != nil &&
+		e.ChainID != nil &&
+		e.Hash != nil &&
+		e.Timestamp.Time != time.Time{}
 }
 
-// Get queries factomd for the entry corresponding to e.Hash.
+// Get queries factomd for the entry corresponding to e.Hash, which must be not
+// nil. After a successful call e.Content, e.ExtIDs, and e.Timestamp will be
+// populated.
 func (e *Entry) Get(c *Client) error {
 	// If the Hash is nil then we have nothing to query for.
 	if e.Hash == nil {
@@ -241,7 +247,7 @@ func (e *Entry) Compose(es EsAddress) (commit []byte, reveal []byte, txID *Bytes
 	// Cost
 	cost, _ := EntryCost(len(reveal))
 	if newChain {
-		cost += ChainCost
+		cost += NewChainCost
 	}
 	commit[i] = byte(cost)
 	i++
@@ -259,8 +265,8 @@ func (e *Entry) Compose(es EsAddress) (commit []byte, reveal []byte, txID *Bytes
 	return
 }
 
-// ChainCost is the fixed added cost of creating a new chain.
-const ChainCost = 10
+// NewChainCost is the fixed added cost of creating a new chain.
+const NewChainCost = 10
 
 // EntryCost returns the required Entry Credit cost for an entry with encoded
 // length equal to size. An error is returned if size exceeds 10275.

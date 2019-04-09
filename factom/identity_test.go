@@ -1,35 +1,37 @@
-package fat_test
+package factom
 
 import (
 	"encoding/hex"
-	"net/http"
 	"testing"
-	"time"
 
-	"github.com/Factom-Asset-Tokens/fatd/factom"
-	. "github.com/Factom-Asset-Tokens/fatd/fat"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 var validIdentityChainIDStr = "88888807e4f3bbb9a2b229645ab6d2f184224190f83e78761674c2362aca4425"
 
-func validIdentityChainID() factom.Bytes {
+func validIdentityChainID() Bytes {
 	return hexToBytes(validIdentityChainIDStr)
 }
 
-func hexToBytes(hexStr string) factom.Bytes {
+func hexToBytes(hexStr string) Bytes {
 	raw, err := hex.DecodeString(hexStr)
 	if err != nil {
 		panic(err)
 	}
-	return factom.Bytes(raw)
+	return Bytes(raw)
+}
+
+func newID1Key(b []byte) *ID1Key {
+	key := new(ID1Key)
+	copy(key[:], b)
+	return key
 }
 
 var validIdentityChainIDTests = []struct {
 	Name    string
 	Valid   bool
-	ChainID factom.Bytes
+	ChainID Bytes
 }{{
 	Name:    "valid",
 	ChainID: validIdentityChainID(),
@@ -45,13 +47,13 @@ var validIdentityChainIDTests = []struct {
 	ChainID: append(validIdentityChainID(), 0x00),
 }, {
 	Name:    "invalid header",
-	ChainID: func() factom.Bytes { c := validIdentityChainID(); c[0]++; return c }(),
+	ChainID: func() Bytes { c := validIdentityChainID(); c[0]++; return c }(),
 }, {
 	Name:    "invalid header",
-	ChainID: func() factom.Bytes { c := validIdentityChainID(); c[1]++; return c }(),
+	ChainID: func() Bytes { c := validIdentityChainID(); c[1]++; return c }(),
 }, {
 	Name:    "invalid header",
-	ChainID: func() factom.Bytes { c := validIdentityChainID(); c[2]++; return c }(),
+	ChainID: func() Bytes { c := validIdentityChainID(); c[2]++; return c }(),
 }}
 
 func TestValidIdentityChainID(t *testing.T) {
@@ -68,10 +70,10 @@ func TestValidIdentityChainID(t *testing.T) {
 	}
 }
 
-func validIdentityNameIDs() []factom.Bytes {
-	return []factom.Bytes{
-		factom.Bytes{0x00},
-		factom.Bytes("Identity Chain"),
+func validIdentityNameIDs() []Bytes {
+	return []Bytes{
+		Bytes{0x00},
+		Bytes("Identity Chain"),
 		hexToBytes("f825c5629772afb5bce0464e5ea1af244be853a692d16360b8e03d6164b6adb5"),
 		hexToBytes("28baa7d04e6c102991a184533b9f2443c9c314cc0327cc3a2f2adc0f3d7373a1"),
 		hexToBytes("6095733cf6f5d0b5411d1eeb9f6699fad1ae27f9d4da64583bef97008d7bf0c9"),
@@ -80,16 +82,16 @@ func validIdentityNameIDs() []factom.Bytes {
 	}
 }
 
-func invalidIdentityNameIDs(i int) []factom.Bytes {
+func invalidIdentityNameIDs(i int) []Bytes {
 	n := validIdentityNameIDs()
-	n[i] = factom.Bytes{}
+	n[i] = Bytes{}
 	return n
 }
 
 var validIdentityNameIDsTests = []struct {
 	Name    string
 	Valid   bool
-	NameIDs []factom.Bytes
+	NameIDs []Bytes
 }{{
 	Name:    "valid",
 	NameIDs: validIdentityNameIDs(),
@@ -102,10 +104,10 @@ var validIdentityNameIDsTests = []struct {
 	NameIDs: validIdentityNameIDs()[0:6],
 }, {
 	Name:    "invalid length (long)",
-	NameIDs: append(validIdentityNameIDs(), factom.Bytes{}),
+	NameIDs: append(validIdentityNameIDs(), Bytes{}),
 }, {
 	Name:    "invalid length (long)",
-	NameIDs: append(validIdentityNameIDs(), factom.Bytes{}),
+	NameIDs: append(validIdentityNameIDs(), Bytes{}),
 }, {
 	Name:    "invalid ExtID",
 	NameIDs: invalidIdentityNameIDs(0),
@@ -140,8 +142,9 @@ func TestValidIdentityNameIDs(t *testing.T) {
 	}
 }
 
-func validIdentity() Identity {
-	return Identity{ChainID: factom.NewBytes32(validIdentityChainID())}
+func validIdentity() (i Identity) {
+	i.ChainID = NewBytes32(validIdentityChainID())
+	return
 }
 
 var identityTests = []struct {
@@ -150,14 +153,14 @@ var identityTests = []struct {
 	Valid        bool
 	Error        string
 	Height       uint64
-	IDKey        *factom.RCDHash
+	ID1Key       *ID1Key
 	Identity
 }{{
 	Name:     "valid",
 	Valid:    true,
 	Identity: validIdentity(),
 	Height:   140744,
-	IDKey: factom.NewRCDHash(hexToBytes(
+	ID1Key: newID1Key(hexToBytes(
 		"9656dbf91feb7d464971f31b28bfbf38ab201b8e33ec69ea4681e3bef779858e")),
 }, {
 	Name:     "nil chain ID",
@@ -165,27 +168,27 @@ var identityTests = []struct {
 	Identity: Identity{},
 }, {
 	Name:         "bad factomd endpoint",
-	FactomServer: "localhost:1000",
+	FactomServer: "http://localhost:1000",
 	Identity:     validIdentity(),
 	Error:        "Post http://localhost:1000/v2: dial tcp [::1]:1000: connect: connection refused",
 }, {
 	Name: "malformed chain",
-	Identity: Identity{ChainID: factom.NewBytes32(hexToBytes(
-		"8888885c2e0b523d9b8ab6d2975639e431eaba3fc9039ead32ce5065dcde86e4"))},
+	Identity: NewIdentity(NewBytes32(hexToBytes(
+		"8888885c2e0b523d9b8ab6d2975639e431eaba3fc9039ead32ce5065dcde86e4"))),
 }, {
 	Name: "invalid chain id",
-	Identity: Identity{ChainID: factom.NewBytes32(hexToBytes(
-		"0088885c2e0b523d9b8ab6d2975639e431eaba3fc9039ead32ce5065dcde86e4"))},
+	Identity: NewIdentity(NewBytes32(hexToBytes(
+		"0088885c2e0b523d9b8ab6d2975639e431eaba3fc9039ead32ce5065dcde86e4"))),
 }, {
 	Name: "non-existent chain id",
-	Identity: Identity{ChainID: factom.NewBytes32(hexToBytes(
-		"8888880000000000000000000000000000000000000000000000000000000000"))},
+	Identity: NewIdentity(NewBytes32(hexToBytes(
+		"8888880000000000000000000000000000000000000000000000000000000000"))),
 	Error: `jsonrpc2.Error{Code:-32009, Message:"Missing Chain Head"}`,
 }}
 
-var factomServer = "courtesy-node.factom.com"
+var factomServer = "https://courtesy-node.factom.com"
 
-var c = &factom.Client{Client: http.Client{Timeout: 5 * time.Second}}
+var c = NewClient()
 
 func TestIdentity(t *testing.T) {
 	for _, test := range identityTests {
@@ -210,7 +213,7 @@ func TestIdentity(t *testing.T) {
 			}
 			assert.True(populated)
 			assert.Equal(int(test.Height), int(i.Height))
-			assert.Equal(*test.IDKey, *i.IDKey)
+			assert.Equal(*test.ID1Key, i.ID1)
 			assert.NoError(i.Get(c))
 		})
 	}

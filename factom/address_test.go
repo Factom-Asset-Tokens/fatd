@@ -27,7 +27,7 @@ type addressUnmarshalJSONTest struct {
 
 var addressUnmarshalJSONTests = []addressUnmarshalJSONTest{{
 	Name: "valid FA",
-	Data: fmt.Sprintf("%#v", FAAddressStr),
+	Data: fmt.Sprintf("%q", FAAddressStr),
 	Adr:  new(FAAddress),
 	ExpAdr: func() *FAAddress {
 		adr, _ := NewFsAddress(FsAddressStr)
@@ -36,7 +36,7 @@ var addressUnmarshalJSONTests = []addressUnmarshalJSONTest{{
 	}(),
 }, {
 	Name: "valid Fs",
-	Data: fmt.Sprintf("%#v", FsAddressStr),
+	Data: fmt.Sprintf("%q", FsAddressStr),
 	Adr:  new(FsAddress),
 	ExpAdr: func() *FsAddress {
 		adr, _ := NewFsAddress(FsAddressStr)
@@ -44,7 +44,7 @@ var addressUnmarshalJSONTests = []addressUnmarshalJSONTest{{
 	}(),
 }, {
 	Name: "valid EC",
-	Data: fmt.Sprintf("%#v", ECAddressStr),
+	Data: fmt.Sprintf("%q", ECAddressStr),
 	Adr:  new(ECAddress),
 	ExpAdr: func() *ECAddress {
 		adr, _ := NewEsAddress(EsAddressStr)
@@ -53,7 +53,7 @@ var addressUnmarshalJSONTests = []addressUnmarshalJSONTest{{
 	}(),
 }, {
 	Name: "valid Es",
-	Data: fmt.Sprintf("%#v", EsAddressStr),
+	Data: fmt.Sprintf("%q", EsAddressStr),
 	Adr:  new(EsAddress),
 	ExpAdr: func() *EsAddress {
 		adr, _ := NewEsAddress(EsAddressStr)
@@ -73,32 +73,32 @@ var addressUnmarshalJSONTests = []addressUnmarshalJSONTest{{
 	Err:  "json: cannot unmarshal array into Go value of type string",
 }, {
 	Name: "invalid length",
-	Data: fmt.Sprintf("%#v", FAAddressStr[0:len(FAAddressStr)-1]),
+	Data: fmt.Sprintf("%q", FAAddressStr[0:len(FAAddressStr)-1]),
 	Err:  "invalid length",
 }, {
 	Name: "invalid length",
-	Data: fmt.Sprintf("%#v", FAAddressStr+"Q"),
+	Data: fmt.Sprintf("%q", FAAddressStr+"Q"),
 	Err:  "invalid length",
 }, {
 	Name: "invalid prefix",
-	Data: fmt.Sprintf("%#v", func() string {
+	Data: fmt.Sprintf("%q", func() string {
 		adr, _ := NewFAAddress(FAAddressStr)
-		return adr.payload().StringPrefix([2]byte{0x50, 0x50})
+		return adr.payload().StringPrefix([]byte{0x50, 0x50})
 	}()),
 	Err: "invalid prefix",
 }, {
 	Name: "invalid prefix",
-	Data: fmt.Sprintf("%#v", FsAddressStr),
+	Data: fmt.Sprintf("%q", FsAddressStr),
 	Err:  "invalid prefix",
 }, {
 	Name:   "invalid symbol/FA",
-	Data:   fmt.Sprintf("%#v", FAAddressStr[0:len(FAAddressStr)-1]+"0"),
+	Data:   fmt.Sprintf("%q", FAAddressStr[0:len(FAAddressStr)-1]+"0"),
 	Err:    "invalid format: version and/or checksum bytes missing",
 	Adr:    new(FAAddress),
 	ExpAdr: new(FAAddress),
 }, {
 	Name:   "invalid checksum",
-	Data:   fmt.Sprintf("%#v", FAAddressStr[0:len(FAAddressStr)-1]+"e"),
+	Data:   fmt.Sprintf("%q", FAAddressStr[0:len(FAAddressStr)-1]+"e"),
 	Err:    "checksum error",
 	Adr:    new(FAAddress),
 	ExpAdr: new(FAAddress),
@@ -144,7 +144,7 @@ func TestAddress(t *testing.T) {
 			data, err := json.Marshal(adr)
 			assert := assert.New(t)
 			assert.NoError(err)
-			assert.Equal(fmt.Sprintf("%#v", adrStr), string(data))
+			assert.Equal(fmt.Sprintf("%q", adrStr), string(data))
 		})
 		t.Run("Payload/"+adr.PrefixString(), func(t *testing.T) {
 			assert.EqualValues(t, adr, adr.Payload())
@@ -213,7 +213,7 @@ func TestAddress(t *testing.T) {
 
 		t.Run("unrecognized prefix", func(t *testing.T) {
 			adr, _ := NewFAAddress(FAAddressStr)
-			adrStr := adr.payload().StringPrefix([2]byte{0x50, 0x50})
+			adrStr := adr.payload().StringPrefix([]byte{0x50, 0x50})
 			assert := assert.New(t)
 
 			_, err := NewAddress(adrStr)
@@ -270,38 +270,38 @@ func TestAddress(t *testing.T) {
 		assert.Equal(ec.PublicKey(), es.PublicKey())
 	})
 
-	t.Run("GetAllAddresses", func(t *testing.T) {
-		adrs, err := c.GetAllAddresses()
+	t.Run("GetAddresses", func(t *testing.T) {
+		adrs, err := c.GetAddresses()
 		assert := assert.New(t)
 		assert.NoError(err)
 		assert.NotEmpty(adrs)
 	})
-	t.Run("GetAllPrivateAddresses", func(t *testing.T) {
-		adrs, err := c.GetAllPrivateAddresses()
+	t.Run("GetPrivateAddresses", func(t *testing.T) {
+		adrs, err := c.GetPrivateAddresses()
 		assert := assert.New(t)
 		assert.NoError(err)
 		assert.NotEmpty(adrs)
 	})
-	t.Run("GetAllFAAddresses", func(t *testing.T) {
-		adrs, err := c.GetAllFAAddresses()
+	t.Run("GetFAAddresses", func(t *testing.T) {
+		adrs, err := c.GetFAAddresses()
 		assert := assert.New(t)
 		assert.NoError(err)
 		assert.NotEmpty(adrs)
 	})
-	t.Run("GetAllFsAddresses", func(t *testing.T) {
-		adrs, err := c.GetAllFsAddresses()
+	t.Run("GetFsAddresses", func(t *testing.T) {
+		adrs, err := c.GetFsAddresses()
 		assert := assert.New(t)
 		assert.NoError(err)
 		assert.NotEmpty(adrs)
 	})
-	t.Run("GetAllECAddresses", func(t *testing.T) {
-		adrs, err := c.GetAllECAddresses()
+	t.Run("GetECAddresses", func(t *testing.T) {
+		adrs, err := c.GetECAddresses()
 		assert := assert.New(t)
 		assert.NoError(err)
 		assert.NotEmpty(adrs)
 	})
-	t.Run("GetAllEsAddresses", func(t *testing.T) {
-		adrs, err := c.GetAllEsAddresses()
+	t.Run("GetEsAddresses", func(t *testing.T) {
+		adrs, err := c.GetEsAddresses()
 		assert := assert.New(t)
 		assert.NoError(err)
 		assert.NotEmpty(adrs)

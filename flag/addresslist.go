@@ -1,28 +1,33 @@
 package flag
 
 import (
-	"fmt"
 	"strings"
 
-	"github.com/AdamSLevy/factom"
+	. "github.com/Factom-Asset-Tokens/fatd/factom"
 )
 
-type AddressList []string
+type FAAddressList []FAAddress
 
-func (a AddressList) String() string {
-	return strings.Join(a, ", ")
-}
-func (aL *AddressList) Set(s string) error {
-	list := strings.Fields(s)
-	// If not able to split on space, attempt to split on comma.
-	if len(list) == 1 {
-		list = strings.Split(s, ",")
+func (adrs FAAddressList) String() string {
+	if len(adrs) == 0 {
+		return ""
 	}
-	for _, a := range list {
-		if !factom.IsValidAddress(a) {
-			return fmt.Errorf("Invalid FCT address: %#v", a)
+	var s string
+	for _, adr := range adrs {
+		s += adr.String() + ","
+	}
+	return s[:len(s)-1]
+}
+
+// Set appends a comma seperated list of FAAddresses.
+func (adrs *FAAddressList) Set(s string) error {
+	adrStrs := strings.Split(s, ",")
+	newAdrs := make(FAAddressList, len(adrStrs))
+	for i, adrStr := range adrStrs {
+		if err := newAdrs[i].Set(adrStr); err != nil {
+			return err
 		}
 	}
-	*aL = append(*aL, list...)
+	*adrs = append(*adrs, newAdrs...)
 	return nil
 }

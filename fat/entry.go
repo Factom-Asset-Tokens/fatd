@@ -11,6 +11,7 @@ import (
 
 	"github.com/Factom-Asset-Tokens/fatd/factom"
 	"github.com/Factom-Asset-Tokens/fatd/fat/jsonlen"
+
 	"golang.org/x/crypto/ed25519"
 )
 
@@ -65,7 +66,6 @@ func (e Entry) ValidExtIDs(numRCDSigPairs int) error {
 	}
 	return e.validSignatures()
 }
-
 func (e Entry) validTimestamp() error {
 	sec, err := strconv.ParseInt(string(e.ExtIDs[0]), 10, 64)
 	if err != nil {
@@ -111,11 +111,11 @@ func (e Entry) validSignatures() error {
 // Sign the RCD/Sig ID Salt + Timestamp Salt + Chain ID Salt + Content of the
 // factom.Entry and add the RCD + signature pairs for the given addresses to
 // the ExtIDs. This clears any existing ExtIDs.
-func (e *Entry) Sign(signingSet ...factom.Address) {
+func (e *Entry) Sign(signingSet ...factom.RCDPrivateKey) {
 	// Set the Entry's timestamp so that the signatures will verify against
 	// this time salt.
 	timeSalt := newTimestampSalt()
-	e.Timestamp = &factom.Time{Time: time.Now()}
+	e.Timestamp = factom.Time{Time: time.Now()}
 
 	// Compose the signed message data using exactly allocated bytes.
 	maxRcdSigIDSaltStrLen := jsonlen.Uint64(uint64(len(signingSet)))
@@ -136,7 +136,7 @@ func (e *Entry) Sign(signingSet ...factom.Address) {
 		copy(msg[start:], rcdSigIDSalt)
 
 		msgHash := sha512.Sum512(msg[start:])
-		sig := ed25519.Sign(a.PrivateKey()[:], msgHash[:])
+		sig := ed25519.Sign(a.PrivateKey(), msgHash[:])
 		e.ExtIDs = append(e.ExtIDs, a.RCD(), sig)
 	}
 }
@@ -145,11 +145,11 @@ func newTimestampSalt() []byte {
 	return []byte(strconv.FormatInt(timestamp.Unix(), 10))
 }
 
-// RCDHash returns the SHA256d hash of the first external ID of the entry,
-// which should be the RCD of the IDKey of the issuing Identity.
-func (e Entry) RCDHash(rcdSigID int) factom.RCDHash {
+// FAAddress computes the FAAddress corresponding to the rcdSigID'th RCD/Sig
+// pair.
+func (e Entry) FAAddress(rcdSigID int) factom.FAAddress {
 	id := rcdSigID*2 + 1
-	return sha256d(e.ExtIDs[id])
+	return factom.FAAddress(sha256d(e.ExtIDs[id]))
 }
 
 // sha256d computes two rounds of the sha256 hash.

@@ -46,7 +46,7 @@ func TestDataStructures(t *testing.T) {
 
 		// An EBlock without a KeyMR or ChainID should cause an error.
 		blank := EBlock{}
-		assert.EqualError(blank.Get(c), "KeyMR and ChainID are both nil")
+		assert.EqualError(blank.Get(c), "no KeyMR or ChainID specified")
 
 		// We'll use the DBlock from the last test, so it must be
 		// populated to proceed.

@@ -9,7 +9,8 @@ import (
 func version() error {
 	fmt.Printf("fat-cli: %v\n", Revision)
 	var properties srv.ResultGetDaemonProperties
-	err := FactomClient.Request(APIAddress, "get-daemon-properties", nil, &properties)
+	err := FactomClient.Factomd.
+		Request(APIAddress, "get-daemon-properties", nil, &properties)
 	if err != nil {
 		return err
 	}

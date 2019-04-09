@@ -8,7 +8,7 @@ import (
 
 func listTokens() error {
 	var tkns []srv.ParamsToken
-	err := FactomClient.Request(APIAddress, "get-daemon-tokens", nil, &tkns)
+	err := FactomClient.Factomd.Request(APIAddress, "get-daemon-tokens", nil, &tkns)
 	if err != nil {
 		return err
 	}

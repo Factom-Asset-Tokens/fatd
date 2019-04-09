@@ -24,35 +24,41 @@ type EBlockHeader struct {
 // IsPopulated returns true if eb has already been successfully populated by a
 // call to Get. Returns false if eb.PrevKeyMR is nil.
 func (eb EBlock) IsPopulated() bool {
-	return eb.PrevKeyMR != nil
+	return eb.Entries != nil &&
+		eb.ChainID != nil &&
+		eb.KeyMR != nil &&
+		eb.PrevKeyMR != nil
 }
 
 // Get queries factomd for the Entry Block corresponding to eb.KeyMR, if not
 // nil, and otherwise the Entry Block chain head for eb.ChainID. Either
-// eb.KeyMR or eb.ChainID must be allocated or else Get will fail to populate
-// the EBlock. After a successful call, EBlockHeader and Entries will be
-// populated. Each Entry will be populated with its Hash, Timestamp, ChainID,
-// and Height, but not its Content or ExtIDs. Call Get on the individual
-// Entries to populate their Content and ExtIDs.
+// eb.KeyMR or eb.ChainID must be not nil or else Get will fail to populate the
+// EBlock. After a successful call, EBlockHeader and Entries will be populated.
+// Each Entry will be populated with its Hash, Timestamp, ChainID, and Height,
+// but not its Content or ExtIDs. Call Get on the individual Entries to
+// populate their Content and ExtIDs.
 func (eb *EBlock) Get(c *Client) error {
 	// If the EBlock is already populated then there is nothing to do.
 	if eb.IsPopulated() {
 		return nil
 	}
-	// If the KeyMR and ChainID are both nil we have nothing to query for.
-	if eb.KeyMR == nil && eb.ChainID == nil {
-		return fmt.Errorf("KeyMR and ChainID are both nil")
-	}
 
-	// If we don't have a KeyMR, fetch the chain head's KeyMR.
+	// If we don't have a KeyMR, fetch the chain head KeyMR.
 	if eb.KeyMR == nil {
+		// If the KeyMR and ChainID are both nil we have nothing to
+		// query for.
+		if eb.ChainID == nil {
+			return fmt.Errorf("no KeyMR or ChainID specified")
+		}
 		if err := eb.GetChainHead(c); err != nil {
 			return err
 		}
 	}
 
 	// Make RPC request for this Entry Block.
-	params := map[string]interface{}{"keymr": eb.KeyMR}
+	params := struct {
+		KeyMR *Bytes32 `json:"keymr"`
+	}{KeyMR: eb.KeyMR}
 	method := "entry-block"
 	if err := c.FactomdRequest(method, params, eb); err != nil {
 		return err
@@ -111,9 +117,6 @@ func (eb EBlock) GetAllPrev(c *Client) ([]EBlock, error) {
 		if err := ebs[0].Get(c); err != nil {
 			return nil, err
 		}
-		if !ebs[0].IsPopulated() {
-			return nil, nil
-		}
 	}
 	return ebs, nil
 }
@@ -128,9 +131,6 @@ func (eb *EBlock) GetFirst(c *Client) error {
 	for ; !eb.IsFirst(); *eb = eb.Prev() {
 		if err := eb.Get(c); err != nil {
 			return err
-		}
-		if !eb.IsPopulated() {
-			return nil
 		}
 	}
 	return nil

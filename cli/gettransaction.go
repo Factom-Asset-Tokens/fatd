@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 
-	"github.com/Factom-Asset-Tokens/fatd/factom"
 	"github.com/Factom-Asset-Tokens/fatd/fat"
 	"github.com/Factom-Asset-Tokens/fatd/fat/fat0"
 	"github.com/Factom-Asset-Tokens/fatd/fat/fat1"
@@ -20,7 +19,7 @@ func getTransaction() error {
 	stats := struct {
 		Type fat.Type `json:"type"`
 	}{}
-	if err := FactomClient.Request(APIAddress, "get-stats",
+	if err := FactomClient.Factomd.Request(APIAddress, "get-stats",
 		params.ParamsToken, &stats); err != nil {
 		return err
 	}
@@ -33,7 +32,7 @@ func getTransaction() error {
 	default:
 		panic(fmt.Sprintf("unknown FAT type: %v", stats.Type))
 	}
-	if err := FactomClient.Request(
+	if err := FactomClient.Factomd.Request(
 		APIAddress, "get-transaction", params, &result); err != nil {
 		return err
 	}
@@ -43,34 +42,30 @@ func getTransaction() error {
 	fmt.Printf("\tInputs: \n")
 	switch result.Tx.(type) {
 	case *fat0.Transaction:
-		for rcdHash, amount := range FAT0transaction.Inputs {
+		for adr, amount := range FAT0transaction.Inputs {
 			if FAT0transaction.IsCoinbase() {
 				fmt.Printf("\t\tCoinbase: %v\n", amount)
 				break
 			}
-			adr := factom.NewAddress(&rcdHash)
 			fmt.Printf("\t\t%v: %v\n", adr, amount)
 		}
 		fmt.Printf("\tOutputs: \n")
-		for rcdHash, amount := range FAT0transaction.Outputs {
-			adr := factom.NewAddress(&rcdHash)
+		for adr, amount := range FAT0transaction.Outputs {
 			fmt.Printf("\t\t%v: %v\n", adr, amount)
 		}
 		if len(FAT0transaction.Metadata) > 0 {
 			fmt.Printf("\tMetadata: %v\n", FAT0transaction.Metadata)
 		}
 	case *fat1.Transaction:
-		for rcdHash, amount := range FAT1transaction.Inputs {
+		for adr, amount := range FAT1transaction.Inputs {
 			if FAT1transaction.IsCoinbase() {
 				fmt.Printf("\t\tCoinbase: %v\n", amount)
 				break
 			}
-			adr := factom.NewAddress(&rcdHash)
 			fmt.Printf("\t\t%v: %v\n", adr, amount)
 		}
 		fmt.Printf("\tOutputs: \n")
-		for rcdHash, amount := range FAT1transaction.Outputs {
-			adr := factom.NewAddress(&rcdHash)
+		for adr, amount := range FAT1transaction.Outputs {
 			fmt.Printf("\t\t%v: %v\n", adr, amount)
 		}
 		if len(FAT1transaction.Metadata) > 0 {

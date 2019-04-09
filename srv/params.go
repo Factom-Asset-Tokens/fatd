@@ -66,11 +66,11 @@ func (p ParamsGetTransaction) Error() jrpc.Error {
 type ParamsGetTransactions struct {
 	ParamsToken
 	// Transaction filters
-	NFTokenID *fat1.NFTokenID  `json:"nftokenid,omitempty"`
-	Addresses []factom.RCDHash `json:"addresses,omitempty"`
-	StartHash *factom.Bytes32  `json:"entryhash,omitempty"`
-	ToFrom    string           `json:"tofrom,omitempty"`
-	Order     string           `json:"order,omitempty"`
+	NFTokenID *fat1.NFTokenID    `json:"nftokenid,omitempty"`
+	Addresses []factom.FAAddress `json:"addresses,omitempty"`
+	StartHash *factom.Bytes32    `json:"entryhash,omitempty"`
+	ToFrom    string             `json:"tofrom,omitempty"`
+	Order     string             `json:"order,omitempty"`
 
 	// Pagination
 	Page  *uint `json:"page,omitempty"`
@@ -129,7 +129,7 @@ func (p ParamsGetNFToken) Error() jrpc.Error {
 
 type ParamsGetBalance struct {
 	ParamsToken
-	Address *factom.RCDHash `json:"address,omitempty"`
+	Address *factom.FAAddress `json:"address,omitempty"`
 }
 
 func (p ParamsGetBalance) IsValid() bool {
@@ -142,7 +142,7 @@ func (p ParamsGetBalance) Error() jrpc.Error {
 
 type ParamsGetNFBalance struct {
 	ParamsToken
-	Address *factom.RCDHash `json:"address,omitempty"`
+	Address *factom.FAAddress `json:"address,omitempty"`
 
 	// Pagination
 	Page  *uint  `json:"page,omitempty"`
@@ -229,7 +229,7 @@ func (p ParamsSendTransaction) Entry() factom.Entry {
 	return factom.Entry{
 		ExtIDs:    p.ExtIDs,
 		Content:   p.Content,
-		Timestamp: &factom.Time{Time: time.Now()},
+		Timestamp: factom.Time{Time: time.Now()},
 		ChainID:   p.ChainID,
 	}
 }

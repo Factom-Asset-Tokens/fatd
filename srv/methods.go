@@ -43,7 +43,7 @@ var jrpcMethods = jrpc.MethodMap{
 type ResultGetIssuance struct {
 	ParamsToken
 	Hash      *factom.Bytes32 `json:"entryhash"`
-	Timestamp *factom.Time    `json:"timestamp"`
+	Timestamp factom.Time     `json:"timestamp"`
 	Issuance  fat.Issuance    `json:"issuance"`
 }
 
@@ -73,7 +73,7 @@ func getIssuance(entry bool) jrpc.MethodFunc {
 
 type ResultGetTransaction struct {
 	Hash      *factom.Bytes32 `json:"entryhash"`
-	Timestamp *factom.Time    `json:"timestamp"`
+	Timestamp factom.Time     `json:"timestamp"`
 	Tx        interface{}     `json:"data"`
 }
 
@@ -235,19 +235,16 @@ func getNFBalance(data json.RawMessage) interface{} {
 }
 
 type ResultGetStats struct {
-	Type                     fat.Type     `json:"type"`
-	Supply                   int64        `json:"supply"`
-	CirculatingSupply        uint64       `json:"circulating"`
-	Burned                   uint64       `json:"burned"`
-	Transactions             int          `json:"transactions"`
-	IssuanceTimestamp        *factom.Time `json:"issuancets"`
-	LastTransactionTimestamp *factom.Time `json:"lasttxts,omitempty"`
+	Type                     fat.Type    `json:"type"`
+	Supply                   int64       `json:"supply"`
+	CirculatingSupply        uint64      `json:"circulating"`
+	Burned                   uint64      `json:"burned"`
+	Transactions             int         `json:"transactions"`
+	IssuanceTimestamp        factom.Time `json:"issuancets"`
+	LastTransactionTimestamp factom.Time `json:"lasttxts,omitempty"`
 }
 
-var coinbaseRCDHash = func() *factom.RCDHash {
-	coinbase := factom.Address{}
-	return coinbase.RCDHash()
-}()
+var coinbaseRCDHash = fat.Coinbase()
 
 func getStats(data json.RawMessage) interface{} {
 	params := ParamsToken{}
@@ -256,7 +253,7 @@ func getStats(data json.RawMessage) interface{} {
 		return err
 	}
 
-	coinbase, err := chain.GetAddress(coinbaseRCDHash)
+	coinbase, err := chain.GetAddress(&coinbaseRCDHash)
 	if err != nil {
 		panic(err)
 	}
@@ -266,7 +263,7 @@ func getStats(data json.RawMessage) interface{} {
 		panic(err)
 	}
 
-	var lastTxTs *factom.Time
+	var lastTxTs factom.Time
 	if len(txs) > 0 {
 		lastTxTs = txs[len(txs)-1].Timestamp
 	}
@@ -282,9 +279,9 @@ func getStats(data json.RawMessage) interface{} {
 }
 
 type ResultGetNFToken struct {
-	NFTokenID fat1.NFTokenID  `json:"id"`
-	Owner     *factom.RCDHash `json:"owner"`
-	Metadata  json.RawMessage `json:"metadata,omitempty"`
+	NFTokenID fat1.NFTokenID    `json:"id"`
+	Owner     *factom.FAAddress `json:"owner"`
+	Metadata  json.RawMessage   `json:"metadata,omitempty"`
 }
 
 func getNFToken(data json.RawMessage) interface{} {
@@ -355,7 +352,7 @@ func sendTransaction(data json.RawMessage) interface{} {
 	}
 
 	entry := params.Entry()
-	hash := entry.ComputeHash()
+	hash, _ := entry.ComputeHash()
 	transaction, err := chain.GetEntry(&hash)
 	if transaction.IsPopulated() {
 		err := ErrorInvalidTransaction
@@ -396,7 +393,7 @@ func sendTransaction(data json.RawMessage) interface{} {
 func validFAT0Transaction(chain *state.Chain, entry factom.Entry) error {
 	tx := fat0.NewTransaction(entry)
 	rpcErr := ErrorInvalidTransaction
-	if err := tx.Valid(chain.IDKey); err != nil {
+	if err := tx.Valid(chain.ID1); err != nil {
 		rpcErr.Data = err.Error()
 		return rpcErr
 	}
@@ -426,7 +423,7 @@ func validFAT0Transaction(chain *state.Chain, entry factom.Entry) error {
 func validFAT1Transaction(chain *state.Chain, entry factom.Entry) error {
 	tx := fat1.NewTransaction(entry)
 	rpcErr := ErrorInvalidTransaction
-	if err := tx.Valid(chain.IDKey); err != nil {
+	if err := tx.Valid(chain.ID1); err != nil {
 		rpcErr.Data = err.Error()
 		return rpcErr
 	}

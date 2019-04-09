@@ -5,10 +5,7 @@ import (
 	"crypto/sha256"
 	"database/sql"
 	"database/sql/driver"
-	"encoding/json"
 	"fmt"
-
-	"github.com/Factom-Asset-Tokens/base58"
 
 	"golang.org/x/crypto/ed25519"
 )
@@ -26,7 +23,7 @@ import (
 // FsAddress, ECAddress, and EsAddress.
 type Address interface {
 	// PrefixBytes returns the prefix bytes for the Address.
-	PrefixBytes() [2]byte
+	PrefixBytes() []byte
 	// PrefixString returns the encoded prefix string for the Address.
 	PrefixString() string
 
@@ -36,13 +33,13 @@ type Address interface {
 	// Payload returns the address as a byte array.
 	Payload() [sha256.Size]byte
 
-	// PublicAddress returns the corresponding public Address. Public
-	// addresses return themselves. Private addresses compute the public
-	// address.
+	// PublicAddress returns the corresponding public address in an Address
+	// interface. Public addresses return themselves. Private addresses
+	// compute the public address.
 	PublicAddress() Address
-	// GetPrivateAddress returns the corresponding PrivateAddress. Public
-	// addresses query factom-walletd for the private address. Private
-	// addresses return themselves.
+	// GetPrivateAddress returns the corresponding private address in a
+	// PrivateAddress interface. Public addresses query factom-walletd for
+	// the private address. Private addresses return themselves.
 	GetPrivateAddress(*Client) (PrivateAddress, error)
 
 	// GetBalance returns the current balance for the address.
@@ -65,14 +62,7 @@ type PrivateAddress interface {
 	// PublicKey returns the ed25519.PublicKey which can be used for
 	// verifying signatures.
 	PublicKey() ed25519.PublicKey
-
-	// Save queries factom-walletd to save this public/private Address pair
-	// in its database.
-	Save(*Client) error
 }
-
-// addressPayload implements helper functions used by all address types.
-type addressPayload [sha256.Size]byte
 
 // FAAddress is a Public Factoid Address.
 type FAAddress [sha256.Size]byte
@@ -112,54 +102,73 @@ func (adr EsAddress) Payload() [sha256.Size]byte {
 	return adr
 }
 
-// payload returns adr as *addressPayload. This is syntactic sugar useful in
-// other methods that leverage addressPayload.
-func (adr *FAAddress) payload() *addressPayload {
-	return (*addressPayload)(adr)
+// payload returns adr as payload. This is syntactic sugar useful in other
+// methods that leverage payload.
+func (adr FAAddress) payload() payload {
+	return payload(adr)
 }
-func (adr *FsAddress) payload() *addressPayload {
-	return (*addressPayload)(adr)
+func (adr FsAddress) payload() payload {
+	return payload(adr)
 }
-func (adr *ECAddress) payload() *addressPayload {
-	return (*addressPayload)(adr)
+func (adr ECAddress) payload() payload {
+	return payload(adr)
 }
-func (adr *EsAddress) payload() *addressPayload {
-	return (*addressPayload)(adr)
+func (adr EsAddress) payload() payload {
+	return payload(adr)
+}
+
+// payloadPtr returns adr as *payload. This is syntactic sugar useful in other
+// methods that leverage *payload.
+func (adr *FAAddress) payloadPtr() *payload {
+	return (*payload)(adr)
+}
+func (adr *FsAddress) payloadPtr() *payload {
+	return (*payload)(adr)
+}
+func (adr *ECAddress) payloadPtr() *payload {
+	return (*payload)(adr)
+}
+func (adr *EsAddress) payloadPtr() *payload {
+	return (*payload)(adr)
 }
 
 var (
-	faPrefixBytes = [2]byte{0x5f, 0xb1}
-	fsPrefixBytes = [2]byte{0x64, 0x78}
-	ecPrefixBytes = [2]byte{0x59, 0x2a}
-	esPrefixBytes = [2]byte{0x5d, 0xb6}
+	faPrefixBytes = [...]byte{0x5f, 0xb1}
+	fsPrefixBytes = [...]byte{0x64, 0x78}
+	ecPrefixBytes = [...]byte{0x59, 0x2a}
+	esPrefixBytes = [...]byte{0x5d, 0xb6}
 )
 
 // PrefixBytes returns the two byte prefix for the address type as a byte
 // array. Note that the prefix for a given address type is always the same and
-// does not depend on the address value. Returns [2]byte{0x5f, 0xb1}.
-func (FAAddress) PrefixBytes() [2]byte {
-	return faPrefixBytes
+// does not depend on the address value. Returns []byte{0x5f, 0xb1}.
+func (FAAddress) PrefixBytes() []byte {
+	prefix := faPrefixBytes
+	return prefix[:]
 }
 
 // PrefixBytes returns the two byte prefix for the address type as a byte
 // array. Note that the prefix for a given address type is always the same and
-// does not depend on the address value. Returns [2]byte{0x64, 0x78}.
-func (FsAddress) PrefixBytes() [2]byte {
-	return fsPrefixBytes
+// does not depend on the address value. Returns []byte{0x64, 0x78}.
+func (FsAddress) PrefixBytes() []byte {
+	prefix := fsPrefixBytes
+	return prefix[:]
 }
 
 // PrefixBytes returns the two byte prefix for the address type as a byte
 // array. Note that the prefix for a given address type is always the same and
-// does not depend on the address value. Returns [2]byte{0x59, 0x2a}.
-func (ECAddress) PrefixBytes() [2]byte {
-	return ecPrefixBytes
+// does not depend on the address value. Returns []byte{0x59, 0x2a}.
+func (ECAddress) PrefixBytes() []byte {
+	prefix := ecPrefixBytes
+	return prefix[:]
 }
 
 // PrefixBytes returns the two byte prefix for the address type as a byte
 // array. Note that the prefix for a given address type is always the same and
-// does not depend on the address value. Returns [2]byte{0x5d, 0xb6}.
-func (EsAddress) PrefixBytes() [2]byte {
-	return esPrefixBytes
+// does not depend on the address value. Returns []byte{0x5d, 0xb6}.
+func (EsAddress) PrefixBytes() []byte {
+	prefix := esPrefixBytes
+	return prefix[:]
 }
 
 const (
@@ -221,29 +230,24 @@ func (adr EsAddress) String() string {
 	return adr.payload().StringPrefix(adr.PrefixBytes())
 }
 
-// StringPrefix encodes payload as a base58check string with the given prefix.
-func (payload addressPayload) StringPrefix(prefix [2]byte) string {
-	return base58.CheckEncode(payload[:], prefix[:]...)
-}
-
 // MarshalJSON encodes adr as a JSON string using adr.String().
 func (adr FAAddress) MarshalJSON() ([]byte, error) {
-	return []byte(fmt.Sprintf("%#v", adr.String())), nil
+	return adr.payload().MarshalJSONPrefix(adr.PrefixBytes())
 }
 
 // MarshalJSON encodes adr as a JSON string using adr.String().
 func (adr FsAddress) MarshalJSON() ([]byte, error) {
-	return []byte(fmt.Sprintf("%#v", adr.String())), nil
+	return adr.payload().MarshalJSONPrefix(adr.PrefixBytes())
 }
 
 // MarshalJSON encodes adr as a JSON string using adr.String().
 func (adr ECAddress) MarshalJSON() ([]byte, error) {
-	return []byte(fmt.Sprintf("%#v", adr.String())), nil
+	return adr.payload().MarshalJSONPrefix(adr.PrefixBytes())
 }
 
 // MarshalJSON encodes adr as a JSON string using adr.String().
 func (adr EsAddress) MarshalJSON() ([]byte, error) {
-	return []byte(fmt.Sprintf("%#v", adr.String())), nil
+	return adr.payload().MarshalJSONPrefix(adr.PrefixBytes())
 }
 
 const adrStrLen = 52
@@ -364,73 +368,46 @@ func NewEsAddress(adrStr string) (adr EsAddress, err error) {
 
 // Set attempts to parse adrStr into adr.
 func (adr *FAAddress) Set(adrStr string) error {
-	return adr.payload().SetPrefix(adrStr, adr.PrefixString())
+	return adr.payloadPtr().SetPrefix(adrStr, adr.PrefixString())
 }
 
 // Set attempts to parse adrStr into adr.
 func (adr *FsAddress) Set(adrStr string) error {
-	return adr.payload().SetPrefix(adrStr, adr.PrefixString())
+	return adr.payloadPtr().SetPrefix(adrStr, adr.PrefixString())
 }
 
 // Set attempts to parse adrStr into adr.
 func (adr *ECAddress) Set(adrStr string) error {
-	return adr.payload().SetPrefix(adrStr, adr.PrefixString())
+	return adr.payloadPtr().SetPrefix(adrStr, adr.PrefixString())
 }
 
 // Set attempts to parse adrStr into adr.
 func (adr *EsAddress) Set(adrStr string) error {
-	return adr.payload().SetPrefix(adrStr, adr.PrefixString())
-}
-
-// SetPrefix attempts to parse adrStr into adr enforcing that adrStr
-// starts with prefix if prefix is not empty.
-func (payload *addressPayload) SetPrefix(adrStr, prefix string) error {
-	if len(adrStr) != 52 {
-		return fmt.Errorf("invalid length")
-	}
-	if len(prefix) > 0 && adrStr[:2] != prefix {
-		return fmt.Errorf("invalid prefix")
-	}
-	b, _, err := base58.CheckDecode(adrStr, 2)
-	if err != nil {
-		return err
-	}
-	copy(payload[:], b)
-	return nil
+	return adr.payloadPtr().SetPrefix(adrStr, adr.PrefixString())
 }
 
 // UnmarshalJSON decodes a JSON string with a human readable public Factoid
 // address into adr.
 func (adr *FAAddress) UnmarshalJSON(data []byte) error {
-	return adr.payload().UnmarshalJSONPrefix(data, adr.PrefixString())
+	return adr.payloadPtr().UnmarshalJSONPrefix(data, adr.PrefixString())
 }
 
 // UnmarshalJSON decodes a JSON string with a human readable secret Factoid
 // address into adr.
 func (adr *FsAddress) UnmarshalJSON(data []byte) error {
-	return adr.payload().UnmarshalJSONPrefix(data, adr.PrefixString())
+	return adr.payloadPtr().UnmarshalJSONPrefix(data, adr.PrefixString())
 }
 
 // UnmarshalJSON decodes a JSON string with a human readable public Entry
 // Credit address into adr.
 func (adr *ECAddress) UnmarshalJSON(data []byte) error {
-	return adr.payload().UnmarshalJSONPrefix(data, adr.PrefixString())
+	return adr.payloadPtr().UnmarshalJSONPrefix(data, adr.PrefixString())
 }
 
 // UnmarshalJSON decodes a JSON string with a human readable secret Entry
 // Credit address into adr.
 func (adr *EsAddress) UnmarshalJSON(data []byte) error {
-	return adr.payload().UnmarshalJSONPrefix(data, adr.PrefixString())
-}
-
-// UnmarshalJSON unmarshals a human readable address JSON string with the given
-// prefix.
-func (payload *addressPayload) UnmarshalJSONPrefix(data []byte, prefix string) error {
-	var adrStr string
-	if err := json.Unmarshal(data, &adrStr); err != nil {
-		return err
-	}
-	return payload.SetPrefix(adrStr, prefix)
+	return adr.payloadPtr().UnmarshalJSONPrefix(data, adr.PrefixString())
 }
 
 // GetPrivateAddress queries factom-walletd for the secret address
@@ -488,8 +465,8 @@ type walletAddressSecret struct{ Secret string }
 type walletAddressesPublic struct{ Addresses []walletAddressPublic }
 type walletAddressesSecret struct{ Addresses []walletAddressSecret }
 
-// GetAllAddresses queries factom-walletd for all public addresses.
-func (c *Client) GetAllAddresses() ([]Address, error) {
+// GetAddresses queries factom-walletd for all public addresses.
+func (c *Client) GetAddresses() ([]Address, error) {
 	var result walletAddressesPublic
 	if err := c.WalletdRequest("all-addresses", nil, &result); err != nil {
 		return nil, err
@@ -505,8 +482,8 @@ func (c *Client) GetAllAddresses() ([]Address, error) {
 	return addresses, nil
 }
 
-// GetAllPrivateAddresses queries factom-walletd for all private addresses.
-func (c *Client) GetAllPrivateAddresses() ([]PrivateAddress, error) {
+// GetPrivateAddresses queries factom-walletd for all private addresses.
+func (c *Client) GetPrivateAddresses() ([]PrivateAddress, error) {
 	var result walletAddressesSecret
 	if err := c.WalletdRequest("all-addresses", nil, &result); err != nil {
 		return nil, err
@@ -522,8 +499,8 @@ func (c *Client) GetAllPrivateAddresses() ([]PrivateAddress, error) {
 	return addresses, nil
 }
 
-// GetAllFAAddresses queries factom-walletd for all public Factoid addresses.
-func (c *Client) GetAllFAAddresses() ([]FAAddress, error) {
+// GetFAAddresses queries factom-walletd for all public Factoid addresses.
+func (c *Client) GetFAAddresses() ([]FAAddress, error) {
 	var result walletAddressesPublic
 	if err := c.WalletdRequest("all-addresses", nil, &result); err != nil {
 		return nil, err
@@ -539,8 +516,8 @@ func (c *Client) GetAllFAAddresses() ([]FAAddress, error) {
 	return addresses, nil
 }
 
-// GetAllFsAddresses queries factom-walletd for all secret Factoid addresses.
-func (c *Client) GetAllFsAddresses() ([]FsAddress, error) {
+// GetFsAddresses queries factom-walletd for all secret Factoid addresses.
+func (c *Client) GetFsAddresses() ([]FsAddress, error) {
 	var result walletAddressesSecret
 	if err := c.WalletdRequest("all-addresses", nil, &result); err != nil {
 		return nil, err
@@ -556,9 +533,8 @@ func (c *Client) GetAllFsAddresses() ([]FsAddress, error) {
 	return addresses, nil
 }
 
-// GetAllECAddresses queries factom-walletd for all public Entry Credit
-// addresses.
-func (c *Client) GetAllECAddresses() ([]ECAddress, error) {
+// GetECAddresses queries factom-walletd for all public Entry Credit addresses.
+func (c *Client) GetECAddresses() ([]ECAddress, error) {
 	var result walletAddressesPublic
 	if err := c.WalletdRequest("all-addresses", nil, &result); err != nil {
 		return nil, err
@@ -574,9 +550,8 @@ func (c *Client) GetAllECAddresses() ([]ECAddress, error) {
 	return addresses, nil
 }
 
-// GetAllEsAddresses queries factom-walletd for all secret Entry Credit
-// addresses.
-func (c *Client) GetAllEsAddresses() ([]EsAddress, error) {
+// GetEsAddresses queries factom-walletd for all secret Entry Credit addresses.
+func (c *Client) GetEsAddresses() ([]EsAddress, error) {
 	var result walletAddressesSecret
 	if err := c.WalletdRequest("all-addresses", nil, &result); err != nil {
 		return nil, err
@@ -739,11 +714,6 @@ func (adr FsAddress) RCD() []byte {
 	return append([]byte{RCDType}, adr.PublicKey()[:]...)
 }
 
-// PublicKey computes the ed25519.PublicKey for adr.
-func (adr FsAddress) PublicKey() ed25519.PublicKey {
-	return adr.PrivateKey().Public().(ed25519.PublicKey)
-}
-
 // PublicKey returns the ed25519.PublicKey for adr.
 func (adr ECAddress) PublicKey() ed25519.PublicKey {
 	return adr[:]
@@ -751,6 +721,11 @@ func (adr ECAddress) PublicKey() ed25519.PublicKey {
 
 // PublicKey computes the ed25519.PublicKey for adr.
 func (adr EsAddress) PublicKey() ed25519.PublicKey {
+	return adr.PrivateKey().Public().(ed25519.PublicKey)
+}
+
+// PublicKey computes the ed25519.PublicKey for adr.
+func (adr FsAddress) PublicKey() ed25519.PublicKey {
 	return adr.PrivateKey().Public().(ed25519.PublicKey)
 }
 

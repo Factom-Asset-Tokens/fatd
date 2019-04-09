@@ -7,7 +7,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/Factom-Asset-Tokens/base58"
 	"github.com/Factom-Asset-Tokens/fatd/factom"
 	"github.com/posener/complete"
 	"github.com/sirupsen/logrus"
@@ -27,9 +26,19 @@ var (
 
 		"apiaddress": "API_ADDRESS",
 
-		"s":              "FACTOMD_SERVER",
-		"factomdtimeout": "FACTOMD_TIMEOUT",
+		"s":               "FACTOMD_SERVER",
+		"factomdtimeout":  "FACTOMD_TIMEOUT",
+		"factomduser":     "FACTOMD_USER",
+		"factomdpassword": "FACTOMD_PASSWORD",
+		//"factomdcert":     "FACTOMD_TLS_CERT",
+		//"factomdtls":      "FACTOMD_TLS_ENABLE",
+
 		"w":              "WALLETD_SERVER",
+		"wallettimeout":  "WALLETD_TIMEOUT",
+		"walletuser":     "WALLETD_USER",
+		"walletpassword": "WALLETD_PASSWORD",
+		//"walletcert":     "WALLETD_TLS_CERT",
+		//"wallettls":      "WALLETD_TLS_ENABLE",
 
 		"ecpub": "ECPUB",
 	}
@@ -41,9 +50,19 @@ var (
 
 		"apiaddress": ":8078",
 
-		"s":              "localhost:8088",
-		"factomdtimeout": time.Duration(0),
-		"w":              "localhost:8089",
+		"s":               "http://localhost:8088",
+		"factomdtimeout":  time.Duration(0),
+		"factomduser":     "",
+		"factomdpassword": "",
+		//"factomdcert":     "",
+		//"factomdtls":      false,
+
+		"w":              "http://localhost:8089",
+		"wallettimeout":  time.Duration(0),
+		"walletuser":     "",
+		"walletpassword": "",
+		//"walletcert":     "",
+		//"wallettls":      false,
 
 		"ecpub": "",
 	}
@@ -55,9 +74,19 @@ var (
 
 		"apiaddress": "IPAddr:port# to bind to for serving the JSON RPC 2.0 API",
 
-		"s":              "IPAddr:port# of factomd API to use to access blockchain",
-		"factomdtimeout": "Timeout for factomd API requests, 0 means never timeout",
+		"s":               "IPAddr:port# of factomd API to use to access blockchain",
+		"factomdtimeout":  "Timeout for factomd API requests, 0 means never timeout",
+		"factomduser":     "Username for API connections to factomd",
+		"factomdpassword": "Password for API connections to factomd",
+		//"factomdcert":     "The TLS certificate that will be provided by the factomd API server",
+		//"factomdtls":      "Set to true to use TLS when accessing the factomd API",
+
 		"w":              "IPAddr:port# of factom-walletd API to use to access wallet",
+		"wallettimeout":  "Timeout for factom-walletd API requests, 0 means never timeout",
+		"walletuser":     "Username for API connections to factom-walletd",
+		"walletpassword": "Password for API connections to factom-walletd",
+		//"walletcert":     "The TLS certificate that will be provided by the factom-walletd API server",
+		//"wallettls":      "Set to true to use TLS when accessing the factom-walletd API",
 
 		"ecpub": "Entry Credit Public Address to use to pay for Factom entries",
 	}
@@ -69,9 +98,19 @@ var (
 
 		"-apiaddress": complete.PredictAnything,
 
-		"-s":              complete.PredictAnything,
-		"-factomdtimeout": complete.PredictAnything,
+		"-s":               complete.PredictAnything,
+		"-factomdtimeout":  complete.PredictAnything,
+		"-factomduser":     complete.PredictAnything,
+		"-factomdpassword": complete.PredictAnything,
+		//"-factomdcert":     complete.PredictFiles("*"),
+		//"-factomdtls":      complete.PredictNothing,
+
 		"-w":              complete.PredictAnything,
+		"-wallettimeout":  complete.PredictAnything,
+		"-walletuser":     complete.PredictAnything,
+		"-walletpassword": complete.PredictAnything,
+		//"-walletcert":     complete.PredictFiles("*"),
+		//"-wallettls":      complete.PredictNothing,
 
 		"-y":                   complete.PredictNothing,
 		"-installcompletion":   complete.PredictNothing,
@@ -84,13 +123,13 @@ var (
 	StartScanHeight int64  = -1 // We work with the signed value.
 	LogDebug        bool
 
-	ECPub string
+	ECPub factom.ECAddress
 
 	DBPath string
 
 	APIAddress string
 
-	FactomClient = &factom.Client{}
+	FactomClient = factom.NewClient()
 
 	flagset    map[string]bool
 	log        *logrus.Entry
@@ -105,11 +144,21 @@ func init() {
 
 	flagVar(&APIAddress, "apiaddress")
 
-	flagVar((*ecpub)(&ECPub), "ecpub")
+	flagVar(&ECPub, "ecpub")
 
 	flagVar(&FactomClient.FactomdServer, "s")
-	flagVar(&FactomClient.Timeout, "factomdtimeout")
-	flagVar(&FactomClient.WalletServer, "w")
+	flagVar(&FactomClient.Factomd.Timeout, "factomdtimeout")
+	flagVar(&FactomClient.Factomd.User, "factomduser")
+	flagVar(&FactomClient.Factomd.Password, "factomdpassword")
+	//flagVar(&FactomClient.Factomd.TLSCertFile, "factomdcert")
+	//flagVar(&FactomClient.Factomd.TLSEnable, "factomdtls")
+
+	flagVar(&FactomClient.WalletdServer, "w")
+	flagVar(&FactomClient.Walletd.Timeout, "wallettimeout")
+	flagVar(&FactomClient.Walletd.User, "walletuser")
+	flagVar(&FactomClient.Walletd.Password, "walletpassword")
+	//flagVar(&FactomClient.Walletd.TLSCertFile, "walletcert")
+	//flagVar(&FactomClient.Walletd.TLSEnable, "wallettls")
 
 	// Add flags for self installing the CLI completion tool
 	Completion = complete.New(os.Args[0], complete.Command{Flags: flags})
@@ -135,10 +184,20 @@ func Parse() {
 	loadFromEnv(&APIAddress, "apiaddress")
 
 	loadFromEnv(&FactomClient.FactomdServer, "s")
-	loadFromEnv(&FactomClient.Timeout, "factomdtimeout")
-	loadFromEnv(&FactomClient.WalletServer, "w")
+	loadFromEnv(&FactomClient.Factomd.Timeout, "factomdtimeout")
+	loadFromEnv(&FactomClient.Factomd.User, "factomduser")
+	loadFromEnv(&FactomClient.Factomd.Password, "factomdpassword")
+	//loadFromEnv(&FactomClient.Factomd.TLSCertFile, "factomdcert")
+	//loadFromEnv(&FactomClient.Factomd.TLSEnable, "factomdtls")
 
-	loadFromEnv((*ecpub)(&ECPub), "ecpub")
+	loadFromEnv(&FactomClient.WalletdServer, "w")
+	loadFromEnv(&FactomClient.Walletd.Timeout, "walletdtimeout")
+	loadFromEnv(&FactomClient.Walletd.User, "walletuser")
+	loadFromEnv(&FactomClient.Walletd.Password, "walletpassword")
+	//loadFromEnv(&FactomClient.Walletd.TLSCertFile, "walletcert")
+	//loadFromEnv(&FactomClient.Walletd.TLSEnable, "wallettls")
+
+	loadFromEnv(&ECPub, "ecpub")
 
 	if flagset["startscanheight"] {
 		StartScanHeight = int64(startScanHeight)
@@ -146,14 +205,33 @@ func Parse() {
 }
 
 func Validate() {
+	// Redact private data from debug output.
+	factomdPassword := "\"\""
+	if len(FactomClient.Factomd.Password) > 0 {
+		factomdPassword = "<redacted>"
+	}
+	walletdPassword := "\"\""
+	if len(FactomClient.Walletd.Password) > 0 {
+		walletdPassword = "<redacted>"
+	}
+
 	log.Debugf("-dbpath          %#v", DBPath)
 	log.Debugf("-apiaddress      %#v", APIAddress)
 	log.Debugf("-startscanheight %v ", StartScanHeight)
 	debugPrintln()
 
 	log.Debugf("-s              %#v", FactomClient.FactomdServer)
-	log.Debugf("-w              %#v", FactomClient.WalletServer)
-	log.Debugf("-factomdtimeout %v ", FactomClient.Timeout)
+	log.Debugf("-factomdtimeout %v ", FactomClient.Factomd.Timeout)
+	log.Debugf("-factomduser    %#v", FactomClient.Factomd.User)
+	log.Debugf("-factomdpass    %v ", factomdPassword)
+	//log.Debugf("-factomdcert    %#v", FactomClient.Factomd.TLSCertFile)
+	debugPrintln()
+
+	log.Debugf("-w              %#v", FactomClient.WalletdServer)
+	log.Debugf("-wallettimeout %v ", FactomClient.Walletd.Timeout)
+	log.Debugf("-walletuser    %#v", FactomClient.Walletd.User)
+	log.Debugf("-walletpass    %v ", walletdPassword)
+	//log.Debugf("-walletcert    %#v", FactomClient.Walletd.TLSCertFile)
 	debugPrintln()
 }
 
@@ -237,25 +315,4 @@ func setupLogger() {
 		_log.SetLevel(logrus.DebugLevel)
 	}
 	log = _log.WithField("pkg", "flag")
-}
-
-type ecpub string
-
-// String returns the hex encoded data of b.
-func (ec ecpub) String() string {
-	return string(ec)
-}
-func (ec *ecpub) Set(data string) error {
-	if len(data) != 52 {
-		return fmt.Errorf("invalid length")
-	}
-	if data[0:2] != "EC" {
-		return fmt.Errorf("invalid prefix")
-	}
-	_, _, err := base58.CheckDecode(data, 2)
-	if err != nil {
-		return err
-	}
-	*ec = ecpub(data)
-	return nil
 }

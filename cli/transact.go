@@ -9,7 +9,7 @@ import (
 )
 
 func transactFAT0() error {
-	signingAddresses := make([]factom.Address, 0, len(FAT0transaction.Inputs))
+	signingAddresses := make([]factom.RCDPrivateKey, 0, len(FAT0transaction.Inputs))
 	if flagMap["coinbase"].IsSet {
 		eb := factom.EBlock{ChainID: chainID}
 		if err := eb.GetFirst(FactomClient); err != nil {
@@ -36,24 +36,24 @@ func transactFAT0() error {
 		if !identity.IsPopulated() {
 			return fmt.Errorf("Identity Chain does not exist")
 		}
-		if *identity.IDKey != *sk1.RCDHash() {
+		if identity.ID1 != sk1.ID1Key() {
 			return fmt.Errorf("Invalid SK1 key for Identity%+v", identity)
 		}
 		signingAddresses = append(signingAddresses, sk1)
 	} else {
-		for rcd := range FAT0transaction.Inputs {
-			adr := factom.NewAddress(&rcd)
-			if err := adr.Get(FactomClient); err != nil {
+		for fa := range FAT0transaction.Inputs {
+			fs, err := fa.GetFsAddress(FactomClient)
+			if err != nil {
 				return err
 			}
-			signingAddresses = append(signingAddresses, adr)
+			signingAddresses = append(signingAddresses, fs)
 		}
 	}
 	if err := FAT0transaction.MarshalEntry(); err != nil {
 		return err
 	}
 	FAT0transaction.Sign(signingAddresses...)
-	if err := FAT0transaction.Valid(sk1.RCDHash()); err != nil {
+	if err := FAT0transaction.Valid(&sk1); err != nil {
 		return err
 	}
 	var txID *factom.Bytes32
@@ -65,12 +65,12 @@ func transactFAT0() error {
 		}
 		Hash = e.Hash
 	} else {
-		FAT0transaction.Timestamp = nil
+		FAT0transaction.Timestamp = factom.Time{}
 		result := struct {
 			*factom.Entry
 			TxID *factom.Bytes32 `json:"txid"`
 		}{Entry: &FAT0transaction.Entry.Entry}
-		err := FactomClient.Request(APIAddress, "send-transaction",
+		err := FactomClient.Factomd.Request(APIAddress, "send-transaction",
 			FAT0transaction.Entry.Entry, &result)
 		if err != nil {
 			return err
@@ -87,7 +87,7 @@ func transactFAT0() error {
 }
 
 func transactFAT1() error {
-	signingAddresses := make([]factom.Address, 0, len(FAT1transaction.Inputs))
+	signingAddresses := make([]factom.RCDPrivateKey, 0, len(FAT1transaction.Inputs))
 	if flagMap["coinbase"].IsSet {
 		eb := factom.EBlock{ChainID: chainID}
 		if err := eb.GetFirst(FactomClient); err != nil {
@@ -114,24 +114,24 @@ func transactFAT1() error {
 		if !identity.IsPopulated() {
 			return fmt.Errorf("Identity Chain does not exist")
 		}
-		if *identity.IDKey != *sk1.RCDHash() {
+		if identity.ID1 != sk1.ID1Key() {
 			return fmt.Errorf("Invalid SK1 key for Identity%+v", identity)
 		}
 		signingAddresses = append(signingAddresses, sk1)
 	} else {
-		for rcd := range FAT1transaction.Inputs {
-			adr := factom.NewAddress(&rcd)
-			if err := adr.Get(FactomClient); err != nil {
+		for fa := range FAT1transaction.Inputs {
+			fs, err := fa.GetFsAddress(FactomClient)
+			if err != nil {
 				return err
 			}
-			signingAddresses = append(signingAddresses, adr)
+			signingAddresses = append(signingAddresses, fs)
 		}
 	}
 	if err := FAT1transaction.MarshalEntry(); err != nil {
 		return err
 	}
 	FAT1transaction.Sign(signingAddresses...)
-	if err := FAT1transaction.Valid(sk1.RCDHash()); err != nil {
+	if err := FAT1transaction.Valid(&sk1); err != nil {
 		return err
 	}
 	var txID *factom.Bytes32
@@ -142,12 +142,12 @@ func transactFAT1() error {
 			return err
 		}
 	} else {
-		FAT1transaction.Timestamp = nil
+		FAT1transaction.Timestamp = factom.Time{}
 		result := struct {
 			*factom.Entry
 			TxID *factom.Bytes32 `json:"txid"`
 		}{Entry: &FAT1transaction.Entry.Entry}
-		err := FactomClient.Request(APIAddress, "send-transaction",
+		err := FactomClient.Factomd.Request(APIAddress, "send-transaction",
 			FAT1transaction.Entry.Entry, &result)
 		if err != nil {
 			return err

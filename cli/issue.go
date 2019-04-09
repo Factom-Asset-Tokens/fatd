@@ -50,7 +50,7 @@ func issue() error {
 	if err := identity.Get(FactomClient); err != nil {
 		return err
 	}
-	if *identity.IDKey != *sk1.RCDHash() {
+	if identity.ID1 != sk1.ID1Key() {
 		return fmt.Errorf("Invalid SK1 key for Identity%+v", identity)
 	}
 
@@ -59,7 +59,7 @@ func issue() error {
 		return err
 	}
 	issuance.Sign(sk1)
-	if err := issuance.Valid(identity.IDKey); err != nil {
+	if err := issuance.Valid(&identity.ID1); err != nil {
 		return err
 	}
 	txID, err := issuance.Create(FactomClient, ecpub)

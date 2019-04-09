@@ -109,5 +109,5 @@ var zeroBytes32 Bytes32
 
 // ZeroBytes32 returns an all zero Byte32.
 func ZeroBytes32() Bytes32 {
-	return Bytes32{}
+	return zeroBytes32
 }

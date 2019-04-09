@@ -27,10 +27,11 @@ type entry struct {
 }
 
 func newEntry(e factom.Entry) entry {
+	b, _ := e.MarshalBinary()
 	return entry{
 		Hash:      e.Hash,
 		Timestamp: e.Timestamp.Time,
-		Data:      e.MarshalBinary(),
+		Data:      b,
 	}
 }
 
@@ -39,14 +40,14 @@ func (e entry) IsValid() bool {
 }
 
 func (e entry) Entry() factom.Entry {
-	fe := factom.Entry{Hash: e.Hash, Timestamp: &factom.Time{Time: e.Timestamp}}
+	fe := factom.Entry{Hash: e.Hash, Timestamp: factom.Time{Time: e.Timestamp}}
 	fe.UnmarshalBinary(e.Data)
 	return fe
 }
 
 type Address struct {
 	gorm.Model
-	RCDHash *factom.RCDHash `gorm:"type:varchar(32); UNIQUE_INDEX; NOT NULL;"`
+	RCDHash *factom.FAAddress `gorm:"type:varchar(32); UNIQUE_INDEX; NOT NULL;"`
 
 	Balance uint64 `gorm:"NOT NULL;"`
 
@@ -54,12 +55,12 @@ type Address struct {
 	From []entry `gorm:"many2many:address_transactions_from;"`
 }
 
-func newAddress(fa factom.Address) Address {
-	return Address{RCDHash: fa.RCDHash()}
+func newAddress(fa factom.FAAddress) Address {
+	return Address{RCDHash: &fa}
 }
 
-func (a Address) Address() factom.Address {
-	return factom.NewAddress(a.RCDHash)
+func (a Address) Address() factom.FAAddress {
+	return *a.RCDHash
 }
 
 type NFToken struct {

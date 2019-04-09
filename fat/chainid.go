@@ -11,7 +11,7 @@ import (
 func ValidTokenNameIDs(nameIDs []factom.Bytes) bool {
 	if len(nameIDs) == 4 && len(nameIDs[1]) > 0 &&
 		string(nameIDs[0]) == "token" && string(nameIDs[2]) == "issuer" &&
-		ValidIdentityChainID(nameIDs[3]) &&
+		factom.ValidIdentityChainID(nameIDs[3]) &&
 		utf8.Valid(nameIDs[1]) {
 		return true
 	}

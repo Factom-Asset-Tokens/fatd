@@ -29,8 +29,8 @@ const (
 // for each of the http.Clients.
 func NewClient() *Client {
 	c := &Client{FactomdServer: FactomdDefault, WalletdServer: WalletdDefault}
-	c.Factomd.Timeout = 15 * time.Second
-	c.Walletd.Timeout = 15 * time.Second
+	c.Factomd.Timeout = 20 * time.Second
+	c.Walletd.Timeout = 10 * time.Second
 	return c
 }
 

@@ -9,11 +9,6 @@ import (
 	"github.com/Factom-Asset-Tokens/fatd/fat/jsonlen"
 )
 
-var (
-	// coinbase is the factom.Address with an all zero private key.
-	coinbase factom.Address
-)
-
 // Transaction represents a fat0 transaction, which can be a normal account
 // transaction or a coinbase transaction depending on the Inputs and the
 // RCD/signature pair.
@@ -82,14 +77,14 @@ func (t *Transaction) MarshalEntry() error {
 // IsCoinbase returns true if the coinbase address is in t.Input. This does not
 // necessarily mean that t is a valid coinbase transaction.
 func (t Transaction) IsCoinbase() bool {
-	amount := t.Inputs[*coinbase.RCDHash()]
+	amount := t.Inputs[fat.Coinbase()]
 	return amount != 0
 }
 
 // Valid performs all validation checks and returns nil if t is a valid
 // Transaction. If t is a coinbase transaction then idKey is used to validate
 // the RCD. Otherwise RCDs are checked against the input addresses.
-func (t *Transaction) Valid(idKey *factom.RCDHash) error {
+func (t *Transaction) Valid(idKey factom.IDKey) error {
 	if err := t.UnmarshalEntry(); err != nil {
 		return err
 	}
@@ -97,7 +92,7 @@ func (t *Transaction) Valid(idKey *factom.RCDHash) error {
 		return err
 	}
 	if t.IsCoinbase() {
-		if t.RCDHash(0) != *idKey {
+		if t.FAAddress(0) != idKey.Payload() {
 			return fmt.Errorf("invalid RCD")
 		}
 	} else {
@@ -135,10 +130,10 @@ func (t Transaction) ValidExtIDs() error {
 
 func (t Transaction) ValidRCDs() bool {
 	// Create a map of all RCDs that are present in the ExtIDs.
-	rcdHashes := make(map[factom.RCDHash]struct{}, len(t.Inputs))
+	rcdHashes := make(map[factom.FAAddress]struct{}, len(t.Inputs))
 	extIDs := t.ExtIDs[1:]
 	for i := 0; i < len(extIDs)/2; i++ {
-		rcdHashes[t.RCDHash(i)] = struct{}{}
+		rcdHashes[t.FAAddress(i)] = struct{}{}
 	}
 
 	// Ensure that for all Inputs there is a corresponding RCD in the
