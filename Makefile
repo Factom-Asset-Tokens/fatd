@@ -20,6 +20,7 @@ fatd-race: $(FATDSRC)
 fat-cli-race: $(CLISRC)
 	go build -race -ldflags=$(CLI_LDFLAGS) -o fat-cli ./cli
 
+GENSRC=factom/idkey_gen.go factom/idkey_gen_test.go
 
 FATDSRC=$(filter-out cli/%,$(SRC)) $(GENSRC)
 fatd: $(FATDSRC)
@@ -48,7 +49,6 @@ fat-cli.exe: $(CLISRC)
 fat-cli-linux: $(CLISRC)
 	env GOOS=linux GOARCH=amd64 go build -ldflags=$(CLI_LDFLAGS) -o fat-cli ./cli
 
-GENSRC=factom/idkey_gen.go factom/idkey_gen_test.go
 $(GENSRC): factom/gen.go  factom/genmain.go $(wildcard factom/*.tmpl)
 	go generate ./factom
 
