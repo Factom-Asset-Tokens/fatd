@@ -185,6 +185,9 @@ func deleteEmptyTables(db *gorm.DB) error {
 	}
 	for _, table := range tables {
 		table := table.Name
+		if table == "sqlite_sequence" {
+			continue
+		}
 		var count int
 		if err := db.Table(table).Count(&count).Error; err != nil {
 			return fmt.Errorf("db.Table(%v).Count(): %v", table, err)
