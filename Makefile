@@ -1,6 +1,6 @@
 all: fatd fat-cli
 
-race: fatd-race fat-cli-race
+race: fatd.race fat-cli.race
 
 distribution: fatd-distribution fat-cli-distribution
 
@@ -22,11 +22,11 @@ fat-cli: $(SRC)
 fat-cli-distribution: $(SRC)
 	env GOOS=linux GOARCH=amd64 go build -ldflags=$(CLI_LDFLAGS) -o fat-cli ./cli && env GOOS=windows GOARCH=amd64 go build -ldflags=$(CLI_LDFLAGS) -o fat-cli.exe ./cli && env GOOS=darwin GOARCH=amd64 go build -ldflags=$(CLI_LDFLAGS) -o fat-cli.app ./cli
 
-fatd-race: $(SRC)
-	go build -race -ldflags=$(FATD_LDFLAGS) ./
+fatd.race: $(SRC)
+	go build -race -ldflags=$(FATD_LDFLAGS) -o ./fatd.race ./
 
-fat-cli-race: $(SRC)
-	go build -race -ldflags=$(CLI_LDFLAGS) -o fat-cli ./cli
+fat-cli.race: $(SRC)
+	go build -race -ldflags=$(CLI_LDFLAGS) -o fat-cli.race ./cli
 
 .PHONY: clean purge-db unpurge-db
 
