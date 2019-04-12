@@ -1,6 +1,6 @@
 ![](https://png.icons8.com/ios-glyphs/200/5ECCDD/octahedron.png)![](https://png.icons8.com/color/64/3498db/golang.png)
 
-# fatd - Factom Asset Token Daemon v0.1.2 - Alpha
+# fatd - Factom Asset Token Daemon v0.2.0 - Alpha
 
 A daemon written in Golang that maintains the current state of Factom Asset
 Tokens (FAT) tokens. Includes a CLI for interacting with the FAT Daemon from
