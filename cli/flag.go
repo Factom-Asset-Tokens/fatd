@@ -363,6 +363,12 @@ func Validate() error {
 	if len(SubCommand) == 0 {
 		return nil
 	}
+	// set scheme for APIAddress if not present
+	apiAdr := strings.Split(APIAddress, "://")
+	if len(apiAdr) == 1 {
+		// use http://
+		APIAddress = "http://" + APIAddress
+	}
 	// Redact private data from debug output.
 	factomdRPCPassword := "\"\""
 	if len(rpc.FactomdRPCPassword) > 0 {
