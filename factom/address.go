@@ -36,6 +36,9 @@ func NewAddressFromString(adrStr string) (Address, error) {
 }
 
 func (a *Address) Get() error {
+	if a.privateKey != nil {
+		return nil
+	}
 	params := struct {
 		A *Address `json:"address"`
 	}{A: a}

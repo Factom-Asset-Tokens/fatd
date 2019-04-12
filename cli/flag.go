@@ -634,26 +634,29 @@ func requireFlags(names ...string) error {
 type AddressAmountMap fat0.AddressAmountMap
 
 func (m AddressAmountMap) Set(data string) error {
-	s := strings.SplitN(data, ":", 2)
+	s := strings.Split(data, ":")
 	if len(s) != 2 {
 		return fmt.Errorf("invalid format")
 	}
-	adr := factom.RCDHash{}
+	var adr factom.Address
 	if s[0] == "coinbase" {
-		adr = *coinbase.RCDHash()
+		adr = coinbase
 	} else {
 		if err := adr.FromString(s[0]); err != nil {
 			return fmt.Errorf("invalid address: %v", err)
 		}
+		if *adr.RCDHash() != *coinbase.RCDHash() {
+			allAddresses = append(allAddresses, adr)
+		}
 	}
-	if _, ok := m[adr]; ok {
+	if _, ok := m[*adr.RCDHash()]; ok {
 		return fmt.Errorf("duplicate address: %v", adr)
 	}
 	var amount uint64
 	if err := (*Amount)(&amount).Set(s[1]); err != nil {
 		return err
 	}
-	m[adr] = amount
+	m[*adr.RCDHash()] = amount
 	return nil
 }
 func (m AddressAmountMap) String() string {
@@ -662,20 +665,25 @@ func (m AddressAmountMap) String() string {
 
 type AddressNFTokensMap fat1.AddressNFTokensMap
 
+var allAddresses []factom.Address
+
 func (m AddressNFTokensMap) Set(data string) error {
-	s := strings.SplitN(data, ":", 2)
+	s := strings.Split(data, ":")
 	if len(s) != 2 {
 		return fmt.Errorf("invalid format")
 	}
-	adr := factom.RCDHash{}
+	var adr factom.Address
 	if s[0] == "coinbase" {
-		adr = *coinbase.RCDHash()
+		adr = coinbase
 	} else {
 		if err := adr.FromString(s[0]); err != nil {
 			return fmt.Errorf("invalid address: %v", err)
 		}
+		if *adr.RCDHash() != *coinbase.RCDHash() {
+			allAddresses = append(allAddresses, adr)
+		}
 	}
-	if _, ok := m[adr]; ok {
+	if _, ok := m[*adr.RCDHash()]; ok {
 		return fmt.Errorf("duplicate address: %v", adr)
 	}
 
@@ -684,7 +692,7 @@ func (m AddressNFTokensMap) Set(data string) error {
 		return err
 	}
 
-	m[adr] = tkns
+	m[*adr.RCDHash()] = tkns
 	return nil
 }
 func (m AddressNFTokensMap) String() string {

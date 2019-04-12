@@ -40,8 +40,12 @@ func transactFAT0() error {
 		}
 		signingAddresses = append(signingAddresses, sk1)
 	} else {
-		for rcd := range FAT0transaction.Inputs {
-			adr := factom.NewAddress(&rcd)
+		for i := range allAddresses {
+			adr := allAddresses[i]
+			if _, ok := FAT0transaction.Inputs[*adr.RCDHash()]; !ok {
+				continue
+			}
+			fmt.Println(adr)
 			if err := adr.Get(); err != nil {
 				return err
 			}
@@ -116,8 +120,12 @@ func transactFAT1() error {
 		}
 		signingAddresses = append(signingAddresses, sk1)
 	} else {
-		for rcd := range FAT1transaction.Inputs {
-			adr := factom.NewAddress(&rcd)
+		for i := range allAddresses {
+			adr := allAddresses[i]
+			if _, ok := FAT1transaction.Inputs[*adr.RCDHash()]; !ok {
+				continue
+			}
+			fmt.Println(adr)
 			if err := adr.Get(); err != nil {
 				return err
 			}
