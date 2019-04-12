@@ -3,7 +3,7 @@ package factom
 import (
 	"time"
 
-	"github.com/AdamSLevy/jsonrpc2/v11"
+	jsonrpc2 "github.com/AdamSLevy/jsonrpc2/v11"
 )
 
 // Client makes RPC requests to factomd's and factom-walletd's APIs.  Client

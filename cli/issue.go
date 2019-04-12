@@ -102,7 +102,7 @@ func fctmEntry(fe factom.Entry) fctm.Entry {
 	for i := range fe.ExtIDs {
 		extIDs[i] = fctm.Bytes(fe.ExtIDs[i])
 	}
-	e := fctm.Entry{Hash: (*fctm.Bytes32)(fe.Hash), Timestamp: fctm.Time(*fe.Timestamp),
+	e := fctm.Entry{Hash: (*fctm.Bytes32)(fe.Hash),
 		ChainID: (*fctm.Bytes32)(fe.ChainID), Height: fe.Height,
 		ExtIDs:  extIDs,
 		Content: fctm.Bytes(fe.Content)}
