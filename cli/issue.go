@@ -6,6 +6,7 @@ import (
 	jrpc "github.com/AdamSLevy/jsonrpc2/v10"
 	"github.com/Factom-Asset-Tokens/fatd/factom"
 	"github.com/Factom-Asset-Tokens/fatd/fat"
+	fctm "github.com/Factom-Asset-Tokens/fatd/fctm"
 )
 
 func issue() error {
@@ -34,10 +35,21 @@ func issue() error {
 		copy(identity.ChainID[:], first.ExtIDs[3])
 	} else if !eb.IsPopulated() {
 		// Create the chain
-		e := factom.Entry{ExtIDs: fat.NameIDs(tokenID, identity.ChainID)}
-		txID, err := e.Create(ecpub)
-		if err != nil {
-			return err
+		e := fctmEntry(factom.Entry{ExtIDs: fat.NameIDs(tokenID, identity.ChainID)})
+		zero := fctm.EsAddress{}
+		var txID *fctm.Bytes32
+		var err error
+		if esadr != zero {
+			txID, err = e.ComposeCreate(FactomClient, esadr)
+			if err != nil {
+				return err
+			}
+
+		} else {
+			txID, err = e.Create(FactomClient, ecadr)
+			if err != nil {
+				return err
+			}
 		}
 		fmt.Println("Created Token Chain")
 		fmt.Println("Token Chain ID: ", e.ChainID)
@@ -62,13 +74,37 @@ func issue() error {
 	if err := issuance.Valid(identity.IDKey); err != nil {
 		return err
 	}
-	txID, err := issuance.Create(ecpub)
-	if err != nil {
-		return err
+	e := fctmEntry(issuance.Entry.Entry)
+	zero := fctm.EsAddress{}
+	var txID *fctm.Bytes32
+	var err error
+	if esadr != zero {
+		txID, err = e.ComposeCreate(FactomClient, esadr)
+		if err != nil {
+			return err
+		}
+
+	} else {
+		txID, err = e.Create(FactomClient, ecadr)
+		if err != nil {
+			return err
+		}
 	}
 	fmt.Println("Created Issuance Entry")
 	fmt.Println("Token Chain ID: ", chainID)
-	fmt.Println("Issuance Entry Hash: ", issuance.Hash)
+	fmt.Println("Issuance Entry Hash: ", e.Hash)
 	fmt.Println("Factom TxID: ", txID)
 	return nil
+}
+
+func fctmEntry(fe factom.Entry) fctm.Entry {
+	extIDs := make([]fctm.Bytes, len(fe.ExtIDs))
+	for i := range fe.ExtIDs {
+		extIDs[i] = fctm.Bytes(fe.ExtIDs[i])
+	}
+	e := fctm.Entry{Hash: (*fctm.Bytes32)(fe.Hash), Timestamp: fctm.Time(*fe.Timestamp),
+		ChainID: (*fctm.Bytes32)(fe.ChainID), Height: fe.Height,
+		ExtIDs:  extIDs,
+		Content: fctm.Bytes(fe.Content)}
+	return e
 }

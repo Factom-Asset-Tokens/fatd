@@ -13,6 +13,7 @@ import (
 	"github.com/Factom-Asset-Tokens/fatd/fat"
 	"github.com/Factom-Asset-Tokens/fatd/fat/fat0"
 	"github.com/Factom-Asset-Tokens/fatd/fat/fat1"
+	fctm "github.com/Factom-Asset-Tokens/fatd/fctm"
 	"github.com/posener/complete"
 	"github.com/sirupsen/logrus"
 )
@@ -102,12 +103,18 @@ var (
 		Description: "Set to true to use TLS when accessing the factomd API",
 		Predictor:   complete.PredictNothing,
 		Var:         map[string]interface{}{"global": &rpc.FactomdTLSEnable},
-	}, "ecpub": {
+	}, "ecadr": {
 		SubCommand:  "issue|transactFAT0|transactFAT1",
-		EnvName:     "ECPUB",
-		Description: "Entry Credit Public Address to use to pay for Factom entries",
-		Predictor:   predictAddress(false, 1, "-ecpub", ""),
-		Var:         map[string]interface{}{"global": (*ECPub)(&ecpub)},
+		EnvName:     "ECADR",
+		Description: "Entry Credit Public Address to use to pay for Factom entries (queries factom-walletd)",
+		Predictor:   predictAddress(false, 1, "-ecadr", ""),
+		Var:         map[string]interface{}{"global": &ecadr},
+	}, "esadr": {
+		SubCommand:  "issue|transactFAT0|transactFAT1",
+		EnvName:     "ESADR",
+		Description: "Entry Credit Secret Address to use to pay for Factom entries",
+		Predictor:   complete.PredictAnything,
+		Var:         map[string]interface{}{"global": &esadr},
 	}, "chainid": {
 		Description: "Token Chain ID",
 		Predictor:   complete.PredictAnything,
@@ -243,7 +250,8 @@ var (
 	sk1      = factom.Address{}
 	address  = factom.Address{}
 	coinbase = factom.Address{}
-	ecpub    string
+	ecadr    fctm.ECAddress
+	esadr    fctm.EsAddress
 	metadata string
 	tokenID  string
 
@@ -253,7 +261,8 @@ var (
 
 	APIAddress string
 
-	rpc = factom.RpcConfig
+	rpc          = factom.RpcConfig
+	FactomClient = fctm.NewClient()
 
 	log *logrus.Entry
 )
@@ -369,6 +378,9 @@ func Validate() error {
 		// use http://
 		APIAddress = "http://" + APIAddress
 	}
+
+	FactomClient.FactomdServer = rpc.FactomdServer
+	FactomClient.WalletdServer = rpc.WalletServer
 	// Redact private data from debug output.
 	factomdRPCPassword := "\"\""
 	if len(rpc.FactomdRPCPassword) > 0 {
@@ -418,7 +430,7 @@ func Validate() error {
 
 	switch SubCommand {
 	case "issue":
-		if err := requireFlags("sk1", "supply", "ecpub"); err != nil {
+		if err := requireFlags("sk1", "supply", "esadr"); err != nil {
 			return err
 		}
 		if err := issuance.ValidData(); err != nil {

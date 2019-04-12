@@ -6,6 +6,8 @@ github.com/AdamSLevy/factom v0.0.0-20181009222153-a7ad13c1f605 h1:b/8E4LxUcjmNw4
 github.com/AdamSLevy/factom v0.0.0-20181009222153-a7ad13c1f605/go.mod h1:S5R9T6+CUDDZQ784neTGuKR3nsBSwBBEty5n1ipyezM=
 github.com/AdamSLevy/jsonrpc2/v10 v10.0.0 h1:JQStE6vDAIgW/L6CKXEpGnIca4wEKwGjJ4XYInLNMcs=
 github.com/AdamSLevy/jsonrpc2/v10 v10.0.0/go.mod h1:KnV+V6oP8VVBOm2XA6SxPQx/OhKP5P1X6zw5lF4tXfA=
+github.com/AdamSLevy/jsonrpc2/v11 v11.1.0 h1:VcccZmNq7vMZZA25mE4nrIalxPPNk92upGMbgPuXWfY=
+github.com/AdamSLevy/jsonrpc2/v11 v11.1.0/go.mod h1:1a/N8PIOPus2xEoMgfV3upUbP1dnlKK1NePwYTfCc68=
 github.com/DATA-DOG/go-sqlmock v1.3.0 h1:ljjRxlddjfChBJdFKJs5LuCwCWPLaC1UZLwAo3PBBMk=
 github.com/DATA-DOG/go-sqlmock v1.3.0/go.mod h1:f/Ixk793poVmq4qj/V1dPUg2JEAKC73Q5eFN3EC/SaM=
 github.com/Factom-Asset-Tokens/base58 v0.0.0-20181227014902-61655c4dd885 h1:rfy2fwMrOZPqQgjsH7VCreGMSPzcvqQrfjeSs8nf+sY=

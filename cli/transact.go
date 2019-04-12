@@ -5,6 +5,7 @@ import (
 
 	"github.com/Factom-Asset-Tokens/fatd/factom"
 	"github.com/Factom-Asset-Tokens/fatd/fat"
+	fctm "github.com/Factom-Asset-Tokens/fatd/fctm"
 )
 
 func transactFAT0() error {
@@ -45,7 +46,6 @@ func transactFAT0() error {
 			if _, ok := FAT0transaction.Inputs[*adr.RCDHash()]; !ok {
 				continue
 			}
-			fmt.Println(adr)
 			if err := adr.Get(); err != nil {
 				return err
 			}
@@ -59,13 +59,26 @@ func transactFAT0() error {
 	if err := FAT0transaction.Valid(sk1.RCDHash()); err != nil {
 		return err
 	}
-	var txID *factom.Bytes32
-	var err error
-	if len(ecpub) != 0 {
-		txID, err = FAT0transaction.Create(ecpub)
-		if err != nil {
-			return err
+	var txID *fctm.Bytes32
+	var Hash *fctm.Bytes32
+	zeroEC := fctm.ECAddress{}
+	zeroEs := fctm.EsAddress{}
+	if ecadr != zeroEC || esadr != zeroEs {
+		e := fctmEntry(FAT0transaction.Entry.Entry)
+		zero := fctm.EsAddress{}
+		var err error
+		if esadr != zero {
+			txID, err = e.ComposeCreate(FactomClient, esadr)
+			if err != nil {
+				return err
+			}
+		} else {
+			txID, err = e.Create(FactomClient, ecadr)
+			if err != nil {
+				return err
+			}
 		}
+		Hash = e.Hash
 	} else {
 		FAT0transaction.Timestamp = nil
 		result := struct {
@@ -77,12 +90,13 @@ func transactFAT0() error {
 		if err != nil {
 			return err
 		}
-		txID = result.TxID
+		txID = (*fctm.Bytes32)(result.TxID)
+		Hash = (*fctm.Bytes32)(FAT0transaction.Hash)
 	}
 
 	fmt.Println("Created Transaction Entry")
 	fmt.Println("Token Chain ID: ", chainID)
-	fmt.Println("Transaction Entry Hash: ", FAT0transaction.Hash)
+	fmt.Println("Transaction Entry Hash: ", Hash)
 	fmt.Println("Factom TxID: ", txID)
 	return nil
 }
@@ -125,7 +139,6 @@ func transactFAT1() error {
 			if _, ok := FAT1transaction.Inputs[*adr.RCDHash()]; !ok {
 				continue
 			}
-			fmt.Println(adr)
 			if err := adr.Get(); err != nil {
 				return err
 			}
@@ -139,12 +152,24 @@ func transactFAT1() error {
 	if err := FAT1transaction.Valid(sk1.RCDHash()); err != nil {
 		return err
 	}
-	var txID *factom.Bytes32
-	var err error
-	if len(ecpub) != 0 {
-		txID, err = FAT1transaction.Create(ecpub)
-		if err != nil {
-			return err
+	var txID *fctm.Bytes32
+	zeroEC := fctm.ECAddress{}
+	zeroEs := fctm.EsAddress{}
+	if ecadr != zeroEC || esadr != zeroEs {
+		e := fctmEntry(FAT1transaction.Entry.Entry)
+		zero := fctm.EsAddress{}
+		var err error
+		if esadr != zero {
+			txID, err = e.ComposeCreate(FactomClient, esadr)
+			if err != nil {
+				return err
+			}
+
+		} else {
+			txID, err = e.Create(FactomClient, ecadr)
+			if err != nil {
+				return err
+			}
 		}
 	} else {
 		FAT1transaction.Timestamp = nil
@@ -157,7 +182,7 @@ func transactFAT1() error {
 		if err != nil {
 			return err
 		}
-		txID = result.TxID
+		txID = (*fctm.Bytes32)(result.TxID)
 	}
 
 	fmt.Println("Created Transaction Entry")
