@@ -27,9 +27,8 @@ reporting bugs! Thank you!
 
 ## Binaries
 
-Visit our [distribution
-repository](https://github.com/Factom-Asset-Tokens/fatd-distribution) to find
-the latest pre-compiled fatd & fat-cli binaries for Linux Windows & Mac!
+Pre-compiled binaries for Linux, Windows, and Mac x86\_64 systems can be found
+on the [releases page.](https://github.com/Factom-Asset-Tokens/fatd/releases/)
 
 
 
