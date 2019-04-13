@@ -379,8 +379,8 @@ func Validate() error {
 		APIAddress = "http://" + APIAddress
 	}
 
-	FactomClient.FactomdServer = rpc.FactomdServer
-	FactomClient.WalletdServer = rpc.WalletServer
+	FactomClient.FactomdServer = "http://" + rpc.FactomdServer
+	FactomClient.WalletdServer = "http://" + rpc.WalletServer
 	// Redact private data from debug output.
 	factomdRPCPassword := "\"\""
 	if len(rpc.FactomdRPCPassword) > 0 {
