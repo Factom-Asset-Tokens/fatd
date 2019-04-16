@@ -14,12 +14,6 @@ CLI_LDFLAGS  = "-X main.Revision=$(REVISION)"
 DEPSRC = go.mod go.sum
 SRC = $(DEPSRC) $(filter-out %_test.go,$(wildcard *.go */*.go */*/*.go))
 
-fatd-race: $(FATDSRC)
-	go build -race -ldflags=$(FATD_LDFLAGS) ./
-
-fat-cli-race: $(CLISRC)
-	go build -race -ldflags=$(CLI_LDFLAGS) -o fat-cli ./cli
-
 GENSRC=factom/idkey_gen.go factom/idkey_gen_test.go
 
 FATDSRC=$(filter-out cli/%,$(SRC)) $(GENSRC)
@@ -29,6 +23,13 @@ fatd: $(FATDSRC)
 CLISRC=$(filter-out main.go engine/% state/% flag/%,$(SRC)) $(GENSRC)
 fat-cli: $(CLISRC)
 	go build -ldflags=$(CLI_LDFLAGS) -o fat-cli ./cli
+
+
+fatd.race: $(FATDSRC)
+	go build -race -ldflags=$(FATD_LDFLAGS) -o fatd.race ./
+
+fat-cli.race: $(CLISRC)
+	go build -race -ldflags=$(CLI_LDFLAGS) -o fat-cli.race ./cli
 
 
 fatd.app: $(FATDSRC)
@@ -56,7 +57,7 @@ $(GENSRC): factom/gen.go  factom/genmain.go $(wildcard factom/*.tmpl)
 .PHONY: clean purge-db unpurge-db
 
 clean:
-	rm -f ./fatd ./fatd.app ./fatd.exe ./fat-cli ./fat-cli.app ./fat-cli.exe $(GENSRC)
+	rm -f ./fatd ./fatd.app ./fatd.exe ./fat-cli ./fat-cli.app ./fat-cli.exe ./fatd.race ./fat-cli.race $(GENSRC)
 
 DATE = $(shell date -Ins)
 purge-db:
