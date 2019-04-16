@@ -234,7 +234,7 @@ func (chain *Chain) setupDB() error {
 	if err := chain.Create(&chain.Metadata).Error; err != nil {
 		return err
 	}
-	coinbase := newAddress(factom.FAAddress{})
+	coinbase := newAddress(fat.Coinbase())
 	if err := chain.Create(&coinbase).Error; err != nil {
 		return err
 	}
