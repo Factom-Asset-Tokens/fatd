@@ -12,7 +12,6 @@ import (
 	"github.com/Factom-Asset-Tokens/fatd/fat"
 	"github.com/Factom-Asset-Tokens/fatd/fat/fat0"
 	"github.com/Factom-Asset-Tokens/fatd/fat/fat1"
-	fctm "github.com/Factom-Asset-Tokens/fatd/fctm"
 	"github.com/posener/complete"
 	"github.com/sirupsen/logrus"
 )
@@ -57,12 +56,18 @@ var (
 		Description: "Timeout for factomd API requests, 0 means never timeout",
 		Predictor:   complete.PredictAnything,
 		Var:         map[string]interface{}{"global": &FactomClient.Factomd.Timeout},
-	}, "ecpub": {
+	}, "ecadr": {
 		SubCommand:  "issue|transactFAT0|transactFAT1",
 		EnvName:     "ECPUB",
 		Description: "Entry Credit Public Address to use to pay for Factom entries",
 		Predictor:   predictAddress(false, 1, "-ecpub", ""),
-		Var:         map[string]interface{}{"global": &ecpub},
+		Var:         map[string]interface{}{"global": &ecadr},
+	}, "esadr": {
+		SubCommand:  "issue|transactFAT0|transactFAT1",
+		EnvName:     "ESPUB",
+		Description: "Entry Credit Secret Address to use to pay for Factom entries",
+		Predictor:   complete.PredictAnything,
+		Var:         map[string]interface{}{"global": &esadr},
 	}, "chainid": {
 		Description: "Token Chain ID",
 		Predictor:   complete.PredictAnything,
@@ -197,7 +202,8 @@ var (
 	identity = factom.NewIdentity(factom.NewBytes32(nil))
 	sk1      factom.SK1Key
 	address  factom.FAAddress
-	ecpub    factom.ECAddress
+	ecadr    factom.ECAddress
+	esadr    factom.EsAddress
 	metadata string
 	tokenID  string
 
@@ -318,14 +324,21 @@ func Validate() error {
 		return nil
 	}
 	// set scheme for APIAddress if not present
-	apiAdr := strings.Split(APIAddress, "://")
-	if len(apiAdr) == 1 {
+	adr := strings.Split(APIAddress, "://")
+	if len(adr) == 1 {
 		// use http://
 		APIAddress = "http://" + APIAddress
 	}
-
-	FactomClient.FactomdServer = "http://" + rpc.FactomdServer
-	FactomClient.WalletdServer = "http://" + rpc.WalletServer
+	adr = strings.Split(FactomClient.FactomdServer, "://")
+	if len(adr) == 1 {
+		// use http://
+		FactomClient.FactomdServer = "http://" + FactomClient.FactomdServer
+	}
+	adr = strings.Split(FactomClient.WalletdServer, "://")
+	if len(adr) == 1 {
+		// use http://
+		FactomClient.WalletdServer = "http://" + FactomClient.WalletdServer
+	}
 
 	log.Debugf("-apiaddress      %#v", APIAddress)
 	debugPrintln()
@@ -521,25 +534,36 @@ func (m AddressAmountMap) Set(data string) error {
 	if len(s) != 2 {
 		return fmt.Errorf("invalid format")
 	}
-	var adr factom.FAAddress
+	var fa factom.FAAddress
+	var fs factom.FsAddress
 	if s[0] == "coinbase" {
-		adr = fat.Coinbase()
+		fa = fat.Coinbase()
 	} else {
-		if err := adr.Set(s[0]); err != nil {
-			return fmt.Errorf("invalid address: %v", err)
+		if err := fa.Set(s[0]); err != nil {
+			if err := fs.Set(s[0]); err != nil {
+				return fmt.Errorf("invalid address: %v", err)
+			}
+			fa = fs.FAAddress()
 		}
-		if *adr.RCDHash() != *coinbase.RCDHash() {
-			allAddresses = append(allAddresses, adr)
+		if fa != fat.Coinbase() {
+			var zero factom.FsAddress
+			if fs != zero {
+				allAddresses = append(allAddresses, fs)
+			} else {
+				allAddresses = append(allAddresses, fa)
+			}
 		}
 	}
-	if _, ok := m[*adr.RCDHash()]; ok {
-		return fmt.Errorf("duplicate address: %v", adr)
+	if _, ok := m[fa]; ok {
+		return fmt.Errorf("duplicate address: %v", fa)
 	}
+
 	var amount uint64
 	if err := (*Amount)(&amount).Set(s[1]); err != nil {
 		return err
 	}
-	m[*adr.RCDHash()] = amount
+
+	m[fa] = amount
 	return nil
 }
 func (m AddressAmountMap) String() string {
@@ -555,19 +579,28 @@ func (m AddressNFTokensMap) Set(data string) error {
 	if len(s) != 2 {
 		return fmt.Errorf("invalid format")
 	}
-	var adr factom.FAAddress
+	var fa factom.FAAddress
+	var fs factom.FsAddress
 	if s[0] == "coinbase" {
-		adr = fat.Coinbase()
+		fa = fat.Coinbase()
 	} else {
-		if err := adr.Set(s[0]); err != nil {
-			return fmt.Errorf("invalid address: %v", err)
+		if err := fa.Set(s[0]); err != nil {
+			if err := fs.Set(s[0]); err != nil {
+				return fmt.Errorf("invalid address: %v", err)
+			}
+			fa = fs.FAAddress()
 		}
-		if *adr.RCDHash() != *coinbase.RCDHash() {
-			allAddresses = append(allAddresses, adr)
+		if fa != fat.Coinbase() {
+			var zero factom.FsAddress
+			if fs != zero {
+				allAddresses = append(allAddresses, fs)
+			} else {
+				allAddresses = append(allAddresses, fa)
+			}
 		}
 	}
-	if _, ok := m[*adr.RCDHash()]; ok {
-		return fmt.Errorf("duplicate address: %v", adr)
+	if _, ok := m[fa]; ok {
+		return fmt.Errorf("duplicate address: %v", fa)
 	}
 
 	tkns := make(fat1.NFTokens)
@@ -575,7 +608,7 @@ func (m AddressNFTokensMap) Set(data string) error {
 		return err
 	}
 
-	m[*adr.RCDHash()] = tkns
+	m[fa] = tkns
 	return nil
 }
 func (m AddressNFTokensMap) String() string {

@@ -5,10 +5,10 @@ import (
 
 	"github.com/Factom-Asset-Tokens/fatd/factom"
 	"github.com/Factom-Asset-Tokens/fatd/fat"
-	fctm "github.com/Factom-Asset-Tokens/fatd/fctm"
 )
 
 func transactFAT0() error {
+	var zero factom.EsAddress
 	signingAddresses := make([]factom.RCDPrivateKey, 0, len(FAT0transaction.Inputs))
 	if flagMap["coinbase"].IsSet {
 		eb := factom.EBlock{ChainID: chainID}
@@ -56,37 +56,35 @@ func transactFAT0() error {
 	if err := FAT0transaction.Valid(&sk1); err != nil {
 		return err
 	}
+	FAT0transaction.Timestamp = nil
 	var txID *factom.Bytes32
 	var err error
-	if len(ecpub) != 0 {
-		txID, err = FAT0transaction.Create(FactomClient, ecpub)
-		if err != nil {
-			return err
-		}
-		Hash = e.Hash
+	if esadr != zero {
+		txID, err = FAT0transaction.ComposeCreate(FactomClient, esadr)
+	} else if ecadr != factom.ECAddress(zero) {
+		txID, err = FAT0transaction.Create(FactomClient, ecadr)
 	} else {
-		FAT0transaction.Timestamp = factom.Time{}
 		result := struct {
 			*factom.Entry
 			TxID *factom.Bytes32 `json:"txid"`
 		}{Entry: &FAT0transaction.Entry.Entry}
-		err := FactomClient.Factomd.Request(APIAddress, "send-transaction",
+		err = FactomClient.Factomd.Request(APIAddress, "send-transaction",
 			FAT0transaction.Entry.Entry, &result)
-		if err != nil {
-			return err
-		}
-		txID = (*fctm.Bytes32)(result.TxID)
-		Hash = (*fctm.Bytes32)(FAT0transaction.Hash)
+		txID = result.TxID
+	}
+	if err != nil {
+		return err
 	}
 
 	fmt.Println("Created Transaction Entry")
 	fmt.Println("Token Chain ID: ", chainID)
-	fmt.Println("Transaction Entry Hash: ", Hash)
+	fmt.Println("Transaction Entry Hash: ", FAT0transaction.Hash)
 	fmt.Println("Factom TxID: ", txID)
 	return nil
 }
 
 func transactFAT1() error {
+	var zero factom.EsAddress
 	signingAddresses := make([]factom.RCDPrivateKey, 0, len(FAT1transaction.Inputs))
 	if flagMap["coinbase"].IsSet {
 		eb := factom.EBlock{ChainID: chainID}
@@ -136,23 +134,22 @@ func transactFAT1() error {
 	}
 	var txID *factom.Bytes32
 	var err error
-	if len(ecpub) != 0 {
-		txID, err = FAT1transaction.Create(FactomClient, ecpub)
-		if err != nil {
-			return err
-		}
+	if esadr != zero {
+		txID, err = FAT1transaction.ComposeCreate(FactomClient, esadr)
+	} else if ecadr != factom.ECAddress(zero) {
+		txID, err = FAT1transaction.Create(FactomClient, ecadr)
 	} else {
-		FAT1transaction.Timestamp = factom.Time{}
+		FAT1transaction.Timestamp = nil
 		result := struct {
 			*factom.Entry
 			TxID *factom.Bytes32 `json:"txid"`
 		}{Entry: &FAT1transaction.Entry.Entry}
-		err := FactomClient.Factomd.Request(APIAddress, "send-transaction",
+		err = FactomClient.Factomd.Request(APIAddress, "send-transaction",
 			FAT1transaction.Entry.Entry, &result)
-		if err != nil {
-			return err
-		}
-		txID = (*fctm.Bytes32)(result.TxID)
+		txID = result.TxID
+	}
+	if err != nil {
+		return err
 	}
 
 	fmt.Println("Created Transaction Entry")

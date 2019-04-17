@@ -30,7 +30,7 @@ func ChainID(nameIDs []Bytes) Bytes32 {
 type Entry struct {
 	// EBlock.Get populates the Hash, Timestamp, ChainID, and Height.
 	Hash      *Bytes32 `json:"entryhash,omitempty"`
-	Timestamp Time     `json:"timestamp,omitempty"`
+	Timestamp *Time    `json:"timestamp,omitempty"`
 	ChainID   *Bytes32 `json:"chainid,omitempty"`
 	Height    uint64   `json:"-"`
 
@@ -47,7 +47,8 @@ func (e Entry) IsPopulated() bool {
 		e.Content != nil &&
 		e.ChainID != nil &&
 		e.Hash != nil &&
-		e.Timestamp.Time != time.Time{}
+		e.Timestamp != nil &&
+		*e.Timestamp != Time{}
 }
 
 // Get queries factomd for the entry corresponding to e.Hash, which must be not
@@ -271,7 +272,7 @@ const NewChainCost = 10
 // EntryCost returns the required Entry Credit cost for an entry with encoded
 // length equal to size. An error is returned if size exceeds 10275.
 func EntryCost(size int) (int8, error) {
-	size -= 35
+	size -= headerLen
 	if size > 10240 {
 		return 0, fmt.Errorf("Entry cannot be larger than 10KB")
 	}
@@ -285,16 +286,32 @@ func EntryCost(size int) (int8, error) {
 	return cost, nil
 }
 
+func (e Entry) Cost() (int8, error) {
+	cost, err := EntryCost(e.MarshalBinaryLen())
+	if err != nil {
+		return 0, err
+	}
+	if e.ChainID == nil {
+		cost += NewChainCost
+	}
+	return cost, nil
+}
+
+func (e Entry) MarshalBinaryLen() int {
+	extIDTotalLen := len(e.ExtIDs) * 2 // Two byte len(ExtID) per ExtID
+	for _, extID := range e.ExtIDs {
+		extIDTotalLen += len(extID)
+	}
+	return extIDTotalLen + len(e.Content) + headerLen
+}
+
 // MarshalBinary marshals the entry to its binary representation. See
 // UnmarshalBinary for encoding details. MarshalBinary populates e.ChainID if
 // nil, and always overwrites e.Hash with the computed EntryHash. This is also
 // the reveal data.
 func (e *Entry) MarshalBinary() ([]byte, error) {
-	extIDTotalLen := len(e.ExtIDs) * 2 // Two byte len(ExtID) per ExtID
-	for _, extID := range e.ExtIDs {
-		extIDTotalLen += len(extID)
-	}
-	if extIDTotalLen+len(e.Content) > 10240 {
+	totalLen := e.MarshalBinaryLen()
+	if totalLen > maxDataLen {
 		return nil, fmt.Errorf("Entry cannot be larger than 10KB")
 	}
 	if e.ChainID == nil {
@@ -302,10 +319,10 @@ func (e *Entry) MarshalBinary() ([]byte, error) {
 		*e.ChainID = ChainID(e.ExtIDs)
 	}
 	// Header, version byte 0x00
-	data := make([]byte, headerLen+extIDTotalLen+len(e.Content))
+	data := make([]byte, totalLen)
 	i := 1
 	i += copy(data[i:], e.ChainID[:])
-	i += copy(data[i:], bigEndian(extIDTotalLen))
+	i += copy(data[i:], bigEndian(totalLen-len(e.Content)-headerLen))
 
 	// Payload
 	for _, extID := range e.ExtIDs {
@@ -325,6 +342,8 @@ const (
 		32 + // chain id
 		2 // total len
 
+	maxDataLen  = 10240
+	maxTotalLen = 10240 + headerLen
 )
 
 // UnmarshalBinary unmarshals raw entry data. It does not populate the

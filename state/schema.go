@@ -30,7 +30,7 @@ func newEntry(e factom.Entry) entry {
 	b, _ := e.MarshalBinary()
 	return entry{
 		Hash:      e.Hash,
-		Timestamp: e.Timestamp.Time,
+		Timestamp: e.Timestamp.Time(),
 		Data:      b,
 	}
 }
@@ -40,7 +40,7 @@ func (e entry) IsValid() bool {
 }
 
 func (e entry) Entry() factom.Entry {
-	fe := factom.Entry{Hash: e.Hash, Timestamp: factom.Time{Time: e.Timestamp}}
+	fe := factom.Entry{Hash: e.Hash, Timestamp: (*factom.Time)(&e.Timestamp)}
 	fe.UnmarshalBinary(e.Data)
 	return fe
 }

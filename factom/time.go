@@ -6,11 +6,9 @@ import (
 	"time"
 )
 
-// Time embeds time.Time and implements the json.Unmarshaler interface for
-// correctly parsing the timestamps returned by the factomd JSON RPC API.
-type Time struct {
-	time.Time
-}
+// Time implements the json.Unmarshaler interface for correctly parsing the
+// timestamps returned by the factomd JSON RPC API.
+type Time time.Time
 
 // UnmarshalJSON unmarshals a string containing a Unix seconds since epoch
 // timestamp.
@@ -19,6 +17,10 @@ func (t *Time) UnmarshalJSON(data []byte) error {
 	if err != nil {
 		return fmt.Errorf("invalid timestamp")
 	}
-	t.Time = time.Unix(int64(sec), 0)
+	*t = Time(time.Unix(int64(sec), 0))
 	return nil
+}
+
+func (t Time) Time() time.Time {
+	return (time.Time)(t)
 }

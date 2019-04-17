@@ -154,7 +154,7 @@ func TestDataStructures(t *testing.T) {
 		assert.Len(e.ExtIDs, 6)
 		assert.NotEmpty(e.Content)
 		assert.Equal(height, e.Height)
-		assert.Equal(time.Unix(1542223080, 0), e.Timestamp.Time)
+		assert.Equal(time.Unix(1542223080, 0), time.Time(*e.Timestamp))
 		hash, err := e.ComputeHash()
 		assert.NoError(err)
 		assert.Equal(*e.Hash, hash)

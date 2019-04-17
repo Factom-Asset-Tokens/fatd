@@ -40,7 +40,8 @@ var (
 		//"walletcert":     "WALLETD_TLS_CERT",
 		//"wallettls":      "WALLETD_TLS_ENABLE",
 
-		"ecpub": "ECPUB",
+		"ecadr": "ECADR",
+		"esadr": "ESADR",
 	}
 	defaults = map[string]interface{}{
 		"startscanheight": uint64(0),
@@ -64,7 +65,8 @@ var (
 		//"walletcert":     "",
 		//"wallettls":      false,
 
-		"ecpub": "",
+		"ecadr": "",
+		"esadr": "",
 	}
 	descriptions = map[string]string{
 		"startscanheight": "Block height to start scanning for deposits on startup",
@@ -88,7 +90,8 @@ var (
 		//"walletcert":     "The TLS certificate that will be provided by the factom-walletd API server",
 		//"wallettls":      "Set to true to use TLS when accessing the factom-walletd API",
 
-		"ecpub": "Entry Credit Public Address to use to pay for Factom entries",
+		"ecadr": "Entry Credit Public Address to use to pay for Factom entries",
+		"esadr": "Entry Credit Secret Address to use to pay for Factom entries",
 	}
 	flags = complete.Flags{
 		"-startscanheight": complete.PredictAnything,
@@ -116,14 +119,15 @@ var (
 		"-installcompletion":   complete.PredictNothing,
 		"-uninstallcompletion": complete.PredictNothing,
 
-		"-ecpub": predictAddress(false, 1, "-ecpub", ""),
+		"-ecadr": predictAddress(false, 1, "-ecadr", ""),
 	}
 
 	startScanHeight uint64      // We parse the flag as unsigned.
 	StartScanHeight int64  = -1 // We work with the signed value.
 	LogDebug        bool
 
-	ECPub factom.ECAddress
+	EsAdr factom.EsAddress
+	ECAdr factom.ECAddress
 
 	DBPath string
 
@@ -144,7 +148,8 @@ func init() {
 
 	flagVar(&APIAddress, "apiaddress")
 
-	flagVar(&ECPub, "ecpub")
+	flagVar(&ECAdr, "ecadr")
+	flagVar(&EsAdr, "esadr")
 
 	flagVar(&FactomClient.FactomdServer, "s")
 	flagVar(&FactomClient.Factomd.Timeout, "factomdtimeout")
@@ -197,7 +202,8 @@ func Parse() {
 	//loadFromEnv(&FactomClient.Walletd.TLSCertFile, "walletcert")
 	//loadFromEnv(&FactomClient.Walletd.TLSEnable, "wallettls")
 
-	loadFromEnv(&ECPub, "ecpub")
+	loadFromEnv(&ECAdr, "ecadr")
+	loadFromEnv(&EsAdr, "esadr")
 
 	if flagset["startscanheight"] {
 		StartScanHeight = int64(startScanHeight)
@@ -233,6 +239,13 @@ func Validate() {
 	log.Debugf("-walletpass    %v ", walletdPassword)
 	//log.Debugf("-walletcert    %#v", FactomClient.Walletd.TLSCertFile)
 	debugPrintln()
+
+	var zero factom.EsAddress
+	if EsAdr == zero {
+		EsAdr, _ = ECAdr.GetEsAddress(FactomClient)
+	} else {
+		ECAdr = EsAdr.ECAddress()
+	}
 }
 
 func flagVar(v interface{}, name string) {

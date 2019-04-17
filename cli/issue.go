@@ -9,6 +9,7 @@ import (
 )
 
 func issue() error {
+	var zero factom.EsAddress
 	eb := factom.EBlock{ChainID: chainID}
 	if err := eb.GetFirst(FactomClient); err != nil {
 		if _, ok := err.(jrpc.Error); !ok {
@@ -35,7 +36,13 @@ func issue() error {
 	} else if !eb.IsPopulated() {
 		// Create the chain
 		e := factom.Entry{ExtIDs: fat.NameIDs(tokenID, identity.ChainID)}
-		txID, err := e.Create(FactomClient, ecpub)
+		var txID *factom.Bytes32
+		var err error
+		if esadr != zero {
+			txID, err = e.ComposeCreate(FactomClient, esadr)
+		} else {
+			txID, err = e.Create(FactomClient, ecadr)
+		}
 		if err != nil {
 			return err
 		}
@@ -62,25 +69,19 @@ func issue() error {
 	if err := issuance.Valid(&identity.ID1); err != nil {
 		return err
 	}
-	txID, err := issuance.Create(FactomClient, ecpub)
+	var txID *factom.Bytes32
+	var err error
+	if esadr != zero {
+		txID, err = issuance.ComposeCreate(FactomClient, esadr)
+	} else {
+		txID, err = issuance.Create(FactomClient, ecadr)
+	}
 	if err != nil {
 		return err
 	}
 	fmt.Println("Created Issuance Entry")
 	fmt.Println("Token Chain ID: ", chainID)
-	fmt.Println("Issuance Entry Hash: ", e.Hash)
+	fmt.Println("Issuance Entry Hash: ", issuance.Hash)
 	fmt.Println("Factom TxID: ", txID)
 	return nil
-}
-
-func fctmEntry(fe factom.Entry) fctm.Entry {
-	extIDs := make([]fctm.Bytes, len(fe.ExtIDs))
-	for i := range fe.ExtIDs {
-		extIDs[i] = fctm.Bytes(fe.ExtIDs[i])
-	}
-	e := fctm.Entry{Hash: (*fctm.Bytes32)(fe.Hash),
-		ChainID: (*fctm.Bytes32)(fe.ChainID), Height: fe.Height,
-		ExtIDs:  extIDs,
-		Content: fctm.Bytes(fe.Content)}
-	return e
 }

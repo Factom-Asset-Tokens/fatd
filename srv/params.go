@@ -226,10 +226,11 @@ func (p ParamsSendTransaction) Error() jrpc.Error {
 }
 
 func (p ParamsSendTransaction) Entry() factom.Entry {
+	ts := factom.Time(time.Now())
 	return factom.Entry{
 		ExtIDs:    p.ExtIDs,
 		Content:   p.Content,
-		Timestamp: factom.Time{Time: time.Now()},
+		Timestamp: &ts,
 		ChainID:   p.ChainID,
 	}
 }
