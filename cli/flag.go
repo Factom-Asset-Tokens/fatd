@@ -89,7 +89,7 @@ var (
 		SubCommand:  "issue|transactFAT0|transactFAT1",
 		Description: "Issuer's SK1 key as defined by their Identity Chain.",
 		Predictor:   complete.PredictAnything,
-		Var:         map[string]interface{}{"global": sk1},
+		Var:         map[string]interface{}{"global": &sk1},
 	}, "supply": {
 		SubCommand:  "issue",
 		Description: "Total number of issuable tokens. Must be a positive integer or -1 for unlimited.",
