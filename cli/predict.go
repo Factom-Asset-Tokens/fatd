@@ -4,9 +4,7 @@ import (
 	"flag"
 	"os"
 	"strings"
-	"time"
 
-	"github.com/AdamSLevy/factom"
 	"github.com/posener/complete"
 )
 
@@ -64,32 +62,27 @@ func predictAddress(fa bool, num int, flagName, suffix string) complete.PredictF
 }
 
 func listAddresses(fa bool) []string {
-	fcts, ecs := addressPubStrings()
-	if fa {
-		return fcts
-	}
-	return ecs
-}
-
-func addressPubStrings() ([]string, []string) {
 	parseWalletFlags()
-	// Fetch all addresses.
-	fcts, ecs, err := factom.FetchAddresses()
+	if fa {
+		adrs, err := FactomClient.GetFAAddresses()
+		if err != nil {
+			return nil
+		}
+		adrStrs := make([]string, len(adrs))
+		for i, adr := range adrs {
+			adrStrs[i] = adr.String()
+		}
+		return adrStrs
+	}
+	adrs, err := FactomClient.GetECAddresses()
 	if err != nil {
-		complete.Log("error: %v", err)
-		return nil, nil
+		return nil
 	}
-
-	// Create slices of the public address strings.
-	fctAddresses := make([]string, len(fcts))
-	for i, fct := range fcts {
-		fctAddresses[i] = fct.String()
+	adrStrs := make([]string, len(adrs))
+	for i, adr := range adrs {
+		adrStrs[i] = adr.String()
 	}
-	ecAddresses := make([]string, len(ecs))
-	for i, ec := range ecs {
-		ecAddresses[i] = ec.PubString()
-	}
-	return fctAddresses, ecAddresses
+	return adrStrs
 }
 
 var cliFlags *flag.FlagSet
@@ -104,12 +97,7 @@ func parseWalletFlags() {
 	// Using flag.FlagSet allows us to parse a custom array of flags
 	// instead of this programs args.
 	cliFlags = flag.NewFlagSet("", flag.ContinueOnError)
-	cliFlags.StringVar(&factom.RpcConfig.WalletServer, "w", "localhost:8089", "")
-	cliFlags.StringVar(&factom.RpcConfig.WalletTLSCertFile, "walletcert",
-		"~/.factom/walletAPIpub.cert", "")
-	cliFlags.StringVar(&factom.RpcConfig.WalletRPCUser, "walletuser", "", "")
-	cliFlags.StringVar(&factom.RpcConfig.WalletRPCPassword, "walletpassword", "", "")
-	cliFlags.BoolVar(&factom.RpcConfig.WalletTLSEnable, "wallettls", false, "")
+	cliFlags.StringVar(&FactomClient.WalletdServer, "w", "localhost:8089", "")
 
 	// flags.Parse will print warnings if it comes across an unrecognized
 	// flag. We don't want this so we temprorarily redirect everything to
@@ -127,9 +115,4 @@ func parseWalletFlags() {
 	// Restore stdout and stderr.
 	os.Stdout = stdout
 	os.Stderr = stderr
-
-	// We want need factom-walletd to timeout or the CLI completion will
-	// hang and never return. This is the whole reason we use AdamSLevy's
-	// fork of factom.
-	factom.SetWalletTimeout(1 * time.Second)
 }

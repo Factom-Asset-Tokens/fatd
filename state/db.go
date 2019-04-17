@@ -23,6 +23,7 @@ import (
 var (
 	SavedHeight uint64 = 163180
 	log         _log.Log
+	c           = flag.FactomClient
 )
 
 // Load state from all existing databases
@@ -233,7 +234,7 @@ func (chain *Chain) setupDB() error {
 	if err := chain.Create(&chain.Metadata).Error; err != nil {
 		return err
 	}
-	coinbase := newAddress(factom.Address{})
+	coinbase := newAddress(fat.Coinbase())
 	if err := chain.Create(&coinbase).Error; err != nil {
 		return err
 	}
@@ -276,7 +277,7 @@ func (chain *Chain) loadIssuance() error {
 		return err
 	}
 	chain.ChainStatus = ChainStatusIssued
-	if err := chain.Identity.Get(); err != nil {
+	if err := chain.Identity.Get(c); err != nil {
 		return err
 	}
 	return nil
@@ -338,7 +339,7 @@ func (chain *Chain) saveHeight(height uint64) error {
 	}
 	return nil
 }
-func (chain Chain) GetAddress(rcdHash *factom.RCDHash) (Address, error) {
+func (chain Chain) GetAddress(rcdHash *factom.FAAddress) (Address, error) {
 	a := Address{RCDHash: rcdHash}
 	if err := chain.Where(&a).First(&a).Error; err != nil &&
 		err != gorm.ErrRecordNotFound {
@@ -359,7 +360,7 @@ func (chain Chain) GetNFToken(tkn *NFToken) error {
 	return nil
 }
 
-func (chain Chain) GetNFTokensForOwner(rcdHash *factom.RCDHash,
+func (chain Chain) GetNFTokensForOwner(rcdHash *factom.FAAddress,
 	page, limit uint, order string) (fat1.NFTokens, error) {
 	sess := chain.DBR.NewSession(nil)
 	ownerID := dbr.Select("id").From("addresses").
@@ -436,7 +437,7 @@ func (chain Chain) getEntry(hash *factom.Bytes32) (*entry, error) {
 const LimitMax = 1000
 
 func (chain Chain) GetEntries(hash *factom.Bytes32,
-	rcdHashes []factom.RCDHash, tknID *fat1.NFTokenID,
+	rcdHashes []factom.FAAddress, tknID *fat1.NFTokenID,
 	toFrom, order string,
 	page, limit uint) ([]factom.Entry, error) {
 	if limit == 0 || limit > LimitMax {

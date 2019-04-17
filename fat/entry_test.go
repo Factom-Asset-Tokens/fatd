@@ -8,7 +8,6 @@ import (
 
 	"github.com/Factom-Asset-Tokens/fatd/factom"
 	. "github.com/Factom-Asset-Tokens/fatd/fat"
-	"github.com/FactomProject/ed25519"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -19,6 +18,18 @@ var validExtIDsTests = []struct {
 }{{
 	Name:  "valid",
 	Entry: validEntry(),
+}, {
+	Name: "valid (large signing set)",
+	Entry: func() Entry {
+		e := validEntry()
+		adrs := make([]factom.RCDPrivateKey, 100)
+		for i := range adrs {
+			adr, _ := factom.GenerateFsAddress()
+			adrs[i] = adr
+		}
+		e.Sign(adrs...)
+		return e
+	}(),
 }, {
 	Name:  "nil ExtIDs",
 	Error: "invalid number of ExtIDs",
@@ -146,20 +157,19 @@ func validEntry() Entry {
 	e.Content = factom.Bytes{0x00, 0x01, 0x02}
 	e.ChainID = factom.NewBytes32(nil)
 	// Generate valid signatures with blank Addresses.
-	e.Sign(twoAddresses()...)
+	adrs := twoAddresses()
+	e.Sign(adrs[0], adrs[1])
 	return e
 }
 
-func twoAddresses() []factom.Address {
-	adrs := make([]factom.Address, 2)
+func twoAddresses() []factom.FsAddress {
+	adrs := make([]factom.FsAddress, 2)
 	for i := range adrs {
-		publicKey, privateKey, err := ed25519.GenerateKey(randSource)
+		adr, err := factom.GenerateFsAddress()
 		if err != nil {
 			panic(err)
 		}
-		copy(adrs[i].PublicKey()[:], publicKey[:])
-		copy(adrs[i].PrivateKey()[:], privateKey[:])
-
+		adrs[i] = adr
 	}
 	return adrs
 }

@@ -8,6 +8,17 @@ import (
 	"github.com/Factom-Asset-Tokens/fatd/fat/jsonlen"
 )
 
+var (
+	coinbase = func() factom.FAAddress {
+		priv := factom.FsAddress{}
+		return priv.FAAddress()
+	}()
+)
+
+func Coinbase() factom.FAAddress {
+	return coinbase
+}
+
 // Issuance represents the Issuance of a token.
 type Issuance struct {
 	Type   Type  `json:"type"`
@@ -71,14 +82,14 @@ func (i *Issuance) MarshalEntry() error {
 
 // Valid performs all validation checks and returns nil if i is a valid
 // Issuance.
-func (i *Issuance) Valid(idKey *factom.RCDHash) error {
+func (i *Issuance) Valid(idKey factom.IDKey) error {
 	if err := i.UnmarshalEntry(); err != nil {
 		return err
 	}
 	if err := i.ValidExtIDs(); err != nil {
 		return err
 	}
-	if i.RCDHash(0) != *idKey {
+	if i.FAAddress(0) != idKey.Payload() {
 		return fmt.Errorf("invalid RCD")
 	}
 	return nil

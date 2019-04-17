@@ -46,7 +46,7 @@ func (t *Transaction) UnmarshalJSON(data []byte) error {
 			return fmt.Errorf("%T.TokenMetadata: %v", t, err)
 
 		}
-		if err := t.TokenMetadata.IsSubsetOf(t.Inputs[*coinbase.RCDHash()]); err != nil {
+		if err := t.TokenMetadata.IsSubsetOf(t.Inputs[fat.Coinbase()]); err != nil {
 			return fmt.Errorf("%T.TokenMetadata: %v", t, err)
 		}
 
@@ -101,12 +101,10 @@ func (t Transaction) ValidData() error {
 	return nil
 }
 
-var coinbase factom.Address
-
 // IsCoinbase returns true if the coinbase address is in t.Input. This does not
 // necessarily mean that t is a valid coinbase transaction.
 func (t Transaction) IsCoinbase() bool {
-	tkns := t.Inputs[*coinbase.RCDHash()]
+	tkns := t.Inputs[fat.Coinbase()]
 	return len(tkns) != 0
 }
 
@@ -120,7 +118,7 @@ func (t *Transaction) MarshalEntry() error {
 	return t.Entry.MarshalEntry(t)
 }
 
-func (t *Transaction) Valid(idKey *factom.RCDHash) error {
+func (t *Transaction) Valid(idKey factom.IDKey) error {
 	if err := t.UnmarshalEntry(); err != nil {
 		return err
 	}
@@ -128,7 +126,7 @@ func (t *Transaction) Valid(idKey *factom.RCDHash) error {
 		return err
 	}
 	if t.IsCoinbase() {
-		if t.RCDHash(0) != *idKey {
+		if t.FAAddress(0) != idKey.Payload() {
 			return fmt.Errorf("invalid RCD")
 		}
 	} else {
@@ -145,16 +143,16 @@ func (t Transaction) ValidExtIDs() error {
 
 func (t Transaction) ValidRCDs() bool {
 	// Create a map of all RCDs that are present in the ExtIDs.
-	rcdHashes := make(map[factom.RCDHash]struct{}, len(t.Inputs))
+	adrs := make(map[factom.FAAddress]struct{}, len(t.Inputs))
 	extIDs := t.ExtIDs[1:]
 	for i := 0; i < len(extIDs)/2; i++ {
-		rcdHashes[t.RCDHash(i)] = struct{}{}
+		adrs[t.FAAddress(i)] = struct{}{}
 	}
 
 	// Ensure that for all Inputs there is a corresponding RCD in the
 	// ExtIDs.
-	for inputRCDHash := range t.Inputs {
-		if _, ok := rcdHashes[inputRCDHash]; !ok {
+	for inputAdr := range t.Inputs {
+		if _, ok := adrs[inputAdr]; !ok {
 			return false
 		}
 	}

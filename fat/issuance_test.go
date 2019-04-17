@@ -1,14 +1,37 @@
 package fat_test
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"testing"
 
 	"github.com/Factom-Asset-Tokens/fatd/factom"
 	. "github.com/Factom-Asset-Tokens/fatd/fat"
-	"github.com/FactomProject/ed25519"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
+
+var humanReadableZeroAddress = "FA1zT4aFpEvcnPqPCigB3fvGu4Q4mTXY22iiuV69DqE1pNhdF2MC"
+
+var validIdentityChainIDStr = "88888807e4f3bbb9a2b229645ab6d2f184224190f83e78761674c2362aca4425"
+
+func validIdentityChainID() factom.Bytes {
+	return hexToBytes(validIdentityChainIDStr)
+}
+
+func hexToBytes(hexStr string) factom.Bytes {
+	raw, err := hex.DecodeString(hexStr)
+	if err != nil {
+		panic(err)
+	}
+	return factom.Bytes(raw)
+}
+
+func TestCoinbase(t *testing.T) {
+	a := Coinbase()
+	require := require.New(t)
+	require.Equal(humanReadableZeroAddress, a.String())
+}
 
 var (
 	identityChainID = factom.NewBytes32(validIdentityChainID())
@@ -79,7 +102,7 @@ func invalidTokenNameIDs(i int) []factom.Bytes {
 var issuanceTests = []struct {
 	Name      string
 	Error     string
-	IssuerKey factom.Address
+	IssuerKey factom.ID1Key
 	Issuance
 }{{
 	Name:      "valid",
@@ -177,7 +200,7 @@ func TestIssuance(t *testing.T) {
 			assert := assert.New(t)
 			i := test.Issuance
 			key := test.IssuerKey
-			err := i.Valid(key.RCDHash())
+			err := i.Valid(&key)
 			if len(test.Error) == 0 {
 				assert.NoError(err)
 			} else {
@@ -200,16 +223,11 @@ func validIssuance() Issuance {
 	return issuance(marshal(validIssuanceEntryContentMap()))
 }
 
-var issuerKey = func() factom.Address {
-	a := factom.Address{}
-	publicKey, privateKey, err := ed25519.GenerateKey(randSource)
-	if err != nil {
-		panic(err)
-	}
-	copy(a.PublicKey()[:], publicKey[:])
-	copy(a.PrivateKey()[:], privateKey[:])
+var issuerSecret = func() factom.SK1Key {
+	a, _ := factom.GenerateSK1Key()
 	return a
 }()
+var issuerKey = issuerSecret.ID1Key()
 
 func issuance(content factom.Bytes) Issuance {
 	e := factom.Entry{
@@ -217,7 +235,7 @@ func issuance(content factom.Bytes) Issuance {
 		Content: content,
 	}
 	i := NewIssuance(e)
-	i.Sign(issuerKey)
+	i.Sign(issuerSecret)
 	return i
 }
 

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/Factom-Asset-Tokens/fatd/factom"
+	"github.com/Factom-Asset-Tokens/fatd/flag"
 	_log "github.com/Factom-Asset-Tokens/fatd/log"
 	"github.com/Factom-Asset-Tokens/fatd/state"
 )
@@ -15,6 +16,7 @@ var (
 	stop        chan error
 	log         _log.Log
 	scanTicker  *time.Ticker
+	c           = flag.FactomClient
 )
 
 const (
@@ -88,11 +90,12 @@ func setCurrentHeight(current uint64) {
 
 func scanNewBlocks() error {
 	// Get the current leader's block height
-	heights, err := factom.GetHeights()
+	var heights factom.Heights
+	err := heights.Get(c)
 	if err != nil {
-		return fmt.Errorf("factom.GetHeights(): %v", err)
+		return fmt.Errorf("factom.Heights.Get(c): %v", err)
 	}
-	setCurrentHeight(uint64(heights.EntryHeight))
+	setCurrentHeight(uint64(heights.Entry))
 	if !synced && currentHeight > state.SavedHeight {
 		log.Infof("Syncing from block %v to %v...",
 			state.SavedHeight, currentHeight)
@@ -102,8 +105,8 @@ func scanNewBlocks() error {
 	for height := state.SavedHeight + 1; height <= currentHeight; height++ {
 		log.Debugf("Scanning block %v for FAT entries.", height)
 		dblock := factom.DBlock{Height: height}
-		if err := dblock.Get(); err != nil {
-			return fmt.Errorf("%#v.Get(): %v", dblock, err)
+		if err := dblock.Get(c); err != nil {
+			return fmt.Errorf("%#v.Get(c): %v", dblock, err)
 		}
 
 		wg := &sync.WaitGroup{}

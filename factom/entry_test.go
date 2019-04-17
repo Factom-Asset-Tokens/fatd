@@ -2,8 +2,10 @@ package factom_test
 
 import (
 	"encoding/hex"
+	"fmt"
 	"testing"
 
+	"github.com/AdamSLevy/jsonrpc2/v11"
 	. "github.com/Factom-Asset-Tokens/fatd/factom"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -14,20 +16,6 @@ var marshalBinaryTests = []struct {
 	Hash *Bytes32
 	Entry
 }{{
-	Name: "valid",
-	Entry: func() Entry {
-		RpcConfig.FactomdServer = courtesyNode
-		e := Entry{Hash: NewBytes32(hexToBytes(
-			"935e8442a554383e50b02938420d16ef9fcc07d0a0ac03d191bd4275ddd98dee"))}
-		if err := e.Get(); err != nil {
-			panic(err)
-		}
-		if !e.IsPopulated() {
-			panic("failed to populate")
-		}
-		return e
-	}(),
-}, {
 	Name: "valid",
 	Entry: Entry{
 		Hash: NewBytes32(hexToBytes(
@@ -41,8 +29,10 @@ func TestEntryMarshalBinary(t *testing.T) {
 	for _, test := range marshalBinaryTests {
 		t.Run(test.Name, func(t *testing.T) {
 			e := test.Entry
-			hash := e.ComputeHash()
-			assert.Equal(t, *e.Hash, hash)
+			hash, err := e.ComputeHash()
+			assert := assert.New(t)
+			assert.NoError(err)
+			assert.Equal(*e.Hash, hash)
 		})
 	}
 }
@@ -95,9 +85,9 @@ var unmarshalBinaryTests = []struct {
 	Error: "error parsing ExtIDs",
 }}
 
-func TestEntryUnmarshalBinary(t *testing.T) {
+func TestEntry(t *testing.T) {
 	for _, test := range unmarshalBinaryTests {
-		t.Run(test.Name, func(t *testing.T) {
+		t.Run("UnmarshalBinary/"+test.Name, func(t *testing.T) {
 			assert := assert.New(t)
 			require := require.New(t)
 			e := Entry{}
@@ -105,7 +95,9 @@ func TestEntryUnmarshalBinary(t *testing.T) {
 			if len(test.Error) == 0 {
 				require.NoError(err)
 				require.NotNil(e.ChainID)
-				assert.Equal(*test.Hash, e.ComputeHash())
+				hash, err := e.ComputeHash()
+				assert.NoError(err)
+				assert.Equal(*test.Hash, hash)
 			} else {
 				require.EqualError(err, test.Error)
 				assert.Nil(e.ChainID)
@@ -114,6 +106,95 @@ func TestEntryUnmarshalBinary(t *testing.T) {
 			}
 		})
 	}
+
+	var ecAddressStr = "EC1zANmWuEMYoH6VizJg6uFaEdi8Excn1VbLN99KRuxh3GSvB7YQ"
+	ec, _ := NewECAddress(ecAddressStr)
+	chainID := ChainID([]Bytes{Bytes(ec[:])})
+	t.Run("ComposeCreate", func(t *testing.T) {
+		c := NewClient()
+		es, err := ec.GetEsAddress(c)
+		if _, ok := err.(jsonrpc2.Error); ok {
+			// Skip if the EC address is not in the wallet.
+			t.SkipNow()
+		}
+		assert := assert.New(t)
+		assert.NoError(err)
+		balance, err := ec.GetBalance(c)
+		assert.NoError(err)
+		if balance == 0 {
+			// Skip if the EC address is not funded.
+			t.SkipNow()
+		}
+
+		randData, err := GenerateEsAddress()
+		assert.NoError(err)
+		e := Entry{Content: Bytes(randData[:]),
+			ExtIDs:  []Bytes{Bytes(ec[:])},
+			ChainID: &chainID}
+		tx, err := e.ComposeCreate(c, es)
+		assert.NoError(err)
+		assert.NotNil(tx)
+		fmt.Println("Tx: ", tx)
+		fmt.Println("Entry Hash: ", e.Hash)
+		fmt.Println("Chain ID: ", e.ChainID)
+
+		e.ChainID = nil
+		e.Content = Bytes(randData[:])
+		e.ExtIDs = []Bytes{Bytes(randData[:])}
+		tx, err = e.ComposeCreate(c, es)
+		assert.NoError(err)
+		assert.NotNil(tx)
+		fmt.Println("Tx: ", tx)
+		fmt.Println("Entry Hash: ", e.Hash)
+		fmt.Println("Chain ID: ", e.ChainID)
+	})
+	t.Run("Create", func(t *testing.T) {
+		c := NewClient()
+		balance, err := ec.GetBalance(c)
+		assert := assert.New(t)
+		assert.NoError(err)
+		if balance == 0 {
+			// Skip if the EC address is not funded.
+			t.SkipNow()
+		}
+
+		randData, err := GenerateEsAddress()
+		assert.NoError(err)
+		e := Entry{Content: Bytes(randData[:]),
+			ExtIDs:  []Bytes{Bytes(ec[:])},
+			ChainID: &chainID}
+		tx, err := e.Create(c, ec)
+		assert.NoError(err)
+		assert.NotNil(tx)
+		fmt.Println("Tx: ", tx)
+		fmt.Println("Entry Hash: ", e.Hash)
+		fmt.Println("Chain ID: ", e.ChainID)
+
+		e.ChainID = nil
+		e.Content = Bytes(randData[:])
+		e.ExtIDs = []Bytes{Bytes(randData[:])}
+		tx, err = e.Create(c, ec)
+		assert.NoError(err)
+		assert.NotNil(tx)
+		fmt.Println("Tx: ", tx)
+		fmt.Println("Entry Hash: ", e.Hash)
+		fmt.Println("Chain ID: ", e.ChainID)
+	})
+	t.Run("Compose/too large", func(t *testing.T) {
+		assert := assert.New(t)
+		e := Entry{Content: make(Bytes, 11000),
+			ExtIDs:  []Bytes{Bytes(ec[:])},
+			ChainID: &chainID}
+		_, _, _, err := e.Compose(EsAddress(ec))
+		assert.EqualError(err, "Entry cannot be larger than 10KB")
+	})
+	t.Run("EntryCost", func(t *testing.T) {
+		assert := assert.New(t)
+		_, err := EntryCost(11000)
+		assert.EqualError(err, "Entry cannot be larger than 10KB")
+		cost, _ := EntryCost(0)
+		assert.Equal(int8(1), cost)
+	})
 }
 
 func hexToBytes(hexStr string) Bytes {

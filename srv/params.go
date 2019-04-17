@@ -4,7 +4,7 @@ import (
 	"strings"
 	"time"
 
-	jrpc "github.com/AdamSLevy/jsonrpc2/v10"
+	jrpc "github.com/AdamSLevy/jsonrpc2/v11"
 	"github.com/Factom-Asset-Tokens/fatd/factom"
 	"github.com/Factom-Asset-Tokens/fatd/fat"
 	"github.com/Factom-Asset-Tokens/fatd/fat/fat1"
@@ -45,7 +45,7 @@ func (p ParamsToken) ValidChainID() *factom.Bytes32 {
 }
 
 func (p ParamsToken) Error() jrpc.Error {
-	return ParamsErrorToken
+	return *ParamsErrorToken
 }
 
 // ParamsGetTransaction is used to query for a single particular transaction
@@ -60,17 +60,17 @@ func (p ParamsGetTransaction) IsValid() bool {
 }
 
 func (p ParamsGetTransaction) Error() jrpc.Error {
-	return ParamsErrorGetTransaction
+	return *ParamsErrorGetTransaction
 }
 
 type ParamsGetTransactions struct {
 	ParamsToken
 	// Transaction filters
-	NFTokenID *fat1.NFTokenID  `json:"nftokenid,omitempty"`
-	Addresses []factom.RCDHash `json:"addresses,omitempty"`
-	StartHash *factom.Bytes32  `json:"entryhash,omitempty"`
-	ToFrom    string           `json:"tofrom,omitempty"`
-	Order     string           `json:"order,omitempty"`
+	NFTokenID *fat1.NFTokenID    `json:"nftokenid,omitempty"`
+	Addresses []factom.FAAddress `json:"addresses,omitempty"`
+	StartHash *factom.Bytes32    `json:"entryhash,omitempty"`
+	ToFrom    string             `json:"tofrom,omitempty"`
+	Order     string             `json:"order,omitempty"`
 
 	// Pagination
 	Page  *uint `json:"page,omitempty"`
@@ -111,7 +111,7 @@ func (p *ParamsGetTransactions) IsValid() bool {
 }
 
 func (p ParamsGetTransactions) Error() jrpc.Error {
-	return ParamsErrorGetTransactions
+	return *ParamsErrorGetTransactions
 }
 
 type ParamsGetNFToken struct {
@@ -124,12 +124,12 @@ func (p ParamsGetNFToken) IsValid() bool {
 }
 
 func (p ParamsGetNFToken) Error() jrpc.Error {
-	return ParamsErrorGetNFToken
+	return *ParamsErrorGetNFToken
 }
 
 type ParamsGetBalance struct {
 	ParamsToken
-	Address *factom.RCDHash `json:"address,omitempty"`
+	Address *factom.FAAddress `json:"address,omitempty"`
 }
 
 func (p ParamsGetBalance) IsValid() bool {
@@ -137,12 +137,12 @@ func (p ParamsGetBalance) IsValid() bool {
 }
 
 func (p ParamsGetBalance) Error() jrpc.Error {
-	return ParamsErrorGetBalance
+	return *ParamsErrorGetBalance
 }
 
 type ParamsGetNFBalance struct {
 	ParamsToken
-	Address *factom.RCDHash `json:"address,omitempty"`
+	Address *factom.FAAddress `json:"address,omitempty"`
 
 	// Pagination
 	Page  *uint  `json:"page,omitempty"`
@@ -173,7 +173,7 @@ func (p *ParamsGetNFBalance) IsValid() bool {
 }
 
 func (p ParamsGetNFBalance) Error() jrpc.Error {
-	return ParamsErrorGetBalance
+	return *ParamsErrorGetBalance
 }
 
 type ParamsGetAllNFTokens struct {
@@ -208,7 +208,7 @@ func (p *ParamsGetAllNFTokens) IsValid() bool {
 }
 
 func (p ParamsGetAllNFTokens) Error() jrpc.Error {
-	return ParamsErrorGetBalance
+	return *ParamsErrorGetBalance
 }
 
 type ParamsSendTransaction struct {
@@ -222,14 +222,15 @@ func (p ParamsSendTransaction) IsValid() bool {
 }
 
 func (p ParamsSendTransaction) Error() jrpc.Error {
-	return ParamsErrorSendTransaction
+	return *ParamsErrorSendTransaction
 }
 
 func (p ParamsSendTransaction) Entry() factom.Entry {
+	ts := factom.Time(time.Now())
 	return factom.Entry{
 		ExtIDs:    p.ExtIDs,
 		Content:   p.Content,
-		Timestamp: &factom.Time{Time: time.Now()},
+		Timestamp: &ts,
 		ChainID:   p.ChainID,
 	}
 }

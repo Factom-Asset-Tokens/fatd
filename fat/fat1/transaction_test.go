@@ -4,13 +4,11 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"math/rand"
 	"testing"
 
 	"github.com/Factom-Asset-Tokens/fatd/factom"
 	"github.com/Factom-Asset-Tokens/fatd/fat"
 	. "github.com/Factom-Asset-Tokens/fatd/fat/fat1"
-	"github.com/FactomProject/ed25519"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -18,8 +16,7 @@ import (
 var transactionTests = []struct {
 	Name      string
 	Error     string
-	ErrorOr   string
-	IssuerKey factom.Address
+	IssuerKey factom.ID1Key
 	Coinbase  bool
 	Tx        Transaction
 }{{
@@ -29,10 +26,12 @@ var transactionTests = []struct {
 	Name: "valid (single outputs)",
 	Tx: func() Transaction {
 		out := outputs()
-		out[outputAddresses[0].String()].Append(out[outputAddresses[1].String()])
-		out[outputAddresses[0].String()].Append(out[outputAddresses[2].String()])
-		delete(out, outputAddresses[1].String())
-		delete(out, outputAddresses[2].String())
+		out[outputAddresses[0].FAAddress().String()].
+			Append(out[outputAddresses[1].FAAddress().String()])
+		out[outputAddresses[0].FAAddress().String()].
+			Append(out[outputAddresses[2].FAAddress().String()])
+		delete(out, outputAddresses[1].FAAddress().String())
+		delete(out, outputAddresses[2].FAAddress().String())
 		return setFieldTransaction("outputs", out)
 	}(),
 }, {
@@ -63,10 +62,9 @@ var transactionTests = []struct {
 	Error: "*fat1.Transaction.Inputs: *fat1.AddressNFTokensMap: unexpected JSON length",
 	Tx:    transaction([]byte(`{"inputs":{"FA2HaNAq1f85f1cxzywDa7etvtYCGZUztERvExzQik3CJrGBM4sx":[0],"FA2HaNAq1f85f1cxzywDa7etvtYCGZUztERvExzQik3CJrGBM4sx":[1],"FA3rCRnpU95ieYCwh7YGH99YUWPjdVEjk73mpjqnVpTDt3rUUhX8":[2]},"metadata":[0],"outputs":{"FA1zT4aFpEvcnPqPCigB3fvGu4Q4mTXY22iiuV69DqE1pNhdF2MC":[1],"FA2PJRLbuVDyAKire9BRnJYkh2NZc2Fjco4FCrPtXued7F26wGBP":[0],"FA2uyZviB3vs28VkqkfnhoXRD8XdKP1zaq7iukq2gBfCq3hxeuE8":[2]}}`)),
 }, {
-	Name:    "invalid JSON (invalid inputs, duplicate ids)",
-	Error:   "*fat1.Transaction.Inputs: *fat1.AddressNFTokensMap: FA3rCRnpU95ieYCwh7YGH99YUWPjdVEjk73mpjqnVpTDt3rUUhX8 and FA2HaNAq1f85f1cxzywDa7etvtYCGZUztERvExzQik3CJrGBM4sx: duplicate NFTokenID: 0",
-	ErrorOr: "*fat1.Transaction.Inputs: *fat1.AddressNFTokensMap: FA2HaNAq1f85f1cxzywDa7etvtYCGZUztERvExzQik3CJrGBM4sx and FA3rCRnpU95ieYCwh7YGH99YUWPjdVEjk73mpjqnVpTDt3rUUhX8: duplicate NFTokenID: 0",
-	Tx:      transaction([]byte(`{"inputs":{"FA2HaNAq1f85f1cxzywDa7etvtYCGZUztERvExzQik3CJrGBM4sx":[0],"FA3rCRnpU95ieYCwh7YGH99YUWPjdVEjk73mpjqnVpTDt3rUUhX8":[0,1,2]},"metadata":[0],"outputs":{"FA1zT4aFpEvcnPqPCigB3fvGu4Q4mTXY22iiuV69DqE1pNhdF2MC":[1],"FA2PJRLbuVDyAKire9BRnJYkh2NZc2Fjco4FCrPtXued7F26wGBP":[0],"FA2uyZviB3vs28VkqkfnhoXRD8XdKP1zaq7iukq2gBfCq3hxeuE8":[2]}}`)),
+	Name:  "invalid JSON (invalid inputs, duplicate ids)",
+	Error: "*fat1.Transaction.Inputs: *fat1.AddressNFTokensMap: duplicate NFTokenID: 0: ",
+	Tx:    transaction([]byte(`{"inputs":{"FA2HaNAq1f85f1cxzywDa7etvtYCGZUztERvExzQik3CJrGBM4sx":[0],"FA3rCRnpU95ieYCwh7YGH99YUWPjdVEjk73mpjqnVpTDt3rUUhX8":[0,1,2]},"metadata":[0],"outputs":{"FA1zT4aFpEvcnPqPCigB3fvGu4Q4mTXY22iiuV69DqE1pNhdF2MC":[1],"FA2PJRLbuVDyAKire9BRnJYkh2NZc2Fjco4FCrPtXued7F26wGBP":[0],"FA2uyZviB3vs28VkqkfnhoXRD8XdKP1zaq7iukq2gBfCq3hxeuE8":[2]}}`)),
 }, {
 	Name:  "invalid JSON (two objects)",
 	Error: "invalid character '{' after top-level value",
@@ -92,7 +90,7 @@ var transactionTests = []struct {
 	Error: "*fat1.Transaction: Inputs and Outputs mismatch: number of NFTokenIDs differ",
 	Tx: func() Transaction {
 		out := outputs()
-		NFTokenID(1000).Set(out[outputAddresses[0].String()])
+		NFTokenID(1000).Set(out[outputAddresses[0].FAAddress().String()])
 		return setFieldTransaction("outputs", out)
 	}(),
 }, {
@@ -100,9 +98,9 @@ var transactionTests = []struct {
 	Error: "*fat1.Transaction: Inputs and Outputs mismatch: missing NFTokenID: 1000",
 	Tx: func() Transaction {
 		in := inputs()
-		NFTokenID(1001).Set(in[inputAddresses[0].String()])
+		NFTokenID(1001).Set(in[inputAddresses[0].FAAddress().String()])
 		out := outputs()
-		NFTokenID(1000).Set(out[outputAddresses[0].String()])
+		NFTokenID(1000).Set(out[outputAddresses[0].FAAddress().String()])
 		m := validTxEntryContentMap()
 		m["inputs"] = in
 		m["outputs"] = out
@@ -115,23 +113,23 @@ var transactionTests = []struct {
 	Tx: func() Transaction {
 		m := validCoinbaseTxEntryContentMap()
 		in := coinbaseInputs()
-		in[inputAddresses[0].String()] = newNFTokens(NFTokenID(1000))
+		in[inputAddresses[0].FAAddress().String()] = newNFTokens(NFTokenID(1000))
 		out := coinbaseOutputs()
-		out[outputAddresses[0].String()] = newNFTokens(NFTokenID(1000))
+		out[outputAddresses[0].FAAddress().String()] = newNFTokens(NFTokenID(1000))
 		m["inputs"] = in
 		m["outputs"] = out
 		return transaction(marshal(m))
 	}(),
 }, {
 	Name:      "invalid data (coinbase, coinbase outputs)",
-	Error:     "*fat1.Transaction: Inputs and Outputs intersect: duplicate Address: FA1zT4aFpEvcnPqPCigB3fvGu4Q4mTXY22iiuV69DqE1pNhdF2MC",
+	Error:     "*fat1.Transaction: Inputs and Outputs intersect: duplicate address: ",
 	IssuerKey: issuerKey,
 	Tx: func() Transaction {
 		m := validCoinbaseTxEntryContentMap()
 		in := coinbaseInputs()
 		out := coinbaseOutputs()
-		in[coinbase.String()] = newNFTokens(NFTokenID(1000))
-		out[coinbase.String()] = newNFTokens(NFTokenID(1000))
+		in[fat.Coinbase().String()] = newNFTokens(NFTokenID(1000))
+		out[fat.Coinbase().String()] = newNFTokens(NFTokenID(1000))
 		m["inputs"] = in
 		m["outputs"] = out
 		delete(m, "tokenmetadata")
@@ -144,9 +142,9 @@ var transactionTests = []struct {
 	Tx: func() Transaction {
 		m := validCoinbaseTxEntryContentMap()
 		in := coinbaseInputs()
-		delete(in[coinbase.String()], NFTokenID(0))
+		delete(in[fat.Coinbase().String()], NFTokenID(0))
 		out := coinbaseOutputs()
-		delete(out[coinbaseOutputAddresses[0].String()], NFTokenID(0))
+		delete(out[coinbaseOutputAddresses[0].FAAddress().String()], NFTokenID(0))
 
 		m["inputs"] = in
 		m["outputs"] = out
@@ -154,12 +152,13 @@ var transactionTests = []struct {
 	}(),
 }, {
 	Name:  "invalid data (inputs outputs overlap)",
-	Error: "*fat1.Transaction: Inputs and Outputs intersect: duplicate Address: FA3sjgNF4hrJAiD9tQxAVjWS9Ca1hMqyxtuVSZTBqJiPwD7bnHkn",
+	Error: "*fat1.Transaction: Inputs and Outputs intersect: duplicate address: ",
 	Tx: func() Transaction {
 		m := validTxEntryContentMap()
 		in := inputs()
-		in[outputAddresses[0].String()] = in[inputAddresses[0].String()]
-		delete(in, inputAddresses[0].String())
+		in[outputAddresses[0].FAAddress().String()] =
+			in[inputAddresses[0].FAAddress().String()]
+		delete(in, inputAddresses[0].FAAddress().String())
 		m["inputs"] = in
 		return transaction(marshal(m))
 	}(),
@@ -188,7 +187,8 @@ var transactionTests = []struct {
 	Error: "invalid RCDs",
 	Tx: func() Transaction {
 		t := validTx()
-		t.Sign(twoAddresses()...)
+		adrs := twoAddresses()
+		t.Sign(adrs[0], adrs[1])
 		return t
 	}(),
 }}
@@ -199,11 +199,9 @@ func TestTransaction(t *testing.T) {
 			assert := assert.New(t)
 			tx := test.Tx
 			key := test.IssuerKey
-			err := tx.Valid(key.RCDHash())
+			err := tx.Valid(&key)
 			if len(test.Error) != 0 {
-				assert.Truef((err.Error() == test.Error ||
-					err.Error() == test.ErrorOr),
-					"JSON: %v\nExpected: %v\nActual:   %v", string(test.Tx.Content), test.Error, err.Error())
+				assert.Contains(err.Error(), test.Error)
 				return
 			}
 			require.NoError(t, err, string(test.Tx.Content))
@@ -215,10 +213,8 @@ func TestTransaction(t *testing.T) {
 }
 
 var (
-	coinbase factom.Address
-
 	inputAddresses  = twoAddresses()
-	outputAddresses = append(twoAddresses(), coinbase)
+	outputAddresses = append(twoAddresses(), factom.FsAddress{})
 
 	inputNFTokens = []NFTokens{newNFTokens(NewNFTokenIDRange(0, 10)),
 		newNFTokens(NFTokenID(11))}
@@ -226,7 +222,7 @@ var (
 		newNFTokens(NewNFTokenIDRange(6, 10)),
 		newNFTokens(NFTokenID(11))}
 
-	coinbaseInputAddresses  = []factom.Address{coinbase}
+	coinbaseInputAddresses  = []factom.FAAddress{fat.Coinbase()}
 	coinbaseOutputAddresses = twoAddresses()
 
 	coinbaseInputNFTokens  = []NFTokens{newNFTokens(NewNFTokenIDRange(0, 11))}
@@ -261,7 +257,7 @@ func validTx() Transaction {
 }
 func coinbaseTx() Transaction {
 	t := transaction(marshal(validCoinbaseTxEntryContentMap()))
-	t.Sign(issuerKey)
+	t.Sign(issuerSecret)
 	return t
 }
 func transaction(content factom.Bytes) Transaction {
@@ -270,7 +266,11 @@ func transaction(content factom.Bytes) Transaction {
 		Content: content,
 	}
 	t := NewTransaction(e)
-	t.Sign(inputAddresses...)
+	adrs := make([]factom.RCDPrivateKey, len(inputAddresses))
+	for i, adr := range inputAddresses {
+		adrs[i] = adr
+	}
+	t.Sign(adrs...)
 	return t
 }
 func invalidField(field string) Transaction {
@@ -302,7 +302,7 @@ func inputs() map[string]NFTokens {
 	for i := range inputAddresses {
 		tkns := newNFTokens()
 		tkns.Append(inputNFTokens[i])
-		inputs[inputAddresses[i].String()] = tkns
+		inputs[inputAddresses[i].FAAddress().String()] = tkns
 	}
 	return inputs
 }
@@ -311,7 +311,7 @@ func outputs() map[string]NFTokens {
 	for i := range outputAddresses {
 		tkns := newNFTokens()
 		tkns.Append(outputNFTokens[i])
-		outputs[outputAddresses[i].String()] = tkns
+		outputs[outputAddresses[i].FAAddress().String()] = tkns
 	}
 	return outputs
 }
@@ -329,7 +329,7 @@ func coinbaseOutputs() map[string]NFTokens {
 	for i := range coinbaseOutputAddresses {
 		tkns := newNFTokens()
 		tkns.Append(coinbaseOutputNFTokens[i])
-		outputs[coinbaseOutputAddresses[i].String()] = tkns
+		outputs[coinbaseOutputAddresses[i].FAAddress().String()] = tkns
 	}
 	return outputs
 }
@@ -345,7 +345,7 @@ var transactionMarshalEntryTests = []struct {
 	Name: "valid (omit zero balances)",
 	Tx: func() Transaction {
 		t := newTransaction()
-		t.Inputs[*coinbase.RCDHash()], _ = NewNFTokens()
+		t.Inputs[fat.Coinbase()], _ = NewNFTokens()
 		return t
 	}(),
 }, {
@@ -360,7 +360,7 @@ var transactionMarshalEntryTests = []struct {
 	Error: "json: error calling MarshalJSON for type *fat1.Transaction: Inputs and Outputs mismatch: number of NFTokenIDs differ",
 	Tx: func() Transaction {
 		t := newTransaction()
-		t.Inputs[*inputAddresses[0].RCDHash()].Set(NFTokenID(12345))
+		t.Inputs[inputAddresses[0].FAAddress()].Set(NFTokenID(12345))
 		return t
 	}(),
 }, {
@@ -402,26 +402,30 @@ func outputAddressNFTokensMap() AddressNFTokensMap {
 }
 func addressNFTokensMap(aas map[string]NFTokens) AddressNFTokensMap {
 	m := make(AddressNFTokensMap)
-	for addressStr, amount := range aas {
-		a := factom.Address{}
-		if err := a.FromString(addressStr); err != nil {
-			panic(err)
+	for adrStr, amount := range aas {
+		a := factom.FAAddress{}
+		if err := a.Set(adrStr); err != nil {
+			panic(err.Error() + " " + adrStr)
 		}
-		m[*a.RCDHash()] = amount
+		m[a] = amount
 	}
 	return m
 }
 
-func twoAddresses() []factom.Address {
-	adrs := make([]factom.Address, 2)
+var issuerSecret = func() factom.SK1Key {
+	a, _ := factom.GenerateSK1Key()
+	return a
+}()
+var issuerKey = issuerSecret.ID1Key()
+
+func twoAddresses() []factom.FsAddress {
+	adrs := make([]factom.FsAddress, 2)
 	for i := range adrs {
-		publicKey, privateKey, err := ed25519.GenerateKey(randSource)
+		adr, err := factom.GenerateFsAddress()
 		if err != nil {
 			panic(err)
 		}
-		copy(adrs[i].PublicKey()[:], publicKey[:])
-		copy(adrs[i].PrivateKey()[:], privateKey[:])
-
+		adrs[i] = adr
 	}
 	return adrs
 }
@@ -434,18 +438,6 @@ func tokenMetadata() NFTokenIDMetadataMap {
 	}
 	return m
 }
-
-var randSource = rand.New(rand.NewSource(100))
-var issuerKey = func() factom.Address {
-	a := factom.Address{}
-	publicKey, privateKey, err := ed25519.GenerateKey(randSource)
-	if err != nil {
-		panic(err)
-	}
-	copy(a.PublicKey()[:], publicKey[:])
-	copy(a.PrivateKey()[:], privateKey[:])
-	return a
-}()
 
 func marshal(v map[string]interface{}) []byte {
 	data, err := json.Marshal(v)

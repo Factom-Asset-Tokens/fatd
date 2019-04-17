@@ -3,14 +3,13 @@ package main
 import (
 	"fmt"
 
-	"github.com/Factom-Asset-Tokens/fatd/factom"
 	"github.com/Factom-Asset-Tokens/fatd/srv"
 )
 
 func getStats() error {
 	params := srv.ParamsToken{ChainID: chainID}
 	var stats srv.ResultGetStats
-	err := factom.Request(APIAddress, "get-stats", params, &stats)
+	err := FactomClient.Factomd.Request(APIAddress, "get-stats", params, &stats)
 	if err != nil {
 		return err
 	}

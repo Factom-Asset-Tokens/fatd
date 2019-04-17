@@ -2,7 +2,7 @@ package factom
 
 import "fmt"
 
-// EBlock represents an Factom Entry Block.
+// EBlock represents a Factom Entry Block.
 type EBlock struct {
 	// DBlock.Get populates the ChainID, KeyMR, and Height.
 	ChainID *Bytes32 `json:"chainid,omitempty"`
@@ -24,43 +24,43 @@ type EBlockHeader struct {
 // IsPopulated returns true if eb has already been successfully populated by a
 // call to Get. Returns false if eb.PrevKeyMR is nil.
 func (eb EBlock) IsPopulated() bool {
-	return eb.PrevKeyMR != nil
+	return eb.Entries != nil &&
+		eb.ChainID != nil &&
+		eb.KeyMR != nil &&
+		eb.PrevKeyMR != nil
 }
 
 // Get queries factomd for the Entry Block corresponding to eb.KeyMR, if not
 // nil, and otherwise the Entry Block chain head for eb.ChainID. Either
-// eb.KeyMR or eb.ChainID must be allocated or else Get will fail to populate
-// the EBlock.
-//
-// Get returns any networking or marshaling errors, but not JSON RPC errors. To
-// check if the EBlock has been successfully populated, call IsPopulated().
-func (eb *EBlock) Get() error {
+// eb.KeyMR or eb.ChainID must be not nil or else Get will fail to populate the
+// EBlock. After a successful call, EBlockHeader and Entries will be populated.
+// Each Entry will be populated with its Hash, Timestamp, ChainID, and Height,
+// but not its Content or ExtIDs. Call Get on the individual Entries to
+// populate their Content and ExtIDs.
+func (eb *EBlock) Get(c *Client) error {
 	// If the EBlock is already populated then there is nothing to do.
 	if eb.IsPopulated() {
 		return nil
 	}
-	// If the KeyMR and ChainID are both nil we have nothing to query for.
-	if eb.KeyMR == nil && eb.ChainID == nil {
-		return fmt.Errorf("KeyMR and ChainID are both nil")
-	}
 
-	// If we don't have a KeyMR, fetch the chain head's KeyMR.
+	// If we don't have a KeyMR, fetch the chain head KeyMR.
 	if eb.KeyMR == nil {
-		if err := eb.GetChainHead(); err != nil {
-			return err
+		// If the KeyMR and ChainID are both nil we have nothing to
+		// query for.
+		if eb.ChainID == nil {
+			return fmt.Errorf("no KeyMR or ChainID specified")
 		}
-		// If we don't get a KeyMR back for the chain head then we just
-		// return nil because the chain ID wasn't found and so we can't
-		// populate the entry block.
-		if eb.KeyMR == nil {
-			return nil
+		if err := eb.GetChainHead(c); err != nil {
+			return err
 		}
 	}
 
 	// Make RPC request for this Entry Block.
-	params := map[string]interface{}{"keymr": eb.KeyMR}
+	params := struct {
+		KeyMR *Bytes32 `json:"keymr"`
+	}{KeyMR: eb.KeyMR}
 	method := "entry-block"
-	if err := FactomdRequest(method, params, eb); err != nil {
+	if err := c.FactomdRequest(method, params, eb); err != nil {
 		return err
 	}
 
@@ -72,13 +72,14 @@ func (eb *EBlock) Get() error {
 	return nil
 }
 
-func (eb *EBlock) GetChainHead() error {
+// GetChainHead queries factomd for the latest eb.KeyMR for chain eb.ChainID.
+func (eb *EBlock) GetChainHead(c *Client) error {
 	params := eb
 	method := "chain-head"
 	result := struct {
 		KeyMR *Bytes32 `json:"chainhead"`
 	}{}
-	if err := FactomdRequest(method, params, &result); err != nil {
+	if err := c.FactomdRequest(method, params, &result); err != nil {
 		return err
 	}
 	eb.KeyMR = result.KeyMR
@@ -92,9 +93,8 @@ func (eb EBlock) IsFirst() bool {
 	return eb.IsPopulated() && *eb.PrevKeyMR == zeroBytes32
 }
 
-// Prev returns the previous EBlock in eb's chain, without populating it with a
-// call to Get. In other words, the KeyMR will be equal to eb.PrevKeyMR and the
-// ChainID will be equal to eb.ChainID. If eb is the first Entry Block in the
+// Prev returns the an EBlock with its KeyMR initialized to eb.PrevKeyMR and
+// ChainID initialized to eb.ChainID. If eb is the first Entry Block in the
 // chain, then eb is returned.
 func (eb EBlock) Prev() EBlock {
 	if eb.IsFirst() {
@@ -109,21 +109,13 @@ func (eb EBlock) Prev() EBlock {
 // chain, then it is the only element in the slice.
 //
 // If you are only interested in obtaining the first entry block in eb's chain,
-// and not all of the intermediary ones, then use GetFirst to reduce memory
-// usage.
-//
-// Like Get, GetAllPrev returns any networking or marshaling errors, but not
-// JSON RPC errors. However, failing to populate any EBlock in the chain will
-// result in returning a nil slice, thus it is unneccessary to call IsPopulated
-// on any of the EBlocks in the returned slice.
-func (eb EBlock) GetAllPrev() ([]EBlock, error) {
+// and not all of the intermediary ones, then use GetFirst to reduce network
+// calls and memory usage.
+func (eb EBlock) GetAllPrev(c *Client) ([]EBlock, error) {
 	ebs := []EBlock{eb}
 	for ; !ebs[0].IsFirst(); ebs = append([]EBlock{ebs[0].Prev()}, ebs...) {
-		if err := ebs[0].Get(); err != nil {
+		if err := ebs[0].Get(c); err != nil {
 			return nil, err
-		}
-		if !ebs[0].IsPopulated() {
-			return nil, nil
 		}
 	}
 	return ebs, nil
@@ -135,17 +127,10 @@ func (eb EBlock) GetAllPrev() ([]EBlock, error) {
 // GetFirst differs from GetAllPrev in that it does not allocate any additional
 // EBlocks. GetFirst avoids allocating any new EBlocks by reusing eb to
 // traverse up to the first entry block.
-//
-// Like Get, GetFirst returns any networking or marshaling errors, but not JSON
-// RPC errors. To check if the EBlock has been successfully populated, call
-// IsPopulated().
-func (eb *EBlock) GetFirst() error {
+func (eb *EBlock) GetFirst(c *Client) error {
 	for ; !eb.IsFirst(); *eb = eb.Prev() {
-		if err := eb.Get(); err != nil {
+		if err := eb.Get(c); err != nil {
 			return err
-		}
-		if !eb.IsPopulated() {
-			return nil
 		}
 	}
 	return nil

@@ -4,7 +4,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"math/rand"
 	"testing"
 
 	"github.com/Factom-Asset-Tokens/fatd/factom"
@@ -12,13 +11,12 @@ import (
 	. "github.com/Factom-Asset-Tokens/fatd/fat/fat0"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/crypto/ed25519"
 )
 
 var transactionTests = []struct {
 	Name      string
 	Error     string
-	IssuerKey factom.Address
+	IssuerKey factom.ID1Key
 	Coinbase  bool
 	Tx        Transaction
 }{{
@@ -28,10 +26,11 @@ var transactionTests = []struct {
 	Name: "valid (single outputs)",
 	Tx: func() Transaction {
 		out := outputs()
-		out[outputAddresses[0].String()] += out[outputAddresses[1].String()] +
-			out[outputAddresses[2].String()]
-		delete(out, outputAddresses[1].String())
-		delete(out, outputAddresses[2].String())
+		out[outputAddresses[0].FAAddress().String()] +=
+			out[outputAddresses[1].FAAddress().String()] +
+				out[outputAddresses[2].FAAddress().String()]
+		delete(out, outputAddresses[1].FAAddress().String())
+		delete(out, outputAddresses[2].FAAddress().String())
 		return setFieldTransaction("outputs", out)
 	}(),
 }, {
@@ -46,6 +45,10 @@ var transactionTests = []struct {
 	Error: "unexpected end of JSON input",
 	Tx:    transaction(nil),
 }, {
+	Name:  "invalid JSON",
+	Error: `invalid character '}' after object key`,
+	Tx:    transaction([]byte(`{"asdfie"}`)),
+}, {
 	Name:  "invalid JSON (unknown field)",
 	Error: `*fat0.Transaction: unexpected JSON length`,
 	Tx:    setFieldTransaction("invalid", 5),
@@ -59,10 +62,10 @@ var transactionTests = []struct {
 	Tx:    invalidField("outputs"),
 }, {
 	Name:  "invalid JSON (invalid inputs, zero amount)",
-	Error: "*fat0.Transaction.Inputs: *fat0.AddressAmountMap: FA3tM2R3T2ZT2gPrTfxjqhnFsdiqQUyKboKxvka3z5c1JF9yQck5: invalid amount (0)",
+	Error: "*fat0.Transaction.Inputs: *fat0.AddressAmountMap: invalid amount (0): ",
 	Tx: func() Transaction {
 		in := inputs()
-		in[inputAddresses[0].String()] = 0
+		in[inputAddresses[0].FAAddress().String()] = 0
 		return setFieldTransaction("inputs", in)
 	}(),
 }, {
@@ -74,9 +77,17 @@ var transactionTests = []struct {
 	Error: "invalid character '{' after top-level value",
 	Tx:    transaction([]byte(`{"inputs":{"FA2HaNAq1f85f1cxzywDa7etvtYCGZUztERvExzQik3CJrGBM4sx":100,"FA3rCRnpU95ieYCwh7YGH99YUWPjdVEjk73mpjqnVpTDt3rUUhX8":10},"metadata":[0],"outputs":{"FA1zT4aFpEvcnPqPCigB3fvGu4Q4mTXY22iiuV69DqE1pNhdF2MC":10,"FA3sjgNF4hrJAiD9tQxAVjWS9Ca1hMqyxtuVSZTBqJiPwD7bnHkn":90,"FA2uyZviB3vs28VkqkfnhoXRD8XdKP1zaq7iukq2gBfCq3hxeuE8":10}}{}`)),
 }, {
+	Name:  "invalid address",
+	Error: "*fat0.Transaction.Inputs: *fat0.AddressAmountMap: invalid prefix",
+	Tx:    transaction([]byte(`{"inputs":{"Fs2HaNAq1f85f1cxzywDa7etvtYCGZUztERvExzQik3CJrGBM4sx":100,"FA3rCRnpU95ieYCwh7YGH99YUWPjdVEjk73mpjqnVpTDt3rUUhX8":10},"metadata":[0],"outputs":{"FA1zT4aFpEvcnPqPCigB3fvGu4Q4mTXY22iiuV69DqE1pNhdF2MC":10,"FA3sjgNF4hrJAiD9tQxAVjWS9Ca1hMqyxtuVSZTBqJiPwD7bnHkn":90,"FA2uyZviB3vs28VkqkfnhoXRD8XdKP1zaq7iukq2gBfCq3hxeuE8":10}}`)),
+}, {
 	Name:  "invalid data (no inputs)",
 	Error: "*fat0.Transaction.Inputs: *fat0.AddressAmountMap: empty",
 	Tx:    setFieldTransaction("inputs", json.RawMessage(`{}`)),
+}, {
+	Name:  "invalid data (no inputs)",
+	Error: "*fat0.Transaction.Inputs: *fat0.AddressAmountMap: empty",
+	Tx:    setFieldTransaction("inputs", json.RawMessage(`null`)),
 }, {
 	Name:  "invalid data (no outputs)",
 	Error: "*fat0.Transaction.Outputs: *fat0.AddressAmountMap: empty",
@@ -94,7 +105,7 @@ var transactionTests = []struct {
 	Error: "*fat0.Transaction: sum(inputs) != sum(outputs)",
 	Tx: func() Transaction {
 		out := outputs()
-		out[outputAddresses[0].String()]++
+		out[outputAddresses[0].FAAddress().String()]++
 		return setFieldTransaction("outputs", out)
 	}(),
 }, {
@@ -104,35 +115,36 @@ var transactionTests = []struct {
 	Tx: func() Transaction {
 		m := validCoinbaseTxEntryContentMap()
 		in := coinbaseInputs()
-		in[inputAddresses[0].String()] = 1
+		in[inputAddresses[0].FAAddress().String()] = 1
 		out := coinbaseOutputs()
-		out[outputAddresses[0].String()]++
+		out[outputAddresses[0].FAAddress().String()]++
 		m["inputs"] = in
 		m["outputs"] = out
 		return transaction(marshal(m))
 	}(),
 }, {
 	Name:      "invalid data (coinbase, coinbase outputs)",
-	Error:     "*fat0.Transaction: duplicate Address: FA1zT4aFpEvcnPqPCigB3fvGu4Q4mTXY22iiuV69DqE1pNhdF2MC",
+	Error:     "*fat0.Transaction: duplicate address: ",
 	IssuerKey: issuerKey,
 	Tx: func() Transaction {
 		m := validCoinbaseTxEntryContentMap()
 		in := coinbaseInputs()
 		out := coinbaseOutputs()
-		in[coinbase.String()]++
-		out[coinbase.String()]++
+		in[fat.Coinbase().String()]++
+		out[fat.Coinbase().String()]++
 		m["inputs"] = in
 		m["outputs"] = out
 		return transaction(marshal(m))
 	}(),
 }, {
 	Name:  "invalid data (inputs outputs overlap)",
-	Error: "*fat0.Transaction: duplicate Address: FA3sjgNF4hrJAiD9tQxAVjWS9Ca1hMqyxtuVSZTBqJiPwD7bnHkn",
+	Error: "*fat0.Transaction: duplicate address: ",
 	Tx: func() Transaction {
 		m := validTxEntryContentMap()
 		in := inputs()
-		in[outputAddresses[0].String()] = in[inputAddresses[0].String()]
-		delete(in, inputAddresses[0].String())
+		in[outputAddresses[0].FAAddress().String()] =
+			in[inputAddresses[0].FAAddress().String()]
+		delete(in, inputAddresses[0].FAAddress().String())
 		m["inputs"] = in
 		return transaction(marshal(m))
 	}(),
@@ -161,7 +173,8 @@ var transactionTests = []struct {
 	Error: "invalid RCDs",
 	Tx: func() Transaction {
 		t := validTx()
-		t.Sign(twoAddresses()...)
+		adrs := twoAddresses()
+		t.Sign(adrs[0], adrs[1])
 		return t
 	}(),
 }}
@@ -172,9 +185,9 @@ func TestTransaction(t *testing.T) {
 			assert := assert.New(t)
 			tx := test.Tx
 			key := test.IssuerKey
-			err := tx.Valid(key.RCDHash())
+			err := tx.Valid(&key)
 			if len(test.Error) != 0 {
-				assert.EqualError(err, test.Error)
+				assert.Contains(err.Error(), test.Error)
 				return
 			}
 			require.NoError(t, err)
@@ -186,15 +199,13 @@ func TestTransaction(t *testing.T) {
 }
 
 var (
-	coinbase factom.Address
-
 	inputAddresses  = twoAddresses()
-	outputAddresses = append(twoAddresses(), coinbase)
+	outputAddresses = append(twoAddresses(), factom.FsAddress{})
 
 	inputAmounts  = []uint64{100, 10}
 	outputAmounts = []uint64{90, 10, 10}
 
-	coinbaseInputAddresses  = []factom.Address{coinbase}
+	coinbaseInputAddresses  = []factom.FsAddress{factom.FsAddress{}}
 	coinbaseOutputAddresses = twoAddresses()
 
 	coinbaseInputAmounts  = []uint64{110}
@@ -221,7 +232,7 @@ func validTx() Transaction {
 }
 func coinbaseTx() Transaction {
 	t := transaction(marshal(validCoinbaseTxEntryContentMap()))
-	t.Sign(issuerKey)
+	t.Sign(issuerSecret)
 	return t
 }
 func transaction(content factom.Bytes) Transaction {
@@ -230,7 +241,11 @@ func transaction(content factom.Bytes) Transaction {
 		Content: content,
 	}
 	t := NewTransaction(e)
-	t.Sign(inputAddresses...)
+	adrs := make([]factom.RCDPrivateKey, len(inputAddresses))
+	for i, adr := range inputAddresses {
+		adrs[i] = adr
+	}
+	t.Sign(adrs...)
 	return t
 }
 func invalidField(field string) Transaction {
@@ -259,28 +274,30 @@ func validCoinbaseTxEntryContentMap() map[string]interface{} {
 func inputs() map[string]uint64 {
 	inputs := map[string]uint64{}
 	for i := range inputAddresses {
-		inputs[inputAddresses[i].String()] = inputAmounts[i]
+		inputs[inputAddresses[i].FAAddress().String()] = inputAmounts[i]
 	}
 	return inputs
 }
 func outputs() map[string]uint64 {
 	outputs := map[string]uint64{}
 	for i := range outputAddresses {
-		outputs[outputAddresses[i].String()] = outputAmounts[i]
+		outputs[outputAddresses[i].FAAddress().String()] = outputAmounts[i]
 	}
 	return outputs
 }
 func coinbaseInputs() map[string]uint64 {
 	inputs := map[string]uint64{}
 	for i := range coinbaseInputAddresses {
-		inputs[coinbaseInputAddresses[i].String()] = coinbaseInputAmounts[i]
+		inputs[coinbaseInputAddresses[i].FAAddress().String()] =
+			coinbaseInputAmounts[i]
 	}
 	return inputs
 }
 func coinbaseOutputs() map[string]uint64 {
 	outputs := map[string]uint64{}
 	for i := range coinbaseOutputAddresses {
-		outputs[coinbaseOutputAddresses[i].String()] = coinbaseOutputAmounts[i]
+		outputs[coinbaseOutputAddresses[i].FAAddress().String()] =
+			coinbaseOutputAmounts[i]
 	}
 	return outputs
 }
@@ -296,7 +313,7 @@ var transactionMarshalEntryTests = []struct {
 	Name: "valid (omit zero balances)",
 	Tx: func() Transaction {
 		t := newTransaction()
-		t.Inputs[*coinbase.RCDHash()] = 0
+		t.Inputs[fat.Coinbase()] = 0
 		return t
 	}(),
 }, {
@@ -311,7 +328,16 @@ var transactionMarshalEntryTests = []struct {
 	Error: "json: error calling MarshalJSON for type *fat0.Transaction: sum(inputs) != sum(outputs)",
 	Tx: func() Transaction {
 		t := newTransaction()
-		t.Inputs[*inputAddresses[0].RCDHash()]++
+		t.Inputs[inputAddresses[0].FAAddress()]++
+		return t
+	}(),
+}, {
+	Name:  "invalid data",
+	Error: "json: error calling MarshalJSON for type *fat0.Transaction: json: error calling MarshalJSON for type fat0.AddressAmountMap: empty",
+	Tx: func() Transaction {
+		t := newTransaction()
+		t.Inputs = make(AddressAmountMap)
+		t.Outputs = make(AddressAmountMap)
 		return t
 	}(),
 }, {
@@ -354,38 +380,30 @@ func outputAddressAmountMap() AddressAmountMap {
 func addressAmountMap(aas map[string]uint64) AddressAmountMap {
 	m := make(AddressAmountMap)
 	for addressStr, amount := range aas {
-		a := factom.Address{}
+		a := factom.FAAddress{}
 		if err := json.Unmarshal(
 			[]byte(fmt.Sprintf("%#v", addressStr)), &a); err != nil {
 			panic(err)
 		}
-		m[*a.RCDHash()] = amount
+		m[a] = amount
 	}
 	return m
 }
 
-var randSource = rand.New(rand.NewSource(100))
-var issuerKey = func() factom.Address {
-	a := factom.Address{}
-	publicKey, privateKey, err := ed25519.GenerateKey(randSource)
-	if err != nil {
-		panic(err)
-	}
-	copy(a.PublicKey()[:], publicKey[:])
-	copy(a.PrivateKey()[:], privateKey[:])
+var issuerSecret = func() factom.SK1Key {
+	a, _ := factom.GenerateSK1Key()
 	return a
 }()
+var issuerKey = issuerSecret.ID1Key()
 
-func twoAddresses() []factom.Address {
-	adrs := make([]factom.Address, 2)
+func twoAddresses() []factom.FsAddress {
+	adrs := make([]factom.FsAddress, 2)
 	for i := range adrs {
-		publicKey, privateKey, err := ed25519.GenerateKey(randSource)
+		adr, err := factom.GenerateFsAddress()
 		if err != nil {
 			panic(err)
 		}
-		copy(adrs[i].PublicKey()[:], publicKey[:])
-		copy(adrs[i].PrivateKey()[:], privateKey[:])
-
+		adrs[i] = adr
 	}
 	return adrs
 }

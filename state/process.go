@@ -3,7 +3,7 @@ package state
 import (
 	"fmt"
 
-	jrpc "github.com/AdamSLevy/jsonrpc2/v10"
+	jrpc "github.com/AdamSLevy/jsonrpc2/v11"
 	"github.com/jinzhu/gorm"
 
 	"github.com/Factom-Asset-Tokens/fatd/factom"
@@ -17,16 +17,16 @@ func (chain *Chain) Process(eb factom.EBlock) error {
 	defer Chains.set(eb.ChainID, chain)
 
 	// Load this Entry Block.
-	if err := eb.Get(); err != nil {
-		return fmt.Errorf("%#v.Get(): %v", eb, err)
+	if err := eb.Get(c); err != nil {
+		return fmt.Errorf("%#v.Get(c): %v", eb, err)
 	}
 
 	// Check if the EBlock represents a new chain.
 	if eb.IsFirst() {
 		// Load first entry of new chain.
 		first := eb.Entries[0]
-		if err := first.Get(); err != nil {
-			return fmt.Errorf("%#v.Get: %v", first, err)
+		if err := first.Get(c); err != nil {
+			return fmt.Errorf("%#v.Get(c): %v", first, err)
 		}
 
 		// Ignore chains with NameIDs that don't match the fat pattern.
@@ -75,7 +75,7 @@ func (chain *Chain) processIssuance(es []factom.Entry) error {
 	if !chain.Identity.IsPopulated() {
 		// The Identity may not have existed when this chain was first tracked.
 		// Attempt to retrieve it.
-		if err := chain.Identity.Get(); err != nil {
+		if err := chain.Identity.Get(c); err != nil {
 			if _, ok := err.(jrpc.Error); ok {
 				return nil
 			}
@@ -91,17 +91,17 @@ func (chain *Chain) processIssuance(es []factom.Entry) error {
 	for i, e := range es {
 		// If this entry was created before the Identity entry then it
 		// can't be valid.
-		if e.Timestamp.Before(chain.Identity.Timestamp) {
+		if e.Timestamp.Time().Before(chain.Identity.Timestamp.Time()) {
 			log.Debugf("Invalid Issuance Entry: %v, %v", e.Hash,
 				"created before identity")
 			continue
 		}
 		// Get the data for the entry.
-		if err := e.Get(); err != nil {
-			return fmt.Errorf("Entry%+v.Get(): %v", e, err)
+		if err := e.Get(c); err != nil {
+			return fmt.Errorf("Entry%+v.Get(c): %v", e, err)
 		}
 		issuance := fat.NewIssuance(e)
-		if err := issuance.Valid(chain.Identity.IDKey); err != nil {
+		if err := issuance.Valid(&chain.Identity.ID1); err != nil {
 			log.Debugf("Invalid Issuance Entry: %v, %v", e.Hash, err)
 			continue
 		}
@@ -118,13 +118,13 @@ func (chain *Chain) processIssuance(es []factom.Entry) error {
 
 func (chain *Chain) processTransactions(es []factom.Entry) error {
 	for _, e := range es {
-		if err := e.Get(); err != nil {
-			return fmt.Errorf("Entry%v.Get(): %v", e, err)
+		if err := e.Get(c); err != nil {
+			return fmt.Errorf("Entry%v.Get(c): %v", e, err)
 		}
 		switch chain.Type {
 		case fat0.Type:
 			transaction := fat0.NewTransaction(e)
-			if err := transaction.Valid(chain.Identity.IDKey); err != nil {
+			if err := transaction.Valid(chain.Identity.ID1); err != nil {
 				log.Debugf("Invalid Transaction Entry: %v, %v", e.Hash, err)
 				continue
 			}
@@ -133,7 +133,7 @@ func (chain *Chain) processTransactions(es []factom.Entry) error {
 			}
 		case fat1.Type:
 			transaction := fat1.NewTransaction(e)
-			if err := transaction.Valid(chain.Identity.IDKey); err != nil {
+			if err := transaction.Valid(chain.Identity.ID1); err != nil {
 				log.Debugf("Invalid Transaction Entry: %v, %v", e.Hash, err)
 				continue
 			}

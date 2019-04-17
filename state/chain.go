@@ -12,7 +12,7 @@ import (
 type Chain struct {
 	ID *factom.Bytes32
 	ChainStatus
-	fat.Identity
+	factom.Identity
 	fat.Issuance
 	Metadata
 	*gorm.DB
