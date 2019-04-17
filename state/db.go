@@ -361,12 +361,13 @@ func (chain Chain) GetNFToken(tkn *NFToken) error {
 }
 
 func (chain Chain) GetNFTokensForOwner(rcdHash *factom.FAAddress,
-	page, limit uint, order string) (fat1.NFTokens, error) {
+	page, limit uint64, order string) (fat1.NFTokens, error) {
 	sess := chain.DBR.NewSession(nil)
 	ownerID := dbr.Select("id").From("addresses").
 		Where("rcd_hash = ?", rcdHash)
 	stmt := sess.Select("nf_token_id").From("nf_tokens").
-		Where("owner_id = ?", ownerID)
+		Where("owner_id = ?", ownerID).
+		Paginate(page, limit)
 
 	switch order {
 	case "", "asc":

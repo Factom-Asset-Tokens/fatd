@@ -145,17 +145,17 @@ type ParamsGetNFBalance struct {
 	Address *factom.FAAddress `json:"address,omitempty"`
 
 	// Pagination
-	Page  *uint  `json:"page,omitempty"`
-	Limit *uint  `json:"limit,omitempty"`
-	Order string `json:"order,omitempty"`
+	Page  *uint64 `json:"page,omitempty"`
+	Limit *uint64 `json:"limit,omitempty"`
+	Order string  `json:"order,omitempty"`
 }
 
 func (p *ParamsGetNFBalance) IsValid() bool {
 	if p.Page == nil {
-		p.Page = new(uint)
+		p.Page = new(uint64)
 	}
 	if p.Limit == nil {
-		p.Limit = new(uint)
+		p.Limit = new(uint64)
 		*p.Limit = 25
 	}
 	if *p.Limit == 0 {
