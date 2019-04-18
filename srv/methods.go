@@ -235,13 +235,13 @@ func getNFBalance(data json.RawMessage) interface{} {
 }
 
 type ResultGetStats struct {
-	Type                     fat.Type    `json:"type"`
-	Supply                   int64       `json:"supply"`
-	CirculatingSupply        uint64      `json:"circulating"`
-	Burned                   uint64      `json:"burned"`
-	Transactions             int         `json:"transactions"`
-	IssuanceTimestamp        factom.Time `json:"issuancets"`
-	LastTransactionTimestamp factom.Time `json:"lasttxts,omitempty"`
+	ParamsToken
+	Issuance                 fat.Issuance
+	CirculatingSupply        uint64       `json:"circulating"`
+	Burned                   uint64       `json:"burned"`
+	Transactions             int          `json:"transactions"`
+	IssuanceTimestamp        factom.Time  `json:"issuancets"`
+	LastTransactionTimestamp *factom.Time `json:"lasttxts,omitempty"`
 }
 
 var coinbaseRCDHash = fat.Coinbase()
@@ -263,19 +263,25 @@ func getStats(data json.RawMessage) interface{} {
 		panic(err)
 	}
 
-	var lastTxTs factom.Time
+	var lastTxTs *factom.Time
 	if len(txs) > 0 {
-		lastTxTs = *txs[len(txs)-1].Timestamp
+		lastTxTs = txs[len(txs)-1].Timestamp
 	}
-	return ResultGetStats{
-		Type:                     chain.Type,
-		Supply:                   chain.Supply,
+	for _, tx := range txs {
+		log.Debug(tx.Timestamp.Time())
+	}
+	res := ResultGetStats{
+		Issuance:                 chain.Issuance,
 		CirculatingSupply:        chain.Issued - burned,
 		Burned:                   burned,
 		Transactions:             len(txs),
 		IssuanceTimestamp:        *chain.Issuance.Timestamp,
 		LastTransactionTimestamp: lastTxTs,
 	}
+	res.ChainID = chain.ID
+	res.TokenID = chain.Token
+	res.IssuerChainID = chain.Issuer
+	return res
 }
 
 type ResultGetNFToken struct {

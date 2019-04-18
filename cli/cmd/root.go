@@ -60,17 +60,35 @@ directly to the Factom blockchain via a factomd node.
 }
 
 var rootCmplCmd = complete.Command{
-	Flags: complete.Flags{
-		"--fatd":    complete.PredictAnything,
-		"--factomd": complete.PredictAnything,
-		"--walletd": complete.PredictAnything,
-		"--timeout": complete.PredictAnything,
+	Flags: mergeFlags(apiFlags, tokenFlags),
+	Sub:   complete.Commands{},
+}
 
-		"--chainid":  PredictChainIDs,
-		"--tokenid":  complete.PredictAnything,
-		"--identity": complete.PredictAnything,
-	},
-	Sub: complete.Commands{},
+var apiFlags = complete.Flags{
+	"--fatd":    complete.PredictAnything,
+	"--factomd": complete.PredictAnything,
+	"--walletd": complete.PredictAnything,
+	"--timeout": complete.PredictAnything,
+}
+var tokenFlags = complete.Flags{
+	"--chainid":  PredictChainIDs,
+	"-c":         PredictChainIDs,
+	"--tokenid":  complete.PredictAnything,
+	"--identity": complete.PredictAnything,
+}
+
+func mergeFlags(flgs ...complete.Flags) complete.Flags {
+	var size int
+	for _, flg := range flgs {
+		size += len(flg)
+	}
+	f := make(complete.Flags, size)
+	for _, flg := range flgs {
+		for k, v := range flg {
+			f[k] = v
+		}
+	}
+	return f
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -102,14 +120,14 @@ func init() {
 		"http://localhost:8089",
 		"scheme://host:port for factom-walletd")
 	flags.DurationVar(&FATClient.Timeout, "timeout", 6*time.Second,
-		"timeout for all API requests (i.e. 10s, 1m)")
+		"Timeout for all API requests (i.e. 10s, 1m)")
 
 	flags.VarP(&ChainID, "chainid", "c", "the Chain ID of a FAT chain tracked by fatd")
 	flags.Lookup("chainid").DefValue = "none"
 	flags.StringVarP(&TokenID, "tokenid", "t", "",
-		"the Token ID of a FAT chain tracked by fatd, must be used with -identity")
+		"Token ID of a FAT chain tracked by fatd")
 	flags.VarP(&IdentityChainID, "identity", "i",
-		"the Chain ID of the Identity Chain for a FAT chain tracked by fatd, must be used with -tokenid")
+		"Chain ID of the Identity Chain for a FAT chain tracked by fatd")
 	flags.Lookup("identity").DefValue = "none"
 
 	// Cobra also supports local flags, which will only run

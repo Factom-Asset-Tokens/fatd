@@ -1,11 +1,11 @@
 package cmd
 
 import (
-	"fmt"
 	"os"
 	"strings"
 	"time"
 
+	"github.com/Factom-Asset-Tokens/fatd/factom"
 	"github.com/Factom-Asset-Tokens/fatd/srv"
 	"github.com/posener/complete"
 	flag "github.com/spf13/pflag"
@@ -25,12 +25,12 @@ func parseAPIFlags() error {
 		return err
 	}
 	FATClient.Timeout = time.Second
-	FactomClient.Factomd.Timeout = time.Second
-	FactomClient.Walletd.Timeout = time.Second
+	FactomClient.Factomd.Timeout = time.Second / 3
+	FactomClient.Walletd.Timeout = time.Second / 3
 	return nil
 }
 
-var PredictFAAddresses complete.PredictFunc = func(_ complete.Args) []string {
+var PredictFAAddresses complete.PredictFunc = func(args complete.Args) []string {
 	if err := parseAPIFlags(); err != nil {
 		return nil
 	}
@@ -38,14 +38,27 @@ var PredictFAAddresses complete.PredictFunc = func(_ complete.Args) []string {
 	if err != nil {
 		return nil
 	}
-	adrStrs := make([]string, len(adrs))
-	for i, adr := range adrs {
+	completed := make(map[factom.FAAddress]struct{}, len(args.Completed)-1)
+	for _, arg := range args.Completed[1:] {
+		var adr factom.FAAddress
+		if adr.Set(arg) != nil {
+			continue
+		}
+		completed[adr] = struct{}{}
+	}
+	adrStrs := make([]string, len(adrs)-len(completed))
+	var i int
+	for _, adr := range adrs {
+		if _, ok := completed[adr]; ok {
+			continue
+		}
 		adrStrs[i] = adr.String()
+		i++
 	}
 	return adrStrs
 }
 
-var PredictChainIDs complete.PredictFunc = func(_ complete.Args) []string {
+var PredictChainIDs complete.PredictFunc = func(args complete.Args) []string {
 	if err := parseAPIFlags(); err != nil {
 		return nil
 	}
@@ -53,9 +66,22 @@ var PredictChainIDs complete.PredictFunc = func(_ complete.Args) []string {
 	if err := FATClient.Request("get-daemon-tokens", nil, &chains); err != nil {
 		return nil
 	}
-	chainStrs := make([]string, len(chains))
-	for i, chain := range chains {
+	completed := make(map[factom.Bytes32]struct{}, len(args.Completed)-1)
+	for _, arg := range args.Completed[1:] {
+		var chainID factom.Bytes32
+		if chainID.Set(arg) != nil {
+			continue
+		}
+		completed[chainID] = struct{}{}
+	}
+	chainStrs := make([]string, len(chains)-len(completed))
+	var i int
+	for _, chain := range chains {
+		if _, ok := completed[*chain.ChainID]; ok {
+			continue
+		}
 		chainStrs[i] = chain.ChainID.String()
+		i++
 	}
 	return chainStrs
 }

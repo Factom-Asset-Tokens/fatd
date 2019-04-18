@@ -22,7 +22,7 @@ import (
 // getCmd represents the get command
 var getCmd = &cobra.Command{
 	Use:   "get",
-	Short: "balance|transaction|chain",
+	Short: "balance|chains",
 	Long: `Get information about a FAT Chain.
 
 Query fatd for information about FAT chains that are being tracked.

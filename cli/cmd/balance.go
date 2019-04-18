@@ -36,7 +36,7 @@ var balanceCmd = &cobra.Command{
 
 Queries fatd for the balances for each ADDRESS for the specified FAT Chain.
 
-Required flags: --chainid or --tokenid and --identity`,
+Required flags: --chainid, or --tokenid and --identity`,
 	Args:    getBalanceArgs,
 	PreRunE: validateChainID,
 	Run:     getBalance,
@@ -57,16 +57,16 @@ func getBalanceArgs(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	addresses = make([]factom.FAAddress, len(args))
-	duplicate := make(map[factom.FAAddress]struct{}, len(args))
+	dupl := make(map[factom.FAAddress]struct{}, len(args))
 	for i := range addresses {
 		adr := &addresses[i]
 		if err := adr.Set(args[i]); err != nil {
 			return err
 		}
-		if _, ok := duplicate[*adr]; ok {
+		if _, ok := dupl[*adr]; ok {
 			return fmt.Errorf("duplicate: %v", adr)
 		}
-		duplicate[*adr] = struct{}{}
+		dupl[*adr] = struct{}{}
 	}
 	return nil
 }
