@@ -126,7 +126,7 @@ func (t *Transaction) Valid(idKey factom.IDKey) error {
 		return err
 	}
 	if t.IsCoinbase() {
-		if t.FAAddress(0) != idKey.Payload() {
+		if t.FAAddress(0) != idKey.RCDHash() {
 			return fmt.Errorf("invalid RCD")
 		}
 	} else {

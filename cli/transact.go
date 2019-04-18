@@ -53,7 +53,7 @@ func transactFAT0() error {
 		return err
 	}
 	FAT0transaction.Sign(signingAddresses...)
-	if err := FAT0transaction.Valid(&sk1); err != nil {
+	if err := FAT0transaction.Valid(identity.ID1); err != nil {
 		return err
 	}
 	FAT0transaction.Timestamp = nil
@@ -129,7 +129,7 @@ func transactFAT1() error {
 		return err
 	}
 	FAT1transaction.Sign(signingAddresses...)
-	if err := FAT1transaction.Valid(&sk1); err != nil {
+	if err := FAT1transaction.Valid(identity.ID1); err != nil {
 		return err
 	}
 	var txID *factom.Bytes32
