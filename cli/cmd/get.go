@@ -15,13 +15,14 @@
 package cmd
 
 import (
+	"github.com/posener/complete"
 	"github.com/spf13/cobra"
 )
 
 // getCmd represents the get command
 var getCmd = &cobra.Command{
 	Use:   "get",
-	Short: "balance|transaction[s]|chain[s]",
+	Short: "balance|transaction|chain",
 	Long: `Get information about a FAT Chain.
 
 Query fatd for information about FAT chains that are being tracked.
@@ -31,8 +32,14 @@ Query fatd for information about FAT chains that are being tracked.
 	//},
 }
 
+var getCmplCmd = complete.Command{
+	Flags: rootCmplCmd.Flags,
+	Sub:   complete.Commands{},
+}
+
 func init() {
 	rootCmd.AddCommand(getCmd)
+	rootCmplCmd.Sub["get"] = getCmplCmd
 
 	// Here you will define your flags and configuration settings.
 
