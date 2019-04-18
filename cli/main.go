@@ -1,58 +1,21 @@
+// Copyright © 2019 NAME HERE <EMAIL ADDRESS>
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package main
 
-import (
-	"fmt"
-	"os"
-)
+import "github.com/Factom-Asset-Tokens/fatd/cli/cmd"
 
-var Revision string
-
-func _main() error {
-	ParseCLI()
-	// Attempt to run the completion program.
-	if Completion.Complete() {
-		// The completion program ran, so just return.
-		return nil
-	}
-	if err := Validate(); err != nil {
-		return err
-	}
-
-	var cmdFunc func() error
-	var ok bool
-	if cmdFunc, ok = cmdFuncMap[SubCommand]; !ok {
-		cmdFunc = usage
-	}
-	if err := cmdFunc(); err != nil {
-		return err
-	}
-
-	return nil
-}
 func main() {
-	if err := _main(); err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-}
-
-func usage() error {
-	fmt.Println(`usage: fat-cli CHAIN_FLAGS [GLOBAL_FLAGS] COMMAND COMMAND_FLAGS
-        CHAIN_FLAGS: -chainid OR -token AND -identity
-        GLOBAL_FLAGS: -s, -w, -apiaddress, ...
-        COMMAND: balance OR issue OR transact`)
-	return nil
-}
-
-var cmdFuncMap = map[string]func() error{
-	"issue":          issue,
-	"transactFAT0":   transactFAT0,
-	"transactFAT1":   transactFAT1,
-	"balance":        getBalance,
-	"getissuance":    getIssuance,
-	"getstats":       getStats,
-	"listtokens":     listTokens,
-	"gettransaction": getTransaction,
-	"usage":          usage,
-	"version":        version,
+	cmd.Execute()
 }

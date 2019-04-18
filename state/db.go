@@ -253,8 +253,8 @@ func (chain *Chain) loadMetadata() error {
 	if err := chain.First(&chain.Metadata).Error; err != nil {
 		return err
 	}
-	if !fat.ValidTokenNameIDs(fat.NameIDs(chain.Token, chain.Issuer)) ||
-		*chain.ID != fat.ChainID(chain.Token, chain.Issuer) {
+	if !fat.ValidTokenNameIDs(fat.NameIDs(chain.Token, *chain.Issuer)) ||
+		*chain.ID != fat.ChainID(chain.Token, *chain.Issuer) {
 		return fmt.Errorf(`corrupted "metadata" table for chain %v`, chain.ID)
 	}
 	chain.Identity.ChainID = chain.Metadata.Issuer

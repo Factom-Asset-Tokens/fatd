@@ -74,6 +74,16 @@ func (b Bytes) String() string {
 	return hex.EncodeToString(b[:])
 }
 
+// Type returns "Bytes32".
+func (b Bytes32) Type() string {
+	return "Bytes32"
+}
+
+// Type returns "Bytes".
+func (b Bytes) Type() string {
+	return "Bytes"
+}
+
 // MarshalJSON encodes b as a hex JSON string.
 func (b Bytes32) MarshalJSON() ([]byte, error) {
 	return []byte(fmt.Sprintf("%#v", b.String())), nil
