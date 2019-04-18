@@ -517,7 +517,7 @@ func getDaemonProperties(data json.RawMessage) interface{} {
 	if data != nil {
 		return ParamsErrorNoParams
 	}
-	return ResultGetDaemonProperties{FatdVersion: flag.Revision, APIVersion: "1"}
+	return ResultGetDaemonProperties{FatdVersion: flag.Revision, APIVersion: APIVersion}
 }
 
 type ResultGetSyncStatus struct {
