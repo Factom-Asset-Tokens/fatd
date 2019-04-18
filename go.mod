@@ -4,7 +4,7 @@ go 1.12
 
 require (
 	cloud.google.com/go v0.30.0 // indirect
-	github.com/AdamSLevy/jsonrpc2/v11 v11.1.0
+	github.com/AdamSLevy/jsonrpc2/v11 v11.2.0
 	github.com/DATA-DOG/go-sqlmock v1.3.0 // indirect
 	github.com/Factom-Asset-Tokens/base58 v0.0.0-20181227014902-61655c4dd885
 	github.com/denisenkom/go-mssqldb v0.0.0-20180901172138-1eb28afdf9b6 // indirect
