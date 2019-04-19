@@ -14,15 +14,20 @@ var (
 	srv http.Server
 )
 
-const APIVersion = "1"
+const (
+	APIVersion              = "1"
+	FatdVersionHeaderKey    = http.CanonicalHeaderKey("Fatd-Version")
+	FatdAPIVersionHeaderKey = http.CanonicalHeaderKey("Fatd-Api-Version")
+)
 
 func Start() {
 	log = _log.New("srv")
 	jrpc.DebugMethodFunc = true
 	jrpcHandler := jrpc.HTTPRequestHandler(jrpcMethods)
 	var handler http.HandlerFunc = func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Add(http.CanonicalHeaderKey("Fatd-Version"), flag.Revision)
-		w.Header().Add(http.CanonicalHeaderKey("Fatd-Api-Version"), APIVersion)
+		header := w.Header()
+		header.Add(FatdVersionHeaderKey, flag.Revision)
+		header.Add(FatdAPIVersionHeaderKey, APIVersion)
 		jrpcHandler(w, r)
 	}
 
