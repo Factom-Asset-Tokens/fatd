@@ -12,9 +12,7 @@ import (
 var (
 	log _log.Log
 	srv http.Server
-)
 
-const (
 	APIVersion              = "1"
 	FatdVersionHeaderKey    = http.CanonicalHeaderKey("Fatd-Version")
 	FatdAPIVersionHeaderKey = http.CanonicalHeaderKey("Fatd-Api-Version")
