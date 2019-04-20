@@ -440,15 +440,16 @@ const LimitMax = 1000
 func (chain Chain) GetEntries(hash *factom.Bytes32,
 	rcdHashes []factom.FAAddress, tknID *fat1.NFTokenID,
 	toFrom, order string,
-	page, limit uint) ([]factom.Entry, error) {
+	page, limit uint64) ([]factom.Entry, error) {
 	if limit == 0 || limit > LimitMax {
 		limit = LimitMax
 	}
 
+	log.Debug(hash, rcdHashes, tknID, "`"+toFrom+"`", order, page, limit)
+
 	sess := chain.DBR.NewSession(nil)
 	stmt := sess.Select("*").From("entries").Where("id != 1").
-		Limit(uint64(limit)).
-		Offset(uint64(page * limit))
+		Paginate(page, limit)
 
 	var sign string
 	switch order {

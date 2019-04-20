@@ -32,10 +32,11 @@ var (
 	cfgFile      string
 	FATClient    = srv.NewClient()
 	FactomClient = factom.NewClient()
+	Debug        bool
 
-	ChainID         factom.Bytes32
-	TokenID         string
-	IdentityChainID factom.Bytes32
+	paramsToken = srv.ParamsToken{
+		ChainID:       new(factom.Bytes32),
+		IssuerChainID: new(factom.Bytes32)}
 )
 
 // Complete runs the CLI completion.
@@ -50,13 +51,30 @@ var rootCmd = &cobra.Command{
 	Short: "Factom Asset Tokens CLI",
 	Long: `fat-cli allows users to explore and interact with FAT chains.
 
-fat-cli queries the fatd API to explore FAT chains. It can compose the entries
-required to create new FAT chains or transact FAT tokens and submit them
-directly to the Factom blockchain via a factomd node.
+fat-cli can be used to explore FAT chains to view balances, issuance, and
+transaction data. It can also be used to send transactions on existing FAT
+chains, and issue new FAT-0 or FAT-1 chains.
+
+API Settings
+
+fat-cli needs to be able to query the API of a running fatd node to explore FAT
+chains. Use --fatd to specify the fatd endpoint, if not on
+http://localhost:8078.
+
+fat-cli needs to be able to query factom-walletd in order to access private
+keys for transaction signing and paying for Factom entries. Use --walletd to
+set the factom-walletd endpoint, if not on http://localhost:8089.
+
+fat-cli needs to be able to query factomd in order to submit signed transaction
+or issuance entries. Use --factomd to specify the factomd endpoint, if not on
+http://localhost:8088.
+
+Chain ID Settings
+
+Most sub-commands need to be scoped to a specific FAT chain. This can be done
+by specifying both the --tokenid and --identity Chain ID, or just the
+--chainid.
 `,
-	// Uncomment the following line if your bare application
-	// has an action associated with it:
-	//	Run: func(cmd *cobra.Command, args []string) { },
 }
 
 var rootCmplCmd = complete.Command{
@@ -69,6 +87,7 @@ var apiFlags = complete.Flags{
 	"--factomd": complete.PredictAnything,
 	"--walletd": complete.PredictAnything,
 	"--timeout": complete.PredictAnything,
+	"--debug":   complete.PredictNothing,
 }
 var tokenFlags = complete.Flags{
 	"--chainid":  PredictChainIDs,
@@ -122,13 +141,15 @@ func init() {
 	flags.DurationVar(&FATClient.Timeout, "timeout", 6*time.Second,
 		"Timeout for all API requests (i.e. 10s, 1m)")
 
-	flags.VarP(&ChainID, "chainid", "c", "the Chain ID of a FAT chain tracked by fatd")
+	flags.VarP(paramsToken.ChainID, "chainid", "c",
+		"Chain ID of a FAT chain tracked by fatd")
 	flags.Lookup("chainid").DefValue = "none"
-	flags.StringVarP(&TokenID, "tokenid", "t", "",
+	flags.StringVarP(&paramsToken.TokenID, "tokenid", "t", "",
 		"Token ID of a FAT chain tracked by fatd")
-	flags.VarP(&IdentityChainID, "identity", "i",
-		"Chain ID of the Identity Chain for a FAT chain tracked by fatd")
+	flags.VarP(paramsToken.IssuerChainID, "identity", "i",
+		"Issuer Identity Chain ID of a FAT chain tracked by fatd")
 	flags.Lookup("identity").DefValue = "none"
+	flags.BoolVar(&Debug, "debug", false, "Print all RPC requests and responses")
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
@@ -163,28 +184,35 @@ func initConfig() {
 
 // initTimeouts set the same timeout for all Clients.
 func initTimeouts() {
+	FATClient.DebugRequest = Debug
+	FactomClient.Factomd.DebugRequest = Debug
+	FactomClient.Walletd.DebugRequest = Debug
 	FactomClient.Factomd.Timeout = FATClient.Timeout
 	FactomClient.Walletd.Timeout = FATClient.Timeout
 }
 
-// validateChainID validates "chainid", "tokenid" and "identity", and
+// validateChainIDFlags validates "chainid", "tokenid" and "identity", and
 // initializes the ChainID.
-func validateChainID(cmd *cobra.Command, _ []string) error {
+func validateChainIDFlags(cmd *cobra.Command, _ []string) error {
 	flags := cmd.Flags()
-	chainidF := flags.Lookup("chainid")
-	tokenidF := flags.Lookup("tokenid")
-	identityF := flags.Lookup("identity")
-	if chainidF.Changed {
-		if tokenidF.Changed || identityF.Changed {
-			return fmt.Errorf("--chainid may not be used with --tokenid or --identity")
+	defer func() {
+		paramsToken.TokenID = ""
+		paramsToken.IssuerChainID = nil
+	}()
+	if flags.Changed("chainid") {
+		if flags.Changed("tokenid") || flags.Changed("identity") {
+			return fmt.Errorf(
+				"--chainid may not be used with --tokenid or --identity")
 		}
 		return nil
 	}
-	if tokenidF.Changed || identityF.Changed {
-		if !tokenidF.Changed || !identityF.Changed {
+	if flags.Changed("tokenid") || flags.Changed("identity") {
+		if !flags.Changed("tokenid") || !flags.Changed("identity") {
 			return fmt.Errorf("--tokenid and --identity must be used together")
 		}
-		ChainID = fat.ChainID(TokenID, IdentityChainID)
+		*paramsToken.ChainID = fat.ChainID(paramsToken.TokenID,
+			*paramsToken.IssuerChainID)
+
 		return nil
 	}
 	return fmt.Errorf("either --chainid or --tokenid and --identity must be specified")

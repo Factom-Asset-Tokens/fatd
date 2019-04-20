@@ -86,9 +86,9 @@ Token ID: %q
 	}
 
 	for _, chainID := range chainIDs {
-		chain := srv.ParamsToken{ChainID: &chainID}
+		params := srv.ParamsToken{ChainID: &chainID}
 		var stats srv.ResultGetStats
-		if err := FATClient.Request("get-stats", chain, &stats); err != nil {
+		if err := FATClient.Request("get-stats", params, &stats); err != nil {
 			fmt.Println(err)
 			os.Exit(1)
 		}

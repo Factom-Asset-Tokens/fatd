@@ -34,11 +34,9 @@ var balanceCmd = &cobra.Command{
 	Short:                 "Get the balances for addresses",
 	Long: `Get the balances of the listed addresses.
 
-Queries fatd for the balances for each ADDRESS for the specified FAT Chain.
-
-Required flags: --chainid, or --tokenid and --identity`,
+Queries fatd for the balances for each ADDRESS for the specified FAT Chain.`,
 	Args:    getBalanceArgs,
-	PreRunE: validateChainID,
+	PreRunE: validateChainIDFlags,
 	Run:     getBalance,
 }
 
@@ -72,9 +70,7 @@ func getBalanceArgs(cmd *cobra.Command, args []string) error {
 }
 
 func getBalance(cmd *cobra.Command, _ []string) {
-	var params srv.ParamsGetBalance
-	params.ChainID = &ChainID
-
+	params := srv.ParamsGetBalance{ParamsToken: paramsToken}
 	balances := make([]uint64, len(addresses))
 	for i, adr := range addresses {
 		params.Address = &adr

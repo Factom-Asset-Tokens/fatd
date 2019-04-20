@@ -171,6 +171,7 @@ func getTransactions(getEntry bool) jrpc.MethodFunc {
 				txs[i].Hash = entries[i].Hash
 				txs[i].Timestamp = *entries[i].Timestamp
 				txs[i].Tx = tx
+				log.Debug(tx)
 			}
 			return txs
 		case fat1.Type:
@@ -183,6 +184,7 @@ func getTransactions(getEntry bool) jrpc.MethodFunc {
 				txs[i].Hash = entries[i].Hash
 				txs[i].Timestamp = *entries[i].Timestamp
 				txs[i].Tx = tx
+				log.Debug(tx)
 			}
 			return txs
 		default:
@@ -236,7 +238,7 @@ func getNFBalance(data json.RawMessage) interface{} {
 
 type ResultGetStats struct {
 	ParamsToken
-	Issuance                 fat.Issuance
+	Issuance                 *fat.Issuance
 	CirculatingSupply        uint64       `json:"circulating"`
 	Burned                   uint64       `json:"burned"`
 	Transactions             int          `json:"transactions"`
@@ -267,16 +269,15 @@ func getStats(data json.RawMessage) interface{} {
 	if len(txs) > 0 {
 		lastTxTs = txs[len(txs)-1].Timestamp
 	}
-	for _, tx := range txs {
-		log.Debug(tx.Timestamp.Time())
-	}
 	res := ResultGetStats{
-		Issuance:                 chain.Issuance,
 		CirculatingSupply:        chain.Issued - burned,
 		Burned:                   burned,
 		Transactions:             len(txs),
 		IssuanceTimestamp:        *chain.Issuance.Timestamp,
 		LastTransactionTimestamp: lastTxTs,
+	}
+	if chain.IsIssued() {
+		res.Issuance = &chain.Issuance
 	}
 	res.ChainID = chain.ID
 	res.TokenID = chain.Token

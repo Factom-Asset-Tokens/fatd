@@ -73,16 +73,16 @@ type ParamsGetTransactions struct {
 	Order     string             `json:"order,omitempty"`
 
 	// Pagination
-	Page  *uint `json:"page,omitempty"`
-	Limit *uint `json:"limit,omitempty"`
+	Page  *uint64 `json:"page,omitempty"`
+	Limit *uint64 `json:"limit,omitempty"`
 }
 
 func (p *ParamsGetTransactions) IsValid() bool {
 	if p.Page == nil {
-		p.Page = new(uint)
+		p.Page = new(uint64)
 	}
 	if p.Limit == nil {
-		p.Limit = new(uint)
+		p.Limit = new(uint64)
 		*p.Limit = 25
 	}
 	if *p.Limit == 0 {
