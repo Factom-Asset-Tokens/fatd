@@ -23,10 +23,8 @@ import (
 var getCmd = &cobra.Command{
 	Use:   "get",
 	Short: "balance|chains|transactions",
-	Long: `Get information about a FAT Chain.
+	Long:  `Get information about a FAT Chain.`,
 
-Query fatd for information about FAT chains that are being tracked.
-`,
 	//Run: func(cmd *cobra.Command, args []string) {
 	//	fmt.Println("get called")
 	//},

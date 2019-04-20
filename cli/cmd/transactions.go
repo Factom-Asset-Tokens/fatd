@@ -32,7 +32,7 @@ var transactionsCmd = &cobra.Command{
 	Use:                   "transactions [flags]|[TXID...]",
 	Aliases:               []string{"transaction", "txs", "tx"},
 	DisableFlagsInUseLine: true,
-	Short:                 "Get information about transactions",
+	Short:                 "List txs and their data",
 	Long: `Get information about transactions corresponding to each TXID or list
 transactions based on the search criteria provided by flags.
 

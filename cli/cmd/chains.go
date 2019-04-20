@@ -29,7 +29,7 @@ var chainsCmd = &cobra.Command{
 	Use:                   "chains [CHAINID...]",
 	Aliases:               []string{"chain", "stats", "stat"},
 	DisableFlagsInUseLine: true,
-	Short:                 "Get information about Token Chains",
+	Short:                 "Get info about existing tokens",
 	Long: `Get information about each CHAINID.
 
 chains returns Token ID and Issuer Identity Chain ID for each CHAINID.
