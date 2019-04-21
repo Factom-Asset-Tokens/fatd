@@ -20,22 +20,20 @@ import (
 )
 
 // getCmd represents the get command
-var getCmd = &cobra.Command{
-	Use:   "get",
-	Short: "balance|chains|transactions",
-	Long:  `Get information about a FAT Chain.`,
-
-	//Run: func(cmd *cobra.Command, args []string) {
-	//	fmt.Println("get called")
-	//},
-}
+var getCmd = func() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "get",
+		Short: "balance|chains|transactions",
+		Long:  `Get info about a FAT Chain.`,
+	}
+	rootCmd.AddCommand(cmd)
+	rootCmplCmd.Sub["get"] = getCmplCmd
+	rootCmplCmd.Sub["help"].Sub["get"] = complete.Command{Sub: complete.Commands{}}
+	generateCmplFlags(cmd, getCmplCmd.Flags)
+	return cmd
+}()
 
 var getCmplCmd = complete.Command{
-	Flags: rootCmplCmd.Flags,
+	Flags: mergeFlags(rootCmplCmd.Flags),
 	Sub:   complete.Commands{},
-}
-
-func init() {
-	rootCmd.AddCommand(getCmd)
-	rootCmplCmd.Sub["get"] = getCmplCmd
 }

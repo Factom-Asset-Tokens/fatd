@@ -27,46 +27,43 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// transactionsCmd represents the transactions command
-var transactionsCmd = &cobra.Command{
-	Use:                   "transactions [flags]|[TXID...]",
-	Aliases:               []string{"transaction", "txs", "tx"},
-	DisableFlagsInUseLine: true,
-	Short:                 "List txs and their data",
-	Long: `Get information about transactions corresponding to each TXID or list
-transactions based on the search criteria provided by flags.
+var (
+	paramsGetTxs = srv.ParamsGetTransactions{
+		Page: new(uint64), Limit: new(uint64),
+		StartHash:   new(factom.Bytes32),
+		NFTokenID:   new(fat1.NFTokenID),
+		ParamsToken: srv.ParamsToken{ChainID: paramsToken.ChainID},
+	}
+	to, from       bool
+	transactionIDs []factom.Bytes32
+)
 
-The transaction data for each TXID is looked up on the given --chainid. Only
-global flags are accepted.
+// getTxsCmd represents the transactions command
+var getTxsCmd = func() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:                   "transactions [flags]|[TXID...]",
+		Aliases:               []string{"transaction", "txs", "tx"},
+		DisableFlagsInUseLine: true,
+		Short:                 "List txs and their data",
+		Long: `Get tx data for each TXID or list txs scoped by the search criteria provided by
+flags on the given --chainid (or --tokenid and --identity).
 
-If no TXID is provided then a paginated list of transactions will be returned.
-This list can be scoped down to transactions --to or --from one --address or
-more, and in the case of a FAT-1 chain, by a single --nftokenid.`,
-	Args:    getTransactionsArgs,
-	PreRunE: validateGetTransactionsFlags,
-	Run:     getTransactions,
-}
-var transactionsCmplCmd = complete.Command{
-	Flags: mergeFlags(rootCmplCmd.Flags,
-		complete.Flags{
-			"--order":       complete.PredictSet("asc", "desc"),
-			"--page":        complete.PredictAnything,
-			"--limit":       complete.PredictAnything,
-			"--starttxhash": complete.PredictAnything,
-			"--to":          complete.PredictNothing,
-			"--from":        complete.PredictNothing,
-			"--nftokenid":   complete.PredictAnything,
-			"--address":     PredictFAAddresses,
-			"-a":            PredictFAAddresses,
-		}),
-	Args: complete.PredictAnything,
-}
+If at least one TXID is provided, then the data for each tx is returned. Only
+global flags are accepted with TXIDs.
 
-func init() {
-	getCmd.AddCommand(transactionsCmd)
-	getCmplCmd.Sub["transactions"] = transactionsCmplCmd
+If no TXID is provided, then a paginated list of txs is returned. The list can
+be scoped down to txs --to or --from one --address or more, and in the case of
+a FAT-1 chain, by a single --nftokenid. Use --page and --limit to scroll
+through txs.`,
+		Args:    getTxsArgs,
+		PreRunE: validateGetTxsFlags,
+		Run:     getTxs,
+	}
+	getCmd.AddCommand(cmd)
+	getCmplCmd.Sub["transactions"] = getTxsCmplCmd
+	rootCmplCmd.Sub["help"].Sub["get"].Sub["transactions"] = complete.Command{}
 
-	flags := transactionsCmd.Flags()
+	flags := cmd.Flags()
 	flags.Uint64VarP(paramsGetTxs.Page, "page", "p", 1, "Page of returned txs")
 	flags.Uint64VarP(paramsGetTxs.Limit, "limit", "l", 10, "Limit of returned txs")
 	flags.Var((*txOrder)(&paramsGetTxs.Order), "order", "Order of returned txs")
@@ -81,19 +78,22 @@ func init() {
 	flags.VarP((*FAAddressList)(&paramsGetTxs.Addresses), "address", "a",
 		"Add to the set of addresses to lookup txs for")
 	flags.Lookup("address").DefValue = "none"
+
+	generateCmplFlags(cmd, getTxsCmplCmd.Flags)
+	return cmd
+}()
+
+var getTxsCmplCmd = complete.Command{
+	Flags: mergeFlags(rootCmplCmd.Flags,
+		complete.Flags{
+			"--order":   complete.PredictSet("asc", "desc"),
+			"--address": PredictFAAddresses,
+			"-a":        PredictFAAddresses,
+		}),
+	Args: complete.PredictAnything,
 }
 
-var (
-	paramsGetTxs = srv.ParamsGetTransactions{
-		Page: new(uint64), Limit: new(uint64),
-		StartHash: new(factom.Bytes32),
-		NFTokenID: new(fat1.NFTokenID),
-	}
-	to, from       bool
-	transactionIDs []factom.Bytes32
-)
-
-func getTransactionsArgs(_ *cobra.Command, args []string) error {
+func getTxsArgs(_ *cobra.Command, args []string) error {
 	transactionIDs = make([]factom.Bytes32, len(args))
 	dupl := make(map[factom.Bytes32]struct{}, len(args))
 	for i, arg := range args {
@@ -109,7 +109,7 @@ func getTransactionsArgs(_ *cobra.Command, args []string) error {
 	return nil
 }
 
-func validateGetTransactionsFlags(cmd *cobra.Command, args []string) error {
+func validateGetTxsFlags(cmd *cobra.Command, args []string) error {
 	if err := validateChainIDFlags(cmd, args); err != nil {
 		return err
 	}
@@ -150,15 +150,16 @@ func validateGetTransactionsFlags(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func getTransactions(_ *cobra.Command, _ []string) {
+func getTxs(_ *cobra.Command, _ []string) {
 	var stats srv.ResultGetStats
-	if err := FATClient.Request("get-stats", paramsToken, &stats); err != nil {
+	if err := FATClient.Request("get-stats",
+		paramsGetTxs.ParamsToken, &stats); err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
 
 	if len(transactionIDs) > 0 {
-		params := srv.ParamsGetTransaction{ParamsToken: paramsToken}
+		params := srv.ParamsGetTransaction{ParamsToken: paramsGetTxs.ParamsToken}
 		result := srv.ResultGetTransaction{}
 		tx := json.RawMessage{}
 		result.Tx = &tx
@@ -181,7 +182,6 @@ func getTransactions(_ *cobra.Command, _ []string) {
 	for i := range result {
 		result[i].Tx = &json.RawMessage{}
 	}
-	paramsGetTxs.ParamsToken = paramsToken
 	if err := FATClient.Request("get-transactions", paramsGetTxs, &result); err != nil {
 		fmt.Println(err)
 		os.Exit(1)

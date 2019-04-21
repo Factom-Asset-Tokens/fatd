@@ -24,30 +24,38 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// chainsCmd represents the chains command
-var chainsCmd = &cobra.Command{
-	Use:                   "chains [CHAINID...]",
-	Aliases:               []string{"chain", "stats", "stat"},
-	DisableFlagsInUseLine: true,
-	Short:                 "Get info about existing tokens",
-	Long: `Get information about each CHAINID.
+// getChainsCmd represents the chains command
+var getChainsCmd = func() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:                   "chains [CHAINID...]",
+		Aliases:               []string{"chain", "stats", "stat"},
+		DisableFlagsInUseLine: true,
+		Short:                 "List chains and their stats",
+		Long: `Get info about each CHAINID.
 
-chains returns Token ID and Issuer Identity Chain ID for each CHAINID.
+If at least one CHAINID is provided, then the stats and issuance info for each
+chain is returned.
 
-If no CHAINID is given, then chains returns a list of the issued Token Chain
-IDs that fatd is tracking.`,
-	Args: getChainsArgs,
-	Run:  getChains,
-}
+If no CHAINID is given, then the list of Issued Token Chains that fatd is
+tracking is returned.`,
+		Args: getChainsArgs,
+		Run:  getChains,
+	}
+	getCmd.AddCommand(cmd)
+	getCmplCmd.Sub["chains"] = getChainsCmplCmd
+	rootCmplCmd.Sub["help"].Sub["get"].Sub["chains"] = complete.Command{}
+	generateCmplFlags(cmd, getChainsCmplCmd.Flags)
+	// Don't complete these global flags as they are ignored by this
+	// command.
+	for _, flg := range []string{"chainid", "identity", "tokenid"} {
+		delete(getChainsCmplCmd.Flags, "--"+flg)
+	}
+	return cmd
+}()
 
-var chainsCmplCmd = complete.Command{
-	Flags: apiFlags,
+var getChainsCmplCmd = complete.Command{
+	Flags: mergeFlags(apiCmplFlags),
 	Args:  PredictChainIDs,
-}
-
-func init() {
-	getCmd.AddCommand(chainsCmd)
-	getCmplCmd.Sub["chains"] = chainsCmplCmd
 }
 
 var chainIDs []factom.Bytes32

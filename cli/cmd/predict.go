@@ -8,23 +8,15 @@ import (
 	"github.com/Factom-Asset-Tokens/fatd/factom"
 	"github.com/Factom-Asset-Tokens/fatd/srv"
 	"github.com/posener/complete"
-	flag "github.com/spf13/pflag"
 )
 
+// parseAPIFlags parses
 func parseAPIFlags() error {
 	args := strings.Fields(os.Getenv("COMP_LINE"))[1:]
-	flags := flag.NewFlagSet("", flag.ContinueOnError)
-	flags.ParseErrorsWhitelist.UnknownFlags = true
-	flags.StringVarP(&FATClient.FatdServer, "fatd", "d",
-		"http://localhost:8078", "")
-	flags.StringVarP(&FactomClient.FactomdServer, "factomd", "s",
-		"http://localhost:8088", "")
-	flags.StringVarP(&FactomClient.WalletdServer, "walletd", "w",
-		"http://localhost:8089", "")
-	if err := flags.Parse(args); err != nil {
+	if err := apiFlags.Parse(args); err != nil {
 		return err
 	}
-	FATClient.Timeout = time.Second
+	FATClient.Timeout = time.Second / 3
 	FactomClient.Factomd.Timeout = time.Second / 3
 	FactomClient.Walletd.Timeout = time.Second / 3
 	return nil

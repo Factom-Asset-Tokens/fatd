@@ -26,28 +26,31 @@ import (
 
 var addresses []factom.FAAddress
 
-// balanceCmd represents the balance command
-var balanceCmd = &cobra.Command{
-	Use:                   "balance ADDRESS...",
-	Aliases:               []string{"balances"},
-	DisableFlagsInUseLine: true,
-	Short:                 "Get the balances for addresses",
-	Long: `Get the balances of the listed addresses.
+// getBalanceCmd represents the balance command
+var getBalanceCmd = func() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:                   "balance ADDRESS...",
+		Aliases:               []string{"balances"},
+		DisableFlagsInUseLine: true,
+		Short:                 "Get balances for addresses",
+		Long: `Get the balance of each ADDRESS.
 
-Queries fatd for the balances for each ADDRESS for the specified FAT Chain.`,
-	Args:    getBalanceArgs,
-	PreRunE: validateChainIDFlags,
-	Run:     getBalance,
-}
+The balance of each ADDRESS on the given --chainid (or --tokenid and
+--identity) is returned.`,
+		Args:    getBalanceArgs,
+		PreRunE: validateChainIDFlags,
+		Run:     getBalance,
+	}
+	getCmd.AddCommand(cmd)
+	getCmplCmd.Sub["balance"] = getBalanceCmplCmd
+	rootCmplCmd.Sub["help"].Sub["get"].Sub["balance"] = complete.Command{}
+	generateCmplFlags(cmd, getBalanceCmplCmd.Flags)
+	return cmd
+}()
 
-var balanceCmplCmd = complete.Command{
-	Flags: rootCmplCmd.Flags,
+var getBalanceCmplCmd = complete.Command{
+	Flags: mergeFlags(rootCmplCmd.Flags),
 	Args:  PredictFAAddresses,
-}
-
-func init() {
-	getCmd.AddCommand(balanceCmd)
-	getCmplCmd.Sub["balance"] = balanceCmplCmd
 }
 
 func getBalanceArgs(cmd *cobra.Command, args []string) error {
@@ -70,7 +73,8 @@ func getBalanceArgs(cmd *cobra.Command, args []string) error {
 }
 
 func getBalance(cmd *cobra.Command, _ []string) {
-	params := srv.ParamsGetBalance{ParamsToken: paramsToken}
+	params := srv.ParamsGetBalance{}
+	params.ChainID = paramsToken.ChainID
 	balances := make([]uint64, len(addresses))
 	for i, adr := range addresses {
 		params.Address = &adr
