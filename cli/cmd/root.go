@@ -67,6 +67,11 @@ fat-cli can be used to explore FAT chains to get balances, issuance, and
 transaction data. It can also be used to send transactions on existing FAT
 chains, and issue new FAT-0 or FAT-1 chains.
 
+Chain ID Settings
+
+Most sub-commands need to be scoped to a specific FAT chain using --chainid or
+both the --tokenid and --identity.
+
 API Settings
 
 fat-cli needs to be able to query the API of a running fatd node to explore FAT
@@ -79,26 +84,21 @@ set the factom-walletd endpoint, if not on http://localhost:8089.
 
 fat-cli needs to be able to query factomd in order to submit signed transaction
 or issuance entries. Use --factomd to specify the factomd endpoint, if not on
-http://localhost:8088.
-
-Chain ID Settings
-
-Most sub-commands need to be scoped to a specific FAT chain. This can be done
-by specifying both the --tokenid and --identity Chain ID, or just the
---chainid.`,
+http://localhost:8088.`,
 	}
 
+	cmd.LocalFlags().AddFlagSet(installCompletionFlags)
 	flags := cmd.PersistentFlags()
 	// API Flags
 	flags.AddFlagSet(apiFlags)
 	// Chain ID Flags
 	flags.VarP(paramsToken.ChainID, "chainid", "c",
-		"Chain ID of a FAT chain tracked by fatd")
+		"Chain ID of a FAT chain")
 	flags.Lookup("chainid").DefValue = "none"
 	flags.StringVarP(&paramsToken.TokenID, "tokenid", "t", "",
-		"Token ID of a FAT chain tracked by fatd")
+		"Token ID of a FAT chain")
 	flags.VarP(paramsToken.IssuerChainID, "identity", "i",
-		"Issuer Identity Chain ID of a FAT chain tracked by fatd")
+		"Issuer Identity Chain ID of a FAT chain")
 	flags.Lookup("identity").DefValue = "none"
 
 	generateCmplFlags(cmd, rootCmplCmd.Flags)

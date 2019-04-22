@@ -1,15 +1,27 @@
 package cmd
 
 import (
+	goflag "flag"
 	"github.com/posener/complete"
 	"github.com/spf13/cobra"
 	flag "github.com/spf13/pflag"
 )
 
+var cmpl = complete.New("fat-cli", rootCmplCmd)
+
+var installCompletionFlags = func() *flag.FlagSet {
+	goflgs := goflag.NewFlagSet("", goflag.ContinueOnError)
+	flgs := flag.NewFlagSet("", flag.ContinueOnError)
+	cmpl.InstallName = "install"
+	cmpl.UninstallName = "un" + cmpl.InstallName
+	cmpl.AddFlags(goflgs)
+	flgs.AddGoFlagSet(goflgs)
+	return flgs
+}()
+
 // Complete runs the CLI completion.
 func Complete() bool {
-	comp := complete.New("fat-cli", rootCmplCmd)
-	return comp.Complete()
+	return cmpl.Complete()
 }
 
 // generateCmplFlags adds completion for all cmd.Flags() not already present in
