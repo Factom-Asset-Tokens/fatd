@@ -34,6 +34,6 @@ var getCmd = func() *cobra.Command {
 }()
 
 var getCmplCmd = complete.Command{
-	Flags: mergeFlags(rootCmplCmd.Flags),
+	Flags: mergeFlags(apiCmplFlags, tokenCmplFlags),
 	Sub:   complete.Commands{},
 }

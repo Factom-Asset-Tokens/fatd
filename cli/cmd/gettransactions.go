@@ -84,7 +84,7 @@ through txs.`,
 }()
 
 var getTxsCmplCmd = complete.Command{
-	Flags: mergeFlags(rootCmplCmd.Flags,
+	Flags: mergeFlags(apiCmplFlags, tokenCmplFlags,
 		complete.Flags{
 			"--order":   complete.PredictSet("asc", "desc"),
 			"--address": PredictFAAddresses,

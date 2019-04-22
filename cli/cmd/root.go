@@ -29,6 +29,15 @@ import (
 	"github.com/spf13/viper"
 )
 
+// Execute adds all child commands to the root command and sets flags appropriately.
+// This is called by main.main(). It only needs to happen once to the rootCmd.
+func Execute() {
+	if err := rootCmd.Execute(); err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+}
+
 var (
 	cfgFile      string
 	FATClient    = srv.NewClient()
@@ -39,6 +48,21 @@ var (
 		ChainID:       new(factom.Bytes32),
 		IssuerChainID: new(factom.Bytes32)}
 )
+
+func init() {
+	//cobra.OnInitialize(initConfig)
+	cobra.OnInitialize(initClients)
+}
+
+// initClients sets the same timeout and debug settings for all Clients.
+func initClients() {
+	FATClient.DebugRequest = Debug
+	FactomClient.Factomd.DebugRequest = Debug
+	FactomClient.Walletd.DebugRequest = Debug
+	FactomClient.Factomd.Timeout = FATClient.Timeout
+	FactomClient.Walletd.Timeout = FATClient.Timeout
+}
+
 var apiFlags = func() *flag.FlagSet {
 	flags := flag.NewFlagSet("", flag.ContinueOnError)
 	flags.ParseErrorsWhitelist.UnknownFlags = true
@@ -85,9 +109,12 @@ set the factom-walletd endpoint, if not on http://localhost:8089.
 fat-cli needs to be able to query factomd in order to submit signed transaction
 or issuance entries. Use --factomd to specify the factomd endpoint, if not on
 http://localhost:8088.`,
+		Args:    cobra.ExactArgs(0),
+		PreRunE: validateRunCompletionFlags,
+		Run:     runCompletion,
 	}
 
-	cmd.LocalFlags().AddFlagSet(installCompletionFlags)
+	cmd.Flags().AddFlagSet(installCompletionFlags)
 	flags := cmd.PersistentFlags()
 	// API Flags
 	flags.AddFlagSet(apiFlags)
@@ -117,18 +144,33 @@ var tokenCmplFlags = complete.Flags{
 	"-c":        PredictChainIDs,
 }
 
-// Execute adds all child commands to the root command and sets flags appropriately.
-// This is called by main.main(). It only needs to happen once to the rootCmd.
-func Execute() {
-	if err := rootCmd.Execute(); err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+func validateRunCompletionFlags(cmd *cobra.Command, _ []string) error {
+	// Ensure that the install completion flags are not ever used with any
+	// other flags.
+	flags := cmd.Flags()
+	installCompletionMode := false
+	otherFlags := false
+	flags.Visit(func(flg *flag.Flag) {
+		switch flg.Name {
+		case "install", "uninstall":
+			installCompletionMode = true
+		default:
+			otherFlags = true
+		}
+	})
+	if installCompletionMode && otherFlags {
+		return fmt.Errorf(
+			"--install and --uninstall may not be used with any other flags")
 	}
+	return nil
 }
 
-func init() {
-	//cobra.OnInitialize(initConfig)
-	cobra.OnInitialize(initClients)
+func runCompletion(cmd *cobra.Command, _ []string) {
+	// Complete() returns true if it attempts to install completion,
+	// otherwise just output the help page.
+	if !Complete() {
+		cmd.Help()
+	}
 }
 
 // validateChainIDFlags validates "chainid", "tokenid" and "identity", and
@@ -152,15 +194,6 @@ func validateChainIDFlags(cmd *cobra.Command, _ []string) error {
 		return nil
 	}
 	return fmt.Errorf("either --chainid or --tokenid and --identity must be specified")
-}
-
-// initClients sets the same timeout and debug settings for all Clients.
-func initClients() {
-	FATClient.DebugRequest = Debug
-	FactomClient.Factomd.DebugRequest = Debug
-	FactomClient.Walletd.DebugRequest = Debug
-	FactomClient.Factomd.Timeout = FATClient.Timeout
-	FactomClient.Walletd.Timeout = FATClient.Timeout
 }
 
 // initConfig reads in config file and ENV variables if set.

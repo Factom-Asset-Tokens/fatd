@@ -2,6 +2,7 @@ package cmd
 
 import (
 	goflag "flag"
+
 	"github.com/posener/complete"
 	"github.com/spf13/cobra"
 	flag "github.com/spf13/pflag"
@@ -10,12 +11,15 @@ import (
 var cmpl = complete.New("fat-cli", rootCmplCmd)
 
 var installCompletionFlags = func() *flag.FlagSet {
-	goflgs := goflag.NewFlagSet("", goflag.ContinueOnError)
-	flgs := flag.NewFlagSet("", flag.ContinueOnError)
-	cmpl.InstallName = "install"
-	cmpl.UninstallName = "un" + cmpl.InstallName
+	// Populate a goflag.FlagSet with the install completion flags.
+	goflgs := goflag.NewFlagSet("fat-cli", goflag.ContinueOnError)
 	cmpl.AddFlags(goflgs)
+
+	// Create a pflag.FlagSet and copy over the goflag.FlagSet.
+	flgs := flag.NewFlagSet("fat-cli", flag.ContinueOnError)
 	flgs.AddGoFlagSet(goflgs)
+	flgs.MarkHidden("y")
+
 	return flgs
 }()
 
@@ -34,6 +38,9 @@ func generateCmplFlags(cmd *cobra.Command, cmplFlags complete.Flags) {
 	//fmt.Println("Command:", cmd.Use)
 	cmd.Flags().VisitAll(func(flg *flag.Flag) {
 		//fmt.Println("Flag:", flg.Name)
+		if flg.Hidden {
+			return
+		}
 		name := "--" + flg.Name
 		// If the flag already has a custom completion, there is
 		// nothing to do.
@@ -46,6 +53,7 @@ func generateCmplFlags(cmd *cobra.Command, cmplFlags complete.Flags) {
 			predict = complete.PredictNothing
 		}
 		cmplFlags[name] = predict
+		//fmt.Println("added")
 	})
 }
 

@@ -49,7 +49,7 @@ The balance of each ADDRESS on the given --chainid (or --tokenid and
 }()
 
 var getBalanceCmplCmd = complete.Command{
-	Flags: mergeFlags(rootCmplCmd.Flags),
+	Flags: mergeFlags(apiCmplFlags, tokenCmplFlags),
 	Args:  PredictFAAddresses,
 }
 
