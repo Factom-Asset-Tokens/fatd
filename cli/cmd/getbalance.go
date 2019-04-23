@@ -29,14 +29,15 @@ var addresses []factom.FAAddress
 // getBalanceCmd represents the balance command
 var getBalanceCmd = func() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:                   "balance ADDRESS...",
-		Aliases:               []string{"balances"},
 		DisableFlagsInUseLine: true,
-		Short:                 "Get balances for addresses",
-		Long: `Get the balance of each ADDRESS.
-
-The balance of each ADDRESS on the given --chainid (or --tokenid and
---identity) is returned.`,
+		Use: `
+balance --chainid <chain-id> ADDRESS...`[1:],
+		Aliases: []string{"balances"},
+		Short:   "Get balances for addresses",
+		Long: `
+Get the balance of each ADDRESS on the given --chainid (or --tokenid and
+--identity).
+`[1:],
 		Args:    getBalanceArgs,
 		PreRunE: validateChainIDFlags,
 		Run:     getBalance,

@@ -34,12 +34,30 @@ var (
 // issueTokenCmd represents the token command
 var issueTokenCmd = func() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "token",
-		Short: "Initialize a new FAT token",
-		Long: `Compose or submit the Initialization Entry for a new FAT token.
+		DisableFlagsInUseLine: true,
+		Use: `
+token --ecadr <EC | Es> --chainid <chain-id> --sk1 <sk1-key>
+        --type <"FAT-0" | "FAT-1"> --supply <supply>`[1:],
+		Short: "Initialize a new FAT token chain",
+		Long: `
+Compose or submit the Initialization Entry for a new FAT token.
 
-Submitting the Initialization entry is the second and final step of issuing a
-new FAT token.`,
+Submitting the Token Initialization Entry is the second and final step to issue
+a new FAT token. You must wait until the Factom chain has been created before
+this command will succeed. This can take up to 10 minutes. Attempting to run
+the command prematurely will fail unless --force and --curl are used.
+
+See 'fat-cli issue chain --help' for information about the first step.
+
+Sanity Checks
+        Prior to composing the Token Initialization Entry, a number of calls to
+        fatd and factomd are made to ensure that the chain can be created.
+        These checks are skipped if --force is used.
+        - The token has not already been issued.
+        - The --identity chain exists.
+        - The --sk1 key corresponds to the --identity's id1 key.
+        - The --ecadr has enough ECs to pay for entry creation.
+`[1:],
 		Args:    cobra.ExactArgs(0),
 		PreRunE: validateIssueTokenFlags,
 		Run:     issueToken,
@@ -155,6 +173,8 @@ func issueToken(_ *cobra.Command, _ []string) {
 		}
 	}
 
+	cost, _ := Issuance.Cost()
+	fmt.Println("cost: ", cost)
 	if curl {
 		if err := printCurl(Issuance.Entry.Entry, ecEsAdr.Es); err != nil {
 			fmt.Println(err)

@@ -1,9 +1,10 @@
 package srv
 
 import (
+	"fmt"
 	"time"
 
-	"github.com/AdamSLevy/jsonrpc2/v11"
+	jrpc "github.com/AdamSLevy/jsonrpc2/v11"
 )
 
 // Client makes RPC requests to fatd's APIs. Client embeds a jsonrpc2.Client,
@@ -11,7 +12,7 @@ import (
 // set up BasicAuth and http.Client's transport settings to configure TLS.
 type Client struct {
 	FatdServer string
-	jsonrpc2.Client
+	jrpc.Client
 }
 
 // Defaults for the factomd and factom-walletd endpoints.
@@ -31,5 +32,8 @@ func NewClient() *Client {
 // Request makes a request to fatd's v1 API.
 func (c *Client) Request(method string, params, result interface{}) error {
 	url := c.FatdServer + "/v1"
+	if c.DebugRequest {
+		fmt.Println("fatd:", url)
+	}
 	return c.Client.Request(url, method, params, result)
 }

@@ -1,9 +1,10 @@
 package factom
 
 import (
+	"fmt"
 	"time"
 
-	"github.com/AdamSLevy/jsonrpc2/v11"
+	jrpc "github.com/AdamSLevy/jsonrpc2/v11"
 )
 
 // Client makes RPC requests to factomd's and factom-walletd's APIs.  Client
@@ -12,9 +13,9 @@ import (
 // BasicAuth settings to set up BasicAuth and http.Client's transport settings
 // to configure TLS.
 type Client struct {
-	Factomd       jsonrpc2.Client
+	Factomd       jrpc.Client
 	FactomdServer string
-	Walletd       jsonrpc2.Client
+	Walletd       jrpc.Client
 	WalletdServer string
 }
 
@@ -37,11 +38,17 @@ func NewClient() *Client {
 // FactomdRequest makes a request to factomd's v2 API.
 func (c *Client) FactomdRequest(method string, params, result interface{}) error {
 	url := c.FactomdServer + "/v2"
+	if c.Factomd.DebugRequest {
+		fmt.Println("factomd:", url)
+	}
 	return c.Factomd.Request(url, method, params, result)
 }
 
 // WalletdRequest makes a request to factom-walletd's v2 API.
 func (c *Client) WalletdRequest(method string, params, result interface{}) error {
 	url := c.WalletdServer + "/v2"
+	if c.Walletd.DebugRequest {
+		fmt.Println("factom-walletd:", url)
+	}
 	return c.Walletd.Request(url, method, params, result)
 }

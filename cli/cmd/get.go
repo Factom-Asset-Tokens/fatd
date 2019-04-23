@@ -24,7 +24,13 @@ var getCmd = func() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "get",
 		Short: "balance|chains|transactions",
-		Long:  `Get info about a FAT Chain.`,
+		Long: `
+Get balance, transaction, or issuance data about an existing FAT Chain.
+
+The fatd API is used to lookup information about FAT chains. Thus fat-cli can
+only return data about chains that the instance of fatd is tracking. The fatd
+API must be trusted to ensure the security and validity of returned data.
+`[1:],
 	}
 	rootCmd.AddCommand(cmd)
 	rootCmplCmd.Sub["get"] = getCmplCmd

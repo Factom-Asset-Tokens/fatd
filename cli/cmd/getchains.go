@@ -27,17 +27,20 @@ import (
 // getChainsCmd represents the chains command
 var getChainsCmd = func() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:                   "chains [CHAINID...]",
-		Aliases:               []string{"chain", "stats", "stat", "issuance"},
 		DisableFlagsInUseLine: true,
-		Short:                 "List chains and their stats",
-		Long: `Get info about each CHAINID.
+		Use: `
+chains [CHAINID...]`[1:],
+		Aliases: []string{"chain", "stats", "stat", "issuance", "issuances"},
+		Short:   "List chains and their stats",
+		Long: `
+Get info about each CHAINID.
 
 If at least one CHAINID is provided, then the stats and issuance info for each
 chain is returned.
 
-If no CHAINID is given, then the list of Issued Token Chains that fatd is
-tracking is returned.`,
+If no CHAINID is given, then the complete list of Issued Token Chains that fatd
+is tracking is returned.
+`[1:],
 		Args: getChainsArgs,
 		Run:  getChains,
 	}

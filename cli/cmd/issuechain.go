@@ -28,12 +28,33 @@ import (
 // issueChainCmd represents the createchain command
 var issueChainCmd = func() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "chain",
+		DisableFlagsInUseLine: true,
+		Use: `
+chain --ecadr <EC | Es> --identity <issuer-identity-chain-id>
+        --tokenid <token-id>`[1:],
 		Short: "Create a new FAT token chain",
-		Long: `Compose or submit the Chain Creation Entry for a new FAT token chain.
+		Long: `
+Compose or submit the Chain Creation Entry for a new FAT token chain.
 
 Creating a new chain with the correct Name IDs is the first of two steps to
-issue a new FAT token.`,
+issue a new FAT token. Both --tokenid and --identity are required, and
+--chainid may not be used. The --identity chain does not strictly need to exist
+for this step, but it is required to exist in a Factom block prior to the next
+step.
+
+Chain creation takes a full Factom block, which may take up to 10 minutes. You
+must wait until the chain is created before the next step can be completed.
+
+See 'fat-cli issue token --help' for information about the next step.
+
+Sanity Checks
+        Prior to composing the Chain Creation Entry, a number of calls to
+        factomd are made to ensure that the chain can be created. These checks
+        are skipped if --force is used.
+        - Chain does not already exist.
+        - Chain has not already been created, but is still pending.
+        - The --ecadr has enough ECs to pay for chain creation.
+`[1:],
 		Args:    cobra.ExactArgs(0),
 		PreRunE: validateIssueChainFlags,
 		Run:     issueChain,
@@ -118,6 +139,8 @@ func issueChain(_ *cobra.Command, _ []string) {
 		}
 	}
 
+	cost, _ := first.Cost()
+	fmt.Println("cost: ", cost)
 	if curl {
 		if err := printCurl(first, ecEsAdr.Es); err != nil {
 			fmt.Println(err)

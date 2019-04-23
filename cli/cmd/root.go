@@ -20,6 +20,7 @@ import (
 	"strings"
 	"time"
 
+	jrpc "github.com/AdamSLevy/jsonrpc2/v11"
 	"github.com/Factom-Asset-Tokens/fatd/factom"
 	"github.com/Factom-Asset-Tokens/fatd/fat"
 	"github.com/Factom-Asset-Tokens/fatd/srv"
@@ -39,6 +40,51 @@ func Execute() {
 	}
 }
 
+func init() {
+	//cobra.OnInitialize(initConfig)
+	cobra.OnInitialize(initClients)
+}
+func initClients() {
+	// Only use Debug if true to avoid always overriding --debugfactomd and
+	// --debugfatd flags.
+	if Debug {
+		FATClient.DebugRequest = Debug
+		FactomClient.Factomd.DebugRequest = Debug
+		// Do not use DebugRequest for factom-walletd to avoid leaking
+		// private keys.
+		// Use --debugwalletd explicitly to debug wallet API calls.
+	}
+
+	for _, client := range []*jrpc.Client{
+		&FATClient.Client,
+		&FactomClient.Factomd,
+		&FactomClient.Walletd,
+	} {
+		// Use of Basic Auth with empty User and Password is not
+		// supported.
+		// --fatduser "" --fatdpassword "" has no effect.
+		if len(client.User)+len(client.Password) > 0 {
+			client.BasicAuth = true
+		}
+		client.Timeout = FATClient.Timeout
+	}
+
+	for _, url := range []*string{
+		&FATClient.FatdServer,
+		&FactomClient.FactomdServer,
+		&FactomClient.WalletdServer,
+	} {
+		// Add "http://" if no scheme was specified.
+		addHTTPScheme(url)
+	}
+}
+func addHTTPScheme(url *string) {
+	strs := strings.Split(*url, "://")
+	if len(strs) == 0 {
+		*url = "http://" + *url
+	}
+}
+
 var (
 	cfgFile      string
 	FATClient    = srv.NewClient()
@@ -50,45 +96,44 @@ var (
 		IssuerChainID: new(factom.Bytes32)}
 )
 
-func init() {
-	//cobra.OnInitialize(initConfig)
-	cobra.OnInitialize(initClients)
-}
-
-// initClients sets the same timeout and debug settings for all Clients.
-func initClients() {
-	FATClient.DebugRequest = Debug
-	FactomClient.Factomd.DebugRequest = Debug
-	FactomClient.Walletd.DebugRequest = Debug
-
-	FactomClient.Factomd.Timeout = FATClient.Timeout
-	FactomClient.Walletd.Timeout = FATClient.Timeout
-
-	addHTTPScheme(&FATClient.FatdServer)
-	addHTTPScheme(&FactomClient.FactomdServer)
-	addHTTPScheme(&FactomClient.WalletdServer)
-}
-func addHTTPScheme(url *string) {
-	strs := strings.Split(*url, "://")
-	if len(strs) == 0 {
-		*url = "http://" + *url
-	}
-}
-
 var apiFlags = func() *flag.FlagSet {
 	flags := flag.NewFlagSet("", flag.ContinueOnError)
 	flags.ParseErrorsWhitelist.UnknownFlags = true
-	flags.StringVarP(&FATClient.FatdServer, "fatd", "d", "http://localhost:8078",
-		"scheme://host:port for fatd")
+
+	flags.StringVarP(&FATClient.FatdServer, "fatd", "d",
+		"http://localhost:8078", "scheme://host:port for fatd")
 	flags.StringVarP(&FactomClient.FactomdServer, "factomd", "s",
-		"http://localhost:8088",
-		"scheme://host:port for factomd")
+		"http://localhost:8088", "scheme://host:port for factomd")
 	flags.StringVarP(&FactomClient.WalletdServer, "walletd", "w",
-		"http://localhost:8089",
-		"scheme://host:port for factom-walletd")
+		"http://localhost:8089", "scheme://host:port for factom-walletd")
+
+	flags.StringVar(&FATClient.User, "fatduser", "",
+		"Basic HTTP Auth User for fatd")
+	flags.StringVar(&FactomClient.Factomd.User, "factomduser", "",
+		"Basic HTTP Auth User for factomd")
+	flags.StringVar(&FactomClient.Walletd.User, "walletduser", "",
+		"Basic HTTP Auth User for factom-walletd")
+
+	flags.StringVar(&FATClient.Password, "fatdpass", "",
+		"Basic HTTP Auth Password for fatd")
+	flags.StringVar(&FactomClient.Factomd.Password, "factomdpass", "",
+		"Basic HTTP Auth Password for factomd")
+	flags.StringVar(&FactomClient.Walletd.Password, "walletdpass", "",
+		"Basic HTTP Auth Password for factom-walletd")
+
 	flags.DurationVar(&FATClient.Timeout, "timeout", 3*time.Second,
 		"Timeout for all API requests (i.e. 10s, 1m)")
-	flags.BoolVar(&Debug, "debug", false, "Print all RPC requests and responses")
+
+	flags.BoolVar(&Debug, "debug", false, "Print fatd and factomd API calls")
+	flags.BoolVar(&FATClient.DebugRequest, "debugfatd", false,
+		"Print fatd API calls")
+	flags.BoolVar(&FactomClient.Factomd.DebugRequest, "debugfactomd", false,
+		"Print factomd API calls")
+	flags.BoolVar(&FactomClient.Walletd.DebugRequest, "debugwalletd", false,
+		"Print factom-walletd API calls")
+	flags.MarkHidden("debugfatd")
+	flags.MarkHidden("debugfactomd")
+	flags.MarkHidden("debugwalletd")
 	return flags
 }()
 
@@ -97,40 +142,75 @@ var rootCmd = func() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "fat-cli",
 		Short: "Factom Asset Tokens CLI",
-		Long: `fat-cli allows users to explore and interact with FAT chains.
+		Long: `
+fat-cli allows users to explore and interact with FAT chains.
 
 fat-cli can be used to explore FAT chains to get balances, issuance, and
 transaction data. It can also be used to send transactions on existing FAT
-chains, and issue new FAT-0 or FAT-1 chains.
+chains, and issue new FAT-0 or FAT-1 tokens.
 
 Chain ID Settings
-
-Most sub-commands need to be scoped to a specific FAT chain using --chainid or
-both the --tokenid and --identity.
+        Most sub-commands need to be scoped to a specific FAT chain identified
+        by a --chainid. Alternatively, this can be specified by using both the
+        --tokenid and --identity, which together determine the chain ID.
 
 API Settings
+        fat-cli makes use of the fatd, factomd, and factom-walletd JSON-RPC 2.0
+        APIs for various operations. Trust in these API endpoints is imperative
+        to secure operation.
 
-fat-cli needs to be able to query the API of a running fatd node to explore FAT
-chains. Use --fatd to specify the fatd endpoint, if not on
-http://localhost:8078.
+        The --fatd API is used to explore issuance, transactions, and balances
+        for existing FAT chains.
 
-fat-cli needs to be able to query factom-walletd in order to access private
-keys for transaction signing and paying for Factom entries. Use --walletd to
-set the factom-walletd endpoint, if not on http://localhost:8089.
+        The --factomd API is used to submit entries directly to the Factom
+        blockchain, as well as for checking EC balances, chain existence, and
+        identity keys.
 
-fat-cli needs to be able to query factomd in order to submit signed transaction
-or issuance entries. Use --factomd to specify the factomd endpoint, if not on
-http://localhost:8088.`,
+        The --walletd API is used to access private keys for FA and EC
+        addresses. To avoid use of factom-walletd, use private Fs or Es keys
+        directly on the CLI instead.
+
+        If --debug is set, all fatd and factomd API calls will be printed to
+        stdout. API calls to factom-walletd are omitted to avoid leaking
+        private key data.
+
+Offline Mode
+        For increased security requirements to protect private keys, it is
+        possible to run fat-cli such that it makes no network calls when
+        generating Factom entries for FAT transactions or token issuance.
+
+        Use --curl to skip submitting the entry directly to Factom, and instead
+        print out the curl commands to commit and reveal the entry. These curl
+        commands contain the encoded signed data and may be safely copied to,
+        and run from, a computer with access to factomd.
+
+        Use --force to skip all sanity checks that involve API calls out
+        factomd or fatd. As a result, this may result in generating a Factom
+        Entry that is invalid for Factom or FAT, but may still use up Entry
+        Credits to submit.
+
+        Use private keys for --ecadr and --input directly to avoid any network
+        calls to factom-walletd.
+
+Entry Credits
+        Making FAT transactions or issuing new FAT tokens requires creating
+        entries on the Factom blockchain. Creating Factom entries costs Entry
+        Credits. Entry Credits have a relatively fixed price of about $0.001
+        USD. Entry Credits can be obtained by burning Factoids which can be
+        done using the official factom-cli.
+
+        FAT transactions normally cost 1 EC. The full FAT Token Issuance
+        process normally costs 12 EC.
+`[1:],
 		Args:    cobra.ExactArgs(0),
 		PreRunE: validateRunCompletionFlags,
 		Run:     runCompletion,
 	}
 
 	cmd.Flags().AddFlagSet(installCompletionFlags)
+
 	flags := cmd.PersistentFlags()
-	// API Flags
 	flags.AddFlagSet(apiFlags)
-	// Chain ID Flags
 	flags.VarPF(paramsToken.ChainID, "chainid", "c", "Chain ID of a FAT chain").
 		DefValue = "none"
 	flags.StringVarP(&paramsToken.TokenID, "tokenid", "t", "",

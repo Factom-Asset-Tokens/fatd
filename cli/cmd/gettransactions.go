@@ -41,20 +41,28 @@ var (
 // getTxsCmd represents the transactions command
 var getTxsCmd = func() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:                   "transactions [flags]|[TXID...]",
-		Aliases:               []string{"transaction", "txs", "tx"},
 		DisableFlagsInUseLine: true,
-		Short:                 "List txs and their data",
-		Long: `Get tx data for each TXID or list txs scoped by the search criteria provided by
-flags on the given --chainid (or --tokenid and --identity).
+		Use: `
+transactions --chainid <chain-id> TXID...
+  fat-cli get transactions --chainid <chain-id> [--starttx <tx-hash>]
+        [--page <page>] [--limit <limit>] [--order <"asc" | "desc">]
+        [--address <FA> [--address <FA>]... [--to] [--from]]
+        [--nftokenid <nf-token-id>]
+`[1:],
+		Aliases: []string{"transaction", "txs", "tx"},
+		Short:   "List txs and their data",
+		Long: `
+For the given --chainid, get tx data for each TXID or list txs scoped by the
+search criteria provided by flags.
 
 If at least one TXID is provided, then the data for each tx is returned. Only
 global flags are accepted with TXIDs.
 
-If no TXID is provided, then a paginated list of txs is returned. The list can
-be scoped down to txs --to or --from one --address or more, and in the case of
-a FAT-1 chain, by a single --nftokenid. Use --page and --limit to scroll
-through txs.`,
+If no TXID is provided, then a paginated list of all txs is returned. The list
+can be scoped down to txs --to or --from one --address or more, and in the case
+of a FAT-1 chain, by a single --nftokenid. Use --page and --limit to scroll
+through txs.
+`[1:],
 		Args:    getTxsArgs,
 		PreRunE: validateGetTxsFlags,
 		Run:     getTxs,
@@ -70,8 +78,8 @@ through txs.`,
 		DefValue = "asc"
 	flags.BoolVar(&to, "to", false, "Request only txs TO the given --address set")
 	flags.BoolVar(&from, "from", false, "Request only txs FROM the given --address set")
-	flags.VarPF(paramsGetTxs.StartHash, "starttxhash", "",
-		"Hash of transaction to start indexing from").
+	flags.VarPF(paramsGetTxs.StartHash, "starttx", "",
+		"Hash of tx to start indexing from").
 		DefValue = "none"
 	flags.Uint64Var((*uint64)(paramsGetTxs.NFTokenID), "nftokenid", 0,
 		"Request only txs involving this NF Token ID")

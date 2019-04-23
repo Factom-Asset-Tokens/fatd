@@ -22,6 +22,7 @@ import (
 	"github.com/Factom-Asset-Tokens/fatd/factom"
 	"github.com/posener/complete"
 	"github.com/spf13/cobra"
+	flag "github.com/spf13/pflag"
 )
 
 var (
@@ -31,30 +32,61 @@ var (
 	curl      bool
 )
 
+var composeFlags = func() *flag.FlagSet {
+	flags := flag.NewFlagSet("", flag.ContinueOnError)
+	flags.VarPF(&ecEsAdr, "ecadr", "e", "EC or Es address to pay for entries").
+		DefValue = "none"
+	flags.BoolVar(&force, "force", false,
+		"Skip sanity checks like EC balance, chain existence, and identity")
+	flags.BoolVar(&curl, "curl", false, "Do not submit Factom entry; print curl commands")
+	return flags
+}()
+
 // issueCmd represents the issue command
 var issueCmd = func() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "issue",
 		Short: "Issue a new token chain",
-		Long: `Issue a new FAT-0 or FAT-1 token chain.
+		Long: `
+Issue a new FAT-0 or FAT-1 token chain.
 
-Issuing a new FAT token chain is a two step process. First, the token chain
-must be created with the correct Name IDs in the first entry. Second, the
-signed Initialization Entry must be submitted. Chain creation takes a full
-Factom block ~10 mins.
-`,
+Issuing a new FAT token chain is a two step process. First the Token Chain must
+be created on the Factom Blockchain. Both --tokenid and --identity are
+required. Use of --chainid is not allowed for this step.
+
+fat-cli issue chain --ecadr <EC|Es> --identity <issuer-identity-chain-id>
+        --tokenid <token-id>
+
+Second, the Token Initialization Entry must be added to the Token Chain. Since
+Factom chain creation takes a full Factom block before entries can be added,
+the process may take up to 10 minutes.
+
+fat-cli issue token --ecadr <EC|Es> --chainid <token-chain-id>
+        --sk1 <sk1-key> --type <FAT-0|FAT-1> --supply <max-supply>
+
+Entry Credits
+        Creating entries on the Factom blockchain costs Entry Credits. The full
+        Token Issuance process normally costs 12 ECs. You must specify a funded
+        Entry Credit address with --ecadr, which may be either a private Es
+        address, or a pubilc EC address that can be fetched from
+        factom-walletd.
+
+Identity Chain
+        FAT token chains may only be issued by an entity controlling the
+        sk1/id1 key established by the Identity Chain pointed to by the FAT
+        token chain. An Identity Chain and the associated keys can be created
+        using the factom-identity-cli.
+
+        https://github.com/PaulBernier/factom-identity-cli
+`[1:],
 		PersistentPreRunE: validateECAdrFlag,
 	}
 	rootCmd.AddCommand(cmd)
 	rootCmplCmd.Sub["issue"] = issueCmplCmd
 	rootCmplCmd.Sub["help"].Sub["issue"] = complete.Command{Sub: complete.Commands{}}
 
-	flags := cmd.PersistentFlags()
-	flags.VarPF(&ecEsAdr, "ecadr", "e", "EC or Es address to pay for entries").
-		DefValue = "none"
-	flags.BoolVarP(&force, "force", "f", false,
-		"Skip sanity checks like EC balance, chain existence, and identity")
-	flags.BoolVar(&curl, "curl", false, "Do not submit Factom entry; print curl commands")
+	cmd.PersistentFlags().AddFlagSet(composeFlags)
+
 	generateCmplFlags(cmd, issueCmplCmd.Flags)
 	return cmd
 }()
