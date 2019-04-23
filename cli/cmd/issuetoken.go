@@ -15,6 +15,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 
@@ -37,7 +38,7 @@ var issueTokenCmd = func() *cobra.Command {
 		DisableFlagsInUseLine: true,
 		Use: `
 token --ecadr <EC | Es> --chainid <chain-id> --sk1 <sk1-key>
-        --type <"FAT-0" | "FAT-1"> --supply <supply>`[1:],
+        --type <"FAT-0" | "FAT-1"> --supply <supply> [--metadata <JSON>]`[1:],
 		Short: "Initialize a new FAT token chain",
 		Long: `
 Compose or submit the Initialization Entry for a new FAT token.
@@ -73,6 +74,8 @@ Sanity Checks
 		DefValue = "none"
 	flags.Int64Var(&Issuance.Supply, "supply", 0, "Max Token supply, use -1 for unlimited")
 	flags.StringVar(&Issuance.Symbol, "symbol", "", "Optional abbreviated token symbol")
+	flags.VarPF((*RawMessage)(&Issuance.Metadata), "metadata", "m",
+		"JSON metadata to include in tx")
 
 	generateCmplFlags(cmd, issueTokenCmplCmd.Flags)
 	return cmd
@@ -211,4 +214,22 @@ func (t Type) String() string {
 }
 func (t Type) Type() string {
 	return "FAT-0|FAT-1"
+}
+
+type RawMessage json.RawMessage
+
+func (r *RawMessage) Set(data string) error {
+	if !json.Valid([]byte(data)) {
+		return fmt.Errorf("invalid JSON")
+	}
+	*r = RawMessage(data)
+	return nil
+}
+
+func (r RawMessage) String() string {
+	return string(r)
+}
+
+func (RawMessage) Type() string {
+	return "JSON"
 }
