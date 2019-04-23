@@ -1,6 +1,10 @@
 package factom
 
-import "fmt"
+import (
+	"fmt"
+
+	jrpc "github.com/AdamSLevy/jsonrpc2/v11"
+)
 
 // EBlock represents a Factom Entry Block.
 type EBlock struct {
@@ -77,10 +81,19 @@ func (eb *EBlock) GetChainHead(c *Client) error {
 	params := eb
 	method := "chain-head"
 	result := struct {
-		KeyMR *Bytes32 `json:"chainhead"`
+		KeyMR              *Bytes32 `json:"chainhead"`
+		ChainInProcessList bool     `json:"chaininprocesslist"`
 	}{}
 	if err := c.FactomdRequest(method, params, &result); err != nil {
 		return err
+	}
+	var zero Bytes32
+	if *result.KeyMR == zero {
+		if result.ChainInProcessList {
+			return jrpc.Error{Message: "new chain in process list"}
+		} else {
+			return jrpc.Error{Code: -32009, Message: "Missing Chain Head"}
+		}
 	}
 	eb.KeyMR = result.KeyMR
 	return nil

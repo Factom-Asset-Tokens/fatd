@@ -122,6 +122,16 @@ func (key SK1Key) String() string {
 	return key.payload().StringPrefix(key.PrefixBytes())
 }
 
+// Type returns PrefixString() satisfies the pflag.Value interface.
+func (ID1Key) Type() string {
+	return id1PrefixStr
+}
+
+// Type returns PrefixString() satisfies the pflag.Value interface.
+func (SK1Key) Type() string {
+	return sk1PrefixStr
+}
+
 // MarshalJSON encodes key as a JSON string using key.String().
 func (key ID1Key) MarshalJSON() ([]byte, error) {
 	return key.payload().MarshalJSONPrefix(key.PrefixBytes())
@@ -301,6 +311,16 @@ func (key ID2Key) String() string {
 // key.PrefixBytes().
 func (key SK2Key) String() string {
 	return key.payload().StringPrefix(key.PrefixBytes())
+}
+
+// Type returns PrefixString() satisfies the pflag.Value interface.
+func (ID2Key) Type() string {
+	return id2PrefixStr
+}
+
+// Type returns PrefixString() satisfies the pflag.Value interface.
+func (SK2Key) Type() string {
+	return sk2PrefixStr
 }
 
 // MarshalJSON encodes key as a JSON string using key.String().
@@ -484,6 +504,16 @@ func (key SK3Key) String() string {
 	return key.payload().StringPrefix(key.PrefixBytes())
 }
 
+// Type returns PrefixString() satisfies the pflag.Value interface.
+func (ID3Key) Type() string {
+	return id3PrefixStr
+}
+
+// Type returns PrefixString() satisfies the pflag.Value interface.
+func (SK3Key) Type() string {
+	return sk3PrefixStr
+}
+
 // MarshalJSON encodes key as a JSON string using key.String().
 func (key ID3Key) MarshalJSON() ([]byte, error) {
 	return key.payload().MarshalJSONPrefix(key.PrefixBytes())
@@ -663,6 +693,16 @@ func (key ID4Key) String() string {
 // key.PrefixBytes().
 func (key SK4Key) String() string {
 	return key.payload().StringPrefix(key.PrefixBytes())
+}
+
+// Type returns PrefixString() satisfies the pflag.Value interface.
+func (ID4Key) Type() string {
+	return id4PrefixStr
+}
+
+// Type returns PrefixString() satisfies the pflag.Value interface.
+func (SK4Key) Type() string {
+	return sk4PrefixStr
 }
 
 // MarshalJSON encodes key as a JSON string using key.String().

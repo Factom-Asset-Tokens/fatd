@@ -17,6 +17,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/Factom-Asset-Tokens/fatd/factom"
@@ -59,8 +60,19 @@ func initClients() {
 	FATClient.DebugRequest = Debug
 	FactomClient.Factomd.DebugRequest = Debug
 	FactomClient.Walletd.DebugRequest = Debug
+
 	FactomClient.Factomd.Timeout = FATClient.Timeout
 	FactomClient.Walletd.Timeout = FATClient.Timeout
+
+	addHTTPScheme(&FATClient.FatdServer)
+	addHTTPScheme(&FactomClient.FactomdServer)
+	addHTTPScheme(&FactomClient.WalletdServer)
+}
+func addHTTPScheme(url *string) {
+	strs := strings.Split(*url, "://")
+	if len(strs) == 0 {
+		*url = "http://" + *url
+	}
 }
 
 var apiFlags = func() *flag.FlagSet {
@@ -74,7 +86,7 @@ var apiFlags = func() *flag.FlagSet {
 	flags.StringVarP(&FactomClient.WalletdServer, "walletd", "w",
 		"http://localhost:8089",
 		"scheme://host:port for factom-walletd")
-	flags.DurationVar(&FATClient.Timeout, "timeout", 6*time.Second,
+	flags.DurationVar(&FATClient.Timeout, "timeout", 3*time.Second,
 		"Timeout for all API requests (i.e. 10s, 1m)")
 	flags.BoolVar(&Debug, "debug", false, "Print all RPC requests and responses")
 	return flags
@@ -119,14 +131,13 @@ http://localhost:8088.`,
 	// API Flags
 	flags.AddFlagSet(apiFlags)
 	// Chain ID Flags
-	flags.VarP(paramsToken.ChainID, "chainid", "c",
-		"Chain ID of a FAT chain")
-	flags.Lookup("chainid").DefValue = "none"
+	flags.VarPF(paramsToken.ChainID, "chainid", "c", "Chain ID of a FAT chain").
+		DefValue = "none"
 	flags.StringVarP(&paramsToken.TokenID, "tokenid", "t", "",
 		"Token ID of a FAT chain")
-	flags.VarP(paramsToken.IssuerChainID, "identity", "i",
-		"Issuer Identity Chain ID of a FAT chain")
-	flags.Lookup("identity").DefValue = "none"
+	flags.VarPF(paramsToken.IssuerChainID, "identity", "i",
+		"Issuer Identity Chain ID of a FAT chain").
+		DefValue = "none"
 
 	generateCmplFlags(cmd, rootCmplCmd.Flags)
 	return cmd
@@ -193,7 +204,7 @@ func validateChainIDFlags(cmd *cobra.Command, _ []string) error {
 
 		return nil
 	}
-	return fmt.Errorf("either --chainid or --tokenid and --identity must be specified")
+	return fmt.Errorf("--chainid or both --tokenid and --identity is required")
 }
 
 // initConfig reads in config file and ENV variables if set.

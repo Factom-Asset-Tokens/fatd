@@ -50,6 +50,34 @@ var PredictFAAddresses complete.PredictFunc = func(args complete.Args) []string 
 	return adrStrs
 }
 
+var PredictECAddresses complete.PredictFunc = func(args complete.Args) []string {
+	if err := parseAPIFlags(); err != nil {
+		return nil
+	}
+	adrs, err := FactomClient.GetECAddresses()
+	if err != nil {
+		return nil
+	}
+	completed := make(map[factom.ECAddress]struct{}, len(args.Completed)-1)
+	for _, arg := range args.Completed[1:] {
+		var adr factom.ECAddress
+		if adr.Set(arg) != nil {
+			continue
+		}
+		completed[adr] = struct{}{}
+	}
+	adrStrs := make([]string, len(adrs)-len(completed))
+	var i int
+	for _, adr := range adrs {
+		if _, ok := completed[adr]; ok {
+			continue
+		}
+		adrStrs[i] = adr.String()
+		i++
+	}
+	return adrStrs
+}
+
 var PredictChainIDs complete.PredictFunc = func(args complete.Args) []string {
 	if err := parseAPIFlags(); err != nil {
 		return nil

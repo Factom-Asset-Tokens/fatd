@@ -38,10 +38,13 @@ func generateCmplFlags(cmd *cobra.Command, cmplFlags complete.Flags) {
 	//fmt.Println("Command:", cmd.Use)
 	cmd.Flags().VisitAll(func(flg *flag.Flag) {
 		//fmt.Println("Flag:", flg.Name)
+		name := "--" + flg.Name
 		if flg.Hidden {
+			//fmt.Println("hidden")
+			delete(cmplFlags, name)
+			delete(cmplFlags, "-"+flg.Shorthand)
 			return
 		}
-		name := "--" + flg.Name
 		// If the flag already has a custom completion, there is
 		// nothing to do.
 		if _, ok := cmplFlags[name]; ok {

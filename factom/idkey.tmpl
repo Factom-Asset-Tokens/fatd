@@ -110,6 +110,16 @@ func (key SK{{.ID}}Key) String() string {
 	return key.payload().StringPrefix(key.PrefixBytes())
 }
 
+// Type returns PrefixString() satisfies the pflag.Value interface.
+func (ID{{.ID}}Key) Type() string {
+        return id{{.ID}}PrefixStr
+}
+
+// Type returns PrefixString() satisfies the pflag.Value interface.
+func (SK{{.ID}}Key) Type() string {
+        return sk{{.ID}}PrefixStr
+}
+
 // MarshalJSON encodes key as a JSON string using key.String().
 func (key ID{{.ID}}Key) MarshalJSON() ([]byte, error) {
 	return key.payload().MarshalJSONPrefix(key.PrefixBytes())

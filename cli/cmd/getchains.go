@@ -28,7 +28,7 @@ import (
 var getChainsCmd = func() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:                   "chains [CHAINID...]",
-		Aliases:               []string{"chain", "stats", "stat"},
+		Aliases:               []string{"chain", "stats", "stat", "issuance"},
 		DisableFlagsInUseLine: true,
 		Short:                 "List chains and their stats",
 		Long: `Get info about each CHAINID.
@@ -44,12 +44,18 @@ tracking is returned.`,
 	getCmd.AddCommand(cmd)
 	getCmplCmd.Sub["chains"] = getChainsCmplCmd
 	rootCmplCmd.Sub["help"].Sub["get"].Sub["chains"] = complete.Command{}
+
 	generateCmplFlags(cmd, getChainsCmplCmd.Flags)
 	// Don't complete these global flags as they are ignored by this
 	// command.
-	for _, flg := range []string{"chainid", "identity", "tokenid"} {
-		delete(getChainsCmplCmd.Flags, "--"+flg)
+	for _, flg := range []string{"-c", "--chainid", "--identity", "--tokenid"} {
+		delete(getChainsCmplCmd.Flags, flg)
 	}
+	usage := cmd.UsageFunc()
+	cmd.SetUsageFunc(func(cmd *cobra.Command) error {
+		cmd.Flags().MarkHidden("chainid")
+		return usage(cmd)
+	})
 	return cmd
 }()
 
@@ -100,7 +106,12 @@ Token ID: %q
 			fmt.Println(err)
 			os.Exit(1)
 		}
-		fmt.Printf(`Chain ID: %v
+		printStats(&chainID, stats)
+	}
+}
+
+func printStats(chainID *factom.Bytes32, stats srv.ResultGetStats) {
+	fmt.Printf(`Chain ID: %v
 Issuer Identity Chain ID: %v
 Token ID: %v
 Type: %v
@@ -111,17 +122,15 @@ Burned:            %v
 Number of Transactions: %v
 Issuance Timestamp: %v
 `,
-			chainID, stats.TokenID, stats.IssuerChainID,
-			stats.Issuance.Type, stats.Issuance.Symbol,
-			stats.Issuance.Supply, stats.CirculatingSupply, stats.Burned,
-			stats.Transactions,
-			stats.IssuanceTimestamp.Time())
-		if stats.LastTransactionTimestamp != nil {
-			fmt.Printf("Last Tx Timestamp: %v\n",
-				stats.LastTransactionTimestamp.Time())
-		}
-		fmt.Println("")
-
+		chainID, stats.TokenID, stats.IssuerChainID,
+		stats.Issuance.Type, stats.Issuance.Symbol,
+		stats.Issuance.Supply, stats.CirculatingSupply, stats.Burned,
+		stats.Transactions,
+		stats.IssuanceTimestamp.Time())
+	if stats.LastTransactionTimestamp != nil {
+		fmt.Printf("Last Tx Timestamp: %v\n",
+			stats.LastTransactionTimestamp.Time())
 	}
+	fmt.Println("")
 
 }

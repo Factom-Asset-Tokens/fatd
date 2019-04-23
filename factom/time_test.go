@@ -8,13 +8,24 @@ import (
 )
 
 var (
-	JSONTimeInvalids = []string{`{}`, `"hello"`, `["hello"]`, `123445x`}
-	JSONTimeValid    = `1484858820`
+	JSONTimeInvalids = []struct {
+		Data string
+		Err  string
+	}{
+		{Data: `{}`,
+			Err: "json: cannot unmarshal object into Go value of type uint64"},
+		{Data: `"hello"`,
+			Err: "json: cannot unmarshal string into Go value of type uint64"},
+		{Data: `["hello"]`,
+			Err: "json: cannot unmarshal array into Go value of type uint64"},
+		{Data: `123445x`,
+			Err: "invalid character 'x' after top-level value"}}
+	JSONTimeValid = `1484858820`
 )
 
 func TestTimeUnmarshalJSON(t *testing.T) {
 	for _, json := range JSONTimeInvalids {
-		testTimeUnmarshalJSON(t, "Invalid", json, "invalid timestamp")
+		testTimeUnmarshalJSON(t, "Invalid", json.Data, json.Err)
 	}
 	json := JSONTimeValid
 	t.Run("Valid", func(t *testing.T) {

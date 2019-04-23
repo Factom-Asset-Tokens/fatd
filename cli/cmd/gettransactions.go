@@ -66,18 +66,18 @@ through txs.`,
 	flags := cmd.Flags()
 	flags.Uint64VarP(paramsGetTxs.Page, "page", "p", 1, "Page of returned txs")
 	flags.Uint64VarP(paramsGetTxs.Limit, "limit", "l", 10, "Limit of returned txs")
-	flags.Var((*txOrder)(&paramsGetTxs.Order), "order", "Order of returned txs")
-	flags.Lookup("order").DefValue = "asc"
+	flags.VarPF((*txOrder)(&paramsGetTxs.Order), "order", "", "Order of returned txs").
+		DefValue = "asc"
 	flags.BoolVar(&to, "to", false, "Request only txs TO the given --address set")
 	flags.BoolVar(&from, "from", false, "Request only txs FROM the given --address set")
-	flags.Var(paramsGetTxs.StartHash, "starttxhash",
-		"Hash of transaction to start indexing from")
-	flags.Lookup("starttxhash").DefValue = "none"
+	flags.VarPF(paramsGetTxs.StartHash, "starttxhash", "",
+		"Hash of transaction to start indexing from").
+		DefValue = "none"
 	flags.Uint64Var((*uint64)(paramsGetTxs.NFTokenID), "nftokenid", 0,
 		"Request only txs involving this NF Token ID")
-	flags.VarP((*FAAddressList)(&paramsGetTxs.Addresses), "address", "a",
-		"Add to the set of addresses to lookup txs for")
-	flags.Lookup("address").DefValue = "none"
+	flags.VarPF((*FAAddressList)(&paramsGetTxs.Addresses), "address", "a",
+		"Add to the set of addresses to lookup txs for").
+		DefValue = "none"
 
 	generateCmplFlags(cmd, getTxsCmplCmd.Flags)
 	return cmd
@@ -118,7 +118,7 @@ func validateGetTxsFlags(cmd *cobra.Command, args []string) error {
 		for _, flgName := range []string{"page", "order", "page", "limit",
 			"starttxhash", "to", "from", "nftokenid", "address"} {
 			if flags.Changed(flgName) {
-				return fmt.Errorf("flag --%v incompatible with TXID arguments",
+				return fmt.Errorf("--%v is incompatible with TXID arguments",
 					flgName)
 			}
 		}
@@ -128,7 +128,7 @@ func validateGetTxsFlags(cmd *cobra.Command, args []string) error {
 	if flags.Changed("to") || flags.Changed("from") {
 		if len(paramsGetTxs.Addresses) == 0 {
 			return fmt.Errorf(
-				"flags --to and --from require at least one --address")
+				"--to and --from require at least one --address")
 		}
 		if to != from {
 			if to {

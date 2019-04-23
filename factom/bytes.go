@@ -27,6 +27,9 @@ func NewBytes32(s32 []byte) *Bytes32 {
 
 // Set decodes a string with exactly 32 bytes of hex encoded data.
 func (b *Bytes32) Set(hexStr string) error {
+	if len(hexStr) == 0 {
+		return nil
+	}
 	if len(hexStr) != hex.EncodedLen(len(b)) {
 		return fmt.Errorf("invalid length")
 	}
@@ -74,12 +77,12 @@ func (b Bytes) String() string {
 	return hex.EncodeToString(b[:])
 }
 
-// Type returns "Bytes32".
+// Type returns "Bytes32". Satisfies pflag.Value interface.
 func (b Bytes32) Type() string {
 	return "Bytes32"
 }
 
-// Type returns "Bytes".
+// Type returns "Bytes". Satisfies pflag.Value interface.
 func (b Bytes) Type() string {
 	return "Bytes"
 }
