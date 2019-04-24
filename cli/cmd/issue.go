@@ -34,8 +34,8 @@ var (
 
 var composeFlags = func() *flag.FlagSet {
 	flags := flag.NewFlagSet("", flag.ContinueOnError)
-	flags.VarPF(&ecEsAdr, "ecadr", "e", "EC or Es address to pay for entries").
-		DefValue = "none"
+	flags.VarPF(&ecEsAdr, "ecadr", "e",
+		"EC or Es address to pay for entries").DefValue = ""
 	flags.BoolVar(&force, "force", false,
 		"Skip sanity checks like EC balance, chain existence, and identity")
 	flags.BoolVar(&curl, "curl", false, "Do not submit Factom entry; print curl commands")

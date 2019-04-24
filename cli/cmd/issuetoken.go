@@ -68,11 +68,11 @@ Sanity Checks
 	rootCmplCmd.Sub["help"].Sub["issue"].Sub["token"] = complete.Command{}
 
 	flags := cmd.Flags()
-	flags.VarPF((*Type)(&Issuance.Type), "type", "", "Token standard to use").
-		DefValue = "none"
-	flags.VarPF(&sk1, "sk1", "", "Secret Identity Key 1 to sign entry").
-		DefValue = "none"
-	flags.Int64Var(&Issuance.Supply, "supply", 0, "Max Token supply, use -1 for unlimited")
+	flags.VarPF((*Type)(&Issuance.Type), "type", "",
+		"Token standard to use").DefValue = ""
+	flags.VarPF(&sk1, "sk1", "", "Secret Identity Key 1 to sign entry").DefValue = ""
+	flags.Int64Var(&Issuance.Supply, "supply", 0,
+		"Max Token supply, use -1 for unlimited")
 	flags.StringVar(&Issuance.Symbol, "symbol", "", "Optional abbreviated token symbol")
 	flags.VarPF((*RawMessage)(&Issuance.Metadata), "metadata", "m",
 		"JSON metadata to include in tx")

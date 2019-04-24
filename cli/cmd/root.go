@@ -80,7 +80,7 @@ func initClients() {
 }
 func addHTTPScheme(url *string) {
 	strs := strings.Split(*url, "://")
-	if len(strs) == 0 {
+	if len(strs) == 1 {
 		*url = "http://" + *url
 	}
 }
@@ -101,11 +101,11 @@ var apiFlags = func() *flag.FlagSet {
 	flags.ParseErrorsWhitelist.UnknownFlags = true
 
 	flags.StringVarP(&FATClient.FatdServer, "fatd", "d",
-		"http://localhost:8078", "scheme://host:port for fatd")
+		"localhost:8078", "scheme://host:port for fatd")
 	flags.StringVarP(&FactomClient.FactomdServer, "factomd", "s",
-		"http://localhost:8088", "scheme://host:port for factomd")
+		"localhost:8088", "scheme://host:port for factomd")
 	flags.StringVarP(&FactomClient.WalletdServer, "walletd", "w",
-		"http://localhost:8089", "scheme://host:port for factom-walletd")
+		"localhost:8089", "scheme://host:port for factom-walletd")
 
 	flags.StringVar(&FATClient.User, "fatduser", "",
 		"Basic HTTP Auth User for fatd")
@@ -211,13 +211,12 @@ Entry Credits
 
 	flags := cmd.PersistentFlags()
 	flags.AddFlagSet(apiFlags)
-	flags.VarPF(paramsToken.ChainID, "chainid", "c", "Chain ID of a FAT chain").
-		DefValue = "none"
-	flags.StringVarP(&paramsToken.TokenID, "tokenid", "t", "",
+	flags.VarPF(paramsToken.ChainID, "chainid", "C",
+		"Chain ID of a FAT chain").DefValue = ""
+	flags.StringVarP(&paramsToken.TokenID, "tokenid", "T", "",
 		"Token ID of a FAT chain")
-	flags.VarPF(paramsToken.IssuerChainID, "identity", "i",
-		"Issuer Identity Chain ID of a FAT chain").
-		DefValue = "none"
+	flags.VarPF(paramsToken.IssuerChainID, "identity", "I",
+		"Issuer Identity Chain ID of a FAT chain").DefValue = ""
 
 	generateCmplFlags(cmd, rootCmplCmd.Flags)
 	return cmd

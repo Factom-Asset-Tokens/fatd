@@ -17,8 +17,7 @@ func parseAPIFlags() error {
 		return err
 	}
 	FATClient.Timeout = time.Second / 3
-	FactomClient.Factomd.Timeout = time.Second / 3
-	FactomClient.Walletd.Timeout = time.Second / 3
+	initClients()
 	return nil
 }
 
@@ -48,6 +47,16 @@ var PredictFAAddresses complete.PredictFunc = func(args complete.Args) []string 
 		i++
 	}
 	return adrStrs
+}
+
+func PredictAppend(predict complete.PredictFunc, suffix string) complete.PredictFunc {
+	return func(args complete.Args) []string {
+		predictions := predict(args)
+		for i := range predictions {
+			predictions[i] += suffix
+		}
+		return predictions
+	}
 }
 
 var PredictECAddresses complete.PredictFunc = func(args complete.Args) []string {

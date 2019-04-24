@@ -79,13 +79,11 @@ through txs.
 	flags.BoolVar(&to, "to", false, "Request only txs TO the given --address set")
 	flags.BoolVar(&from, "from", false, "Request only txs FROM the given --address set")
 	flags.VarPF(paramsGetTxs.StartHash, "starttx", "",
-		"Hash of tx to start indexing from").
-		DefValue = "none"
+		"Hash of tx to start indexing from").DefValue = ""
 	flags.Uint64Var((*uint64)(paramsGetTxs.NFTokenID), "nftokenid", 0,
 		"Request only txs involving this NF Token ID")
 	flags.VarPF((*FAAddressList)(&paramsGetTxs.Addresses), "address", "a",
-		"Add to the set of addresses to lookup txs for").
-		DefValue = "none"
+		"Add to the set of addresses to lookup txs for").DefValue = ""
 
 	generateCmplFlags(cmd, getTxsCmplCmd.Flags)
 	return cmd

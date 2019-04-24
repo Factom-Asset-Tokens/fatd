@@ -33,3 +33,5 @@ require (
 )
 
 replace github.com/gocraft/dbr => github.com/AdamSLevy/dbr v0.0.0-20190204220409-06403a96499f
+
+replace github.com/spf13/pflag v1.0.3 => github.com/AdamSLevy/pflag v1.0.4

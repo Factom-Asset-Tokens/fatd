@@ -4,6 +4,8 @@ github.com/AdamSLevy/dbr v0.0.0-20190204220409-06403a96499f h1:+BYAVTLdTxGoWq3oV
 github.com/AdamSLevy/dbr v0.0.0-20190204220409-06403a96499f/go.mod h1:fo0r7csDBOuQbCRTkMTk775Gt6K8AW1pwlBZW3EVkk0=
 github.com/AdamSLevy/jsonrpc2/v11 v11.2.0 h1:l9sddl3dzcugeJ6Pq6tZLKbxvrFT4Ncq6SWxirSMGDQ=
 github.com/AdamSLevy/jsonrpc2/v11 v11.2.0/go.mod h1:1a/N8PIOPus2xEoMgfV3upUbP1dnlKK1NePwYTfCc68=
+github.com/AdamSLevy/pflag v1.0.4 h1:oykgyxDWo391JRRNOLr892UzaK2SmLiAvza8OBLX24U=
+github.com/AdamSLevy/pflag v1.0.4/go.mod h1:UeCxQpw/gAoTUVBfjr8n7qcGZZNmECgohVFOAdlRMtA=
 github.com/BurntSushi/toml v0.3.1 h1:WXkYYl6Yr3qBf1K79EBnL4mak0OimBfB0XUf9Vl28OQ=
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
 github.com/DATA-DOG/go-sqlmock v1.3.0 h1:ljjRxlddjfChBJdFKJs5LuCwCWPLaC1UZLwAo3PBBMk=
