@@ -35,12 +35,12 @@ func generateCmplFlags(cmd *cobra.Command, cmplFlags complete.Flags) {
 	// first to get any parent flags merged into cmd.Flags().
 	// https://github.com/spf13/cobra/issues/412
 	cmd.LocalFlags()
-	//fmt.Println("Command:", cmd.Use)
+	//errLog.Println("Command:", cmd.Use)
 	cmd.Flags().VisitAll(func(flg *flag.Flag) {
-		//fmt.Println("Flag:", flg.Name)
+		//errLog.Println("Flag:", flg.Name)
 		name := "--" + flg.Name
 		if flg.Hidden {
-			//fmt.Println("hidden")
+			//errLog.Println("hidden")
 			delete(cmplFlags, name)
 			delete(cmplFlags, "-"+flg.Shorthand)
 			return
@@ -56,7 +56,7 @@ func generateCmplFlags(cmd *cobra.Command, cmplFlags complete.Flags) {
 			predict = complete.PredictNothing
 		}
 		cmplFlags[name] = predict
-		//fmt.Println("added")
+		//errLog.Println("added")
 	})
 }
 

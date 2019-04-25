@@ -160,7 +160,7 @@ func getTxs(_ *cobra.Command, _ []string) {
 	var stats srv.ResultGetStats
 	if err := FATClient.Request("get-stats",
 		paramsGetTxs.ParamsToken, &stats); err != nil {
-		fmt.Println(err)
+		errLog.Println(err)
 		os.Exit(1)
 	}
 
@@ -173,7 +173,7 @@ func getTxs(_ *cobra.Command, _ []string) {
 			params.Hash = &txID
 			if err := FATClient.Request("get-transaction",
 				params, &result); err != nil {
-				fmt.Println(err)
+				errLog.Println(err)
 				os.Exit(1)
 			}
 			fmt.Println("TXID:", result.Hash)
@@ -189,7 +189,7 @@ func getTxs(_ *cobra.Command, _ []string) {
 		result[i].Tx = &json.RawMessage{}
 	}
 	if err := FATClient.Request("get-transactions", paramsGetTxs, &result); err != nil {
-		fmt.Println(err)
+		errLog.Println(err)
 		os.Exit(1)
 	}
 	for _, result := range result {

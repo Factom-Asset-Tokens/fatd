@@ -99,35 +99,35 @@ func validateIssueChainFlags(cmd *cobra.Command, _ []string) error {
 		eb := factom.EBlock{ChainID: paramsToken.ChainID}
 		err := eb.GetChainHead(FactomClient)
 		if err == nil {
-			fmt.Printf("Chain %v already exists.\n", eb.ChainID)
+			errLog.Printf("Chain %v already exists.\n", eb.ChainID)
 			// We can consider this a success. Exit code 0.
 			os.Exit(0)
 		}
 		rpcErr, ok := err.(jrpc.Error)
 		if ok && rpcErr == newChainInProcessListErr {
-			fmt.Printf("New chain %v is in process list. Wait ~10 mins.\n",
+			errLog.Printf("New chain %v is in process list. Wait ~10 mins.\n",
 				eb.ChainID)
 			// We can consider this a success. Exit code 0.
 			os.Exit(0)
 		}
 		if !ok || rpcErr != missingChainHeadErr {
 			// If err was anything other than the missingChainHeadErr...
-			fmt.Println(err)
+			errLog.Println(err)
 			os.Exit(1)
 		}
 
 		cost, err := first.Cost()
 		if err != nil {
-			fmt.Println(err)
+			errLog.Println(err)
 			os.Exit(1)
 		}
 		ecBalance, err := ecEsAdr.EC.GetBalance(FactomClient)
 		if err != nil {
-			fmt.Println(err)
+			errLog.Println(err)
 			os.Exit(1)
 		}
 		if uint64(cost) > ecBalance {
-			fmt.Println("Insufficient EC balance")
+			errLog.Println("Insufficient EC balance")
 			os.Exit(1)
 		}
 	}
@@ -138,7 +138,7 @@ func issueChain(_ *cobra.Command, _ []string) {
 	first := factom.Entry{ExtIDs: NameIDs}
 	if curl {
 		if err := printCurl(first, ecEsAdr.Es); err != nil {
-			fmt.Println(err)
+			errLog.Println(err)
 			os.Exit(1)
 		}
 		return
@@ -146,7 +146,7 @@ func issueChain(_ *cobra.Command, _ []string) {
 
 	txID, err := first.ComposeCreate(FactomClient, ecEsAdr.Es)
 	if err != nil {
-		fmt.Println(err)
+		errLog.Println(err)
 		os.Exit(1)
 	}
 	fmt.Printf("Chain created: %v\n", first.ChainID)

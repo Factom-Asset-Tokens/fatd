@@ -79,8 +79,9 @@ func getBalance(cmd *cobra.Command, _ []string) {
 	balances := make([]uint64, len(addresses))
 	for i, adr := range addresses {
 		params.Address = &adr
-		if err := FATClient.Request("get-balance", params, &balances[i]); err != nil {
-			fmt.Println(err)
+		if err := FATClient.Request("get-balance", params,
+			&balances[i]); err != nil {
+			errLog.Println(err)
 			os.Exit(1)
 		}
 	}

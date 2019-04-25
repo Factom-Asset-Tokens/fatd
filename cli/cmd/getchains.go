@@ -88,8 +88,9 @@ func getChainsArgs(_ *cobra.Command, args []string) error {
 func getChains(_ *cobra.Command, _ []string) {
 	if len(chainIDs) == 0 {
 		var chains []srv.ParamsToken
-		if err := FATClient.Request("get-daemon-tokens", nil, &chains); err != nil {
-			fmt.Println(err)
+		if err := FATClient.Request("get-daemon-tokens", nil,
+			&chains); err != nil {
+			errLog.Println(err)
 			os.Exit(1)
 		}
 		for _, chain := range chains {
@@ -106,7 +107,7 @@ Token ID: %q
 		params := srv.ParamsToken{ChainID: &chainID}
 		var stats srv.ResultGetStats
 		if err := FATClient.Request("get-stats", params, &stats); err != nil {
-			fmt.Println(err)
+			errLog.Println(err)
 			os.Exit(1)
 		}
 		printStats(&chainID, stats)
@@ -134,6 +135,6 @@ Issuance Timestamp: %v
 		fmt.Printf("Last Tx Timestamp: %v\n",
 			stats.LastTransactionTimestamp.Time())
 	}
-	fmt.Println("")
+	fmt.Println()
 
 }

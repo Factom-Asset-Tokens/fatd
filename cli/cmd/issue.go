@@ -116,9 +116,9 @@ func validateECAdrFlag(cmd *cobra.Command, _ []string) error {
 		ecEsAdr.Es, err = ecEsAdr.EC.GetEsAddress(FactomClient)
 		if err != nil {
 			if err, ok := err.(jrpc.Error); ok {
-				fmt.Println(err.Data, ecEsAdr.EC)
+				errLog.Println(err.Data, ecEsAdr.EC)
 			} else {
-				fmt.Println(err)
+				errLog.Println(err)
 			}
 			os.Exit(1)
 		}

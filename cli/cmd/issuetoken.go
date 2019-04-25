@@ -94,8 +94,7 @@ func validateIssueTokenFlags(cmd *cobra.Command, args []string) error {
 	flags := cmd.Flags()
 	for _, flg := range []string{"type", "supply", "sk1"} {
 		if !flags.Changed(flg) {
-			fmt.Println("--" + flg + " is required")
-			os.Exit(1)
+			return fmt.Errorf("--" + flg + " is required")
 		}
 	}
 
@@ -106,7 +105,7 @@ func validateIssueTokenFlags(cmd *cobra.Command, args []string) error {
 	Issuance.ChainID = paramsToken.ChainID
 	Issuance.Sign(sk1)
 	if err := Issuance.MarshalEntry(); err != nil {
-		fmt.Println(err)
+		errLog.Println(err)
 		os.Exit(1)
 	}
 
@@ -115,13 +114,13 @@ func validateIssueTokenFlags(cmd *cobra.Command, args []string) error {
 		var stats srv.ResultGetStats
 		err := FATClient.Request("get-stats", params, &stats)
 		if err == nil {
-			fmt.Println("Token is already initialized!")
+			errLog.Println("Token is already initialized!")
 			printStats(params.ChainID, stats)
 			os.Exit(1)
 		}
 		rpcErr, _ := err.(jrpc.Error)
 		if rpcErr != *srv.ErrorTokenNotFound {
-			fmt.Println(err)
+			errLog.Println(err)
 			os.Exit(1)
 		}
 
@@ -129,15 +128,14 @@ func validateIssueTokenFlags(cmd *cobra.Command, args []string) error {
 		if err := eb.GetChainHead(FactomClient); err != nil {
 			rpcErr, _ := err.(jrpc.Error)
 			if rpcErr == newChainInProcessListErr {
-				fmt.Printf("New chain %v is in process list. "+
+				errLog.Printf("New chain %v is in process list. "+
 					"Wait ~10 mins.\n", eb.ChainID)
 			} else if rpcErr == missingChainHeadErr {
-				fmt.Printf(
-					"Chain %v does not exist. "+
-						"First run `fat-cli issue chain`\n",
+				errLog.Printf("Chain %v does not exist. "+
+					"First run `fat-cli issue chain`\n",
 					eb.ChainID)
 			} else {
-				fmt.Println(err)
+				errLog.Println(err)
 			}
 			os.Exit(1)
 		}
@@ -147,33 +145,34 @@ func validateIssueTokenFlags(cmd *cobra.Command, args []string) error {
 		if err := identity.Get(FactomClient); err != nil {
 			rpcErr, _ := err.(jrpc.Error)
 			if rpcErr == newChainInProcessListErr {
-				fmt.Printf("New identity chain %v is in process list. "+
+				errLog.Printf("New identity chain %v is in process list. "+
 					"Wait ~10 mins.\n", eb.ChainID)
 			} else if rpcErr == missingChainHeadErr {
-				fmt.Printf("Identity Chain %v does not exist.\n",
+				errLog.Printf("Identity Chain %v does not exist.\n",
 					identity.ChainID)
 			} else {
-				fmt.Println(err)
+				errLog.Println(err)
 			}
 			os.Exit(1)
 		}
 		if identity.ID1 != sk1.ID1Key() {
-			fmt.Println("--sk1 does not match ID1Key declared in Identity Chain.")
+			errLog.Println("--sk1 is not the secret key corresponding to " +
+				"the ID1Key declared in the Identity Chain.")
 			os.Exit(1)
 		}
 
 		cost, err := Issuance.Cost()
 		if err != nil {
-			fmt.Println(err)
+			errLog.Println(err)
 			os.Exit(1)
 		}
 		ecBalance, err := ecEsAdr.EC.GetBalance(FactomClient)
 		if err != nil {
-			fmt.Println(err)
+			errLog.Println(err)
 			os.Exit(1)
 		}
 		if uint64(cost) > ecBalance {
-			fmt.Println("Insufficient EC balance")
+			errLog.Println("Insufficient EC balance")
 			os.Exit(1)
 		}
 	}
@@ -183,7 +182,7 @@ func validateIssueTokenFlags(cmd *cobra.Command, args []string) error {
 func issueToken(_ *cobra.Command, _ []string) {
 	if curl {
 		if err := printCurl(Issuance.Entry.Entry, ecEsAdr.Es); err != nil {
-			fmt.Println(err)
+			errLog.Println(err)
 			os.Exit(1)
 		}
 		return
@@ -191,7 +190,7 @@ func issueToken(_ *cobra.Command, _ []string) {
 
 	txID, err := Issuance.ComposeCreate(FactomClient, ecEsAdr.Es)
 	if err != nil {
-		fmt.Println(err)
+		errLog.Println(err)
 		os.Exit(1)
 	}
 	fmt.Printf("Token Initialization Entry Created: %v\n", Issuance.Hash)
