@@ -26,10 +26,9 @@ import (
 )
 
 var (
-	ecEsAdr   ECEsAddress
-	ecBalance uint64
-	force     bool
-	curl      bool
+	ecEsAdr ECEsAddress
+	force   bool
+	curl    bool
 )
 
 var composeFlags = func() *flag.FlagSet {
@@ -37,8 +36,9 @@ var composeFlags = func() *flag.FlagSet {
 	flags.VarPF(&ecEsAdr, "ecadr", "e",
 		"EC or Es address to pay for entries").DefValue = ""
 	flags.BoolVar(&force, "force", false,
-		"Skip sanity checks like EC balance, chain existence, and identity")
-	flags.BoolVar(&curl, "curl", false, "Do not submit Factom entry; print curl commands")
+		"Skip sanity checks for balances, chain status, and sk1 key")
+	flags.BoolVar(&curl, "curl", false,
+		"Do not submit Factom entry; print curl commands")
 	return flags
 }()
 
@@ -54,14 +54,14 @@ Issuing a new FAT token chain is a two step process. First the Token Chain must
 be created on the Factom Blockchain. Both --tokenid and --identity are
 required. Use of --chainid is not allowed for this step.
 
-fat-cli issue chain --ecadr <EC|Es> --identity <issuer-identity-chain-id>
+fat-cli issue chain --ecadr <EC | Es> --identity <issuer-identity-chain-id>
         --tokenid <token-id>
 
 Second, the Token Initialization Entry must be added to the Token Chain. Since
 Factom chain creation takes a full Factom block before entries can be added,
 the process may take up to 10 minutes.
 
-fat-cli issue token --ecadr <EC|Es> --chainid <token-chain-id>
+fat-cli issue token --ecadr <EC | Es> --chainid <token-chain-id>
         --sk1 <sk1-key> --type <FAT-0|FAT-1> --supply <max-supply>
 
 Entry Credits
@@ -123,15 +123,6 @@ func validateECAdrFlag(cmd *cobra.Command, _ []string) error {
 			os.Exit(1)
 		}
 	}
-	if force {
-		// Skip balance check.
-		return nil
-	}
-	ecBalance, err = ecEsAdr.EC.GetBalance(FactomClient)
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
 	return nil
 }
 
@@ -155,5 +146,5 @@ func (e ECEsAddress) String() string {
 }
 
 func (ECEsAddress) Type() string {
-	return "EC|Es"
+	return "<EC | Es>"
 }

@@ -109,10 +109,7 @@ func validateIssueTokenFlags(cmd *cobra.Command, args []string) error {
 		fmt.Println(err)
 		os.Exit(1)
 	}
-	return nil
-}
 
-func issueToken(_ *cobra.Command, _ []string) {
 	if !force {
 		params := srv.ParamsToken{ChainID: paramsToken.ChainID}
 		var stats srv.ResultGetStats
@@ -170,14 +167,20 @@ func issueToken(_ *cobra.Command, _ []string) {
 			fmt.Println(err)
 			os.Exit(1)
 		}
+		ecBalance, err := ecEsAdr.EC.GetBalance(FactomClient)
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
 		if uint64(cost) > ecBalance {
 			fmt.Println("Insufficient EC balance")
 			os.Exit(1)
 		}
 	}
+	return nil
+}
 
-	cost, _ := Issuance.Cost()
-	fmt.Println("cost: ", cost)
+func issueToken(_ *cobra.Command, _ []string) {
 	if curl {
 		if err := printCurl(Issuance.Entry.Entry, ecEsAdr.Es); err != nil {
 			fmt.Println(err)

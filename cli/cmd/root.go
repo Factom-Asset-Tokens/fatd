@@ -89,11 +89,14 @@ var (
 	cfgFile      string
 	FATClient    = srv.NewClient()
 	FactomClient = factom.NewClient()
-	Debug        bool
+
+	Debug           bool
+	DebugCompletion bool
 
 	paramsToken = srv.ParamsToken{
 		ChainID:       new(factom.Bytes32),
 		IssuerChainID: new(factom.Bytes32)}
+	NameIDs []factom.Bytes
 )
 
 var apiFlags = func() *flag.FlagSet {
@@ -125,6 +128,7 @@ var apiFlags = func() *flag.FlagSet {
 		"Timeout for all API requests (i.e. 10s, 1m)")
 
 	flags.BoolVar(&Debug, "debug", false, "Print fatd and factomd API calls")
+	flags.BoolVar(&DebugCompletion, "debugcompletion", false, "Print completion errors")
 	flags.BoolVar(&FATClient.DebugRequest, "debugfatd", false,
 		"Print fatd API calls")
 	flags.BoolVar(&FactomClient.Factomd.DebugRequest, "debugfactomd", false,
@@ -134,6 +138,7 @@ var apiFlags = func() *flag.FlagSet {
 	flags.MarkHidden("debugfatd")
 	flags.MarkHidden("debugfactomd")
 	flags.MarkHidden("debugwalletd")
+	flags.MarkHidden("debugcompletion")
 	return flags
 }()
 
@@ -231,7 +236,7 @@ var apiCmplFlags = complete.Flags{
 }
 var tokenCmplFlags = complete.Flags{
 	"--chainid": PredictChainIDs,
-	"-c":        PredictChainIDs,
+	"-C":        PredictChainIDs,
 }
 
 func validateRunCompletionFlags(cmd *cobra.Command, _ []string) error {
@@ -267,23 +272,29 @@ func runCompletion(cmd *cobra.Command, _ []string) {
 // initializes the ChainID.
 func validateChainIDFlags(cmd *cobra.Command, _ []string) error {
 	flags := cmd.Flags()
-	if flags.Changed("chainid") {
-		if flags.Changed("tokenid") || flags.Changed("identity") {
+	chainIDSet := flags.Changed("chainid")
+	tokenIDSet := flags.Changed("tokenid")
+	identitySet := flags.Changed("identity")
+	if !(chainIDSet || tokenIDSet || identitySet) {
+		return fmt.Errorf("--chainid or both --tokenid and --identity is required")
+	}
+	if chainIDSet {
+		if tokenIDSet || identitySet {
 			return fmt.Errorf(
 				"--chainid may not be used with --tokenid or --identity")
 		}
-		return nil
-	}
-	if flags.Changed("tokenid") || flags.Changed("identity") {
-		if !flags.Changed("tokenid") || !flags.Changed("identity") {
+	} else {
+		if !(tokenIDSet && identitySet) {
 			return fmt.Errorf("--tokenid and --identity must be used together")
 		}
-		*paramsToken.ChainID = fat.ChainID(paramsToken.TokenID,
-			*paramsToken.IssuerChainID)
-
-		return nil
+		initChainID()
 	}
-	return fmt.Errorf("--chainid or both --tokenid and --identity is required")
+
+	return nil
+}
+func initChainID() {
+	NameIDs = fat.NameIDs(paramsToken.TokenID, *paramsToken.IssuerChainID)
+	*paramsToken.ChainID = factom.ChainID(NameIDs)
 }
 
 // initConfig reads in config file and ENV variables if set.
