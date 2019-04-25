@@ -65,7 +65,7 @@ Sanity Checks
 	generateCmplFlags(cmd, issueChainCmplCmd.Flags)
 	// Don't complete these global flags as they are ignored by this
 	// command.
-	for _, flg := range []string{"-c", "--chainid"} {
+	for _, flg := range []string{"-C", "--chainid"} {
 		delete(issueChainCmplCmd.Flags, flg)
 	}
 	usage := cmd.UsageFunc()

@@ -51,7 +51,8 @@ is tracking is returned.
 	generateCmplFlags(cmd, getChainsCmplCmd.Flags)
 	// Don't complete these global flags as they are ignored by this
 	// command.
-	for _, flg := range []string{"-c", "--chainid", "--identity", "--tokenid"} {
+	for _, flg := range []string{"-C", "--chainid",
+		"-I", "--identity", "-T", "--tokenid"} {
 		delete(getChainsCmplCmd.Flags, flg)
 	}
 	usage := cmd.UsageFunc()
