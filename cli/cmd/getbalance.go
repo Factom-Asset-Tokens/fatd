@@ -77,6 +77,7 @@ func getBalance(cmd *cobra.Command, _ []string) {
 	params := srv.ParamsGetBalance{}
 	params.ChainID = paramsToken.ChainID
 	balances := make([]uint64, len(addresses))
+	vrbLog.Println("Fetching balances...")
 	for i, adr := range addresses {
 		params.Address = &adr
 		if err := FATClient.Request("get-balance", params,

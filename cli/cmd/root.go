@@ -16,6 +16,7 @@ package cmd
 
 import (
 	"fmt"
+	"io/ioutil"
 	"log"
 	"os"
 	"strings"
@@ -32,10 +33,9 @@ import (
 	"github.com/spf13/viper"
 )
 
-var errLog = log.New(os.Stderr, "", 0)
-
-// Execute adds all child commands to the root command and sets flags appropriately.
-// This is called by main.main(). It only needs to happen once to the rootCmd.
+// Execute adds all child commands to the root command and sets flags
+// appropriately. This is called by main.main(). It only needs to happen once
+// to the rootCmd.
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
 		errLog.Println(err)
@@ -80,6 +80,10 @@ func initClients() {
 		// Add "http://" if no scheme was specified.
 		addHTTPScheme(url)
 	}
+
+	if Verbose {
+		vrbLog = errLog
+	}
 }
 func addHTTPScheme(url *string) {
 	strs := strings.Split(*url, "://")
@@ -89,6 +93,10 @@ func addHTTPScheme(url *string) {
 }
 
 var (
+	errLog  = log.New(os.Stderr, "", 0)
+	vrbLog  = log.New(ioutil.Discard, "", 0)
+	Verbose bool
+
 	cfgFile      string
 	FATClient    = srv.NewClient()
 	FactomClient = factom.NewClient()
@@ -131,6 +139,8 @@ var apiFlags = func() *flag.FlagSet {
 		"Timeout for all API requests (i.e. 10s, 1m)")
 
 	flags.BoolVar(&Debug, "debug", false, "Print fatd and factomd API calls")
+	flags.BoolVarP(&Verbose, "verbose", "v", false,
+		"Print verbose details about sanity check and other operations")
 	flags.BoolVar(&DebugCompletion, "debugcompletion", false, "Print completion errors")
 	flags.BoolVar(&FATClient.DebugRequest, "debugfatd", false,
 		"Print fatd API calls")

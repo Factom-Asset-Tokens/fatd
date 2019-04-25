@@ -113,6 +113,7 @@ func validateECAdrFlag(cmd *cobra.Command, _ []string) error {
 	var zero factom.EsAddress
 	var err error
 	if ecEsAdr.Es == zero {
+		vrbLog.Println("Fetching secret address...", ecEsAdr.EC)
 		ecEsAdr.Es, err = ecEsAdr.EC.GetEsAddress(FactomClient)
 		if err != nil {
 			if err, ok := err.(jrpc.Error); ok {

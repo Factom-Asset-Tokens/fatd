@@ -87,6 +87,7 @@ func getChainsArgs(_ *cobra.Command, args []string) error {
 
 func getChains(_ *cobra.Command, _ []string) {
 	if len(chainIDs) == 0 {
+		vrbLog.Println("Fetching list of issued token chains...")
 		var chains []srv.ParamsToken
 		if err := FATClient.Request("get-daemon-tokens", nil,
 			&chains); err != nil {
@@ -104,6 +105,7 @@ Token ID: %q
 	}
 
 	for _, chainID := range chainIDs {
+		vrbLog.Printf("Fetching token chain details... %v", chainID)
 		params := srv.ParamsToken{ChainID: &chainID}
 		var stats srv.ResultGetStats
 		if err := FATClient.Request("get-stats", params, &stats); err != nil {

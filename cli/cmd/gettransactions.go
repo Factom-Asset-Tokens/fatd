@@ -136,7 +136,7 @@ func validateGetTxsFlags(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf(
 				"--to and --from require at least one --address")
 		}
-		if to != from {
+		if to != from { // Setting --to and --from is the same as omitting both.
 			if to {
 				paramsGetTxs.ToFrom = "to"
 			} else {
@@ -157,47 +157,45 @@ func validateGetTxsFlags(cmd *cobra.Command, args []string) error {
 }
 
 func getTxs(_ *cobra.Command, _ []string) {
-	var stats srv.ResultGetStats
-	if err := FATClient.Request("get-stats",
-		paramsGetTxs.ParamsToken, &stats); err != nil {
-		errLog.Println(err)
-		os.Exit(1)
-	}
-
-	if len(transactionIDs) > 0 {
-		params := srv.ParamsGetTransaction{ParamsToken: paramsGetTxs.ParamsToken}
-		result := srv.ResultGetTransaction{}
-		tx := json.RawMessage{}
-		result.Tx = &tx
-		for _, txID := range transactionIDs {
-			params.Hash = &txID
-			if err := FATClient.Request("get-transaction",
-				params, &result); err != nil {
-				errLog.Println(err)
-				os.Exit(1)
-			}
-			fmt.Println("TXID:", result.Hash)
-			fmt.Println("Timestamp:", result.Timestamp.Time())
-			fmt.Println("TX:", (string)(*result.Tx.(*json.RawMessage)))
-			fmt.Println()
+	vrbLog.Printf("Fetching txs for chain... %v",
+		paramsToken.ChainID)
+	if len(transactionIDs) == 0 {
+		result := make([]srv.ResultGetTransaction, *paramsGetTxs.Limit)
+		for i := range result {
+			result[i].Tx = &json.RawMessage{}
+		}
+		if err := FATClient.Request("get-transactions",
+			paramsGetTxs, &result); err != nil {
+			errLog.Println(err)
+			os.Exit(1)
+		}
+		for _, result := range result {
+			printTx(result)
 		}
 		return
 	}
+	params := srv.ParamsGetTransaction{ParamsToken: paramsGetTxs.ParamsToken}
+	result := srv.ResultGetTransaction{}
+	tx := json.RawMessage{}
+	result.Tx = &tx
+	for _, txID := range transactionIDs {
+		vrbLog.Printf("Fetching tx details... %v", txID)
+		params.Hash = &txID
+		if err := FATClient.Request("get-transaction",
+			params, &result); err != nil {
+			errLog.Println(err)
+			os.Exit(1)
+		}
+		printTx(result)
+	}
+	return
+}
 
-	result := make([]srv.ResultGetTransaction, *paramsGetTxs.Limit)
-	for i := range result {
-		result[i].Tx = &json.RawMessage{}
-	}
-	if err := FATClient.Request("get-transactions", paramsGetTxs, &result); err != nil {
-		errLog.Println(err)
-		os.Exit(1)
-	}
-	for _, result := range result {
-		fmt.Println("TXID:", result.Hash)
-		fmt.Println("Timestamp:", result.Timestamp.Time())
-		fmt.Println("TX:", (string)(*result.Tx.(*json.RawMessage)))
-		fmt.Println()
-	}
+func printTx(result srv.ResultGetTransaction) {
+	fmt.Println("TXID:", result.Hash)
+	fmt.Println("Timestamp:", result.Timestamp.Time())
+	fmt.Println("TX:", (string)(*result.Tx.(*json.RawMessage)))
+	fmt.Println()
 }
 
 type FAAddressList []factom.FAAddress

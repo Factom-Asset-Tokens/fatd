@@ -83,6 +83,8 @@ var issueChainCmplCmd = complete.Command{
 var (
 	missingChainHeadErr      = jrpc.Error{Code: -32009, Message: "Missing Chain Head"}
 	newChainInProcessListErr = jrpc.Error{Message: "new chain in process list"}
+
+	first factom.Entry
 )
 
 func validateIssueChainFlags(cmd *cobra.Command, _ []string) error {
@@ -94,8 +96,16 @@ func validateIssueChainFlags(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("--tokenid and --identity are required")
 	}
 	initChainID()
+
+	vrbLog.Println("Preparing Chain Creation Entry...")
+	first.ExtIDs = NameIDs
+	cost, err := first.Cost()
+	if err != nil {
+		errLog.Println(err)
+		os.Exit(1)
+	}
 	if !force {
-		first := factom.Entry{ExtIDs: NameIDs}
+		vrbLog.Println("Checking chain existence...", paramsToken.ChainID)
 		eb := factom.EBlock{ChainID: paramsToken.ChainID}
 		err := eb.GetChainHead(FactomClient)
 		if err == nil {
@@ -103,39 +113,36 @@ func validateIssueChainFlags(cmd *cobra.Command, _ []string) error {
 			// We can consider this a success. Exit code 0.
 			os.Exit(0)
 		}
-		rpcErr, ok := err.(jrpc.Error)
-		if ok && rpcErr == newChainInProcessListErr {
+		rpcErr, _ := err.(jrpc.Error)
+		if rpcErr == newChainInProcessListErr {
 			errLog.Printf("New chain %v is in process list. Wait ~10 mins.\n",
 				eb.ChainID)
 			// We can consider this a success. Exit code 0.
 			os.Exit(0)
 		}
-		if !ok || rpcErr != missingChainHeadErr {
+		if rpcErr != missingChainHeadErr {
 			// If err was anything other than the missingChainHeadErr...
 			errLog.Println(err)
 			os.Exit(1)
 		}
 
-		cost, err := first.Cost()
-		if err != nil {
-			errLog.Println(err)
-			os.Exit(1)
-		}
+		vrbLog.Println("Checking EC balance... ")
 		ecBalance, err := ecEsAdr.EC.GetBalance(FactomClient)
 		if err != nil {
 			errLog.Println(err)
 			os.Exit(1)
 		}
 		if uint64(cost) > ecBalance {
-			errLog.Println("Insufficient EC balance")
+			errLog.Printf("Insufficient EC balance %v: needs at least %v",
+				ecBalance, cost)
 			os.Exit(1)
 		}
+		vrbLog.Println("New chain creation cost:", cost)
 	}
 	return nil
 }
 
 func issueChain(_ *cobra.Command, _ []string) {
-	first := factom.Entry{ExtIDs: NameIDs}
 	if curl {
 		if err := printCurl(first, ecEsAdr.Es); err != nil {
 			errLog.Println(err)
@@ -144,6 +151,7 @@ func issueChain(_ *cobra.Command, _ []string) {
 		return
 	}
 
+	vrbLog.Println("Submitting the Chain Creation Entry to the Factom blockchain...")
 	txID, err := first.ComposeCreate(FactomClient, ecEsAdr.Es)
 	if err != nil {
 		errLog.Println(err)
@@ -156,6 +164,7 @@ func issueChain(_ *cobra.Command, _ []string) {
 
 func printCurl(entry factom.Entry, es factom.EsAddress) error {
 	newChain := entry.ChainID == nil
+	vrbLog.Println("Composing entry for curl commands...")
 	commit, reveal, _, err := entry.Compose(es)
 	if err != nil {
 		return err
@@ -168,6 +177,7 @@ func printCurl(entry factom.Entry, es factom.EsAddress) error {
 		revealMethod += "-chain"
 	}
 
+	vrbLog.Println("Curl commands:")
 	commitHex, _ := factom.Bytes(commit).MarshalJSON()
 	fmt.Printf(`curl -X POST --data-binary '{"jsonrpc": "2.0", "id": 0, "method": "%v", "params":{"message":%v}}' -H 'content-type:text/plain;' %v/v2`,
 		commitMethod, string(commitHex), FactomClient.FactomdServer)

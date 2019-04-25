@@ -102,14 +102,21 @@ func validateIssueTokenFlags(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("--supply may not be 0, use -1 for unlimited supply")
 	}
 
+	vrbLog.Println("Preparing and signing Token Initialization Entry...")
 	Issuance.ChainID = paramsToken.ChainID
 	Issuance.Sign(sk1)
 	if err := Issuance.MarshalEntry(); err != nil {
 		errLog.Println(err)
 		os.Exit(1)
 	}
+	cost, err := Issuance.Cost()
+	if err != nil {
+		errLog.Println(err)
+		os.Exit(1)
+	}
 
 	if !force {
+		vrbLog.Println("Checking token chain status...", paramsToken.ChainID)
 		params := srv.ParamsToken{ChainID: paramsToken.ChainID}
 		var stats srv.ResultGetStats
 		err := FATClient.Request("get-stats", params, &stats)
@@ -124,6 +131,7 @@ func validateIssueTokenFlags(cmd *cobra.Command, args []string) error {
 			os.Exit(1)
 		}
 
+		vrbLog.Println("Checking chain existence...", paramsToken.ChainID)
 		eb := factom.EBlock{ChainID: paramsToken.ChainID}
 		if err := eb.GetChainHead(FactomClient); err != nil {
 			rpcErr, _ := err.(jrpc.Error)
@@ -140,6 +148,7 @@ func validateIssueTokenFlags(cmd *cobra.Command, args []string) error {
 			os.Exit(1)
 		}
 
+		vrbLog.Printf("Fetching Identity Chain... %v", paramsToken.IssuerChainID)
 		var identity factom.Identity
 		identity.ChainID = paramsToken.IssuerChainID
 		if err := identity.Get(FactomClient); err != nil {
@@ -155,26 +164,25 @@ func validateIssueTokenFlags(cmd *cobra.Command, args []string) error {
 			}
 			os.Exit(1)
 		}
+		vrbLog.Println("Verifying SK1 Key... ")
 		if identity.ID1 != sk1.ID1Key() {
 			errLog.Println("--sk1 is not the secret key corresponding to " +
 				"the ID1Key declared in the Identity Chain.")
 			os.Exit(1)
 		}
 
-		cost, err := Issuance.Cost()
-		if err != nil {
-			errLog.Println(err)
-			os.Exit(1)
-		}
+		vrbLog.Println("Checking EC balance... ")
 		ecBalance, err := ecEsAdr.EC.GetBalance(FactomClient)
 		if err != nil {
 			errLog.Println(err)
 			os.Exit(1)
 		}
 		if uint64(cost) > ecBalance {
-			errLog.Println("Insufficient EC balance")
+			errLog.Printf("Insufficient EC balance %v: needs at least %v",
+				ecBalance, cost)
 			os.Exit(1)
 		}
+		vrbLog.Println("Token Initialization Entry cost:", cost)
 	}
 	return nil
 }
@@ -188,6 +196,8 @@ func issueToken(_ *cobra.Command, _ []string) {
 		return
 	}
 
+	vrbLog.Println(
+		"Submitting the Token Initialization Entry to the Factom blockchain...")
 	txID, err := Issuance.ComposeCreate(FactomClient, ecEsAdr.Es)
 	if err != nil {
 		errLog.Println(err)
