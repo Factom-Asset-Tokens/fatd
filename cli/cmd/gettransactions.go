@@ -179,7 +179,7 @@ func getTxs(_ *cobra.Command, _ []string) {
 			fmt.Println("TXID:", result.Hash)
 			fmt.Println("Timestamp:", result.Timestamp.Time())
 			fmt.Println("TX:", (string)(*result.Tx.(*json.RawMessage)))
-			fmt.Println("")
+			fmt.Println()
 		}
 		return
 	}
@@ -196,7 +196,7 @@ func getTxs(_ *cobra.Command, _ []string) {
 		fmt.Println("TXID:", result.Hash)
 		fmt.Println("Timestamp:", result.Timestamp.Time())
 		fmt.Println("TX:", (string)(*result.Tx.(*json.RawMessage)))
-		fmt.Println("")
+		fmt.Println()
 	}
 }
 

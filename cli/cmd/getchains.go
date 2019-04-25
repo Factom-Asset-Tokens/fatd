@@ -98,7 +98,7 @@ Issuer Identity Chain ID: %v
 Token ID: %q
 
 `,
-				chain.ChainID, chain.TokenID, chain.IssuerChainID)
+				chain.ChainID, chain.IssuerChainID, chain.TokenID)
 		}
 	}
 
@@ -125,7 +125,7 @@ Burned:            %v
 Number of Transactions: %v
 Issuance Timestamp: %v
 `,
-		chainID, stats.TokenID, stats.IssuerChainID,
+		chainID, stats.IssuerChainID, stats.TokenID,
 		stats.Issuance.Type, stats.Issuance.Symbol,
 		stats.Issuance.Supply, stats.CirculatingSupply, stats.Burned,
 		stats.Transactions,
