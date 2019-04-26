@@ -16,7 +16,6 @@ package cmd
 
 import (
 	"fmt"
-	"os"
 
 	jrpc "github.com/AdamSLevy/jsonrpc2/v11"
 	"github.com/Factom-Asset-Tokens/fatd/factom"
@@ -107,7 +106,7 @@ func validateECAdrFlag(cmd *cobra.Command, _ []string) error {
 	}
 
 	// All subsequent errors are not issues with correct use of flags, so
-	// avoid printing Usage() by calling os.Exit(1) instead of returning.
+	// avoid printing Usage() by calling errLog.Fatal instead of returning.
 
 	// Get the private Es Address if an EC address was given.
 	var zero factom.EsAddress
@@ -117,11 +116,9 @@ func validateECAdrFlag(cmd *cobra.Command, _ []string) error {
 		ecEsAdr.Es, err = ecEsAdr.EC.GetEsAddress(FactomClient)
 		if err != nil {
 			if err, ok := err.(jrpc.Error); ok {
-				errLog.Println(err.Data, ecEsAdr.EC)
-			} else {
-				errLog.Println(err)
+				errLog.Fatal(err.Data, ecEsAdr.EC)
 			}
-			os.Exit(1)
+			errLog.Fatal(err)
 		}
 	}
 	return nil

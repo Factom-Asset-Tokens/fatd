@@ -101,8 +101,7 @@ func validateIssueChainFlags(cmd *cobra.Command, _ []string) error {
 	first.ExtIDs = NameIDs
 	cost, err := first.Cost()
 	if err != nil {
-		errLog.Println(err)
-		os.Exit(1)
+		errLog.Fatal(err)
 	}
 	if !force {
 		vrbLog.Println("Checking chain existence...", paramsToken.ChainID)
@@ -122,20 +121,17 @@ func validateIssueChainFlags(cmd *cobra.Command, _ []string) error {
 		}
 		if rpcErr != missingChainHeadErr {
 			// If err was anything other than the missingChainHeadErr...
-			errLog.Println(err)
-			os.Exit(1)
+			errLog.Fatal(err)
 		}
 
 		vrbLog.Println("Checking EC balance... ")
 		ecBalance, err := ecEsAdr.EC.GetBalance(FactomClient)
 		if err != nil {
-			errLog.Println(err)
-			os.Exit(1)
+			errLog.Fatal(err)
 		}
 		if uint64(cost) > ecBalance {
-			errLog.Printf("Insufficient EC balance %v: needs at least %v",
+			errLog.Fatalf("Insufficient EC balance %v: needs at least %v",
 				ecBalance, cost)
-			os.Exit(1)
 		}
 		vrbLog.Println("New chain creation cost:", cost)
 	}
@@ -145,8 +141,7 @@ func validateIssueChainFlags(cmd *cobra.Command, _ []string) error {
 func issueChain(_ *cobra.Command, _ []string) {
 	if curl {
 		if err := printCurl(first, ecEsAdr.Es); err != nil {
-			errLog.Println(err)
-			os.Exit(1)
+			errLog.Fatal(err)
 		}
 		return
 	}
@@ -154,8 +149,7 @@ func issueChain(_ *cobra.Command, _ []string) {
 	vrbLog.Println("Submitting the Chain Creation Entry to the Factom blockchain...")
 	txID, err := first.ComposeCreate(FactomClient, ecEsAdr.Es)
 	if err != nil {
-		errLog.Println(err)
-		os.Exit(1)
+		errLog.Fatal(err)
 	}
 	fmt.Printf("Chain created: %v\n", first.ChainID)
 	fmt.Printf("Factom Tx ID:  %v\n", txID)

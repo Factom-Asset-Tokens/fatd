@@ -38,8 +38,7 @@ import (
 // to the rootCmd.
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
-		errLog.Println(err)
-		os.Exit(1)
+		errLog.Fatal(err)
 	}
 }
 
@@ -319,8 +318,7 @@ func initConfig() {
 		// Find home directory.
 		home, err := homedir.Dir()
 		if err != nil {
-			errLog.Println(err)
-			os.Exit(1)
+			errLog.Fatal(err)
 		}
 
 		// Search config in home directory with name ".cli" (without extension).

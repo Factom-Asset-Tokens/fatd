@@ -17,7 +17,7 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
-	"os"
+	"strings"
 
 	jrpc "github.com/AdamSLevy/jsonrpc2/v11"
 	"github.com/Factom-Asset-Tokens/fatd/factom"
@@ -106,13 +106,11 @@ func validateIssueTokenFlags(cmd *cobra.Command, args []string) error {
 	Issuance.ChainID = paramsToken.ChainID
 	Issuance.Sign(sk1)
 	if err := Issuance.MarshalEntry(); err != nil {
-		errLog.Println(err)
-		os.Exit(1)
+		errLog.Fatal(err)
 	}
 	cost, err := Issuance.Cost()
 	if err != nil {
-		errLog.Println(err)
-		os.Exit(1)
+		errLog.Fatal(err)
 	}
 
 	if !force {
@@ -121,14 +119,11 @@ func validateIssueTokenFlags(cmd *cobra.Command, args []string) error {
 		var stats srv.ResultGetStats
 		err := FATClient.Request("get-stats", params, &stats)
 		if err == nil {
-			errLog.Println("Token is already initialized!")
-			printStats(params.ChainID, stats)
-			os.Exit(1)
+			errLog.Fatal("Token is already initialized!")
 		}
 		rpcErr, _ := err.(jrpc.Error)
 		if rpcErr != *srv.ErrorTokenNotFound {
-			errLog.Println(err)
-			os.Exit(1)
+			errLog.Fatal(err)
 		}
 
 		vrbLog.Println("Checking chain existence...", paramsToken.ChainID)
@@ -136,16 +131,15 @@ func validateIssueTokenFlags(cmd *cobra.Command, args []string) error {
 		if err := eb.GetChainHead(FactomClient); err != nil {
 			rpcErr, _ := err.(jrpc.Error)
 			if rpcErr == newChainInProcessListErr {
-				errLog.Printf("New chain %v is in process list. "+
+				errLog.Fatalf("New chain %v is in process list. "+
 					"Wait ~10 mins.\n", eb.ChainID)
-			} else if rpcErr == missingChainHeadErr {
-				errLog.Printf("Chain %v does not exist. "+
+			}
+			if rpcErr == missingChainHeadErr {
+				errLog.Fatalf("Chain %v does not exist. "+
 					"First run `fat-cli issue chain`\n",
 					eb.ChainID)
-			} else {
-				errLog.Println(err)
 			}
-			os.Exit(1)
+			errLog.Fatal(err)
 		}
 
 		vrbLog.Printf("Fetching Identity Chain... %v", paramsToken.IssuerChainID)
@@ -154,33 +148,29 @@ func validateIssueTokenFlags(cmd *cobra.Command, args []string) error {
 		if err := identity.Get(FactomClient); err != nil {
 			rpcErr, _ := err.(jrpc.Error)
 			if rpcErr == newChainInProcessListErr {
-				errLog.Printf("New identity chain %v is in process list. "+
+				errLog.Fatalf("New identity chain %v is in process list. "+
 					"Wait ~10 mins.\n", eb.ChainID)
-			} else if rpcErr == missingChainHeadErr {
-				errLog.Printf("Identity Chain %v does not exist.\n",
-					identity.ChainID)
-			} else {
-				errLog.Println(err)
 			}
-			os.Exit(1)
+			if rpcErr == missingChainHeadErr {
+				errLog.Fatalf("Identity Chain %v does not exist.\n",
+					identity.ChainID)
+			}
+			errLog.Fatal(err)
 		}
 		vrbLog.Println("Verifying SK1 Key... ")
 		if identity.ID1 != sk1.ID1Key() {
-			errLog.Println("--sk1 is not the secret key corresponding to " +
+			errLog.Fatal("--sk1 is not the secret key corresponding to " +
 				"the ID1Key declared in the Identity Chain.")
-			os.Exit(1)
 		}
 
 		vrbLog.Println("Checking EC balance... ")
 		ecBalance, err := ecEsAdr.EC.GetBalance(FactomClient)
 		if err != nil {
-			errLog.Println(err)
-			os.Exit(1)
+			errLog.Fatal(err)
 		}
 		if uint64(cost) > ecBalance {
-			errLog.Printf("Insufficient EC balance %v: needs at least %v",
+			errLog.Fatalf("Insufficient EC balance %v: needs at least %v",
 				ecBalance, cost)
-			os.Exit(1)
 		}
 		vrbLog.Println("Token Initialization Entry cost:", cost)
 	}
@@ -190,8 +180,7 @@ func validateIssueTokenFlags(cmd *cobra.Command, args []string) error {
 func issueToken(_ *cobra.Command, _ []string) {
 	if curl {
 		if err := printCurl(Issuance.Entry.Entry, ecEsAdr.Es); err != nil {
-			errLog.Println(err)
-			os.Exit(1)
+			errLog.Fatal(err)
 		}
 		return
 	}
@@ -200,8 +189,7 @@ func issueToken(_ *cobra.Command, _ []string) {
 		"Submitting the Token Initialization Entry to the Factom blockchain...")
 	txID, err := Issuance.ComposeCreate(FactomClient, ecEsAdr.Es)
 	if err != nil {
-		errLog.Println(err)
-		os.Exit(1)
+		errLog.Fatal(err)
 	}
 	fmt.Printf("Token Initialization Entry Created: %v\n", Issuance.Hash)
 	fmt.Printf("Chain ID: %v\n", Issuance.ChainID)
@@ -212,6 +200,7 @@ func issueToken(_ *cobra.Command, _ []string) {
 type Type fat.Type
 
 func (t *Type) Set(typeStr string) error {
+	typeStr = strings.ToUpper(typeStr)
 	switch typeStr {
 	case "FAT0":
 		typeStr = "FAT-0"
@@ -225,7 +214,7 @@ func (t Type) String() string {
 	return fat.Type(t).String()
 }
 func (t Type) Type() string {
-	return "FAT-0|FAT-1"
+	return `<"FAT-0" | "FAT-1">`
 }
 
 type RawMessage json.RawMessage

@@ -16,7 +16,6 @@ package cmd
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/Factom-Asset-Tokens/fatd/factom"
 	"github.com/Factom-Asset-Tokens/fatd/srv"
@@ -82,8 +81,7 @@ func getBalance(cmd *cobra.Command, _ []string) {
 		params.Address = &adr
 		if err := FATClient.Request("get-balance", params,
 			&balances[i]); err != nil {
-			errLog.Println(err)
-			os.Exit(1)
+			errLog.Fatal(err)
 		}
 	}
 	for i, adr := range addresses {

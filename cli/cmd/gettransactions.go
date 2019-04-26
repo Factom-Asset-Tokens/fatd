@@ -17,7 +17,6 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/Factom-Asset-Tokens/fatd/factom"
@@ -166,8 +165,7 @@ func getTxs(_ *cobra.Command, _ []string) {
 		}
 		if err := FATClient.Request("get-transactions",
 			paramsGetTxs, &result); err != nil {
-			errLog.Println(err)
-			os.Exit(1)
+			errLog.Fatal(err)
 		}
 		for _, result := range result {
 			printTx(result)
@@ -183,8 +181,7 @@ func getTxs(_ *cobra.Command, _ []string) {
 		params.Hash = &txID
 		if err := FATClient.Request("get-transaction",
 			params, &result); err != nil {
-			errLog.Println(err)
-			os.Exit(1)
+			errLog.Fatal(err)
 		}
 		printTx(result)
 	}

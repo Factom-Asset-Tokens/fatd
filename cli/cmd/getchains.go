@@ -16,7 +16,6 @@ package cmd
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/Factom-Asset-Tokens/fatd/factom"
 	"github.com/Factom-Asset-Tokens/fatd/srv"
@@ -92,8 +91,7 @@ func getChains(_ *cobra.Command, _ []string) {
 		var chains []srv.ParamsToken
 		if err := FATClient.Request("get-daemon-tokens", nil,
 			&chains); err != nil {
-			errLog.Println(err)
-			os.Exit(1)
+			errLog.Fatal(err)
 		}
 		for _, chain := range chains {
 			fmt.Printf(`Chain ID: %v
@@ -110,8 +108,7 @@ Token ID: %q
 		params := srv.ParamsToken{ChainID: &chainID}
 		var stats srv.ResultGetStats
 		if err := FATClient.Request("get-stats", params, &stats); err != nil {
-			errLog.Println(err)
-			os.Exit(1)
+			errLog.Fatal(err)
 		}
 		printStats(&chainID, stats)
 	}
