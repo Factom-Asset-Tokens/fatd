@@ -54,10 +54,13 @@ $(GENSRC): factom/gen.go  factom/genmain.go $(wildcard factom/*.tmpl)
 	go generate ./factom
 
 
-.PHONY: clean purge-db unpurge-db
+.PHONY: clean clean-gen purge-db unpurge-db
 
 clean:
-	rm -f ./fatd ./fatd.app ./fatd.exe ./fat-cli ./fat-cli.app ./fat-cli.exe ./fatd.race ./fat-cli.race $(GENSRC)
+	rm -f ./fatd ./fatd.app ./fatd.exe ./fat-cli ./fat-cli.app ./fat-cli.exe ./fatd.race ./fat-cli.race
+
+clean-gen:
+	rm -f $(GENSRC)
 
 DATE = $(shell date -Ins)
 purge-db:
