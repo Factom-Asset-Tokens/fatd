@@ -259,7 +259,7 @@ func validateRunCompletionFlags(cmd *cobra.Command, _ []string) error {
 	otherFlags := false
 	flags.Visit(func(flg *flag.Flag) {
 		switch flg.Name {
-		case "install", "uninstall":
+		case "installcompletion", "uninstallcompletion":
 			installCompletionMode = true
 		default:
 			otherFlags = true
@@ -267,7 +267,7 @@ func validateRunCompletionFlags(cmd *cobra.Command, _ []string) error {
 	})
 	if installCompletionMode && otherFlags {
 		return fmt.Errorf(
-			"--install and --uninstall may not be used with any other flags")
+			"--installcompletion and --uninstallcompletion may not be used with any other flags")
 	}
 	return nil
 }

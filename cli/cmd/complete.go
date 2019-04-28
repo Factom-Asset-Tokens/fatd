@@ -11,6 +11,8 @@ import (
 var cmpl = complete.New("fat-cli", rootCmplCmd)
 
 var installCompletionFlags = func() *flag.FlagSet {
+	cmpl.InstallName = "installcompletion"
+	cmpl.UninstallName = "uninstallcompletion"
 	// Populate a goflag.FlagSet with the install completion flags.
 	goflgs := goflag.NewFlagSet("fat-cli", goflag.ContinueOnError)
 	cmpl.AddFlags(goflgs)
