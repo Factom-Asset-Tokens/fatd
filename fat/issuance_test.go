@@ -39,7 +39,7 @@ var (
 
 func TestChainID(t *testing.T) {
 	assert.Equal(t, "b54c4310530dc4dd361101644fa55cb10aec561e7874a7b786ea3b66f2c6fdfb",
-		ChainID("test", identityChainID).String())
+		ChainID("test", *identityChainID).String())
 }
 
 var validTokenNameIDsTests = []struct {

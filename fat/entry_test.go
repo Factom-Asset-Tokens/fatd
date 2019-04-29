@@ -59,7 +59,8 @@ var validExtIDsTests = []struct {
 	Error: "timestamp salt expired",
 	Entry: func() Entry {
 		e := validEntry()
-		e.Timestamp.Time = time.Now().Add(-48 * time.Hour)
+		e.Timestamp = new(factom.Time)
+		*e.Timestamp = factom.Time(time.Now().Add(-48 * time.Hour))
 		return e
 	}(),
 }, {
@@ -67,7 +68,8 @@ var validExtIDsTests = []struct {
 	Error: "timestamp salt expired",
 	Entry: func() Entry {
 		e := validEntry()
-		e.Timestamp.Time = time.Now().Add(48 * time.Hour)
+		e.Timestamp = new(factom.Time)
+		*e.Timestamp = factom.Time(time.Now().Add(48 * time.Hour))
 		return e
 	}(),
 }, {

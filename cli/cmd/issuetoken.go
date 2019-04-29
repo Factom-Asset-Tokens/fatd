@@ -142,39 +142,35 @@ func validateIssueTokenFlags(cmd *cobra.Command, args []string) error {
 			errLog.Fatal(err)
 		}
 
-		vrbLog.Printf("Fetching Identity Chain... %v", paramsToken.IssuerChainID)
-		var identity factom.Identity
-		identity.ChainID = paramsToken.IssuerChainID
-		if err := identity.Get(FactomClient); err != nil {
-			rpcErr, _ := err.(jrpc.Error)
-			if rpcErr == newChainInProcessListErr {
-				errLog.Fatalf("New identity chain %v is in process list. "+
-					"Wait ~10 mins.\n", eb.ChainID)
-			}
-			if rpcErr == missingChainHeadErr {
-				errLog.Fatalf("Identity Chain %v does not exist.\n",
-					identity.ChainID)
-			}
-			errLog.Fatal(err)
-		}
-		vrbLog.Println("Verifying SK1 Key... ")
-		if identity.ID1 != sk1.ID1Key() {
-			errLog.Fatal("--sk1 is not the secret key corresponding to " +
-				"the ID1Key declared in the Identity Chain.")
-		}
+		verifySK1Key(&sk1, stats.IssuerChainID)
 
-		vrbLog.Println("Checking EC balance... ")
-		ecBalance, err := ecEsAdr.EC.GetBalance(FactomClient)
-		if err != nil {
-			errLog.Fatal(err)
-		}
-		if uint64(cost) > ecBalance {
-			errLog.Fatalf("Insufficient EC balance %v: needs at least %v",
-				ecBalance, cost)
-		}
-		vrbLog.Println("Token Initialization Entry cost:", cost)
+		verifyECBalance(&ecEsAdr.EC, cost)
+		vrbLog.Printf("Token Initialization Entry cost: %v EC", cost)
 	}
 	return nil
+}
+
+func verifySK1Key(sk1 *factom.SK1Key, idChainID *factom.Bytes32) {
+	vrbLog.Printf("Fetching Identity Chain... %v", idChainID)
+	var identity factom.Identity
+	identity.ChainID = idChainID
+	if err := identity.Get(FactomClient); err != nil {
+		rpcErr, _ := err.(jrpc.Error)
+		if rpcErr == newChainInProcessListErr {
+			errLog.Fatalf("New identity chain %v is in process list. "+
+				"Wait ~10 mins.\n", idChainID)
+		}
+		if rpcErr == missingChainHeadErr {
+			errLog.Fatalf("Identity Chain %v does not exist.\n",
+				idChainID)
+		}
+		errLog.Fatal(err)
+	}
+	vrbLog.Println("Verifying SK1 Key... ")
+	if identity.ID1 != sk1.ID1Key() {
+		errLog.Fatal("--sk1 is not the secret key corresponding to " +
+			"the ID1Key declared in the Identity Chain.")
+	}
 }
 
 func issueToken(_ *cobra.Command, _ []string) {

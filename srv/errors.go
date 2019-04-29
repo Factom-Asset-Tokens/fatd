@@ -19,8 +19,6 @@ var (
 
 	ErrorTokenNotFound = jrpc.NewError(-32800, "Token Not Found",
 		"token may be invalid, or not yet issued or tracked")
-	ErrorInvalidAddress = jrpc.NewError(-32801, "Token Not Found",
-		"token may be invalid, or not yet issued or tracked")
 	ErrorTransactionNotFound = jrpc.NewError(-32803, "Transaction Not Found",
 		"no matching tx-id was found")
 	ErrorInvalidTransaction = jrpc.NewError(-32804, "Invalid Transaction", nil)

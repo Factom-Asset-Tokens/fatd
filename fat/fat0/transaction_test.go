@@ -211,7 +211,7 @@ var (
 	coinbaseInputAmounts  = []uint64{110}
 	coinbaseOutputAmounts = []uint64{90, 20}
 
-	tokenChainID = fat.ChainID("test", identityChainID)
+	tokenChainID = fat.ChainID("test", *identityChainID)
 
 	identityChainID = factom.NewBytes32(validIdentityChainID())
 )

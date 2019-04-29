@@ -64,9 +64,9 @@ func (tkns NFTokens) Set(ids ...NFTokensSetter) error {
 	return nil
 }
 
-type errorNFTokenIDIntersection NFTokenID
+type ErrorNFTokenIDIntersection NFTokenID
 
-func (id errorNFTokenIDIntersection) Error() string {
+func (id ErrorNFTokenIDIntersection) Error() string {
 	return fmt.Sprintf("duplicate NFTokenID: %v", NFTokenID(id))
 }
 
@@ -77,7 +77,25 @@ func (tkns NFTokens) NoIntersection(tknsCmp NFTokens) error {
 	}
 	for tknID := range small {
 		if _, ok := large[tknID]; ok {
-			return errorNFTokenIDIntersection(tknID)
+			return ErrorNFTokenIDIntersection(tknID)
+		}
+	}
+	return nil
+}
+
+type ErrorMissingNFTokenID NFTokenID
+
+func (id ErrorMissingNFTokenID) Error() string {
+	return fmt.Sprintf("missing NFTokenID: %v", NFTokenID(id))
+}
+
+func (tkns NFTokens) ContainsAll(tknsSub NFTokens) error {
+	if len(tknsSub) > len(tkns) {
+		return fmt.Errorf("cannot contain a bigger NFTokens set")
+	}
+	for tknID := range tknsSub {
+		if _, ok := tkns[tknID]; !ok {
+			return ErrorMissingNFTokenID(tknID)
 		}
 	}
 	return nil

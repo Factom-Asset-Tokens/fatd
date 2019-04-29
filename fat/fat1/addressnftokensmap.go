@@ -96,12 +96,7 @@ func (m AddressNFTokensMap) NFTokenIDsConserved(n AddressNFTokensMap) error {
 	if numTknIDs != n.NumNFTokenIDs() {
 		return fmt.Errorf("number of NFTokenIDs differ")
 	}
-	allTkns := make(NFTokens, numTknIDs)
-	for _, tkns := range m {
-		for tknID := range tkns {
-			allTkns[tknID] = struct{}{}
-		}
-	}
+	allTkns := m.AllNFTokens()
 	for _, tkns := range n {
 		for tknID := range tkns {
 			if _, ok := allTkns[tknID]; !ok {
@@ -110,6 +105,16 @@ func (m AddressNFTokensMap) NFTokenIDsConserved(n AddressNFTokensMap) error {
 		}
 	}
 	return nil
+}
+
+func (m AddressNFTokensMap) AllNFTokens() NFTokens {
+	allTkns := make(NFTokens, len(m))
+	for _, tkns := range m {
+		for tknID := range tkns {
+			allTkns[tknID] = struct{}{}
+		}
+	}
+	return allTkns
 }
 
 func (m AddressNFTokensMap) NumNFTokenIDs() int {
@@ -127,7 +132,7 @@ func (m AddressNFTokensMap) NoInternalNFTokensIntersection() error {
 			// We found an intersection. To identify the other
 			// RCDHash that owns tknID, we temporarily remove
 			// rcdHash from m and restore it after we return.
-			tknID := NFTokenID(err.(errorNFTokenIDIntersection))
+			tknID := NFTokenID(err.(ErrorNFTokenIDIntersection))
 			delete(m, rcdHash)
 			otherRCDHash := m.Owner(tknID)
 			m[rcdHash] = tkns

@@ -108,7 +108,7 @@ func validateIssueChainFlags(cmd *cobra.Command, _ []string) error {
 		eb := factom.EBlock{ChainID: paramsToken.ChainID}
 		err := eb.GetChainHead(FactomClient)
 		if err == nil {
-			errLog.Printf("Chain %v already exists.\n", eb.ChainID)
+			errLog.Printf("Chain already exists: %v\n", eb.ChainID)
 			// We can consider this a success. Exit code 0.
 			os.Exit(0)
 		}
@@ -124,16 +124,8 @@ func validateIssueChainFlags(cmd *cobra.Command, _ []string) error {
 			errLog.Fatal(err)
 		}
 
-		vrbLog.Println("Checking EC balance... ")
-		ecBalance, err := ecEsAdr.EC.GetBalance(FactomClient)
-		if err != nil {
-			errLog.Fatal(err)
-		}
-		if uint64(cost) > ecBalance {
-			errLog.Fatalf("Insufficient EC balance %v: needs at least %v",
-				ecBalance, cost)
-		}
-		vrbLog.Println("New chain creation cost:", cost)
+		verifyECBalance(&ecEsAdr.EC, cost)
+		vrbLog.Printf("New chain creation cost: %v EC", cost)
 	}
 	return nil
 }

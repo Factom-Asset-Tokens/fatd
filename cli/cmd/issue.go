@@ -124,6 +124,18 @@ func validateECAdrFlag(cmd *cobra.Command, _ []string) error {
 	return nil
 }
 
+func verifyECBalance(ec *factom.ECAddress, cost int8) {
+	vrbLog.Println("Checking EC balance... ")
+	ecBalance, err := ec.GetBalance(FactomClient)
+	if err != nil {
+		errLog.Fatal(err)
+	}
+	if uint64(cost) > ecBalance {
+		errLog.Fatalf("Insufficient EC balance %v: needs at least %v",
+			ecBalance, cost)
+	}
+}
+
 type ECEsAddress struct {
 	EC factom.ECAddress
 	Es factom.EsAddress
