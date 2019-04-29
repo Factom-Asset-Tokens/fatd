@@ -92,6 +92,8 @@ func addHTTPScheme(url *string) {
 }
 
 var (
+	Revision string // Set during build.
+
 	errLog  = log.New(os.Stderr, "", 0)
 	vrbLog  = log.New(ioutil.Discard, "", 0)
 	Verbose bool
@@ -102,6 +104,8 @@ var (
 
 	Debug           bool
 	DebugCompletion bool
+
+	Version bool
 
 	paramsToken = srv.ParamsToken{
 		ChainID:       new(factom.Bytes32),
@@ -224,9 +228,11 @@ Entry Credits
 		Run:     runCompletion,
 	}
 
-	cmd.Flags().AddFlagSet(installCompletionFlags)
+	flags := cmd.Flags()
+	flags.AddFlagSet(installCompletionFlags)
+	flags.BoolVar(&Version, "version", false, "Print version info for fat-cli and fatd")
 
-	flags := cmd.PersistentFlags()
+	flags = cmd.PersistentFlags()
 	flags.AddFlagSet(apiFlags)
 	flags.VarPF(paramsToken.ChainID, "chainid", "C",
 		"Chain ID of a FAT chain").DefValue = ""
@@ -255,33 +261,115 @@ func validateRunCompletionFlags(cmd *cobra.Command, _ []string) error {
 	// Ensure that the install completion flags are not ever used with any
 	// other flags.
 	flags := cmd.Flags()
-	installCompletionMode := false
-	otherFlags := false
-	flags.Visit(func(flg *flag.Flag) {
-		switch flg.Name {
-		case "installcompletion", "uninstallcompletion":
-			installCompletionMode = true
-		default:
-			otherFlags = true
+	installMode := flags.Changed("installcompletion")
+	uninstallMode := flags.Changed("uninstallcompletion")
+	if installMode || uninstallMode {
+		invalid := whitelistFlags(flags,
+			"installcompletion", "uninstallcompletion", "y")
+		if len(invalid) > 0 {
+			var errStr string
+			if installMode {
+				errStr += "--installcompletion"
+				if uninstallMode {
+					errStr += " and --uninstallcompletion"
+				}
+			} else {
+				errStr += "--uninstallcompletion"
+			}
+			errStr += " may not be used with --" + invalid[0]
+			if len(invalid) > 1 {
+				for _, name := range invalid[1 : 1+len(invalid)-2] {
+					errStr += ", --" + name
+				}
+				if len(invalid) > 2 {
+					errStr += ","
+				}
+				errStr += " or --" + invalid[len(invalid)-1]
+			}
+			return fmt.Errorf(errStr)
 		}
-	})
-	if installCompletionMode && otherFlags {
-		return fmt.Errorf(
-			"--installcompletion and --uninstallcompletion may not be used with any other flags")
+		return nil
 	}
+
+	if flags.Changed("version") {
+		invalid := whitelistFlags(flags, "version", "fatd*", "debug*",
+			"verbose", "timeout")
+		if len(invalid) > 0 {
+			errStr := "--version may not be used with --" + invalid[0]
+			if len(invalid) > 1 {
+				for _, name := range invalid[1 : 1+len(invalid)-2] {
+					errStr += ", --" + name
+				}
+				if len(invalid) > 2 {
+					errStr += ","
+				}
+				errStr += " or --" + invalid[len(invalid)-1]
+			}
+			return fmt.Errorf(errStr)
+		}
+		return nil
+	}
+
 	return nil
 }
 
-func runCompletion(cmd *cobra.Command, _ []string) {
-	// Complete() returns true if it attempts to install completion,
-	// otherwise just output the help page.
-	if !Complete() {
-		cmd.Help()
+func whitelistFlags(flags *flag.FlagSet, list ...string) []string {
+	var invalid []string
+	flags.Visit(func(flg *flag.Flag) {
+		var whitelisted bool
+		// Compare flg.Name with all whitelisted flags.
+		for _, name := range list {
+			// Check for very basic globbing.
+			if name[len(name)-1] == '*' {
+				// Remove the asterisk so that len(name) is
+				// correct when used below.
+				name = name[:len(name)-1]
+			}
+			if flg.Name[:min(len(name), len(flg.Name))] == name {
+				whitelisted = true
+				break
+			}
+		}
+		if whitelisted {
+			return
+		}
+		invalid = append(invalid, flg.Name)
+	})
+	return invalid
+}
+func min(x, y int) int {
+	if x < y {
+		return x
 	}
+	return y
 }
 
-// validateChainIDFlags validates "chainid", "tokenid" and "identity", and
-// initializes the ChainID.
+func runCompletion(cmd *cobra.Command, _ []string) {
+	// Complete() returns true if it attempts to install completion, in
+	// which case just exit silently.
+	if Complete() {
+		return
+	}
+	if Version {
+		printVersions()
+		return
+	}
+	cmd.Help()
+}
+
+func printVersions() {
+	fmt.Printf("fat-cli:  %v\n", Revision)
+	vrbLog.Println("Fetching fatd properties...")
+	var properties srv.ResultGetDaemonProperties
+	if err := FATClient.Request("get-daemon-properties", nil, &properties); err != nil {
+		errLog.Fatal(err)
+	}
+	fmt.Printf("fatd:     %v\n", properties.FatdVersion)
+	fmt.Printf("fatd API: %v\n", properties.APIVersion)
+}
+
+// validateChainIDFlags validates --chainid, --tokenid and --identity, and
+// initializes the paramsToken and NameIDs global variables.
 func validateChainIDFlags(cmd *cobra.Command, _ []string) error {
 	flags := cmd.Flags()
 	chainIDSet := flags.Changed("chainid")
