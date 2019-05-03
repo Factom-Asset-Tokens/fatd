@@ -171,7 +171,7 @@ transaction data. It can also be used to send transactions on existing FAT
 chains, and issue new FAT-0 or FAT-1 tokens.
 
 Chain ID Settings
-        Most sub-commands need to be scoped to a specific FAT chain identified
+        Most sub-commands need to be scoped to a specific FAT chain, identified
         by a --chainid. Alternatively, this can be specified by using both the
         --tokenid and --identity, which together determine the chain ID.
 
@@ -196,14 +196,14 @@ API Settings
         private key data.
 
 Offline Mode
-        For increased security requirements to protect private keys, it is
-        possible to run fat-cli such that it makes no network calls when
-        generating Factom entries for FAT transactions or token issuance.
+        For increased security to protect private keys, it is possible to run
+        fat-cli such that it makes no network calls when generating Factom
+        entries for FAT transactions or token issuance.
 
         Use --curl to skip submitting the entry directly to Factom, and instead
-        print out the curl commands to commit and reveal the entry. These curl
-        commands contain the encoded signed data and may be safely copied to,
-        and run from, a computer with access to factomd.
+        print out the curl commands for committing and revealing the entry.
+        These curl commands contain the encoded signed data and may be safely
+        copied to, and run from, a computer with access to factomd.
 
         Use --force to skip all sanity checks that involve API calls out
         factomd or fatd. As a result, this may result in generating a Factom
@@ -222,6 +222,31 @@ Entry Credits
 
         FAT transactions normally cost 1 EC. The full FAT Token Issuance
         process normally costs 12 EC.
+
+CLI Completion
+        After installing fat-cli in some permanent location in your PATH. Use
+        --installcompletion to install CLI completion for Bash, Zsh, or Fish.
+        This simply adds a single line to your ~/.bash_profile (or shell
+        equivalent), which can be removed with --uninstallcompletion. You must
+        re-open your shell before completion changes take effect.
+
+        No other programs or files need to be installed because fat-cli is also
+        its own completion program. If fat-cli is envoked by the completion
+        system, it returns completions for the currently typed arguments.
+
+        If the --fatd endpoint is available, Token Chain IDs can be completed
+        based on the chains that fatd is tracking.
+
+        If the --walletd endpoint is available, then all FA and EC addresses
+        can be completed based on the addresses saved by factom-walletd.
+
+        Since both of these completion flags require successful API calls, any
+        required API related flags must already be supplied before completion
+        for Token Chain IDs, FA or EC addresses can succeed. Otherwise, if the
+        default settings are incorrect, generating completion suggestions will
+        fail silently. Note that --timeout is ignored as a very short timeout
+        is always used to avoid noticeable blocking when generating completion
+        suggestions.
 `[1:],
 		Args:    cobra.ExactArgs(0),
 		PreRunE: validateRunCompletionFlags,
@@ -348,6 +373,8 @@ func runCompletion(cmd *cobra.Command, _ []string) {
 	// Complete() returns true if it attempts to install completion, in
 	// which case just exit silently.
 	if Complete() {
+		fmt.Println(`
+You must re-open your shell before completion changes take effect.`[1:])
 		return
 	}
 	if Version {

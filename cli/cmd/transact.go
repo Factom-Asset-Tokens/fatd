@@ -19,12 +19,13 @@ import (
 	"fmt"
 	"math"
 
-	jrpc "github.com/AdamSLevy/jsonrpc2/v11"
 	"github.com/Factom-Asset-Tokens/fatd/factom"
 	"github.com/Factom-Asset-Tokens/fatd/fat"
 	"github.com/Factom-Asset-Tokens/fatd/fat/fat0"
 	"github.com/Factom-Asset-Tokens/fatd/fat/fat1"
 	"github.com/Factom-Asset-Tokens/fatd/srv"
+
+	jrpc "github.com/AdamSLevy/jsonrpc2/v11"
 	"github.com/posener/complete"
 	"github.com/spf13/cobra"
 )
@@ -36,10 +37,84 @@ var (
 // transactCmd represents the transact command
 var transactCmd = func() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "transact",
-		Short: "Send or distribute FAT tokens",
+		Use:     "transact",
+		Aliases: []string{"send", "distribute"},
+		Short:   "Send or distribute FAT tokens",
 		Long: `
-TODO
+Send or distribute FAT-0 or FAT-1 tokens.
+
+Submitting a FAT transaction involves submitting a signed transaction entry to
+the given FAT Token Chain. The flags for 'transact fat0' and 'transact fat1'
+are the same except for the arguments to the --input and --output flags differ
+slightly.
+
+Inputs and Outputs
+        Both --input and --output may be used multiple times. For both flags,
+        the argument must be either a public (FA) or private (Fs) Factoid
+        address, followed by a ":" and some specifier defined by the subcommand
+        for the token type.
+
+        For FAT-0, the argument to --input or --output could be,
+                FA3SjebEevRe964p4tQ6eieEvzi7puv9JWF3S3Wgw2v3WGKueL3R:150
+                Fs2mGpZiHMwiEfe7kBD5ZYpXJsaxb3gUX258PJsAcNJ8GxFy8pBt:150
+
+        For FAT-1, the argument to --input or --output could be,
+                FA3SjebEevRe964p4tQ6eieEvzi7puv9JWF3S3Wgw2v3WGKueL3R:[1,2,5-100]
+                Fs2mGpZiHMwiEfe7kBD5ZYpXJsaxb3gUX258PJsAcNJ8GxFy8pBt:[1,2,5-100]
+
+        The private keys for all --input addresses must be either known to
+        factom-walletd or directly supplied.
+
+        The keyword "coinbase" may be used in place of an address to specify
+        the coinbase address in an --output.
+
+        See 'fat-cli transact fat0 --help' or 'fat-cli transact fat1 --help'
+        for more information about the --input and --output argument format.
+
+Normal Transactions
+        Normal transactions are multi --input and multi --output between
+        virtually any number of Factoid addresses. These are generated and
+        signed by the users that control the private keys for the input
+        addresses in the transaction.
+
+        For normal transactions, supply at least one --input, and at least one
+        --output. The coinbase address may not be an an --input, but may be an
+        --output. Tokens sent to the coinbase address are provably burned.
+
+        The --output addresses must not include any address used as an --input.
+
+        Every token sent as an --input must also be part of some --output.
+
+Coinbase Transactions
+        Coinbase transactions distribute new tokens to user addresses. These
+        are multi --output transactions from the coinbase address, and are
+        generated and signed by the Issuer of the token, who controls the --sk1
+        key. The coinbase address may not be used as an --output.
+
+        Coinbase transactions that distribute an amount that causes the total
+        supply to exceed the max supply declared in the Token Initialization
+        Entry, are invalid and ignored. Burned tokens are still counted towards
+        the total supply.
+
+Entry Credits
+        Creating entries on the Factom blockchain costs Entry Credits. Most
+        transactions with minimal metadata costs only 1 EC. You must specify a
+        funded Entry Credit address with --ecadr, which may be either a private
+        Es address, or a pubilc EC address that can be fetched from
+        factom-walletd.
+
+Sanity Checks
+        Transactions are always sanity checked for valid data and signatures
+        locally.
+
+        Additionally, prior to composing the Transaction Entry, a number of
+        calls to fatd and factomd are made to ensure that transaction will be
+        considered valid by fatd. These network checks are skipped if --force
+        is used.
+        - The Token Chain has been issued as the correct FAT type.
+        - All inputs have sufficient balance.
+        - For coinbase transactions, the --sk1 key corresponds to  the Identity
+          Chain's declared ID1 key.
 `[1:],
 		PersistentPreRunE: validateTransactFlags,
 	}

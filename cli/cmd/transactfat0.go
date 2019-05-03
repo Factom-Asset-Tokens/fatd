@@ -22,6 +22,7 @@ import (
 	"github.com/Factom-Asset-Tokens/fatd/factom"
 	"github.com/Factom-Asset-Tokens/fatd/fat"
 	"github.com/Factom-Asset-Tokens/fatd/fat/fat0"
+
 	"github.com/posener/complete"
 	"github.com/spf13/cobra"
 )
@@ -31,10 +32,36 @@ var fat0Tx fat0.Transaction
 // transactFAT0Cmd represents the FAT0 command
 var transactFAT0Cmd = func() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "fat0",
+		Use: `
+fat0 --ecadr <EC | Es> --chainid <chain-id> [--metadata JSON]
+        --input <FA | Fs>:<amount> [--input <FA | Fs>:<amount>]...
+        --output <FA | Fs>:<amount> [--output <FA | Fs>:<amount>]...
+
+  fat-cli transact fat0 --ecadr <EC | Es> --chainid <chain-id> [--metadata JSON]
+        --sk1 <sk1-key>
+        --output <FA | Fs>:<amount> [--output <FA | Fs>:<amount>]...
+`[1:],
 		Aliases: []string{"fat-0", "FAT0", "FAT-0"},
 		Short:   "Send or distribute FAT-0 tokens",
 		Long: `
+Send or distribute FAT-0 tokens.
+
+Generate, sign, and submit a FAT-0 transaction entry for the given --chainid.
+
+Inputs and Outputs
+        Both --input and --output expect an FA or Fs address, followed by ":",
+        and then an <amount>.
+
+        The <amount> must be a positive number.
+
+        For example,
+                FA3SjebEevRe964p4tQ6eieEvzi7puv9JWF3S3Wgw2v3WGKueL3R:150
+                Fs2mGpZiHMwiEfe7kBD5ZYpXJsaxb3gUX258PJsAcNJ8GxFy8pBt:150
+
+        For normal transactions, the sum of all of the --input <amount>s must
+        equal the sum of the --output <amount>s.
+
+See 'fat-cli transact --help' for more information about transactions.
 `[1:],
 		Run: func(_ *cobra.Command, _ []string) {},
 	}

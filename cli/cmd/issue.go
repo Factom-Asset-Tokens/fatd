@@ -17,8 +17,9 @@ package cmd
 import (
 	"fmt"
 
-	jrpc "github.com/AdamSLevy/jsonrpc2/v11"
 	"github.com/Factom-Asset-Tokens/fatd/factom"
+
+	jrpc "github.com/AdamSLevy/jsonrpc2/v11"
 	"github.com/posener/complete"
 	"github.com/spf13/cobra"
 	flag "github.com/spf13/pflag"

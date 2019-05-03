@@ -21,6 +21,7 @@ import (
 	"github.com/Factom-Asset-Tokens/fatd/factom"
 	"github.com/Factom-Asset-Tokens/fatd/fat"
 	"github.com/Factom-Asset-Tokens/fatd/fat/fat1"
+
 	"github.com/posener/complete"
 	"github.com/spf13/cobra"
 )
@@ -30,15 +31,41 @@ var fat1Tx fat1.Transaction
 // transactFAT1Cmd represents the FAT1 command
 var transactFAT1Cmd = func() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "fat1",
+		Use: `
+fat1 --ecadr <EC | Es> --chainid <chain-id> [--metadata JSON]
+        --input <FA | Fs>:<nf-token-ids>, [--input <FA | Fs>:<nf-token-ids>]...
+        --output <FA | Fs>:<nf-token-ids> [--output <FA | Fs>:<nf-token-ids>]...
+
+  fat-cli transact fat1 --ecadr <EC | Es> --chainid <chain-id> [--metadata JSON]
+        --sk1 <sk1-key>
+        --output <FA | Fs>:<nf-token-ids> [--output <FA | Fs>:<nf-token-ids>]...
+`[1:],
 		Aliases: []string{"fat-1", "FAT1", "FAT-1"},
 		Short:   "Send or distribute FAT-1 tokens",
-		Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command. For example:
+		Long: `
+Send or distribute FAT-1 tokens.
 
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+Generate, sign, and submit a FAT-1 transaction entry for the given --chainid.
+
+Inputs and Outputs
+        Both --input and --output expect an FA or Fs address, followed by ":",
+        and then <nf-token-ids>.
+
+        The <nf-token-ids> is a set NF Token IDs written as a comma separated
+        list of IDs and ID ranges written as <min>-<max> (e.g. 1-100). The list
+        must appear between "[" and "]". There may not be any duplicate NF
+        Token IDs within a set, regardless of whether they are specified within
+        a range or individually. The set does not need to be sorted.
+
+        For example,
+                FA3SjebEevRe964p4tQ6eieEvzi7puv9JWF3S3Wgw2v3WGKueL3R:[5,1,3,40-500,13]
+                Fs2mGpZiHMwiEfe7kBD5ZYpXJsaxb3gUX258PJsAcNJ8GxFy8pBt:[1,3,5,13,40-500]
+
+        For normal transactions, every NF Token ID used in an --input, must
+        also be used in some --output.
+
+See 'fat-cli transact --help' for more information about transactions.
+`[1:],
 		Run: func(_ *cobra.Command, _ []string) {},
 	}
 	transactCmd.AddCommand(cmd)

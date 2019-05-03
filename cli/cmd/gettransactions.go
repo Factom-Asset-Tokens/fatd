@@ -22,6 +22,7 @@ import (
 	"github.com/Factom-Asset-Tokens/fatd/factom"
 	"github.com/Factom-Asset-Tokens/fatd/fat/fat1"
 	"github.com/Factom-Asset-Tokens/fatd/srv"
+
 	"github.com/posener/complete"
 	"github.com/spf13/cobra"
 )
@@ -43,24 +44,25 @@ var getTxsCmd = func() *cobra.Command {
 		DisableFlagsInUseLine: true,
 		Use: `
 transactions --chainid <chain-id> TXID...
+
   fat-cli get transactions --chainid <chain-id> [--starttx <tx-hash>]
         [--page <page>] [--limit <limit>] [--order <"asc" | "desc">]
         [--address <FA> [--address <FA>]... [--to] [--from]]
         [--nftokenid <nf-token-id>]
 `[1:],
 		Aliases: []string{"transaction", "txs", "tx"},
-		Short:   "List txs and their data",
+		Short:   "List transactions and their data",
 		Long: `
-For the given --chainid, get tx data for each TXID or list txs scoped by the
-search criteria provided by flags.
+For the given --chainid, get transaction data for each TXID or list
+transactions scoped by the search criteria provided by flags.
 
-If at least one TXID is provided, then the data for each tx is returned. Only
-global flags are accepted with TXIDs.
+If at least one TXID is provided, then the data for each transaction is
+returned. Only global flags are accepted with TXIDs.
 
-If no TXID is provided, then a paginated list of all txs is returned. The list
-can be scoped down to txs --to or --from one --address or more, and in the case
-of a FAT-1 chain, by a single --nftokenid. Use --page and --limit to scroll
-through txs.
+If no TXID is provided, then a paginated list of all transactions is returned.
+The list can be scoped down to transactions --to or --from one --address or
+more, and in the case of a FAT-1 chain, by a single --nftokenid. Use --page and
+--limit to scroll through transactions.
 `[1:],
 		Args:    getTxsArgs,
 		PreRunE: validateGetTxsFlags,

@@ -19,10 +19,11 @@ import (
 	"fmt"
 	"strings"
 
-	jrpc "github.com/AdamSLevy/jsonrpc2/v11"
 	"github.com/Factom-Asset-Tokens/fatd/factom"
 	"github.com/Factom-Asset-Tokens/fatd/fat"
 	"github.com/Factom-Asset-Tokens/fatd/srv"
+
+	jrpc "github.com/AdamSLevy/jsonrpc2/v11"
 	"github.com/posener/complete"
 	"github.com/spf13/cobra"
 )
