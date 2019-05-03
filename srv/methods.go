@@ -171,7 +171,6 @@ func getTransactions(getEntry bool) jrpc.MethodFunc {
 				txs[i].Hash = entries[i].Hash
 				txs[i].Timestamp = *entries[i].Timestamp
 				txs[i].Tx = tx
-				log.Debug(tx)
 			}
 			return txs
 		case fat1.Type:
@@ -184,7 +183,6 @@ func getTransactions(getEntry bool) jrpc.MethodFunc {
 				txs[i].Hash = entries[i].Hash
 				txs[i].Timestamp = *entries[i].Timestamp
 				txs[i].Tx = tx
-				log.Debug(tx)
 			}
 			return txs
 		default:

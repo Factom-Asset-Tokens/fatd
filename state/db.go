@@ -445,8 +445,6 @@ func (chain Chain) GetEntries(hash *factom.Bytes32,
 		limit = LimitMax
 	}
 
-	log.Debug(hash, rcdHashes, tknID, "`"+toFrom+"`", order, page, limit)
-
 	sess := chain.DBR.NewSession(nil)
 	stmt := sess.Select("*").From("entries").Where("id != 1").
 		Paginate(page, limit)
