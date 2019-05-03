@@ -16,8 +16,11 @@ package cmd
 
 import (
 	"fmt"
+	"math"
 
 	"github.com/Factom-Asset-Tokens/fatd/factom"
+	"github.com/Factom-Asset-Tokens/fatd/fat/fat0"
+	"github.com/Factom-Asset-Tokens/fatd/fat/fat1"
 	"github.com/Factom-Asset-Tokens/fatd/srv"
 	"github.com/posener/complete"
 	"github.com/spf13/cobra"
@@ -34,8 +37,10 @@ balance --chainid <chain-id> ADDRESS...`[1:],
 		Aliases: []string{"balances"},
 		Short:   "Get balances for addresses",
 		Long: `
-Get the balance of each ADDRESS on the given --chainid (or --tokenid and
---identity).
+Get the balance of each ADDRESS on the given --chainid.
+
+Returns the total balance for FAT-0 tokens or a list of NF Token IDs for FAT-1
+tokens.
 `[1:],
 		Args:    getBalanceArgs,
 		PreRunE: validateChainIDFlags,
@@ -73,18 +78,39 @@ func getBalanceArgs(cmd *cobra.Command, args []string) error {
 }
 
 func getBalance(cmd *cobra.Command, _ []string) {
-	params := srv.ParamsGetBalance{}
-	params.ChainID = paramsToken.ChainID
-	balances := make([]uint64, len(addresses))
-	vrbLog.Println("Fetching balances...")
-	for i, adr := range addresses {
-		params.Address = &adr
-		if err := FATClient.Request("get-balance", params,
-			&balances[i]); err != nil {
-			errLog.Fatal(err)
-		}
+	vrbLog.Printf("Fetching token chain details... %v", paramsToken.ChainID)
+	params := srv.ParamsToken{ChainID: paramsToken.ChainID}
+	var stats srv.ResultGetStats
+	if err := FATClient.Request("get-stats", params, &stats); err != nil {
+		errLog.Fatal(err)
 	}
-	for i, adr := range addresses {
-		fmt.Println(adr, balances[i])
+	switch stats.Issuance.Type {
+	case fat0.Type:
+		params := srv.ParamsGetBalance{}
+		params.ChainID = paramsToken.ChainID
+		vrbLog.Println("Fetching balances...")
+		for _, adr := range addresses {
+			params.Address = &adr
+			var balance uint64
+			if err := FATClient.Request("get-balance", params,
+				&balance); err != nil {
+				errLog.Fatal(err)
+			}
+			fmt.Println(adr, balance)
+		}
+	case fat1.Type:
+		limit := uint64(math.MaxUint64)
+		params := srv.ParamsGetNFBalance{Limit: &limit}
+		params.ChainID = paramsToken.ChainID
+		vrbLog.Println("Fetching NF balances...")
+		for _, adr := range addresses {
+			params.Address = &adr
+			var balance fat1.NFTokens
+			if err := FATClient.Request("get-nf-balance", params,
+				&balance); err != nil {
+				errLog.Fatal(err)
+			}
+			fmt.Println(adr, balance)
+		}
 	}
 }

@@ -1,10 +1,10 @@
 package fat1
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+
+	"github.com/Factom-Asset-Tokens/fatd/fat/jsonlen"
 )
 
 // NFTokenIDRange represents a contiguous range of NFTokenIDs.
@@ -26,12 +26,20 @@ func NewNFTokenIDRange(minMax ...NFTokenID) NFTokenIDRange {
 	return NFTokenIDRange{Min: min, Max: max}
 }
 
-func (idRange NFTokenIDRange) IsEfficient() bool {
+func (idRange NFTokenIDRange) IsJSONEfficient() bool {
 	var expandedLen int
 	for id := idRange.Min; id <= idRange.Max; id++ {
 		expandedLen += id.jsonLen() + len(`,`)
 	}
 	return idRange.jsonLen() <= expandedLen
+}
+
+func (idRange NFTokenIDRange) IsStringEfficient() bool {
+	var expandedLen int
+	for id := idRange.Min; id <= idRange.Max; id++ {
+		expandedLen += id.jsonLen() + len(`,`)
+	}
+	return idRange.strLen() <= expandedLen
 }
 
 func (idRange NFTokenIDRange) Len() int {
@@ -63,11 +71,32 @@ func (idRange NFTokenIDRange) Valid() error {
 
 type nfTokenIDRange NFTokenIDRange
 
+func (idRange NFTokenIDRange) String() string {
+	if !idRange.IsStringEfficient() {
+		ids := idRange.Slice()
+		return fmt.Sprintf("%v", ids)
+	}
+	return fmt.Sprintf("%v-%v", idRange.Min, idRange.Max)
+}
+
 func (idRange NFTokenIDRange) MarshalJSON() ([]byte, error) {
 	if err := idRange.Valid(); err != nil {
 		return nil, err
 	}
+	if !idRange.IsJSONEfficient() {
+		ids := idRange.Slice()
+		return json.Marshal(ids)
+	}
 	return json.Marshal(nfTokenIDRange(idRange))
+}
+
+// Slice returns a sorted slice of tkns' NFTokenIDs.
+func (idRange NFTokenIDRange) Slice() []NFTokenID {
+	ids := make([]NFTokenID, idRange.Len())
+	for i := range ids {
+		ids[i] = NFTokenID(i) + idRange.Min
+	}
+	return ids
 }
 
 func (idRange *NFTokenIDRange) UnmarshalJSON(data []byte) error {
@@ -77,7 +106,7 @@ func (idRange *NFTokenIDRange) UnmarshalJSON(data []byte) error {
 	if err := idRange.Valid(); err != nil {
 		return fmt.Errorf("%T: %v", idRange, err)
 	}
-	if len(compactJSON(data)) != idRange.jsonLen() {
+	if len(jsonlen.Compact(data)) != idRange.jsonLen() {
 		return fmt.Errorf("%T: unexpected JSON length", idRange)
 	}
 	return nil
@@ -90,9 +119,6 @@ func (idRange NFTokenIDRange) jsonLen() int {
 		len(`}`)
 }
 
-func compactJSON(data []byte) []byte {
-	buf := bytes.NewBuffer(make([]byte, 0, len(data)))
-	json.Compact(buf, data)
-	cmp, _ := ioutil.ReadAll(buf)
-	return cmp
+func (idRange NFTokenIDRange) strLen() int {
+	return idRange.Min.jsonLen() + len(`-`) + idRange.Max.jsonLen()
 }

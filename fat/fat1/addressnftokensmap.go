@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/Factom-Asset-Tokens/fatd/factom"
+	"github.com/Factom-Asset-Tokens/fatd/fat/jsonlen"
 )
 
 // AddressTokenMap relates the RCDHash of an address to its NFTokenIDs.
@@ -58,9 +59,9 @@ func (m *AddressNFTokensMap) UnmarshalJSON(data []byte) error {
 			return fmt.Errorf("%T: %v and %v", m, err, adr)
 		}
 		(*m)[adr] = tkns
-		expectedJSONLen += len(compactJSON(data))
+		expectedJSONLen += len(jsonlen.Compact(data))
 	}
-	if expectedJSONLen != len(compactJSON(data)) {
+	if expectedJSONLen != len(jsonlen.Compact(data)) {
 		return fmt.Errorf("%T: unexpected JSON length", m)
 	}
 	return nil

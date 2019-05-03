@@ -6,6 +6,7 @@ import (
 
 	"github.com/Factom-Asset-Tokens/fatd/factom"
 	"github.com/Factom-Asset-Tokens/fatd/fat"
+	"github.com/Factom-Asset-Tokens/fatd/fat/jsonlen"
 )
 
 // Transaction represents a fat1 transaction, which can be a normal account
@@ -51,7 +52,7 @@ func (t *Transaction) UnmarshalJSON(data []byte) error {
 		}
 
 		expectedJSONLen = len(`,"tokenmetadata":`) +
-			len(compactJSON(tRaw.TokenMetadata))
+			len(jsonlen.Compact(tRaw.TokenMetadata))
 	} else {
 		if t.IsCoinbase() {
 			// Avoid a nil map.
@@ -69,9 +70,9 @@ func (t *Transaction) UnmarshalJSON(data []byte) error {
 	}
 
 	expectedJSONLen += len(`{"inputs":,"outputs":}`) +
-		len(compactJSON(tRaw.Inputs)) + len(compactJSON(tRaw.Outputs)) +
+		len(jsonlen.Compact(tRaw.Inputs)) + len(jsonlen.Compact(tRaw.Outputs)) +
 		tRaw.MetadataJSONLen()
-	if expectedJSONLen != len(compactJSON(data)) {
+	if expectedJSONLen != len(jsonlen.Compact(data)) {
 		return fmt.Errorf("%T: unexpected JSON length", t)
 	}
 

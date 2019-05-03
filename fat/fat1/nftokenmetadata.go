@@ -3,6 +3,8 @@ package fat1
 import (
 	"encoding/json"
 	"fmt"
+
+	"github.com/Factom-Asset-Tokens/fatd/fat/jsonlen"
 )
 
 type NFTokenIDMetadataMap map[NFTokenID]json.RawMessage
@@ -33,8 +35,8 @@ func (m *NFTokenIDMetadataMap) UnmarshalJSON(data []byte) error {
 		if err := tkns.UnmarshalJSON(tknM.Tokens); err != nil {
 			return fmt.Errorf("%T: %v", m, err)
 		}
-		metadata := compactJSON(tknM.Metadata)
-		expectedJSONLen += len(metadata) + len(compactJSON(tknM.Tokens))
+		metadata := jsonlen.Compact(tknM.Metadata)
+		expectedJSONLen += len(metadata) + len(jsonlen.Compact(tknM.Tokens))
 		for tknID := range tkns {
 			if _, ok := (*m)[tknID]; ok {
 				return fmt.Errorf("%T: Duplicate NFTokenID: %v", m, tknID)
@@ -44,9 +46,9 @@ func (m *NFTokenIDMetadataMap) UnmarshalJSON(data []byte) error {
 	}
 	expectedJSONLen += len(`[]`) - len(`,`) +
 		len(tknMs)*len(`{"ids":,"metadata":},`)
-	if expectedJSONLen != len(compactJSON(data)) {
+	if expectedJSONLen != len(jsonlen.Compact(data)) {
 		return fmt.Errorf("%T: unexpected JSON length %v %v ",
-			m, expectedJSONLen, len(compactJSON(data)))
+			m, expectedJSONLen, len(jsonlen.Compact(data)))
 
 	}
 	return nil

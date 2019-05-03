@@ -1,6 +1,10 @@
 package fat1
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/Factom-Asset-Tokens/fatd/fat/jsonlen"
+)
 
 // NFTokenID is a Non-Fungible Token ID.
 type NFTokenID uint64
@@ -24,9 +28,5 @@ func (id NFTokenID) Len() int {
 }
 
 func (id NFTokenID) jsonLen() int {
-	l := 1
-	for pow := NFTokenID(10); id/pow > 0; pow *= 10 {
-		l++
-	}
-	return l
+	return jsonlen.Uint64(uint64(id))
 }

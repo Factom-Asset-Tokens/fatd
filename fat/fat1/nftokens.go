@@ -142,7 +142,7 @@ func (tkns NFTokens) MarshalJSON() ([]byte, error) {
 		// append the idRange and set up a new idRange to start at id.
 
 		// Use the most efficient JSON representation for the idRange.
-		if idRange.IsEfficient() {
+		if idRange.IsJSONEfficient() {
 			tknsAry[i] = idRange
 			i++
 		} else {
@@ -155,6 +155,47 @@ func (tkns NFTokens) MarshalJSON() ([]byte, error) {
 	}
 
 	return json.Marshal(tknsAry[:i])
+}
+
+func (tkns NFTokens) String() string {
+	if len(tkns) == 0 {
+		return "[]"
+	}
+
+	tknsFullAry := tkns.Slice()
+
+	// Compress the tknsAry by replacing contiguous id ranges with an
+	// NFTokenIDRange.
+	tknsAry := make([]interface{}, len(tkns))
+	idRange := NewNFTokenIDRange(tknsFullAry[0])
+	i := 0
+	for _, id := range append(tknsFullAry[1:], 0) {
+		// If this id is contiguous with idRange, expand the range to
+		// include this id and check the next id.
+		if id == idRange.Max+1 {
+			idRange.Max = id
+			continue
+		}
+		// Otherwise, the id is not contiguous with the range, so
+		// append the idRange and set up a new idRange to start at id.
+
+		// Use the most efficient JSON representation for the idRange.
+		if idRange.IsStringEfficient() {
+			tknsAry[i] = idRange
+			i++
+		} else {
+			for id := idRange.Min; id <= idRange.Max; id++ {
+				tknsAry[i] = id
+				i++
+			}
+		}
+		idRange = NewNFTokenIDRange(id)
+	}
+	str := "["
+	for _, tkn := range tknsAry[:i] {
+		str += fmt.Sprintf("%v,", tkn)
+	}
+	return str[:len(str)-1] + "]"
 }
 
 func (tkns *NFTokens) UnmarshalJSON(data []byte) error {
