@@ -168,9 +168,19 @@ For a complete up to date list of flags & options please see `flag/flag.go`
 
 
 
-## Default fatd RPC Endpoint
+## [FAT CLI Documentation](CLI.md)
 
-`http://localhost:8078/v1`
+Interact with the FAT daemon RPC from the command line
+
+[Token Initialization & Transaction Walk Through](docs/ISSUING.md)
+
+
+
+## [RPC API Documentation](RPC.md)
+
+Default `http://localhost:8078/v1`
+
+
 
 
 ## Contributing
@@ -183,10 +193,4 @@ Please attempt to reproduce the issue using the `-debug` flag. For `fatd`,
 please provide the initial output which prints all current settings.
 Intermediate `DEBUG Scanning block 187682 for FAT entries.` lines may be
 omitted, but please provide the first and last of these lines.
-
-## FAT CLI
-
-Interact with the FAT daemon RPC from the command line:
-
-[Token Initialization & Transaction Walk Through](docs/ISSUING.md)
 
