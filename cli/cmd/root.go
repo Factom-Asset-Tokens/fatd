@@ -422,6 +422,7 @@ func validateChainIDFlags(cmd *cobra.Command, _ []string) error {
 func initChainID() {
 	NameIDs = fat.NameIDs(paramsToken.TokenID, *paramsToken.IssuerChainID)
 	*paramsToken.ChainID = factom.ChainID(NameIDs)
+	vrbLog.Println("Token Chain ID:", paramsToken.ChainID)
 }
 
 // initConfig reads in config file and ENV variables if set.

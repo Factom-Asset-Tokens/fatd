@@ -111,6 +111,7 @@ Sanity Checks
         calls to fatd and factomd are made to ensure that transaction will be
         considered valid by fatd. These network checks are skipped if --force
         is used.
+
         - The Token Chain has been issued as the correct FAT type.
         - All inputs have sufficient balance.
         - For coinbase transactions, the --sk1 key corresponds to  the Identity
@@ -237,7 +238,7 @@ func validateTransactFlags(cmd *cobra.Command, args []string) error {
 	}
 
 	if !force {
-		vrbLog.Println("Checking token chain status...", paramsToken.ChainID)
+		vrbLog.Println("Checking token chain status...")
 		params := srv.ParamsToken{ChainID: paramsToken.ChainID}
 		var stats srv.ResultGetStats
 		if err := FATClient.Request("get-stats", params, &stats); err != nil {
@@ -330,7 +331,8 @@ func validateTransactFlags(cmd *cobra.Command, args []string) error {
 		}
 
 		verifyECBalance(&ecEsAdr.EC, cost)
-		vrbLog.Printf("Transaction cost: %v EC", cost)
+		vrbLog.Printf("Transaction Entry Cost: %v EC", cost)
+		vrbLog.Println()
 	}
 
 	var entry factom.Entry
