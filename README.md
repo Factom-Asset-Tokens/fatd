@@ -30,7 +30,26 @@ reporting bugs! Thank you!
 Pre-compiled binaries for Linux, Windows, and Mac x86\_64 systems can be found
 on the [releases page.](https://github.com/Factom-Asset-Tokens/fatd/releases/)
 
+## Install with Docker 🐳
 
+
+Build the Docker image:
+
+```bash
+$ docker build -t fatd github.com/Factom-Asset-Tokens/fatd
+```
+
+Create a volume for the fatd database:
+
+```bash
+$ docker volume create fatd_db
+```
+
+Run fatd:
+
+```bash
+$ docker run -d --name=fatd --network=host -v "fatd_db:/fatd.db" fatd [fatd options]
+```
 
 ## Building From Source
 
