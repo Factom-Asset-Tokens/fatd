@@ -223,14 +223,17 @@ func validateTransactFlags(cmd *cobra.Command, args []string) error {
 	switch cmdType {
 	case fat0.Type:
 		fat0Tx.ChainID = paramsToken.ChainID
+		fat0Tx.Metadata = metadata
 		tx = &fat0Tx
 	case fat1.Type:
 		fat1Tx.ChainID = paramsToken.ChainID
+		fat1Tx.Metadata = metadata
 		tx = &fat1Tx
 	}
 	if err := tx.MarshalEntry(); err != nil {
 		errLog.Fatal(err)
 	}
+	vrbLog.Println("Transaction Entry Content: ", tx)
 	tx.Sign(signingSet...)
 	cost, err := tx.Cost()
 	if err != nil {

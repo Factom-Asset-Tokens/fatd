@@ -88,6 +88,14 @@ func (t Transaction) MarshalJSON() ([]byte, error) {
 	return json.Marshal(transaction(t))
 }
 
+func (t Transaction) String() string {
+	data, err := t.MarshalJSON()
+	if err != nil {
+		return err.Error()
+	}
+	return string(data)
+}
+
 func (t Transaction) ValidData() error {
 	if err := t.Inputs.NoAddressIntersection(t.Outputs); err != nil {
 		return fmt.Errorf("Inputs and Outputs intersect: %v", err)

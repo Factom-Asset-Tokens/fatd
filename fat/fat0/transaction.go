@@ -64,6 +64,14 @@ func (t Transaction) MarshalJSON() ([]byte, error) {
 	return json.Marshal(transaction(t))
 }
 
+func (t Transaction) String() string {
+	data, err := t.MarshalJSON()
+	if err != nil {
+		return err.Error()
+	}
+	return string(data)
+}
+
 // UnmarshalEntry unmarshals the entry content as a Transaction.
 func (t *Transaction) UnmarshalEntry() error {
 	return t.Entry.UnmarshalEntry(t)
