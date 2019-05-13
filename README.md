@@ -1,6 +1,6 @@
 ![](https://png.icons8.com/ios-glyphs/200/5ECCDD/octahedron.png)![](https://png.icons8.com/color/64/3498db/golang.png)
 
-# fatd - Factom Asset Token Daemon v0.4.2 - Alpha
+# fatd - Factom Asset Token Daemon - Alpha
 
 A daemon written in Golang that maintains the current state of Factom Asset
 Tokens (FAT) token chains. The daemon provides a JSON-RPC 2.0 API for accessing
