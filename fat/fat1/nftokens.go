@@ -1,3 +1,25 @@
+// MIT License
+//
+// Copyright 2018 Canonical Ledgers, LLC
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to
+// deal in the Software without restriction, including without limitation the
+// rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
+// sell copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+// FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+// IN THE SOFTWARE.
+
 package fat1
 
 import (
@@ -64,9 +86,9 @@ func (tkns NFTokens) Set(ids ...NFTokensSetter) error {
 	return nil
 }
 
-type errorNFTokenIDIntersection NFTokenID
+type ErrorNFTokenIDIntersection NFTokenID
 
-func (id errorNFTokenIDIntersection) Error() string {
+func (id ErrorNFTokenIDIntersection) Error() string {
 	return fmt.Sprintf("duplicate NFTokenID: %v", NFTokenID(id))
 }
 
@@ -77,7 +99,25 @@ func (tkns NFTokens) NoIntersection(tknsCmp NFTokens) error {
 	}
 	for tknID := range small {
 		if _, ok := large[tknID]; ok {
-			return errorNFTokenIDIntersection(tknID)
+			return ErrorNFTokenIDIntersection(tknID)
+		}
+	}
+	return nil
+}
+
+type ErrorMissingNFTokenID NFTokenID
+
+func (id ErrorMissingNFTokenID) Error() string {
+	return fmt.Sprintf("missing NFTokenID: %v", NFTokenID(id))
+}
+
+func (tkns NFTokens) ContainsAll(tknsSub NFTokens) error {
+	if len(tknsSub) > len(tkns) {
+		return fmt.Errorf("cannot contain a bigger NFTokens set")
+	}
+	for tknID := range tknsSub {
+		if _, ok := tkns[tknID]; !ok {
+			return ErrorMissingNFTokenID(tknID)
 		}
 	}
 	return nil
@@ -124,7 +164,7 @@ func (tkns NFTokens) MarshalJSON() ([]byte, error) {
 		// append the idRange and set up a new idRange to start at id.
 
 		// Use the most efficient JSON representation for the idRange.
-		if idRange.IsEfficient() {
+		if idRange.IsJSONEfficient() {
 			tknsAry[i] = idRange
 			i++
 		} else {
@@ -137,6 +177,47 @@ func (tkns NFTokens) MarshalJSON() ([]byte, error) {
 	}
 
 	return json.Marshal(tknsAry[:i])
+}
+
+func (tkns NFTokens) String() string {
+	if len(tkns) == 0 {
+		return "[]"
+	}
+
+	tknsFullAry := tkns.Slice()
+
+	// Compress the tknsAry by replacing contiguous id ranges with an
+	// NFTokenIDRange.
+	tknsAry := make([]interface{}, len(tkns))
+	idRange := NewNFTokenIDRange(tknsFullAry[0])
+	i := 0
+	for _, id := range append(tknsFullAry[1:], 0) {
+		// If this id is contiguous with idRange, expand the range to
+		// include this id and check the next id.
+		if id == idRange.Max+1 {
+			idRange.Max = id
+			continue
+		}
+		// Otherwise, the id is not contiguous with the range, so
+		// append the idRange and set up a new idRange to start at id.
+
+		// Use the most efficient JSON representation for the idRange.
+		if idRange.IsStringEfficient() {
+			tknsAry[i] = idRange
+			i++
+		} else {
+			for id := idRange.Min; id <= idRange.Max; id++ {
+				tknsAry[i] = id
+				i++
+			}
+		}
+		idRange = NewNFTokenIDRange(id)
+	}
+	str := "["
+	for _, tkn := range tknsAry[:i] {
+		str += fmt.Sprintf("%v,", tkn)
+	}
+	return str[:len(str)-1] + "]"
 }
 
 func (tkns *NFTokens) UnmarshalJSON(data []byte) error {

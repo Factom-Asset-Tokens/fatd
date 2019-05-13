@@ -1,3 +1,25 @@
+// MIT License
+//
+// Copyright 2018 Canonical Ledgers, LLC
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to
+// deal in the Software without restriction, including without limitation the
+// rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
+// sell copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+// FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+// IN THE SOFTWARE.
+
 package srv
 
 import (
@@ -235,13 +257,13 @@ func getNFBalance(data json.RawMessage) interface{} {
 }
 
 type ResultGetStats struct {
-	Type                     fat.Type    `json:"type"`
-	Supply                   int64       `json:"supply"`
-	CirculatingSupply        uint64      `json:"circulating"`
-	Burned                   uint64      `json:"burned"`
-	Transactions             int         `json:"transactions"`
-	IssuanceTimestamp        factom.Time `json:"issuancets"`
-	LastTransactionTimestamp factom.Time `json:"lasttxts,omitempty"`
+	ParamsToken
+	Issuance                 *fat.Issuance
+	CirculatingSupply        uint64       `json:"circulating"`
+	Burned                   uint64       `json:"burned"`
+	Transactions             int          `json:"transactions"`
+	IssuanceTimestamp        factom.Time  `json:"issuancets"`
+	LastTransactionTimestamp *factom.Time `json:"lasttxts,omitempty"`
 }
 
 var coinbaseRCDHash = fat.Coinbase()
@@ -263,19 +285,24 @@ func getStats(data json.RawMessage) interface{} {
 		panic(err)
 	}
 
-	var lastTxTs factom.Time
+	var lastTxTs *factom.Time
 	if len(txs) > 0 {
-		lastTxTs = *txs[len(txs)-1].Timestamp
+		lastTxTs = txs[len(txs)-1].Timestamp
 	}
-	return ResultGetStats{
-		Type:                     chain.Type,
-		Supply:                   chain.Supply,
+	res := ResultGetStats{
 		CirculatingSupply:        chain.Issued - burned,
 		Burned:                   burned,
 		Transactions:             len(txs),
 		IssuanceTimestamp:        *chain.Issuance.Timestamp,
 		LastTransactionTimestamp: lastTxTs,
 	}
+	if chain.IsIssued() {
+		res.Issuance = &chain.Issuance
+	}
+	res.ChainID = chain.ID
+	res.TokenID = chain.Token
+	res.IssuerChainID = chain.Issuer
+	return res
 }
 
 type ResultGetNFToken struct {
@@ -517,7 +544,7 @@ func getDaemonProperties(data json.RawMessage) interface{} {
 	if data != nil {
 		return ParamsErrorNoParams
 	}
-	return ResultGetDaemonProperties{FatdVersion: flag.Revision, APIVersion: "1"}
+	return ResultGetDaemonProperties{FatdVersion: flag.Revision, APIVersion: APIVersion}
 }
 
 type ResultGetSyncStatus struct {

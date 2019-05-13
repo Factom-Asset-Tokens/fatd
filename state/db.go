@@ -1,3 +1,25 @@
+// MIT License
+//
+// Copyright 2018 Canonical Ledgers, LLC
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to
+// deal in the Software without restriction, including without limitation the
+// rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
+// sell copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+// FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+// IN THE SOFTWARE.
+
 package state
 
 import (
@@ -253,8 +275,8 @@ func (chain *Chain) loadMetadata() error {
 	if err := chain.First(&chain.Metadata).Error; err != nil {
 		return err
 	}
-	if !fat.ValidTokenNameIDs(fat.NameIDs(chain.Token, chain.Issuer)) ||
-		*chain.ID != fat.ChainID(chain.Token, chain.Issuer) {
+	if !fat.ValidTokenNameIDs(fat.NameIDs(chain.Token, *chain.Issuer)) ||
+		*chain.ID != fat.ChainID(chain.Token, *chain.Issuer) {
 		return fmt.Errorf(`corrupted "metadata" table for chain %v`, chain.ID)
 	}
 	chain.Identity.ChainID = chain.Metadata.Issuer
@@ -440,15 +462,14 @@ const LimitMax = 1000
 func (chain Chain) GetEntries(hash *factom.Bytes32,
 	rcdHashes []factom.FAAddress, tknID *fat1.NFTokenID,
 	toFrom, order string,
-	page, limit uint) ([]factom.Entry, error) {
+	page, limit uint64) ([]factom.Entry, error) {
 	if limit == 0 || limit > LimitMax {
 		limit = LimitMax
 	}
 
 	sess := chain.DBR.NewSession(nil)
 	stmt := sess.Select("*").From("entries").Where("id != 1").
-		Limit(uint64(limit)).
-		Offset(uint64(page * limit))
+		Paginate(page, limit)
 
 	var sign string
 	switch order {

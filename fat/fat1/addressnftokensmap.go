@@ -1,3 +1,25 @@
+// MIT License
+//
+// Copyright 2018 Canonical Ledgers, LLC
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to
+// deal in the Software without restriction, including without limitation the
+// rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
+// sell copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+// FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+// IN THE SOFTWARE.
+
 package fat1
 
 import (
@@ -5,6 +27,7 @@ import (
 	"fmt"
 
 	"github.com/Factom-Asset-Tokens/fatd/factom"
+	"github.com/Factom-Asset-Tokens/fatd/fat/jsonlen"
 )
 
 // AddressTokenMap relates the RCDHash of an address to its NFTokenIDs.
@@ -58,9 +81,9 @@ func (m *AddressNFTokensMap) UnmarshalJSON(data []byte) error {
 			return fmt.Errorf("%T: %v and %v", m, err, adr)
 		}
 		(*m)[adr] = tkns
-		expectedJSONLen += len(compactJSON(data))
+		expectedJSONLen += len(jsonlen.Compact(data))
 	}
-	if expectedJSONLen != len(compactJSON(data)) {
+	if expectedJSONLen != len(jsonlen.Compact(data)) {
 		return fmt.Errorf("%T: unexpected JSON length", m)
 	}
 	return nil
@@ -96,12 +119,7 @@ func (m AddressNFTokensMap) NFTokenIDsConserved(n AddressNFTokensMap) error {
 	if numTknIDs != n.NumNFTokenIDs() {
 		return fmt.Errorf("number of NFTokenIDs differ")
 	}
-	allTkns := make(NFTokens, numTknIDs)
-	for _, tkns := range m {
-		for tknID := range tkns {
-			allTkns[tknID] = struct{}{}
-		}
-	}
+	allTkns := m.AllNFTokens()
 	for _, tkns := range n {
 		for tknID := range tkns {
 			if _, ok := allTkns[tknID]; !ok {
@@ -110,6 +128,16 @@ func (m AddressNFTokensMap) NFTokenIDsConserved(n AddressNFTokensMap) error {
 		}
 	}
 	return nil
+}
+
+func (m AddressNFTokensMap) AllNFTokens() NFTokens {
+	allTkns := make(NFTokens, len(m))
+	for _, tkns := range m {
+		for tknID := range tkns {
+			allTkns[tknID] = struct{}{}
+		}
+	}
+	return allTkns
 }
 
 func (m AddressNFTokensMap) NumNFTokenIDs() int {
@@ -127,7 +155,7 @@ func (m AddressNFTokensMap) NoInternalNFTokensIntersection() error {
 			// We found an intersection. To identify the other
 			// RCDHash that owns tknID, we temporarily remove
 			// rcdHash from m and restore it after we return.
-			tknID := NFTokenID(err.(errorNFTokenIDIntersection))
+			tknID := NFTokenID(err.(ErrorNFTokenIDIntersection))
 			delete(m, rcdHash)
 			otherRCDHash := m.Owner(tknID)
 			m[rcdHash] = tkns

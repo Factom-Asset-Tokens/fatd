@@ -1,3 +1,25 @@
+// MIT License
+//
+// Copyright 2018 Canonical Ledgers, LLC
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to
+// deal in the Software without restriction, including without limitation the
+// rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
+// sell copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+// FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+// IN THE SOFTWARE.
+
 package factom
 
 import (
@@ -27,6 +49,9 @@ func NewBytes32(s32 []byte) *Bytes32 {
 
 // Set decodes a string with exactly 32 bytes of hex encoded data.
 func (b *Bytes32) Set(hexStr string) error {
+	if len(hexStr) == 0 {
+		return nil
+	}
 	if len(hexStr) != hex.EncodedLen(len(b)) {
 		return fmt.Errorf("invalid length")
 	}
@@ -72,6 +97,16 @@ func (b Bytes32) String() string {
 // String encodes b as a hex string.
 func (b Bytes) String() string {
 	return hex.EncodeToString(b[:])
+}
+
+// Type returns "Bytes32". Satisfies pflag.Value interface.
+func (b Bytes32) Type() string {
+	return "Bytes32"
+}
+
+// Type returns "Bytes". Satisfies pflag.Value interface.
+func (b Bytes) Type() string {
+	return "Bytes"
 }
 
 // MarshalJSON encodes b as a hex JSON string.

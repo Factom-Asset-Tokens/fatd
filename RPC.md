@@ -1,5 +1,3 @@
-[TOC]
-
 # FAT Daemon RPC Documentation
 
 This document defines the Remote Procedure Call API for fatd. The RPC encompasses methods to read, transact, and issue tokens on FAT.

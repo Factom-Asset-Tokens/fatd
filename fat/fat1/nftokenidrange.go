@@ -1,10 +1,32 @@
+// MIT License
+//
+// Copyright 2018 Canonical Ledgers, LLC
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to
+// deal in the Software without restriction, including without limitation the
+// rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
+// sell copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+// FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+// IN THE SOFTWARE.
+
 package fat1
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+
+	"github.com/Factom-Asset-Tokens/fatd/fat/jsonlen"
 )
 
 // NFTokenIDRange represents a contiguous range of NFTokenIDs.
@@ -26,12 +48,20 @@ func NewNFTokenIDRange(minMax ...NFTokenID) NFTokenIDRange {
 	return NFTokenIDRange{Min: min, Max: max}
 }
 
-func (idRange NFTokenIDRange) IsEfficient() bool {
+func (idRange NFTokenIDRange) IsJSONEfficient() bool {
 	var expandedLen int
 	for id := idRange.Min; id <= idRange.Max; id++ {
 		expandedLen += id.jsonLen() + len(`,`)
 	}
 	return idRange.jsonLen() <= expandedLen
+}
+
+func (idRange NFTokenIDRange) IsStringEfficient() bool {
+	var expandedLen int
+	for id := idRange.Min; id <= idRange.Max; id++ {
+		expandedLen += id.jsonLen() + len(`,`)
+	}
+	return idRange.strLen() <= expandedLen
 }
 
 func (idRange NFTokenIDRange) Len() int {
@@ -63,11 +93,32 @@ func (idRange NFTokenIDRange) Valid() error {
 
 type nfTokenIDRange NFTokenIDRange
 
+func (idRange NFTokenIDRange) String() string {
+	if !idRange.IsStringEfficient() {
+		ids := idRange.Slice()
+		return fmt.Sprintf("%v", ids)
+	}
+	return fmt.Sprintf("%v-%v", idRange.Min, idRange.Max)
+}
+
 func (idRange NFTokenIDRange) MarshalJSON() ([]byte, error) {
 	if err := idRange.Valid(); err != nil {
 		return nil, err
 	}
+	if !idRange.IsJSONEfficient() {
+		ids := idRange.Slice()
+		return json.Marshal(ids)
+	}
 	return json.Marshal(nfTokenIDRange(idRange))
+}
+
+// Slice returns a sorted slice of tkns' NFTokenIDs.
+func (idRange NFTokenIDRange) Slice() []NFTokenID {
+	ids := make([]NFTokenID, idRange.Len())
+	for i := range ids {
+		ids[i] = NFTokenID(i) + idRange.Min
+	}
+	return ids
 }
 
 func (idRange *NFTokenIDRange) UnmarshalJSON(data []byte) error {
@@ -77,7 +128,7 @@ func (idRange *NFTokenIDRange) UnmarshalJSON(data []byte) error {
 	if err := idRange.Valid(); err != nil {
 		return fmt.Errorf("%T: %v", idRange, err)
 	}
-	if len(compactJSON(data)) != idRange.jsonLen() {
+	if len(jsonlen.Compact(data)) != idRange.jsonLen() {
 		return fmt.Errorf("%T: unexpected JSON length", idRange)
 	}
 	return nil
@@ -90,9 +141,6 @@ func (idRange NFTokenIDRange) jsonLen() int {
 		len(`}`)
 }
 
-func compactJSON(data []byte) []byte {
-	buf := bytes.NewBuffer(make([]byte, 0, len(data)))
-	json.Compact(buf, data)
-	cmp, _ := ioutil.ReadAll(buf)
-	return cmp
+func (idRange NFTokenIDRange) strLen() int {
+	return idRange.Min.jsonLen() + len(`-`) + idRange.Max.jsonLen()
 }

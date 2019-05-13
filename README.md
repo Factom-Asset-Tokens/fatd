@@ -1,12 +1,15 @@
 ![](https://png.icons8.com/ios-glyphs/200/5ECCDD/octahedron.png)![](https://png.icons8.com/color/64/3498db/golang.png)
 
-# fatd - Factom Asset Token Daemon v0.4.2 - Alpha
+# fatd - Factom Asset Token Daemon - Alpha
 
 A daemon written in Golang that maintains the current state of Factom Asset
-Tokens (FAT) tokens. Includes a CLI for interacting with the FAT Daemon from
-the command line.
+Tokens (FAT) token chains. The daemon provides a JSON-RPC 2.0 API for accessing
+data about token chains.
 
-Provides a standard RPC API to access FAT data.
+### fat-cli
+A CLI for creating new FAT chains, as well as exploring and making transactions
+on existing FAT chains. See the output from `fat-cli --help` and see
+[CLI.md](CLI.md) for more information.
 
 ## Development Status
 
@@ -30,7 +33,26 @@ reporting bugs! Thank you!
 Pre-compiled binaries for Linux, Windows, and Mac x86\_64 systems can be found
 on the [releases page.](https://github.com/Factom-Asset-Tokens/fatd/releases/)
 
+## Install with Docker 🐳
 
+
+Build the Docker image:
+
+```bash
+$ docker build -t fatd github.com/Factom-Asset-Tokens/fatd
+```
+
+Create a volume for the fatd database:
+
+```bash
+$ docker volume create fatd_db
+```
+
+Run fatd:
+
+```bash
+$ docker run -d --name=fatd --network=host -v "fatd_db:/fatd.db" fatd [fatd options]
+```
 
 ## Building From Source
 
@@ -42,6 +64,11 @@ CGo requires that GCC be available on your system.
 The following dependencies are required to build `fatd` and `fat-cli`.
 - [Golang](https://golang.org/) 1.11.4 or later. The latest official release of
   Golang is always recommended.
+- [goimports](https://godoc.org/golang.org/x/tools/cmd/goimports) is used by
+  the code generation used in the `./factom` package. The code generation step
+is not required as the latest generated code is already checked into the
+repository. Sometimes `make` will try to run this step which will result in an
+error if `goimprots` is not installed.
 - [GNU GCC](https://gcc.gnu.org/) is used by
   [CGo](https://blog.golang.org/c-go-cgo) to link to the SQLite3 shared
 libraries.
@@ -49,8 +76,6 @@ libraries.
   state.
 - [Git](https://git-scm.com/) is used to clone the project and is used by `go
   build` to pull some dependencies.
-- [Bazaar VCS](https://bazaar.canonical.com/en/) is used by `go build` to pull
-  some dependencies.
 - [GNU Bash](https://www.gnu.org/software/bash/) is used by a small script
   which determines a build version number.
 - [GNU Make](https://www.gnu.org/software/make/) is used to execute build
@@ -92,7 +117,7 @@ $ fatd -installcompletion
 Install completion for fatd? y
 Installing...
 Done!
-$ fat-cli -installcompletion
+$ fat-cli --installcompletion
 Install completion for fat-cli? y
 Installing...
 Done!
@@ -168,9 +193,19 @@ For a complete up to date list of flags & options please see `flag/flag.go`
 
 
 
-## Default fatd RPC Endpoint
+## [FAT CLI Documentation](CLI.md)
 
-`http://localhost:8078/v1`
+Interact with the FAT daemon RPC from the command line
+
+[Token Initialization & Transaction Walk Through](docs/ISSUING.md)
+
+
+
+## [RPC API Documentation](RPC.md)
+
+Default `http://localhost:8078/v1`
+
+
 
 
 ## Contributing
@@ -183,10 +218,4 @@ Please attempt to reproduce the issue using the `-debug` flag. For `fatd`,
 please provide the initial output which prints all current settings.
 Intermediate `DEBUG Scanning block 187682 for FAT entries.` lines may be
 omitted, but please provide the first and last of these lines.
-
-## FAT CLI
-
-Interact with the FAT daemon RPC from the command line:
-
-[Token Initialization & Transaction Walk Through](docs/ISSUING.md)
 

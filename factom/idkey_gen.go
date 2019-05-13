@@ -1,3 +1,27 @@
+// MIT License
+//
+// Copyright 2018 Canonical Ledgers, LLC
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to
+// deal in the Software without restriction, including without limitation the
+// rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
+// sell copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+// FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+// IN THE SOFTWARE.
+
+// Code generated DO NOT EDIT
+
 package factom
 
 import (
@@ -7,7 +31,6 @@ import (
 	"golang.org/x/crypto/ed25519"
 )
 
-// Code generated DO NOT EDIT
 // Defines IDKeys ID1Key - ID4Key and corresponding SKKeys SK1Key - SK4Key.
 
 var (
@@ -120,6 +143,16 @@ func (key ID1Key) String() string {
 // key.PrefixBytes().
 func (key SK1Key) String() string {
 	return key.payload().StringPrefix(key.PrefixBytes())
+}
+
+// Type returns PrefixString() satisfies the pflag.Value interface.
+func (ID1Key) Type() string {
+	return id1PrefixStr
+}
+
+// Type returns PrefixString() satisfies the pflag.Value interface.
+func (SK1Key) Type() string {
+	return sk1PrefixStr
 }
 
 // MarshalJSON encodes key as a JSON string using key.String().
@@ -303,6 +336,16 @@ func (key SK2Key) String() string {
 	return key.payload().StringPrefix(key.PrefixBytes())
 }
 
+// Type returns PrefixString() satisfies the pflag.Value interface.
+func (ID2Key) Type() string {
+	return id2PrefixStr
+}
+
+// Type returns PrefixString() satisfies the pflag.Value interface.
+func (SK2Key) Type() string {
+	return sk2PrefixStr
+}
+
 // MarshalJSON encodes key as a JSON string using key.String().
 func (key ID2Key) MarshalJSON() ([]byte, error) {
 	return key.payload().MarshalJSONPrefix(key.PrefixBytes())
@@ -484,6 +527,16 @@ func (key SK3Key) String() string {
 	return key.payload().StringPrefix(key.PrefixBytes())
 }
 
+// Type returns PrefixString() satisfies the pflag.Value interface.
+func (ID3Key) Type() string {
+	return id3PrefixStr
+}
+
+// Type returns PrefixString() satisfies the pflag.Value interface.
+func (SK3Key) Type() string {
+	return sk3PrefixStr
+}
+
 // MarshalJSON encodes key as a JSON string using key.String().
 func (key ID3Key) MarshalJSON() ([]byte, error) {
 	return key.payload().MarshalJSONPrefix(key.PrefixBytes())
@@ -663,6 +716,16 @@ func (key ID4Key) String() string {
 // key.PrefixBytes().
 func (key SK4Key) String() string {
 	return key.payload().StringPrefix(key.PrefixBytes())
+}
+
+// Type returns PrefixString() satisfies the pflag.Value interface.
+func (ID4Key) Type() string {
+	return id4PrefixStr
+}
+
+// Type returns PrefixString() satisfies the pflag.Value interface.
+func (SK4Key) Type() string {
+	return sk4PrefixStr
 }
 
 // MarshalJSON encodes key as a JSON string using key.String().

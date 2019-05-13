@@ -1,58 +1,32 @@
+// MIT License
+//
+// Copyright 2018 Canonical Ledgers, LLC
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to
+// deal in the Software without restriction, including without limitation the
+// rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
+// sell copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+// FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+// IN THE SOFTWARE.
+
 package main
 
-import (
-	"fmt"
-	"os"
-)
+import "github.com/Factom-Asset-Tokens/fatd/cli/cmd"
 
-var Revision string
-
-func _main() error {
-	ParseCLI()
-	// Attempt to run the completion program.
-	if Completion.Complete() {
-		// The completion program ran, so just return.
-		return nil
-	}
-	if err := Validate(); err != nil {
-		return err
-	}
-
-	var cmdFunc func() error
-	var ok bool
-	if cmdFunc, ok = cmdFuncMap[SubCommand]; !ok {
-		cmdFunc = usage
-	}
-	if err := cmdFunc(); err != nil {
-		return err
-	}
-
-	return nil
-}
 func main() {
-	if err := _main(); err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+	if cmd.Complete() {
+		return
 	}
-}
-
-func usage() error {
-	fmt.Println(`usage: fat-cli CHAIN_FLAGS [GLOBAL_FLAGS] COMMAND COMMAND_FLAGS
-        CHAIN_FLAGS: -chainid OR -token AND -identity
-        GLOBAL_FLAGS: -s, -w, -apiaddress, ...
-        COMMAND: balance OR issue OR transact`)
-	return nil
-}
-
-var cmdFuncMap = map[string]func() error{
-	"issue":          issue,
-	"transactFAT0":   transactFAT0,
-	"transactFAT1":   transactFAT1,
-	"balance":        getBalance,
-	"getissuance":    getIssuance,
-	"getstats":       getStats,
-	"listtokens":     listTokens,
-	"gettransaction": getTransaction,
-	"usage":          usage,
-	"version":        version,
+	cmd.Execute()
 }
