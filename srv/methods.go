@@ -86,7 +86,7 @@ func getIssuance(entry bool) jrpc.MethodFunc {
 				TokenID:       chain.Token,
 				IssuerChainID: chain.Identity.ChainID,
 			},
-			Hash:      chain.Hash,
+			Hash:      chain.Issuance.Hash,
 			Timestamp: *chain.Issuance.Timestamp,
 			Issuance:  chain.Issuance,
 		}

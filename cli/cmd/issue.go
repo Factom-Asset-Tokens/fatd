@@ -65,12 +65,12 @@ issue --ecadr <EC | Es> --sk1 <sk1-key>
 		Long: `
 Issue a new FAT-0 or FAT-1 token chain.
 
-Issuing a new FAT token chain is a two step process.
+Issuing a new FAT token chain involves submitting two Factom entries.
 
-First the Token Chain must be created with the correct Name IDs on the Factom
+First, the Token Chain must be created with the correct Name IDs on the Factom
 Blockchain. So both --tokenid and --identity are required and use of --chainid
-is not allowed for this step. If the Chain Creation Entry has already been
-submitted then this step is skipped over.
+is not allowed. Submitting the Chain Creation Entry will be skipped if it
+already exists.
 
 Second, the Token Initialization Entry must be added to the Token Chain. The
 Token Initialization Entry must be signed by the SK1 key corresponding to the
