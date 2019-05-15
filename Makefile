@@ -26,8 +26,8 @@ race: fatd.race fat-cli.race
 
 distribution: fatd-distribution fat-cli-distribution
 
-fatd-distribution: fatd.app fatd.exe fatd-linux
-fat-cli-distribution: fat-cli.app fat-cli.exe fat-cli-linux
+fatd-distribution: fatd.mac fatd.exe fatd-linux
+fat-cli-distribution: fat-cli.mac fat-cli.exe fat-cli-linux
 
 REVISION     = $(shell ./revision)
 
@@ -59,8 +59,8 @@ fat-cli.race: $(CLISRC)
 	go build -race -ldflags=$(CLI_LDFLAGS) -o fat-cli.race ./cli
 
 
-fatd.app: $(FATDSRC)
-	env GOOS=darwin GOARCH=amd64 go build -ldflags=$(FATD_LDFLAGS) -o fatd.app ./
+fatd.mac: $(FATDSRC)
+	env GOOS=darwin GOARCH=amd64 go build -ldflags=$(FATD_LDFLAGS) -o fatd.mac ./
 
 fatd.exe: $(FATDSRC)
 	env GOOS=windows GOARCH=amd64 go build -ldflags=$(FATD_LDFLAGS) -o fatd.exe ./
@@ -68,8 +68,8 @@ fatd.exe: $(FATDSRC)
 fatd-linux: $(FATDSRC)
 	env GOOS=linux GOARCH=amd64 go build -ldflags=$(FATD_LDFLAGS) ./
 
-fat-cli.app: $(CLISRC)
-	env GOOS=darwin GOARCH=amd64 go build -ldflags=$(CLI_LDFLAGS) -o fat-cli.app ./
+fat-cli.mac: $(CLISRC)
+	env GOOS=darwin GOARCH=amd64 go build -ldflags=$(CLI_LDFLAGS) -o fat-cli.mac ./
 
 fat-cli.exe: $(CLISRC)
 	env GOOS=windows GOARCH=amd64 go build -ldflags=$(CLI_LDFLAGS) -o fat-cli.exe ./
@@ -84,7 +84,7 @@ $(GENSRC): factom/gen.go  factom/genmain.go $(wildcard factom/*.tmpl)
 .PHONY: clean clean-gen purge-db unpurge-db
 
 clean:
-	rm -f ./fatd ./fatd.app ./fatd.exe ./fat-cli ./fat-cli.app ./fat-cli.exe ./fatd.race ./fat-cli.race
+	rm -f ./fatd ./fatd.mac ./fatd.exe ./fat-cli ./fat-cli.mac ./fat-cli.exe ./fatd.race ./fat-cli.race
 
 clean-gen:
 	rm -f $(GENSRC)
