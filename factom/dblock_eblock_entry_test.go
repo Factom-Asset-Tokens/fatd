@@ -34,8 +34,9 @@ import (
 var courtesyNode = "https://courtesy-node.factom.com"
 
 func TestDataStructures(t *testing.T) {
-	height := uint64(166587)
+	height := uint32(166587)
 	c := NewClient()
+	c.Factomd.DebugRequest = true
 	db := &DBlock{Height: height}
 	t.Run("DBlock", func(t *testing.T) {
 		assert := assert.New(t)
@@ -51,7 +52,7 @@ func TestDataStructures(t *testing.T) {
 		c.FactomdServer = courtesyNode
 		require.NoError(db.Get(c))
 
-		require.True(db.IsPopulated())
+		require.True(db.IsPopulated(), db)
 		assert.NoError(db.Get(c)) // Take the early exit code path.
 
 		// Validate this DBlock.
@@ -61,6 +62,36 @@ func TestDataStructures(t *testing.T) {
 			assert.NotNil(eb.ChainID)
 			assert.NotNil(eb.KeyMR)
 		}
+
+		dbk := DBlock{KeyMR: db.KeyMR, FullHash: db.FullHash}
+		require.NoError(dbk.Get(c))
+		assert.Equal(*db, dbk)
+
+		params := struct {
+			Hash *Bytes32 `json:"hash"`
+		}{Hash: db.KeyMR}
+		var result struct {
+			Data Bytes `json:"data"`
+		}
+		require.NoError(c.FactomdRequest("raw-data", params, &result))
+
+		data, err := db.MarshalBinary()
+		require.NoError(err)
+		for i := range result.Data {
+			assert.Equal(result.Data[i], data[i], i)
+		}
+
+		full, err := dbk.ComputeFullHash()
+		require.NoError(err, "ComputeFullHash()")
+		assert.Equal(*db.FullHash, full, "ComputeFullHash()")
+
+		bodyMR, err := dbk.ComputeBodyMR()
+		require.NoError(err, "ComputeBodyMR()")
+		assert.Equal(*db.Header.BodyMR, bodyMR, "ComputeBodyMR()")
+
+		keyMR, err := dbk.ComputeKeyMR()
+		require.NoError(err, "ComputeKeyMR()")
+		assert.Equal(*db.KeyMR, keyMR, "ComputeKeyMR()")
 	})
 	t.Run("EBlock", func(t *testing.T) {
 		assert := assert.New(t)

@@ -3,7 +3,8 @@ module github.com/Factom-Asset-Tokens/fatd
 go 1.12
 
 require (
-	github.com/AdamSLevy/jsonrpc2/v11 v11.3.1
+	github.com/AdamSLevy/go-merkle v0.0.0-20190611101253-ca33344a884d
+	github.com/AdamSLevy/jsonrpc2/v11 v11.3.2
 	github.com/Factom-Asset-Tokens/base58 v0.0.0-20181227014902-61655c4dd885
 	github.com/erikstmartin/go-testdb v0.0.0-20160219214506-8d10e4a1bae5 // indirect
 	github.com/gocraft/dbr v0.0.0-20190131145710-48a049970bd2

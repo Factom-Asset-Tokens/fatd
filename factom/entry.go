@@ -54,7 +54,7 @@ type Entry struct {
 	Hash      *Bytes32 `json:"entryhash,omitempty"`
 	Timestamp *Time    `json:"timestamp,omitempty"`
 	ChainID   *Bytes32 `json:"chainid,omitempty"`
-	Height    uint64   `json:"-"`
+	Height    uint32   `json:"-"`
 
 	// Entry.Get populates the Content and ExtIDs.
 	ExtIDs  []Bytes `json:"extids"`
@@ -180,9 +180,9 @@ func (e *Entry) ComposeCreate(c *Client, es EsAddress) (*Bytes32, error) {
 func (c *Client) Commit(commit []byte) error {
 	var method string
 	switch len(commit) {
-	case commitSize:
+	case commitLen:
 		method = "commit-entry"
-	case chainCommitSize:
+	case chainCommitLen:
 		method = "commit-chain"
 	default:
 		return fmt.Errorf("invalid length")
@@ -209,13 +209,13 @@ func (c *Client) Reveal(reveal []byte) error {
 }
 
 const (
-	commitSize = 1 + // version
+	commitLen = 1 + // version
 		6 + // timestamp
 		32 + // entry hash
 		1 + // ec cost
 		32 + // ec pub
 		64 // sig
-	chainCommitSize = 1 + // version
+	chainCommitLen = 1 + // version
 		6 + // timestamp
 		32 + // chain id hash
 		32 + // commit weld
@@ -239,9 +239,9 @@ func (e *Entry) Compose(es EsAddress) (commit []byte, reveal []byte, txID *Bytes
 		return
 	}
 
-	size := commitSize
+	size := commitLen
 	if newChain {
-		size = chainCommitSize
+		size = chainCommitLen
 	}
 	commit = make([]byte, size)
 
@@ -294,7 +294,7 @@ const NewChainCost = 10
 // EntryCost returns the required Entry Credit cost for an entry with encoded
 // length equal to size. An error is returned if size exceeds 10275.
 func EntryCost(size int) (int8, error) {
-	size -= headerLen
+	size -= EntryHeaderLen
 	if size > 10240 {
 		return 0, fmt.Errorf("Entry cannot be larger than 10KB")
 	}
@@ -324,7 +324,7 @@ func (e Entry) MarshalBinaryLen() int {
 	for _, extID := range e.ExtIDs {
 		extIDTotalLen += len(extID)
 	}
-	return extIDTotalLen + len(e.Content) + headerLen
+	return extIDTotalLen + len(e.Content) + EntryHeaderLen
 }
 
 // MarshalBinary marshals the entry to its binary representation. See
@@ -333,7 +333,7 @@ func (e Entry) MarshalBinaryLen() int {
 // the reveal data.
 func (e *Entry) MarshalBinary() ([]byte, error) {
 	totalLen := e.MarshalBinaryLen()
-	if totalLen > maxDataLen {
+	if totalLen > EntryMaxTotalLen {
 		return nil, fmt.Errorf("Entry cannot be larger than 10KB")
 	}
 	if e.ChainID == nil {
@@ -344,12 +344,15 @@ func (e *Entry) MarshalBinary() ([]byte, error) {
 	data := make([]byte, totalLen)
 	i := 1
 	i += copy(data[i:], e.ChainID[:])
-	i += copy(data[i:], bigEndian(totalLen-len(e.Content)-headerLen))
+	binary.BigEndian.PutUint16(data[i:i+2],
+		uint16(totalLen-len(e.Content)-EntryHeaderLen))
+	i += 2
 
 	// Payload
 	for _, extID := range e.ExtIDs {
 		n := len(extID)
-		i += copy(data[i:], bigEndian(n))
+		binary.BigEndian.PutUint16(data[i:i+2], uint16(n))
+		i += 2
 		i += copy(data[i:], extID)
 	}
 	copy(data[i:], e.Content)
@@ -360,12 +363,12 @@ func (e *Entry) MarshalBinary() ([]byte, error) {
 }
 
 const (
-	headerLen = 1 + // version
+	EntryHeaderLen = 1 + // version
 		32 + // chain id
 		2 // total len
 
-	maxDataLen  = 10240
-	maxTotalLen = 10240 + headerLen
+	EntryMaxDataLen  = 10240
+	EntryMaxTotalLen = EntryMaxDataLen + EntryHeaderLen
 )
 
 // UnmarshalBinary unmarshals raw entry data. It does not populate the
@@ -381,26 +384,26 @@ const (
 //
 // https://github.com/FactomProject/FactomDocs/blob/master/factomDataStructureDetails.md#entry
 func (e *Entry) UnmarshalBinary(data []byte) error {
-	if len(data) < headerLen {
+	if len(data) < EntryHeaderLen {
 		return fmt.Errorf("insufficient length")
 	}
-	if len(data) > headerLen+10240 {
+	if len(data) > EntryMaxTotalLen {
 		return fmt.Errorf("invalid length")
 	}
 	if data[0] != 0x00 {
 		return fmt.Errorf("invalid version byte")
 	}
 	chainID := data[1:33]
-	extIDTotalLen := parseBigEndian(data[33:35])
-	if extIDTotalLen == 1 || headerLen+extIDTotalLen > len(data) {
+	extIDTotalLen := int(binary.BigEndian.Uint16(data[33:35]))
+	if extIDTotalLen == 1 || EntryHeaderLen+extIDTotalLen > len(data) {
 		return fmt.Errorf("invalid ExtIDs length")
 	}
 
 	extIDs := []Bytes{}
-	pos := headerLen
-	for pos < headerLen+extIDTotalLen {
-		extIDLen := parseBigEndian(data[pos : pos+2])
-		if pos+2+extIDLen > headerLen+extIDTotalLen {
+	pos := EntryHeaderLen
+	for pos < EntryHeaderLen+extIDTotalLen {
+		extIDLen := int(binary.BigEndian.Uint16(data[pos : pos+2]))
+		if pos+2+extIDLen > EntryHeaderLen+extIDTotalLen {
 			return fmt.Errorf("error parsing ExtIDs")
 		}
 		pos += 2
@@ -411,12 +414,6 @@ func (e *Entry) UnmarshalBinary(data []byte) error {
 	e.ExtIDs = extIDs
 	e.ChainID = NewBytes32(chainID)
 	return nil
-}
-func bigEndian(x int) []byte {
-	return []byte{byte(x >> 8), byte(x)}
-}
-func parseBigEndian(data []byte) int {
-	return int(data[0])<<8 + int(data[1])
 }
 
 // ComputeHash returns the Entry's hash as computed by hashing the binary

@@ -89,22 +89,22 @@ func engine() {
 
 var (
 	synced                    bool
-	syncHeight, currentHeight uint64
+	syncHeight, currentHeight uint32
 	heightMtx                 = &sync.RWMutex{}
 )
 
-func GetSyncStatus() (sync, current uint64) {
+func GetSyncStatus() (sync, current uint32) {
 	heightMtx.RLock()
 	defer heightMtx.RUnlock()
 	return syncHeight, currentHeight
 }
 
-func setSyncHeight(sync uint64) {
+func setSyncHeight(sync uint32) {
 	heightMtx.Lock()
 	defer heightMtx.Unlock()
 	syncHeight = sync
 }
-func setCurrentHeight(current uint64) {
+func setCurrentHeight(current uint32) {
 	heightMtx.Lock()
 	defer heightMtx.Unlock()
 	currentHeight = current
@@ -117,7 +117,7 @@ func scanNewBlocks() error {
 	if err != nil {
 		return fmt.Errorf("factom.Heights.Get(c): %v", err)
 	}
-	setCurrentHeight(uint64(heights.Entry))
+	setCurrentHeight(heights.Entry)
 	if !synced && currentHeight > state.SavedHeight {
 		log.Infof("Syncing from block %v to %v...",
 			state.SavedHeight, currentHeight)

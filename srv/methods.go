@@ -548,8 +548,8 @@ func getDaemonProperties(data json.RawMessage) interface{} {
 }
 
 type ResultGetSyncStatus struct {
-	Sync    uint64 `json:"syncheight"`
-	Current uint64 `json:"factomheight"`
+	Sync    uint32 `json:"syncheight"`
+	Current uint32 `json:"factomheight"`
 }
 
 func getSyncStatus(data json.RawMessage) interface{} {

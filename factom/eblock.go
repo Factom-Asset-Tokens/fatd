@@ -44,7 +44,7 @@ type EBlock struct {
 // Block response from the factomd JSON RPC API.
 type EBlockHeader struct {
 	PrevKeyMR *Bytes32 `json:"prevkeymr,omitempty"`
-	Height    uint64   `json:"dbheight"`
+	Height    uint32   `json:"dbheight"`
 }
 
 // IsPopulated returns true if eb has already been successfully populated by a

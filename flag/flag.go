@@ -144,8 +144,8 @@ var (
 		"-ecadr": predictAddress(false, 1, "-ecadr", ""),
 	}
 
-	startScanHeight uint64      // We parse the flag as unsigned.
-	StartScanHeight int64  = -1 // We work with the signed value.
+	startScanHeight uint32      // We parse the flag as unsigned.
+	StartScanHeight int32  = -1 // We work with the signed value.
 	LogDebug        bool
 
 	EsAdr factom.EsAddress
@@ -228,7 +228,7 @@ func Parse() {
 	loadFromEnv(&EsAdr, "esadr")
 
 	if flagset["startscanheight"] {
-		StartScanHeight = int64(startScanHeight)
+		StartScanHeight = int32(startScanHeight)
 	}
 }
 

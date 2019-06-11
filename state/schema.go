@@ -33,7 +33,7 @@ import (
 type Metadata struct {
 	gorm.Model
 
-	Height uint64
+	Height uint32
 
 	Token  string
 	Issuer *factom.Bytes32
