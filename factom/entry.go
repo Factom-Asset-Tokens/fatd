@@ -56,7 +56,7 @@ func ChainID(nameIDs []Bytes) Bytes32 {
 type Entry struct {
 	// EBlock.Get populates the Hash, Timestamp, ChainID, and Height.
 	Hash      *Bytes32  `json:"entryhash,omitempty"`
-	Timestamp time.Time `json:"timestamp,omitempty"`
+	Timestamp time.Time `json:"-"`
 	ChainID   *Bytes32  `json:"chainid,omitempty"`
 	Height    uint32
 
@@ -82,6 +82,9 @@ func (e *Entry) Get(c *Client) error {
 	// If the Hash is nil then we have nothing to query for.
 	if e.Hash == nil {
 		return fmt.Errorf("Hash is nil")
+	}
+	if e.ChainID == nil {
+		return fmt.Errorf("ChainID is nil")
 	}
 	// If the Entry is already populated then there is nothing to do. If
 	// the Hash is nil, we cannot populate it anyway.

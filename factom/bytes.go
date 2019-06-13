@@ -47,6 +47,14 @@ func NewBytes32(s32 []byte) *Bytes32 {
 	return b32
 }
 
+// NewBytes32FromString allocates a new Bytes32 object with the hex encoded
+// string data contained in s32.
+func NewBytes32FromString(s32 string) *Bytes32 {
+	b32 := new(Bytes32)
+	b32.Set(s32)
+	return b32
+}
+
 // Set decodes a string with exactly 32 bytes of hex encoded data.
 func (b *Bytes32) Set(hexStr string) error {
 	if len(hexStr) == 0 {

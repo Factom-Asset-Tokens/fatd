@@ -334,8 +334,8 @@ func (db DBlock) ComputeKeyMR() (Bytes32, error) {
 	return sha256.Sum256(data), nil
 }
 
-// EBlock efficiently finds the *EBlock in db.EBlocks for the given chainID, if
-// it exists. Otherwise, EBlock returns nil.
+// EBlock efficiently finds and returns the *EBlock in db.EBlocks for the given
+// chainID, if it exists. Otherwise, EBlock returns nil.
 func (db DBlock) EBlock(chainID Bytes32) *EBlock {
 	ei := sort.Search(len(db.EBlocks), func(i int) bool {
 		return bytes.Compare(db.EBlocks[i].ChainID[:], chainID[:]) >= 0
