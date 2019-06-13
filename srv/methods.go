@@ -65,7 +65,7 @@ var jrpcMethods = jrpc.MethodMap{
 type ResultGetIssuance struct {
 	ParamsToken
 	Hash      *factom.Bytes32 `json:"entryhash"`
-	Timestamp factom.Time     `json:"timestamp"`
+	Timestamp int64           `json:"timestamp"`
 	Issuance  fat.Issuance    `json:"issuance"`
 }
 
@@ -87,7 +87,7 @@ func getIssuance(entry bool) jrpc.MethodFunc {
 				IssuerChainID: chain.Identity.ChainID,
 			},
 			Hash:      chain.Issuance.Hash,
-			Timestamp: *chain.Issuance.Timestamp,
+			Timestamp: chain.Issuance.Timestamp.Unix(),
 			Issuance:  chain.Issuance,
 		}
 	}
@@ -95,7 +95,7 @@ func getIssuance(entry bool) jrpc.MethodFunc {
 
 type ResultGetTransaction struct {
 	Hash      *factom.Bytes32 `json:"entryhash"`
-	Timestamp factom.Time     `json:"timestamp"`
+	Timestamp int64           `json:"timestamp"`
 	Tx        interface{}     `json:"data"`
 }
 
@@ -127,7 +127,7 @@ func getTransaction(getEntry bool) jrpc.MethodFunc {
 			}
 			return ResultGetTransaction{
 				Hash:      tx.Hash,
-				Timestamp: *tx.Timestamp,
+				Timestamp: tx.Timestamp.Unix(),
 				Tx:        tx,
 			}
 		case fat1.Type:
@@ -137,7 +137,7 @@ func getTransaction(getEntry bool) jrpc.MethodFunc {
 			}
 			return ResultGetTransaction{
 				Hash:      tx.Hash,
-				Timestamp: *tx.Timestamp,
+				Timestamp: tx.Timestamp.Unix(),
 				Tx:        tx,
 			}
 		default:
@@ -191,7 +191,7 @@ func getTransactions(getEntry bool) jrpc.MethodFunc {
 					panic(err)
 				}
 				txs[i].Hash = entries[i].Hash
-				txs[i].Timestamp = *entries[i].Timestamp
+				txs[i].Timestamp = entries[i].Timestamp.Unix()
 				txs[i].Tx = tx
 			}
 			return txs
@@ -203,7 +203,7 @@ func getTransactions(getEntry bool) jrpc.MethodFunc {
 					panic(err)
 				}
 				txs[i].Hash = entries[i].Hash
-				txs[i].Timestamp = *entries[i].Timestamp
+				txs[i].Timestamp = entries[i].Timestamp.Unix()
 				txs[i].Tx = tx
 			}
 			return txs
@@ -259,11 +259,11 @@ func getNFBalance(data json.RawMessage) interface{} {
 type ResultGetStats struct {
 	ParamsToken
 	Issuance                 *fat.Issuance
-	CirculatingSupply        uint64       `json:"circulating"`
-	Burned                   uint64       `json:"burned"`
-	Transactions             int          `json:"transactions"`
-	IssuanceTimestamp        factom.Time  `json:"issuancets"`
-	LastTransactionTimestamp *factom.Time `json:"lasttxts,omitempty"`
+	CirculatingSupply        uint64 `json:"circulating"`
+	Burned                   uint64 `json:"burned"`
+	Transactions             int    `json:"transactions"`
+	IssuanceTimestamp        int64  `json:"issuancets"`
+	LastTransactionTimestamp int64  `json:"lasttxts,omitempty"`
 }
 
 var coinbaseRCDHash = fat.Coinbase()
@@ -285,15 +285,15 @@ func getStats(data json.RawMessage) interface{} {
 		panic(err)
 	}
 
-	var lastTxTs *factom.Time
+	var lastTxTs int64
 	if len(txs) > 0 {
-		lastTxTs = txs[len(txs)-1].Timestamp
+		lastTxTs = txs[len(txs)-1].Timestamp.Unix()
 	}
 	res := ResultGetStats{
 		CirculatingSupply:        chain.Issued - burned,
 		Burned:                   burned,
 		Transactions:             len(txs),
-		IssuanceTimestamp:        *chain.Issuance.Timestamp,
+		IssuanceTimestamp:        chain.Issuance.Timestamp.Unix(),
 		LastTransactionTimestamp: lastTxTs,
 	}
 	if chain.IsIssued() {

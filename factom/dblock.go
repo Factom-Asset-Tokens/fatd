@@ -23,11 +23,13 @@
 package factom
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"math"
+	"sort"
 	"time"
 
 	merkle "github.com/AdamSLevy/go-merkle"
@@ -50,28 +52,31 @@ type DBlock struct {
 
 	Header DBlockHeader `json:"header"`
 
-	Height uint32 `json:"dbheight"`
-
 	// DBlock.Get populates EBlocks with their ChainID and KeyMR.
 	EBlocks []EBlock `json:"dbentries,omitempty"`
 }
 
 type DBlockHeader struct {
-	NetworkID    [4]byte  `json:"networkid"`
+	NetworkID [4]byte `json:"networkid"`
+
 	BodyMR       *Bytes32 `json:"bodymr"`
 	PrevKeyMR    *Bytes32 `json:"prevkeymr"`
 	PrevFullHash *Bytes32 `json:"prevfullhash"`
 
-	Timestamp time.Time `json:"timestamp"`
+	Height uint32 `json:"dbheight"`
+
+	Timestamp time.Time `json:"-"`
+}
+
+type dBH DBlockHeader
+type dBHs struct {
+	*dBH
+	NetworkID uint32 `json:"networkid"`
+	Timestamp int64  `json:"timestamp"`
 }
 
 func (dbh *DBlockHeader) UnmarshalJSON(data []byte) error {
-	type dBlockHeader DBlockHeader
-	d := struct {
-		*dBlockHeader
-		NetworkID uint32 `json:"networkid"`
-		Timestamp int64  `json:"timestamp"`
-	}{dBlockHeader: (*dBlockHeader)(dbh)}
+	d := dBHs{dBH: (*dBH)(dbh)}
 	if err := json.Unmarshal(data, &d); err != nil {
 		return err
 	}
@@ -80,22 +85,45 @@ func (dbh *DBlockHeader) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+func (dbh *DBlockHeader) MarshalJSON() ([]byte, error) {
+	d := dBHs{
+		(*dBH)(dbh),
+		binary.BigEndian.Uint32(dbh.NetworkID[:]),
+		dbh.Timestamp.Unix() / 60,
+	}
+	return json.Marshal(d)
+}
+
 // IsPopulated returns true if db has already been successfully populated by a
 // call to Get. IsPopulated returns false if db.EBlocks is nil.
 func (db DBlock) IsPopulated() bool {
-	return db.EBlocks != nil &&
+	return len(db.EBlocks) > 0 &&
 		db.Header.BodyMR != nil &&
 		db.Header.PrevKeyMR != nil &&
 		db.Header.PrevFullHash != nil
 }
 
-// Get queries factomd for the Directory Block at db.Height. After a successful
-// call, the EBlocks will all have their ChainID and KeyMR, but not their
-// Entries. Call Get on the EBlocks individually to populate their Entries.
-func (db *DBlock) Get(c *Client) error {
+// Get queries factomd for the Directory Block at db.Header.Height. After a
+// successful call, the EBlocks will all have their ChainID and KeyMR, but not
+// their Entries. Call Get on the EBlocks individually to populate their
+// Entries.
+func (db *DBlock) Get(c *Client) (err error) {
 	if db.IsPopulated() {
 		return nil
 	}
+	defer func() {
+		if err != nil {
+			return
+		}
+		var keyMR Bytes32
+		if keyMR, err = db.ComputeKeyMR(); err != nil {
+			return
+		}
+		if *db.KeyMR != keyMR {
+			err = fmt.Errorf("invalid key merkle root")
+			return
+		}
+	}()
 
 	if db.KeyMR != nil {
 		params := struct {
@@ -112,13 +140,18 @@ func (db *DBlock) Get(c *Client) error {
 
 	params := struct {
 		Height uint32 `json:"height"`
-	}{db.Height}
+	}{db.Header.Height}
 	result := struct {
-		DBlock  *DBlock
-		RawData Bytes `json:"rawdata"`
+		DBlock *DBlock
 	}{DBlock: db}
 	if err := c.FactomdRequest("dblock-by-height", params, &result); err != nil {
 		return err
+	}
+
+	for ebi := range db.EBlocks {
+		eb := &db.EBlocks[ebi]
+		eb.Timestamp = db.Header.Timestamp
+		eb.Height = db.Header.Height
 	}
 
 	return nil
@@ -192,7 +225,7 @@ func (db *DBlock) UnmarshalBinary(data []byte) error {
 	i += copy(db.Header.PrevFullHash[:], data[i:i+len(db.Header.PrevFullHash)])
 	db.Header.Timestamp = time.Unix(int64(binary.BigEndian.Uint32(data[i:i+4]))*60, 0)
 	i += 4
-	db.Height = binary.BigEndian.Uint32(data[i : i+4])
+	db.Header.Height = binary.BigEndian.Uint32(data[i : i+4])
 	i += 4
 	ebsLen := int(binary.BigEndian.Uint32(data[i : i+4]))
 	i += 4
@@ -206,6 +239,9 @@ func (db *DBlock) UnmarshalBinary(data []byte) error {
 		i += copy(eb.ChainID[:], data[i:i+len(eb.ChainID)])
 		eb.KeyMR = new(Bytes32)
 		i += copy(eb.KeyMR[:], data[i:i+len(eb.KeyMR)])
+
+		eb.Timestamp = db.Header.Timestamp
+		eb.Height = db.Header.Height
 	}
 	return nil
 }
@@ -224,6 +260,9 @@ func (db *DBlock) MarshalBinary() ([]byte, error) {
 }
 
 func (db *DBlock) MarshalBinaryHeader() ([]byte, error) {
+	if !db.IsPopulated() {
+		return nil, fmt.Errorf("not populated")
+	}
 	totalLen := db.MarshalBinaryLen()
 	if totalLen > DBlockMaxTotalLen {
 		return nil, fmt.Errorf("too many EBlocks")
@@ -236,7 +275,7 @@ func (db *DBlock) MarshalBinaryHeader() ([]byte, error) {
 	i += copy(data[i:], db.Header.PrevFullHash[:])
 	binary.BigEndian.PutUint32(data[i:], uint32(db.Header.Timestamp.Unix()/60))
 	i += 4
-	binary.BigEndian.PutUint32(data[i:], db.Height)
+	binary.BigEndian.PutUint32(data[i:], db.Header.Height)
 	i += 4
 	binary.BigEndian.PutUint32(data[i:], uint32(len(db.EBlocks)))
 	i += 4
@@ -248,7 +287,6 @@ func (db *DBlock) MarshalBinaryLen() int {
 }
 
 func (db DBlock) ComputeBodyMR() (Bytes32, error) {
-	var bodyMR Bytes32
 	blocks := make([][]byte, len(db.EBlocks))
 	for i, eb := range db.EBlocks {
 		blocks[i] = make([]byte, len(eb.ChainID)+len(eb.KeyMR))
@@ -257,9 +295,10 @@ func (db DBlock) ComputeBodyMR() (Bytes32, error) {
 	}
 	tree := merkle.NewTreeWithOpts(merkle.TreeOptions{DoubleOddNodes: true})
 	if err := tree.Generate(blocks, sha256.New()); err != nil {
-		return bodyMR, err
+		return Bytes32{}, err
 	}
 	root := tree.Root()
+	var bodyMR Bytes32
 	copy(bodyMR[:], root.Hash)
 	return bodyMR, nil
 }
@@ -293,4 +332,16 @@ func (db DBlock) ComputeKeyMR() (Bytes32, error) {
 	i := copy(data, headerHash[:])
 	copy(data[i:], bodyMR[:])
 	return sha256.Sum256(data), nil
+}
+
+// EBlock efficiently finds the *EBlock in db.EBlocks for the given chainID, if
+// it exists. Otherwise, EBlock returns nil.
+func (db DBlock) EBlock(chainID Bytes32) *EBlock {
+	ei := sort.Search(len(db.EBlocks), func(i int) bool {
+		return bytes.Compare(db.EBlocks[i].ChainID[:], chainID[:]) >= 0
+	})
+	if ei < len(db.EBlocks) && *db.EBlocks[ei].ChainID == chainID {
+		return &db.EBlocks[ei]
+	}
+	return nil
 }

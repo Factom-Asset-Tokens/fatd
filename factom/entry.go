@@ -48,13 +48,17 @@ func ChainID(nameIDs []Bytes) Bytes32 {
 	return chainID
 }
 
-// Entry represents a Factom Entry.
+// Entry represents a Factom Entry with some additional useful fields. Both
+// Timestamp and Height are not included in the entry binary structure or hash.
+// These fields will only be populated if this Entry was initially part of a
+// populated EBlock, and can be manipulated in this type without affecting the
+// Entry Hash.
 type Entry struct {
 	// EBlock.Get populates the Hash, Timestamp, ChainID, and Height.
-	Hash      *Bytes32 `json:"entryhash,omitempty"`
-	Timestamp *Time    `json:"timestamp,omitempty"`
-	ChainID   *Bytes32 `json:"chainid,omitempty"`
-	Height    uint32   `json:"-"`
+	Hash      *Bytes32  `json:"entryhash,omitempty"`
+	Timestamp time.Time `json:"timestamp,omitempty"`
+	ChainID   *Bytes32  `json:"chainid,omitempty"`
+	Height    uint32
 
 	// Entry.Get populates the Content and ExtIDs.
 	ExtIDs  []Bytes `json:"extids"`
@@ -68,9 +72,7 @@ func (e Entry) IsPopulated() bool {
 	return e.ExtIDs != nil &&
 		e.Content != nil &&
 		e.ChainID != nil &&
-		e.Hash != nil &&
-		e.Timestamp != nil &&
-		*e.Timestamp != Time{}
+		e.Hash != nil
 }
 
 // Get queries factomd for the entry corresponding to e.Hash, which must be not
@@ -95,19 +97,22 @@ func (e *Entry) Get(c *Client) error {
 	if err := c.FactomdRequest("raw-data", params, &result); err != nil {
 		return err
 	}
+	if EntryHash(result.Data) != *e.Hash {
+		return fmt.Errorf("invalid hash")
+	}
 	return e.UnmarshalBinary(result.Data)
 }
 
 type chainFirstEntryParams struct {
-	*Entry `json:"firstentry"`
+	Entry *Entry `json:"firstentry"`
 }
 type composeChainParams struct {
 	Chain chainFirstEntryParams `json:"chain"`
 	EC    ECAddress             `json:"ecpub"`
 }
 type composeEntryParams struct {
-	*Entry `json:"entry"`
-	EC     ECAddress `json:"ecpub"`
+	Entry *Entry    `json:"entry"`
+	EC    ECAddress `json:"ecpub"`
 }
 
 type composeJRPC struct {
@@ -372,11 +377,11 @@ const (
 )
 
 // UnmarshalBinary unmarshals raw entry data. It does not populate the
-// Entry.Hash. Entries are encoded as follows and use big endian uint16:
+// Entry.Hash. Entries are encoded as follows:
 //
 // [Version byte (0x00)] +
 // [ChainID (Bytes32)] +
-// [Total ExtID encoded length (uint16)] +
+// [Total ExtID encoded length (uint16 BE)] +
 // [ExtID 0 length (uint16)] + [ExtID 0 (Bytes)] +
 // ... +
 // [ExtID X length (uint16)] + [ExtID X (Bytes)] +

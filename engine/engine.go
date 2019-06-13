@@ -126,7 +126,8 @@ func scanNewBlocks() error {
 	// the leader height
 	for height := state.SavedHeight + 1; height <= currentHeight; height++ {
 		log.Debugf("Scanning block %v for FAT entries.", height)
-		dblock := factom.DBlock{Height: height}
+		var dblock factom.DBlock
+		dblock.Header.Height = height
 		if err := dblock.Get(c); err != nil {
 			return fmt.Errorf("%#v.Get(c): %v", dblock, err)
 		}
@@ -152,7 +153,8 @@ func scanNewBlocks() error {
 			// Skip ignored chains or EBlocks for heights earlier
 			// than this chain's state.
 			chain := state.Chains.Get(eb.ChainID)
-			if chain.IsIgnored() || dblock.Height <= chain.Metadata.Height {
+			if chain.IsIgnored() ||
+				dblock.Header.Height <= chain.Metadata.Height {
 				continue
 			}
 

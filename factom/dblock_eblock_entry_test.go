@@ -37,7 +37,8 @@ func TestDataStructures(t *testing.T) {
 	height := uint32(166587)
 	c := NewClient()
 	c.Factomd.DebugRequest = true
-	db := &DBlock{Height: height}
+	db := &DBlock{}
+	db.Header.Height = height
 	t.Run("DBlock", func(t *testing.T) {
 		assert := assert.New(t)
 		require := require.New(t)
@@ -57,7 +58,7 @@ func TestDataStructures(t *testing.T) {
 
 		// Validate this DBlock.
 		assert.Len(db.EBlocks, 7)
-		assert.Equal(height, db.Height)
+		assert.Equal(height, db.Header.Height)
 		for _, eb := range db.EBlocks {
 			assert.NotNil(eb.ChainID)
 			assert.NotNil(eb.KeyMR)
@@ -92,6 +93,10 @@ func TestDataStructures(t *testing.T) {
 		keyMR, err := dbk.ComputeKeyMR()
 		require.NoError(err, "ComputeKeyMR()")
 		assert.Equal(*db.KeyMR, keyMR, "ComputeKeyMR()")
+
+		eb := &db.EBlocks[len(db.EBlocks)-1]
+		assert.Equal(eb, db.EBlock(*eb.ChainID))
+		assert.Nil(db.EBlock(Bytes32{}))
 	})
 	t.Run("EBlock", func(t *testing.T) {
 		assert := assert.New(t)
@@ -174,6 +179,26 @@ func TestDataStructures(t *testing.T) {
 		require.True(eb2.IsPopulated())
 		assert.NoError(eb2.GetFirst(c))
 		assert.Equal(first.KeyMR, eb2.KeyMR)
+
+		// Make RPC request for this Entry Block.
+		params := struct {
+			KeyMR *Bytes32 `json:"hash"`
+		}{KeyMR: eb2.KeyMR}
+		var result struct {
+			Data Bytes `json:"data"`
+		}
+		require.NoError(c.FactomdRequest("raw-data", params, &result))
+		data, err := eb2.MarshalBinary()
+		require.NoError(err)
+		assert.Equal(result.Data, Bytes(data))
+
+		bodyMR, err := eb2.ComputeBodyMR()
+		require.NoError(err)
+		assert.Equal(*eb2.BodyMR, bodyMR)
+
+		keyMR, err := eb2.ComputeKeyMR()
+		require.NoError(err)
+		assert.Equal(*eb2.KeyMR, keyMR)
 	})
 	t.Run("Entry", func(t *testing.T) {
 		assert := assert.New(t)
@@ -207,7 +232,7 @@ func TestDataStructures(t *testing.T) {
 		assert.Len(e.ExtIDs, 6)
 		assert.NotEmpty(e.Content)
 		assert.Equal(height, e.Height)
-		assert.Equal(time.Unix(1542223080, 0), time.Time(*e.Timestamp))
+		assert.Equal(time.Unix(1542223080, 0), e.Timestamp)
 		hash, err := e.ComputeHash()
 		assert.NoError(err)
 		assert.Equal(*e.Hash, hash)

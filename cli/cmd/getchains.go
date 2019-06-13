@@ -138,10 +138,10 @@ Issuance Timestamp: %v
 		stats.Issuance.Type, stats.Issuance.Symbol,
 		stats.Issuance.Supply, stats.CirculatingSupply, stats.Burned,
 		stats.Transactions,
-		stats.IssuanceTimestamp.Time())
-	if stats.LastTransactionTimestamp != nil {
+		stats.IssuanceTimestamp)
+	if stats.LastTransactionTimestamp > 0 {
 		fmt.Printf("Last Tx Timestamp: %v\n",
-			stats.LastTransactionTimestamp.Time())
+			stats.LastTransactionTimestamp)
 	}
 	fmt.Println()
 

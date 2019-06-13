@@ -113,7 +113,7 @@ func (chain *Chain) processIssuance(es []factom.Entry) error {
 	for i, e := range es {
 		// If this entry was created before the Identity entry then it
 		// can't be valid.
-		if e.Timestamp.Time().Before(chain.Identity.Timestamp.Time()) {
+		if e.Timestamp.Before(chain.Identity.Timestamp) {
 			log.Debugf("Invalid Issuance Entry: %v, %v", e.Hash,
 				"created before identity")
 			continue

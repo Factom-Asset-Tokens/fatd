@@ -200,7 +200,7 @@ func getTxs(_ *cobra.Command, _ []string) {
 
 func printTx(result srv.ResultGetTransaction) {
 	fmt.Println("TXID:", result.Hash)
-	fmt.Println("Timestamp:", result.Timestamp.Time())
+	fmt.Println("Timestamp:", result.Timestamp)
 	fmt.Println("TX:", (string)(*result.Tx.(*json.RawMessage)))
 	fmt.Println()
 }

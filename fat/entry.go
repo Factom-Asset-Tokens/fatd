@@ -94,7 +94,7 @@ func (e Entry) validTimestamp() error {
 		return fmt.Errorf("timestamp salt: %v", err)
 	}
 	ts := time.Unix(sec, 0)
-	diff := e.Timestamp.Time().Sub(ts)
+	diff := e.Timestamp.Sub(ts)
 	if -12*time.Hour > diff || diff > 12*time.Hour {
 		return fmt.Errorf("timestamp salt expired")
 	}
@@ -137,8 +137,7 @@ func (e *Entry) Sign(signingSet ...factom.RCDPrivateKey) {
 	// Set the Entry's timestamp so that the signatures will verify against
 	// this time salt.
 	timeSalt := newTimestampSalt()
-	e.Timestamp = new(factom.Time)
-	*e.Timestamp = factom.Time(time.Now())
+	e.Timestamp = time.Now()
 
 	// Compose the signed message data using exactly allocated bytes.
 	maxRcdSigIDSaltStrLen := jsonlen.Uint64(uint64(len(signingSet)))
