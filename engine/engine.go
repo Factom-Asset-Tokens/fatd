@@ -132,43 +132,57 @@ func scanNewBlocks() error {
 			return fmt.Errorf("%#v.Get(c): %v", dblock, err)
 		}
 
+		// Launch workers
+		eblocks := make(chan factom.EBlock)
 		wg := &sync.WaitGroup{}
-		chainIDs := make(map[factom.Bytes32]struct{}, len(dblock.EBlocks))
+		numWorkers := len(dblock.EBlocks)
 		processErrors := make(map[factom.Bytes32]error, len(dblock.EBlocks))
 		processErrorsMutex := &sync.Mutex{}
+		const numWorkersMax = 8
+		if numWorkers > numWorkersMax {
+			numWorkers = numWorkersMax
+		}
+		for i := 0; i < numWorkers; i++ {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				for eb := range eblocks {
+					// Skip ignored chains or EBlocks for
+					// heights earlier than this chain's
+					// state.
+					chain := state.Chains.Get(eb.ChainID)
+					if chain.IsIgnored() || dblock.Header.Height <=
+						chain.Metadata.Height {
+						continue
+					}
+
+					if err := chain.Process(eb); err != nil {
+						processErrorsMutex.Lock()
+						defer processErrorsMutex.Unlock()
+						processErrors[*chain.ID] = err
+					}
+				}
+			}()
+		}
+
+		// Because chains are processed concurrently, there must never
+		// be a duplicate ChainID. Since the DBlock is external data we
+		// must validate it. Factomd should never return a DBlock with
+		// duplicate Chain IDs in its EBlocks. If this happens it
+		// indicates a serious issue with the factomd API endpoint we
+		// are talking to.
+		chainIDs := make(map[factom.Bytes32]struct{}, len(dblock.EBlocks))
 		for _, eb := range dblock.EBlocks {
-			// Because chains are processed concurrently, there
-			// must never be a duplicate ChainID. Since the DBlock
-			// is external data we must validate it. Factomd should
-			// never return a DBlock with duplicate Chain IDs in
-			// its EBlocks. If this happens it indicates a serious
-			// issue with the factomd API endpoint we are talking
-			// to.
 			_, ok := chainIDs[*eb.ChainID]
 			if ok {
+				close(eblocks)
 				return fmt.Errorf("duplicate ChainID in DBlock.EBlocks")
 			}
 			chainIDs[*eb.ChainID] = struct{}{}
 
-			// Skip ignored chains or EBlocks for heights earlier
-			// than this chain's state.
-			chain := state.Chains.Get(eb.ChainID)
-			if chain.IsIgnored() ||
-				dblock.Header.Height <= chain.Metadata.Height {
-				continue
-			}
-
-			eb := eb
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				if err := chain.Process(eb); err != nil {
-					processErrorsMutex.Lock()
-					defer processErrorsMutex.Unlock()
-					processErrors[*chain.ID] = err
-				}
-			}()
+			eblocks <- eb
 		}
+		close(eblocks)
 		wg.Wait()
 		if len(processErrors) > 0 {
 			for chainID, err := range processErrors {
