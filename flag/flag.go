@@ -144,7 +144,7 @@ var (
 		"-ecadr": predictAddress(false, 1, "-ecadr", ""),
 	}
 
-	startScanHeight uint32      // We parse the flag as unsigned.
+	startScanHeight uint64      // We parse the flag as unsigned.
 	StartScanHeight int32  = -1 // We work with the signed value.
 	LogDebug        bool
 
