@@ -232,9 +232,9 @@ fat-cli get transactions --chainid <chain-id> [--starttx <tx-hash>]
 
 Issue a new FAT-0 or FAT-1 token chain.
 
-Issuing a new FAT token chain is a two step process.
+Issuing a new FAT token chain is a two step process but only requires a single command.
 
-First the Token Chain must be created with the correct Name IDs on the Factom
+First, the Token Chain must be created with the correct Name IDs on the Factom
 Blockchain. So both --tokenid and --identity are required and use of --chainid
 is not allowed for this step. If the Chain Creation Entry has already been
 submitted then this step is skipped over.
@@ -275,11 +275,15 @@ Entry Credits
         address, or a pubilc EC address that can be fetched from
         factom-walletd.
 
-Usage:
+**Usage**
+
+```
   fat-cli issue --ecadr <EC | Es> --sk1 <sk1-key>
         --identity <issuer-identity-chain-id> --tokenid <token-id>
         --type <"FAT-0" | "FAT-1"> --supply <supply> [--metadata <JSON>] [flags]
+```
 
+```
 Flags:
       --curl                       Do not submit Factom entry; print curl commands
   -e, --ecadr <EC | Es>            EC or Es address to pay for entries
@@ -290,7 +294,20 @@ Flags:
       --supply int                 Max Token supply, use -1 for unlimited
       --symbol string              Optional abbreviated token symbol
       --type <"FAT-0" | "FAT-1">   Token standard to use
+```
 
+**Example Commands**
+
+Initialize a FAT-0 token called "test" with a maximum supply of 100,000 units:
+
+```
+fat-cli issue --ecadr EC3cQ1QnsE5rKWR1B5mzVHdTkAReK5kJwaQn5meXzU9wANyk7Aej --sk1 sk1... --identity 888888a37cbf303c0bfc8d0cc7e77885c42000b757bd4d9e659de994477a0904 --tokenid test --type "FAT-0" --supply 100000
+```
+
+Initialize a FAT-1 token called "test-nft" with an unlimited supply.
+```
+fat-cli issue --ecadr EC3cQ1QnsE5rKWR1B5mzVHdTkAReK5kJwaQn5meXzU9wANyk7Aej --sk1 sk1... --identity 888888a37cbf303c0bfc8d0cc7e77885c42000b757bd4d9e659de994477a0904 --tokenid test-nft --type "FAT-1" --supply -1
+```
 
 ## `transact`
 
@@ -322,3 +339,17 @@ permitted.
   entries, if `--factomd` is specified.
 - `--curl` -  Do not submit the Factom entry; print curl commands instead!
 - `--force` - Skip sanity checks for balances, chain status, and sk1 key
+
+**Example Commands**
+
+FAT-0 Coinbase Transaction
+
+Use `--sk1` and `--output` for coinbase transactions; no `--input` is specified as the coinbase input address is always `FA1zT4aFpEvcnPqPCigB3fvGu4Q4mTXY22iiuV69DqE1pNhdF2MC`, the public address that corresponds to a private key of all zeroes. This creates 100 new tokens and sends them to the the `FA2gCm...` address.
+
+```fat-cli transact fat0 --output FA2gCmih3PaSYRVMt1jLkdG4Xpo2koebUpQ6FpRRnqw5FfTSN2vW:100 --sk1 sk1... --ecadr EC3cQ1QnsE5rKWR1B5mzVHdTkAReK5kJwaQn5meXzU9wANyk7Aej```
+
+FAT-1 Transaction
+
+This moves the token with an id of 10 from `FA2gCm...` to `FA3j68...`.
+
+```fat-cli transact fat1 --input FA2gCmih3PaSYRVMt1jLkdG4Xpo2koebUpQ6FpRRnqw5FfTSN2vW:[10] --output FA3j68XNwKwvHXV2TKndxPpyCK3KrWTDyyfxzi8LwuM5XRuEmhy6:[10] --ecadr EC3cQ1QnsE5rKWR1B5mzVHdTkAReK5kJwaQn5meXzU9wANyk7Aej```
