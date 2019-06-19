@@ -304,7 +304,7 @@ Initialize a FAT-0 token called "test" with a maximum supply of 100,000 units:
 fat-cli issue --ecadr EC3cQ1QnsE5rKWR1B5mzVHdTkAReK5kJwaQn5meXzU9wANyk7Aej --sk1 sk1... --identity 888888a37cbf303c0bfc8d0cc7e77885c42000b757bd4d9e659de994477a0904 --tokenid test --type "FAT-0" --supply 100000
 ```
 
-Initialize a FAT-1 token called "test-nft" with an unlimited supply.
+Initialize a FAT-1 token called "test-nft" with an unlimited supply:
 ```
 fat-cli issue --ecadr EC3cQ1QnsE5rKWR1B5mzVHdTkAReK5kJwaQn5meXzU9wANyk7Aej --sk1 sk1... --identity 888888a37cbf303c0bfc8d0cc7e77885c42000b757bd4d9e659de994477a0904 --tokenid test-nft --type "FAT-1" --supply -1
 ```
@@ -346,10 +346,14 @@ FAT-0 Coinbase Transaction
 
 Use `--sk1` and `--output` for coinbase transactions; no `--input` is specified as the coinbase input address is always `FA1zT4aFpEvcnPqPCigB3fvGu4Q4mTXY22iiuV69DqE1pNhdF2MC`, the public address that corresponds to a private key of all zeroes. This creates 100 new tokens and sends them to the the `FA2gCm...` address.
 
-```fat-cli transact fat0 --output FA2gCmih3PaSYRVMt1jLkdG4Xpo2koebUpQ6FpRRnqw5FfTSN2vW:100 --sk1 sk1... --ecadr EC3cQ1QnsE5rKWR1B5mzVHdTkAReK5kJwaQn5meXzU9wANyk7Aej```
+```
+fat-cli transact fat0 --output FA2gCmih3PaSYRVMt1jLkdG4Xpo2koebUpQ6FpRRnqw5FfTSN2vW:100 --sk1 sk1... --ecadr EC3cQ1QnsE5rKWR1B5mzVHdTkAReK5kJwaQn5meXzU9wANyk7Aej
+```
 
 FAT-1 Transaction
 
 This moves the token with an id of 10 from `FA2gCm...` to `FA3j68...`.
 
-```fat-cli transact fat1 --input FA2gCmih3PaSYRVMt1jLkdG4Xpo2koebUpQ6FpRRnqw5FfTSN2vW:[10] --output FA3j68XNwKwvHXV2TKndxPpyCK3KrWTDyyfxzi8LwuM5XRuEmhy6:[10] --ecadr EC3cQ1QnsE5rKWR1B5mzVHdTkAReK5kJwaQn5meXzU9wANyk7Aej```
+```
+fat-cli transact fat1 --input FA2gCmih3PaSYRVMt1jLkdG4Xpo2koebUpQ6FpRRnqw5FfTSN2vW:[10] --output FA3j68XNwKwvHXV2TKndxPpyCK3KrWTDyyfxzi8LwuM5XRuEmhy6:[10] --ecadr EC3cQ1QnsE5rKWR1B5mzVHdTkAReK5kJwaQn5meXzU9wANyk7Aej
+```
