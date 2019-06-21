@@ -34,56 +34,59 @@ import (
 
 func main() { os.Exit(_main()) }
 func _main() (ret int) {
+	// Completion uses some flags, so parse them first thing.
 	flag.Parse()
-	// Attempt to run the completion program.
 	if flag.Completion.Complete() {
-		// The completion program ran, so just return.
+		// Invoked for the purposes of completion, so don't actually
+		// run the daemon.
 		return 0
 	}
 	flag.Validate()
 
+	// Set up interrupts channel. We don't want to be interrupted during
+	// initialization. If the signal is sent we will handle it later.
+	sigint := make(chan os.Signal, 1)
+	signal.Notify(sigint, os.Interrupt)
+
 	log := log.New("main")
 	log.Info("Fatd Version: ", flag.Revision)
+	defer log.Info("Factom Asset Token Daemon stopped.")
 
-	engineErrCh, err := engine.Start()
-	if err != nil {
-		log.Errorf("engine.Start(): %v", err)
+	// Engine
+	stopEngine := make(chan struct{})
+	engineDone := engine.Start(stopEngine)
+	if engineDone == nil {
 		return 1
 	}
 	defer func() {
-		if err := engine.Stop(); err != nil {
-			log.Errorf("engine.Stop(): %v", err)
-			ret = 1
-			return
-		}
+		close(stopEngine) // Stop engine.
+		<-engineDone      // Wait for engine to stop.
 		log.Info("State engine stopped.")
 	}()
 	log.Info("State engine started.")
 
-	srv.Start()
+	// Server
+	stopSrv := make(chan struct{})
+	srvDone := srv.Start(stopSrv)
+	if srvDone == nil {
+		return 1
+	}
 	defer func() {
-		if err := srv.Stop(); err != nil {
-			log.Errorf("srv.Stop(): %v", err)
-			ret = 1
-			return
-		}
+		close(stopSrv) // Stop server.
+		<-srvDone      // Wait for server to stop.
 		log.Info("JSON RPC API server stopped.")
 	}()
 	log.Info("JSON RPC API server started.")
 
 	log.Info("Factom Asset Token Daemon started.")
-	defer log.Info("Factom Asset Token Daemon stopped.")
 
-	// Set up interrupts channel.
-	sig := make(chan os.Signal, 1)
-	signal.Notify(sig, os.Interrupt)
-
+	defer signal.Reset() // Stop handling signals once we return.
 	select {
-	case <-sig:
-		log.Infof("SIGINT: Shutting down now.")
-	case err := <-engineErrCh:
-		log.Errorf("engine: %v", err)
+	case <-sigint:
+		log.Infof("SIGINT: Shutting down...")
+		return 0
+	case <-engineDone: // Closed if engine exits prematurely.
+	case <-srvDone: // Closed if server exits prematurely.
 	}
-
-	return
+	return 1
 }

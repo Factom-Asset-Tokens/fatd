@@ -233,10 +233,17 @@ func (db *DBlock) UnmarshalBinary(data []byte) error {
 		return fmt.Errorf("insufficient length")
 	}
 	db.EBlocks = make([]EBlock, ebsLen)
+	var lastChainID Bytes32
 	for ebi := range db.EBlocks {
 		eb := &db.EBlocks[ebi]
+		// Ensure that EBlocks are ordered by Chain ID with no
+		// duplicates.
+		if bytes.Compare(data[i:i+len(eb.ChainID)], lastChainID[:]) <= 0 {
+			return fmt.Errorf("out of order or duplicate Chain ID")
+		}
 		eb.ChainID = new(Bytes32)
 		i += copy(eb.ChainID[:], data[i:i+len(eb.ChainID)])
+		lastChainID = *eb.ChainID
 		eb.KeyMR = new(Bytes32)
 		i += copy(eb.KeyMR[:], data[i:i+len(eb.KeyMR)])
 
