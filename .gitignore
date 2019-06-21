@@ -3,3 +3,4 @@ fatd*
 coverage.out
 fat-cli*
 todo
+.vscode
