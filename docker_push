@@ -1,0 +1,12 @@
+#!/bin/bash
+
+REVISION=$(./revision)
+VERSION=$(echo $REVISION | cut -d'.' -f 1,2,3)
+TAG="factomassettokens/fatd:$VERSION-alpine3.10"
+
+echo "Building $TAG"
+docker build -t $TAG .
+
+echo "Publishing $TAG"
+echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+docker push $TAG

@@ -13,7 +13,7 @@ WORKDIR ${PKG_PATH}
 COPY . ${PKG_PATH}/
 RUN make
 
-FROM alpine:3.9
+FROM alpine:3.10
 
 COPY --from=builder /go/src/github.com/Factom-Asset-Tokens/fatd/fatd .
 
