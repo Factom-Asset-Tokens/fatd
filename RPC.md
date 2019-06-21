@@ -217,15 +217,20 @@ Get overall statistics for a token
 {
   "jsonrpc": "2.0",
   "result": {
-    "type": "FAT-0",
-    "supply": -1,
-    "circulating": 1436,
+    "chainid": "1e5037be95e108c34220d724763444098528e88d08ec30bc15204c98525c3f7d",
+    "tokenid": "test-nft",
+    "issuerid": "888888a37cbf303c0bfc8d0cc7e77885c42000b757bd4d9e659de994477a0904",
+    "Issuance": {
+      "type": "FAT-1",
+      "supply": -1
+      },
+    "circulating": 1,
     "burned": 0,
-    "transactions": 311,
-    "issuancets": 1550612940,
-    "lasttxts": 1553057880
+    "transactions": 1,
+    "issuancets": 1557873300,
+    "lasttxts": 1557880560
   },
-  "id": 9929
+  "id": 1
 }
 ```
 
