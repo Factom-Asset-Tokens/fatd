@@ -39,7 +39,7 @@ import (
 )
 
 var (
-	log = _log.New("engine")
+	log _log.Log
 	c   = flag.FactomClient
 )
 
@@ -64,8 +64,21 @@ func engine(stop <-chan struct{}, done chan struct{}) {
 	exit := func() { once.Do(func() { close(done) }) }
 	defer exit()
 
+	log = _log.New("engine")
+
 	if err := state.Load(); err != nil {
 		log.Error(err)
+		return
+	}
+
+	// Set up sync and factom heights...
+	setSyncHeight(state.SavedHeight)
+	updateFactomHeight()
+	if syncHeight > factomHeight {
+		// Probably indicates a bad StartScanHeight or we aren't
+		// connected to Factom MainNet.
+		log.Errorf("Saved height (%v) > Factom height (%v)",
+			state.SavedHeight, factomHeight)
 		return
 	}
 
@@ -89,41 +102,17 @@ func engine(stop <-chan struct{}, done chan struct{}) {
 		}()
 	}
 
-	// Scan for new DBlocks...
-	setSyncHeight(state.SavedHeight)
-	var synced, syncStatusPrinted bool
+	log.Infof("Syncing from block %v to %v...", syncHeight+1, factomHeight)
+	var synced bool
 	scanTicker := time.NewTicker(scanInterval)
 	for {
-		// Get the current Factom Blockchain height.
-		var heights factom.Heights
-		err := heights.Get(c)
-		if err != nil {
-			log.Errorf("factom.Heights.Get(c): %v", err)
-			return
-		}
-		setCurrentHeight(heights.Entry)
-
-		// Print sync status...
-		if !synced {
-			if !syncStatusPrinted && syncHeight < currentHeight {
-				syncStatusPrinted = true
-				log.Infof("Syncing from block %v to %v...",
-					state.SavedHeight+1, currentHeight)
-			} else if currentHeight == state.SavedHeight {
-				synced = true
-				log.Infof("Synced to block %v.", currentHeight)
-			} else {
-				// Probably indicates a bad StartScanHeight or
-				// we aren't connected to Factom MainNet.
-				log.Errorf("Saved height (%v) > Factom height (%v)",
-					state.SavedHeight, currentHeight)
-				return
-			}
+		if !synced && syncHeight == factomHeight {
+			synced = true
+			log.Infof("Synced to block %v.", syncHeight)
 		}
 
 		// Process all new DBlocks sequentially...
-		for h := syncHeight + 1; h <= currentHeight; h++ {
-			log.Debugf("Scanning block %v for FAT entries.", h)
+		for h := syncHeight + 1; h <= factomHeight; h++ {
 			// Get DBlock.
 			var dblock factom.DBlock
 			dblock.Header.Height = h
@@ -160,26 +149,28 @@ func engine(stop <-chan struct{}, done chan struct{}) {
 				return
 			default:
 			}
+
+			if flag.LogDebug && h%100 == 0 {
+				log.Debugf("Synced to block %v...", h)
+			}
 		}
 
-		if !synced {
-			// Don't wait for the scan tick since the blockchain
-			// may have advanced since we first checked.
-			continue
+		if synced {
+			// Wait until the next scan tick or we're told to stop.
+			select {
+			case <-scanTicker.C:
+			case <-stop:
+				return
+			}
 		}
 
-		// Wait until the next scan tick or we're told to stop.
-		select {
-		case <-scanTicker.C:
-		case <-stop:
-			return
-		}
+		updateFactomHeight()
 	}
 }
 
 var (
-	syncHeight, currentHeight uint32
-	heightMtx                 = &sync.RWMutex{}
+	syncHeight, factomHeight uint32
+	heightMtx                = &sync.RWMutex{}
 )
 
 // GetSyncStatus is a threadsafe way to get the sync height and current Factom
@@ -187,7 +178,7 @@ var (
 func GetSyncStatus() (sync, current uint32) {
 	heightMtx.RLock()
 	defer heightMtx.RUnlock()
-	return syncHeight, currentHeight
+	return syncHeight, factomHeight
 }
 
 func setSyncHeight(sync uint32) {
@@ -195,8 +186,15 @@ func setSyncHeight(sync uint32) {
 	defer heightMtx.Unlock()
 	syncHeight = sync
 }
-func setCurrentHeight(current uint32) {
+func updateFactomHeight() {
+	// Get the current Factom Blockchain height.
+	var heights factom.Heights
+	err := heights.Get(c)
+	if err != nil {
+		log.Errorf("factom.Heights.Get(c): %v", err)
+		return
+	}
 	heightMtx.Lock()
 	defer heightMtx.Unlock()
-	currentHeight = current
+	factomHeight = heights.Entry
 }
