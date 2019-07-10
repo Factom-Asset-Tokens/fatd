@@ -108,7 +108,8 @@ func engine(stop <-chan struct{}, done chan struct{}) {
 	for {
 		if !synced && syncHeight == factomHeight {
 			synced = true
-			log.Infof("Synced to block %v.", syncHeight)
+			log.Debugf("Synced to block %v...", syncHeight)
+			log.Infof("Synced.", syncHeight)
 		}
 
 		// Process all new DBlocks sequentially...
