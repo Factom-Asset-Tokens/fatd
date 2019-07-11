@@ -41,18 +41,28 @@ var getBalanceCmd = func() *cobra.Command {
 	cmd := &cobra.Command{
 		DisableFlagsInUseLine: true,
 		Use: `
-balance --chainid <chain-id> ADDRESS...`[1:],
+balance [--chainid <chain-id>] ADDRESS...`[1:],
 		Aliases: []string{"balances"},
 		Short:   "Get balances for addresses",
 		Long: `
-Get the balance of each ADDRESS on the given --chainid.
+Get the balance of each ADDRESS on the given --chainid, if given, otherwise
+return all non-zero total balances.
 
-Returns the total balance for FAT-0 tokens or a list of NF Token IDs for FAT-1
-tokens.
+The list of NF Token IDs for FAT-1 tokens are displayed if --chainid is used.
 `[1:],
-		Args:    getBalanceArgs,
-		PreRunE: validateChainIDFlags,
-		Run:     getBalance,
+		Args: getBalanceArgs,
+		PreRunE: func(cmd *cobra.Command, args []string) error {
+			flags := cmd.Flags()
+			chainIDSet := flags.Changed("chainid")
+			tokenIDSet := flags.Changed("tokenid")
+			identitySet := flags.Changed("identity")
+			if chainIDSet || tokenIDSet || identitySet {
+				return validateChainIDFlags(cmd, args)
+			}
+			paramsToken.ChainID = nil
+			return nil
+		},
+		Run: getBalance,
 	}
 	getCmd.AddCommand(cmd)
 	getCmplCmd.Sub["balance"] = getBalanceCmplCmd
@@ -86,6 +96,28 @@ func getBalanceArgs(cmd *cobra.Command, args []string) error {
 }
 
 func getBalance(cmd *cobra.Command, _ []string) {
+	if paramsToken.ChainID == nil {
+		var params srv.ParamsGetBalances
+		vrbLog.Println("Fetching balances for all chains...")
+		for _, adr := range addresses {
+			params.Address = &adr
+			var balances srv.ResultGetBalances
+			if err := FATClient.Request("get-balances", params,
+				&balances); err != nil {
+				errLog.Fatal(err)
+			}
+			fmt.Printf("%v:", adr)
+			if len(balances) == 0 {
+				fmt.Println(" none")
+				continue
+			}
+			fmt.Println()
+			for chainID, balance := range balances {
+				fmt.Printf("\t%v: %v\n", chainID, balance)
+			}
+		}
+		return
+	}
 	vrbLog.Printf("Fetching token chain details... %v", paramsToken.ChainID)
 	params := srv.ParamsToken{ChainID: paramsToken.ChainID}
 	var stats srv.ResultGetStats

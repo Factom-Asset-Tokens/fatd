@@ -65,6 +65,8 @@ is tracking is returned.
 	usage := cmd.UsageFunc()
 	cmd.SetUsageFunc(func(cmd *cobra.Command) error {
 		cmd.Flags().MarkHidden("chainid")
+		cmd.Flags().MarkHidden("tokenid")
+		cmd.Flags().MarkHidden("identity")
 		return usage(cmd)
 	})
 	return cmd
