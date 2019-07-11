@@ -286,8 +286,8 @@ func validateTransactFlags(cmd *cobra.Command, args []string) error {
 			}
 		}
 		if inputSet && cmdType == fat1.Type {
-			limit := uint64(math.MaxUint64)
-			params := srv.ParamsGetNFBalance{ParamsToken: params, Limit: &limit}
+			params := srv.ParamsGetNFBalance{ParamsToken: params}
+			params.Limit = math.MaxUint64
 			for _, adr := range inputAdrs {
 				vrbLog.Println("Checking FAT NF Token ownership...", adr)
 				params.Address = &adr
