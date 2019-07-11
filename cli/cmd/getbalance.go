@@ -107,8 +107,8 @@ func getBalance(cmd *cobra.Command, _ []string) {
 			fmt.Println(adr, balance)
 		}
 	case fat1.Type:
-		limit := uint64(math.MaxUint64)
-		params := srv.ParamsGetNFBalance{Limit: &limit}
+		var params srv.ParamsGetNFBalance
+		params.Limit = math.MaxUint64
 		params.ChainID = paramsToken.ChainID
 		vrbLog.Println("Fetching NF balances...")
 		for _, adr := range addresses {

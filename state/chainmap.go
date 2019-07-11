@@ -38,7 +38,7 @@ var (
 
 type ChainMap struct {
 	m   map[factom.Bytes32]Chain
-	ids []*factom.Bytes32
+	ids []factom.Bytes32
 	*sync.RWMutex
 }
 
@@ -46,8 +46,8 @@ func (cm *ChainMap) set(id *factom.Bytes32, chain *Chain) {
 	defer cm.Unlock()
 	cm.Lock()
 	if chain.IsIssued() {
-		if _, ok := cm.m[*id]; !ok {
-			cm.ids = append(cm.ids, id)
+		if chain, ok := cm.m[*id]; !ok || !chain.IsIssued() {
+			cm.ids = append(cm.ids, *id)
 		}
 	}
 	cm.m[*id] = *chain
@@ -63,7 +63,7 @@ func (cm ChainMap) Get(id *factom.Bytes32) Chain {
 	return chain
 }
 
-func (cm ChainMap) GetIssued() []*factom.Bytes32 {
+func (cm ChainMap) GetIssued() []factom.Bytes32 {
 	defer cm.RUnlock()
 	cm.RLock()
 	return cm.ids

@@ -37,7 +37,6 @@ import (
 
 var (
 	paramsGetTxs = srv.ParamsGetTransactions{
-		Page: new(uint64), Limit: new(uint64),
 		StartHash:   new(factom.Bytes32),
 		NFTokenID:   new(fat1.NFTokenID),
 		ParamsToken: srv.ParamsToken{ChainID: paramsToken.ChainID},
@@ -81,8 +80,8 @@ more, and in the case of a FAT-1 chain, by a single --nftokenid. Use --page and
 	rootCmplCmd.Sub["help"].Sub["get"].Sub["transactions"] = complete.Command{}
 
 	flags := cmd.Flags()
-	flags.Uint64VarP(paramsGetTxs.Page, "page", "p", 1, "Page of returned txs")
-	flags.Uint64VarP(paramsGetTxs.Limit, "limit", "l", 10, "Limit of returned txs")
+	flags.Uint64VarP(&paramsGetTxs.Page, "page", "p", 1, "Page of returned txs")
+	flags.Uint64VarP(&paramsGetTxs.Limit, "limit", "l", 10, "Limit of returned txs")
 	flags.VarPF((*txOrder)(&paramsGetTxs.Order), "order", "", "Order of returned txs").
 		DefValue = "asc"
 	flags.BoolVar(&to, "to", false, "Request only txs TO the given --address set")
@@ -169,7 +168,7 @@ func getTxs(_ *cobra.Command, _ []string) {
 	vrbLog.Printf("Fetching txs for chain... %v",
 		paramsToken.ChainID)
 	if len(transactionIDs) == 0 {
-		result := make([]srv.ResultGetTransaction, *paramsGetTxs.Limit)
+		result := make([]srv.ResultGetTransaction, paramsGetTxs.Limit)
 		for i := range result {
 			result[i].Tx = &json.RawMessage{}
 		}

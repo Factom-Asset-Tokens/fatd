@@ -411,7 +411,7 @@ func (chain Chain) GetNFTokensForOwner(rcdHash *factom.FAAddress,
 	return tkns, nil
 }
 
-func (chain Chain) GetAllNFTokens(page, limit uint, order string) ([]NFToken, error) {
+func (chain Chain) GetAllNFTokens(page, limit uint64, order string) ([]NFToken, error) {
 	var tkns []NFToken
 	if err := chain.Offset(page * limit).Limit(limit).
 		Order("nf_token_id " + order).

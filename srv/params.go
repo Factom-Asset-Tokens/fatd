@@ -33,9 +33,8 @@ import (
 )
 
 type Params interface {
-	IsValid() bool
+	IsValid() error
 	ValidChainID() *factom.Bytes32
-	Error() jrpc.Error
 }
 
 // ParamsToken scopes a request down to a single FAT token using either the
@@ -46,18 +45,30 @@ type ParamsToken struct {
 	IssuerChainID *factom.Bytes32 `json:"issuerid,omitempty"`
 }
 
-func (p ParamsToken) IsValid() bool {
-	if (p.ChainID != nil && len(p.TokenID) == 0 && p.IssuerChainID == nil) ||
-		(p.ChainID == nil && len(p.TokenID) != 0 && p.IssuerChainID != nil) {
-		return true
+func (p ParamsToken) IsValid() error {
+	if p.ChainID != nil {
+		if len(p.TokenID) > 0 || p.IssuerChainID != nil {
+			return jrpc.InvalidParams(
+				`cannot use "chainid" with "tokenid" or "issuerid"`)
+		}
+		return nil
 	}
-	return false
+	if len(p.TokenID) > 0 || p.IssuerChainID != nil {
+		if len(p.TokenID) == 0 {
+			return jrpc.InvalidParams(
+				`"tokenid" is required with "issuerid"`)
+		}
+		if p.IssuerChainID == nil {
+			return jrpc.InvalidParams(
+				`"issuerid" is required with "tokenid"`)
+		}
+		return nil
+	}
+	return jrpc.InvalidParams(
+		`required: either "chainid" or both "tokenid" and "issuerid"`)
 }
 
 func (p ParamsToken) ValidChainID() *factom.Bytes32 {
-	if !p.IsValid() {
-		return nil
-	}
 	if p.ChainID != nil {
 		return p.ChainID
 	}
@@ -66,8 +77,27 @@ func (p ParamsToken) ValidChainID() *factom.Bytes32 {
 	return p.ChainID
 }
 
-func (p ParamsToken) Error() jrpc.Error {
-	return *ParamsErrorToken
+type ParamsPagination struct {
+	Page  uint64 `json:"page,omitempty"`
+	Limit uint64 `json:"limit,omitempty"`
+	Order string `json:"order,omitempty"`
+}
+
+func (p *ParamsPagination) IsValid() error {
+	if p.Limit == 0 {
+		p.Limit = 25
+	}
+
+	p.Order = strings.ToLower(p.Order)
+	switch p.Order {
+	case "", "asc", "desc":
+		// ok
+	default:
+		return jrpc.InvalidParams(
+			`"order" value must be either "asc" or "desc"`)
+	}
+
+	return nil
 }
 
 // ParamsGetTransaction is used to query for a single particular transaction
@@ -77,63 +107,48 @@ type ParamsGetTransaction struct {
 	Hash *factom.Bytes32 `json:"entryhash"`
 }
 
-func (p ParamsGetTransaction) IsValid() bool {
-	return p.Hash != nil
-}
-
-func (p ParamsGetTransaction) Error() jrpc.Error {
-	return *ParamsErrorGetTransaction
+func (p ParamsGetTransaction) IsValid() error {
+	if err := p.ParamsToken.IsValid(); err != nil {
+		return err
+	}
+	if p.Hash == nil {
+		return jrpc.InvalidParams(`required: "entryhash"`)
+	}
+	return nil
 }
 
 type ParamsGetTransactions struct {
 	ParamsToken
+	ParamsPagination
 	// Transaction filters
 	NFTokenID *fat1.NFTokenID    `json:"nftokenid,omitempty"`
 	Addresses []factom.FAAddress `json:"addresses,omitempty"`
 	StartHash *factom.Bytes32    `json:"entryhash,omitempty"`
 	ToFrom    string             `json:"tofrom,omitempty"`
-	Order     string             `json:"order,omitempty"`
-
-	// Pagination
-	Page  *uint64 `json:"page,omitempty"`
-	Limit *uint64 `json:"limit,omitempty"`
 }
 
-func (p *ParamsGetTransactions) IsValid() bool {
-	if p.Page == nil {
-		p.Page = new(uint64)
+func (p *ParamsGetTransactions) IsValid() error {
+	if err := p.ParamsToken.IsValid(); err != nil {
+		return err
 	}
-	if p.Limit == nil {
-		p.Limit = new(uint64)
-		*p.Limit = 25
+	if err := p.ParamsPagination.IsValid(); err != nil {
+		return err
 	}
-	if *p.Limit == 0 {
-		return false
-	}
-	if p.Addresses != nil && len(p.Addresses) == 0 {
-		return false
-	}
+
 	p.ToFrom = strings.ToLower(p.ToFrom)
 	switch p.ToFrom {
 	case "to", "from":
-		if p.Addresses == nil {
-			return false
+		if len(p.Addresses) == 0 {
+			return jrpc.InvalidParams(
+				`"addresses" may not be empty when "tofrom" is set`)
 		}
 	case "":
+		// empty is ok
 	default:
-		return false
+		return jrpc.InvalidParams(
+			`"tofrom" value must be either "to" or "from"`)
 	}
-	p.Order = strings.ToLower(p.Order)
-	switch p.Order {
-	case "", "asc", "desc":
-	default:
-		return false
-	}
-	return true
-}
-
-func (p ParamsGetTransactions) Error() jrpc.Error {
-	return *ParamsErrorGetTransactions
+	return nil
 }
 
 type ParamsGetNFToken struct {
@@ -141,12 +156,14 @@ type ParamsGetNFToken struct {
 	NFTokenID *fat1.NFTokenID `json:"nftokenid"`
 }
 
-func (p ParamsGetNFToken) IsValid() bool {
-	return p.NFTokenID != nil
-}
-
-func (p ParamsGetNFToken) Error() jrpc.Error {
-	return *ParamsErrorGetNFToken
+func (p ParamsGetNFToken) IsValid() error {
+	if err := p.ParamsToken.IsValid(); err != nil {
+		return err
+	}
+	if p.NFTokenID == nil {
+		return jrpc.InvalidParams(`required: "nftokenid"`)
+	}
+	return nil
 }
 
 type ParamsGetBalance struct {
@@ -154,83 +171,62 @@ type ParamsGetBalance struct {
 	Address *factom.FAAddress `json:"address,omitempty"`
 }
 
-func (p ParamsGetBalance) IsValid() bool {
-	return p.Address != nil
+func (p ParamsGetBalance) IsValid() error {
+	if err := p.ParamsToken.IsValid(); err != nil {
+		return err
+	}
+	if p.Address == nil {
+		return jrpc.InvalidParams(`required: "address"`)
+	}
+	return nil
 }
 
-func (p ParamsGetBalance) Error() jrpc.Error {
-	return *ParamsErrorGetBalance
+type ParamsGetBalances struct {
+	Address *factom.FAAddress `json:"address,omitempty"`
+}
+
+func (p ParamsGetBalances) IsValid() error {
+	if p.Address == nil {
+		return jrpc.InvalidParams(`required: "address"`)
+	}
+	return nil
+}
+func (p ParamsGetBalances) ValidChainID() *factom.Bytes32 {
+	return nil
 }
 
 type ParamsGetNFBalance struct {
 	ParamsToken
+	ParamsPagination
 	Address *factom.FAAddress `json:"address,omitempty"`
-
-	// Pagination
-	Page  *uint64 `json:"page,omitempty"`
-	Limit *uint64 `json:"limit,omitempty"`
-	Order string  `json:"order,omitempty"`
 }
 
-func (p *ParamsGetNFBalance) IsValid() bool {
-	if p.Page == nil {
-		p.Page = new(uint64)
+func (p *ParamsGetNFBalance) IsValid() error {
+	if err := p.ParamsToken.IsValid(); err != nil {
+		return err
 	}
-	if p.Limit == nil {
-		p.Limit = new(uint64)
-		*p.Limit = 25
+	if err := p.ParamsPagination.IsValid(); err != nil {
+		return err
 	}
-	if *p.Limit == 0 {
-		return false
+	if p.Address == nil {
+		return jrpc.InvalidParams(`required: "address"`)
 	}
-	p.Order = strings.ToLower(p.Order)
-	switch p.Order {
-	case "asc":
-	case "desc":
-	case "":
-	default:
-		return false
-	}
-	return p.Address != nil
-}
-
-func (p ParamsGetNFBalance) Error() jrpc.Error {
-	return *ParamsErrorGetBalance
+	return nil
 }
 
 type ParamsGetAllNFTokens struct {
 	ParamsToken
-
-	// Pagination
-	Page  *uint  `json:"page,omitempty"`
-	Limit *uint  `json:"limit,omitempty"`
-	Order string `json:"order,omitempty"`
+	ParamsPagination
 }
 
-func (p *ParamsGetAllNFTokens) IsValid() bool {
-	if p.Page == nil {
-		p.Page = new(uint)
+func (p *ParamsGetAllNFTokens) IsValid() error {
+	if err := p.ParamsToken.IsValid(); err != nil {
+		return err
 	}
-	if p.Limit == nil {
-		p.Limit = new(uint)
-		*p.Limit = 25
+	if err := p.ParamsPagination.IsValid(); err != nil {
+		return err
 	}
-	if *p.Limit == 0 {
-		return false
-	}
-	p.Order = strings.ToLower(p.Order)
-	switch p.Order {
-	case "asc":
-	case "desc":
-	case "":
-	default:
-		return false
-	}
-	return true
-}
-
-func (p ParamsGetAllNFTokens) Error() jrpc.Error {
-	return *ParamsErrorGetBalance
+	return nil
 }
 
 type ParamsSendTransaction struct {
@@ -239,12 +235,14 @@ type ParamsSendTransaction struct {
 	Content factom.Bytes   `json:"content"`
 }
 
-func (p ParamsSendTransaction) IsValid() bool {
-	return len(p.Content) > 0 && len(p.ExtIDs) > 0
-}
-
-func (p ParamsSendTransaction) Error() jrpc.Error {
-	return *ParamsErrorSendTransaction
+func (p ParamsSendTransaction) IsValid() error {
+	if err := p.ParamsToken.IsValid(); err != nil {
+		return err
+	}
+	if len(p.Content) == 0 || len(p.ExtIDs) == 0 {
+		return jrpc.InvalidParams(`required: "content" and "extids"`)
+	}
+	return nil
 }
 
 func (p ParamsSendTransaction) Entry() factom.Entry {
