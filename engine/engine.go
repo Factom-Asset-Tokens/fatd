@@ -138,6 +138,7 @@ func engine(stop <-chan struct{}, done chan struct{}) {
 
 	log.Infof("Syncing from block %v to %v...", syncHeight+1, factomHeight)
 	var synced bool
+	var retries int64
 	scanTicker := time.NewTicker(scanInterval)
 	for {
 		if !synced && syncHeight == factomHeight {
@@ -201,7 +202,14 @@ func engine(stop <-chan struct{}, done chan struct{}) {
 
 		if err := updateFactomHeight(); err != nil {
 			log.Error(err)
-			return
+			if flag.FactomScanRetries > -1 &&
+				retries >= flag.FactomScanRetries {
+				return
+			}
+			retries++
+			log.Infof("Retrying in %v... (%v)", scanInterval, retries)
+		} else {
+			retries = 0
 		}
 	}
 }

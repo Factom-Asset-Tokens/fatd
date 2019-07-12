@@ -41,8 +41,9 @@ const envNamePrefix = "FATD_"
 
 var (
 	envNames = map[string]string{
-		"startscanheight": "START_SCAN_HEIGHT",
-		"debug":           "DEBUG",
+		"startscanheight":   "START_SCAN_HEIGHT",
+		"factomscanretries": "FACTOM_SCAN_RETRIES",
+		"debug":             "DEBUG",
 
 		"dbpath": "DB_PATH",
 
@@ -66,8 +67,9 @@ var (
 		"esadr": "ESADR",
 	}
 	defaults = map[string]interface{}{
-		"startscanheight": uint64(0),
-		"debug":           false,
+		"startscanheight":   uint64(0),
+		"factomscanretries": int64(0),
+		"debug":             false,
 
 		"dbpath": "./fatd.db",
 
@@ -91,8 +93,9 @@ var (
 		"esadr": "",
 	}
 	descriptions = map[string]string{
-		"startscanheight": "Block height to start scanning for deposits on startup",
-		"debug":           "Log debug messages",
+		"startscanheight":   "Block height to start scanning for deposits on startup",
+		"factomscanretries": "Number of times to consecutively retry fetching the latest height before exiting, use -1 for unlimited",
+		"debug":             "Log debug messages",
 
 		"dbpath": "Path to the folder containing all database files",
 
@@ -116,8 +119,9 @@ var (
 		"esadr": "Entry Credit Secret Address to use to pay for Factom entries",
 	}
 	flags = complete.Flags{
-		"-startscanheight": complete.PredictAnything,
-		"-debug":           complete.PredictNothing,
+		"-startscanheight":   complete.PredictAnything,
+		"-factomscanretries": complete.PredictAnything,
+		"-debug":             complete.PredictNothing,
 
 		"-dbpath": complete.PredictFiles("*"),
 
@@ -144,9 +148,10 @@ var (
 		"-ecadr": predictAddress(false, 1, "-ecadr", ""),
 	}
 
-	startScanHeight uint64      // We parse the flag as unsigned.
-	StartScanHeight int32  = -1 // We work with the signed value.
-	LogDebug        bool
+	startScanHeight   uint64      // We parse the flag as unsigned.
+	StartScanHeight   int32  = -1 // We work with the signed value.
+	LogDebug          bool
+	FactomScanRetries int64 = -1
 
 	EsAdr factom.EsAddress
 	ECAdr factom.ECAddress
@@ -164,6 +169,7 @@ var (
 
 func init() {
 	flagVar(&startScanHeight, "startscanheight")
+	flagVar(&FactomScanRetries, "factomscanretries")
 	flagVar(&LogDebug, "debug")
 
 	flagVar(&DBPath, "dbpath")
@@ -204,6 +210,7 @@ func Parse() {
 	// Load options from environment variables if they haven't been
 	// specified on the command line.
 	loadFromEnv(&startScanHeight, "startscanheight")
+	loadFromEnv(&FactomScanRetries, "factomscanretries")
 	loadFromEnv(&LogDebug, "debug")
 
 	loadFromEnv(&DBPath, "dbpath")
@@ -243,9 +250,10 @@ func Validate() {
 		walletdPassword = "<redacted>"
 	}
 
-	log.Debugf("-dbpath          %#v", DBPath)
-	log.Debugf("-apiaddress      %#v", APIAddress)
-	log.Debugf("-startscanheight %v ", StartScanHeight)
+	log.Debugf("-dbpath            %#v", DBPath)
+	log.Debugf("-apiaddress        %#v", APIAddress)
+	log.Debugf("-startscanheight   %v ", StartScanHeight)
+	log.Debugf("-factomscanretries %v ", FactomScanRetries)
 	debugPrintln()
 
 	log.Debugf("-s              %#v", FactomClient.FactomdServer)
@@ -313,6 +321,14 @@ func loadFromEnv(v interface{}, flagName string) {
 			*v = duration
 		case *uint64:
 			val, err := strconv.ParseUint(eVar, 10, 64)
+			if err != nil {
+				log.Fatalf("Environment Variable %v: "+
+					"strconv.ParseUint(\"%v\", 10, 64): %v",
+					eName, eVar, err)
+			}
+			*v = val
+		case *int64:
+			val, err := strconv.ParseInt(eVar, 10, 64)
 			if err != nil {
 				log.Fatalf("Environment Variable %v: "+
 					"strconv.ParseUint(\"%v\", 10, 64): %v",
