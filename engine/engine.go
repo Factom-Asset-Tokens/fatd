@@ -111,7 +111,8 @@ func engine(stop <-chan struct{}, done chan struct{}) {
 		} else if factomHeight > testnetStart {
 			setSyncHeight(testnetStart) // Set for testnet
 		} else {
-			setSyncHeight(uint32(-1)) // Start scan at 0.
+			var zero uint32         // Avoid constant overflow compile error.
+			setSyncHeight(zero - 1) // Start scan at 0.
 		}
 	}
 
