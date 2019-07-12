@@ -11,7 +11,7 @@ The following steps show how you can:
 
 ### Prerequisites
 
-Before you can create a token with FAT, you need to create a Factom Identity. The following link explains how to do that: http://www.factom-testnet.com/Installation/ID_Generation
+Before you can create a token with FAT, you need to create a Factom Server Identity. The following link explains how to do that: https://docs.factomprotocol.org/authority-node-operators/ano-guides-and-tutorials/generating-your-server-identity
 
 After running the `important.sh` script you should see the following:
 
