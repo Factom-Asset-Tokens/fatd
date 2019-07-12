@@ -43,7 +43,7 @@ import (
 )
 
 var (
-	SavedHeight uint64 = 163180
+	SavedHeight uint32
 	log         _log.Log
 	c           = flag.FactomClient
 )
@@ -57,7 +57,7 @@ func Load() error {
 		return fmt.Errorf("os.Mkdir(%#v)", flag.DBPath)
 	}
 
-	minHeight := uint64(math.MaxUint64)
+	minHeight := uint32(math.MaxUint32)
 
 	// Scan through all files within the database directory. Ignore invalid
 	// file names.
@@ -93,15 +93,8 @@ func Load() error {
 		}
 	}
 
-	if minHeight < math.MaxUint64 {
-		SavedHeight = minHeight
-	}
-	if flag.StartScanHeight > -1 {
-		if uint64(flag.StartScanHeight-1) > SavedHeight {
-			log.Warnf("-startscanheight (%v) is higher than the last saved block height (%v) which will very likely result in a corrupted database.",
-				flag.StartScanHeight, SavedHeight)
-		}
-		SavedHeight = uint64(flag.StartScanHeight - 1)
+	if minHeight < math.MaxUint32 { // If a minimum was found...
+		SavedHeight = minHeight // use it, otherwise start at zero.
 	}
 	return nil
 }
@@ -131,7 +124,7 @@ func Close() {
 	}
 }
 
-func SaveHeight(height uint64) error {
+func SaveHeight(height uint32) error {
 	Chains.Lock()
 	defer Chains.Unlock()
 
@@ -354,7 +347,7 @@ func (chain *Chain) createNFToken(tknID fat1.NFTokenID,
 	return &tkn, nil
 }
 
-func (chain *Chain) saveHeight(height uint64) error {
+func (chain *Chain) saveHeight(height uint32) error {
 	chain.Metadata.Height = height
 	if err := chain.saveMetadata(); err != nil {
 		return err
@@ -411,7 +404,7 @@ func (chain Chain) GetNFTokensForOwner(rcdHash *factom.FAAddress,
 	return tkns, nil
 }
 
-func (chain Chain) GetAllNFTokens(page, limit uint, order string) ([]NFToken, error) {
+func (chain Chain) GetAllNFTokens(page, limit uint64, order string) ([]NFToken, error) {
 	var tkns []NFToken
 	if err := chain.Offset(page * limit).Limit(limit).
 		Order("nf_token_id " + order).

@@ -410,8 +410,9 @@ func validateChainIDFlags(cmd *cobra.Command, _ []string) error {
 	chainIDSet := flags.Changed("chainid")
 	tokenIDSet := flags.Changed("tokenid")
 	identitySet := flags.Changed("identity")
-	if !(chainIDSet || tokenIDSet || identitySet) {
-		return fmt.Errorf("--chainid or both --tokenid and --identity is required")
+	if !chainIDSet && !tokenIDSet && !identitySet {
+		return fmt.Errorf(
+			"--chainid or both --tokenid and --identity is required")
 	}
 	if chainIDSet {
 		if tokenIDSet || identitySet {
@@ -420,7 +421,8 @@ func validateChainIDFlags(cmd *cobra.Command, _ []string) error {
 		}
 	} else {
 		if !(tokenIDSet && identitySet) {
-			return fmt.Errorf("--tokenid and --identity must be used together")
+			return fmt.Errorf(
+				"--tokenid and --identity must be used together")
 		}
 		initChainID()
 	}

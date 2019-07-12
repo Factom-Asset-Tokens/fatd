@@ -40,8 +40,14 @@ var (
 	FatdAPIVersionHeaderKey = http.CanonicalHeaderKey("Fatd-Api-Version")
 )
 
-func Start() {
+// Start the server in its own goroutine. If stop is closed, the server is
+// closed and any goroutines will exit. The done channel is closed when the
+// server exits for any reason. If the done channel is closed before the stop
+// channel is closed, an error occurred. Errors are logged.
+func Start(stop <-chan struct{}) (done <-chan struct{}) {
 	log = _log.New("srv")
+
+	// Set up JSON RPC 2.0 handler with correct headers.
 	jrpc.DebugMethodFunc = true
 	jrpcHandler := jrpc.HTTPRequestHandler(jrpcMethods)
 	var handler http.HandlerFunc = func(w http.ResponseWriter, r *http.Request) {
@@ -51,23 +57,31 @@ func Start() {
 		jrpcHandler(w, r)
 	}
 
-	// Set up server
+	// Set up server.
 	srvMux := http.NewServeMux()
 	srvMux.Handle("/", handler)
 	srvMux.Handle("/v1", handler)
-
 	cors := cors.New(cors.Options{AllowedOrigins: []string{"*"}})
-
 	srv = http.Server{Handler: cors.Handler(srvMux)}
 	srv.Addr = flag.APIAddress
+
+	// Start server.
+	_done := make(chan struct{})
 	go func() {
 		if err := srv.ListenAndServe(); err != http.ErrServerClosed {
 			log.Errorf("srv.ListenAndServe(): %v", err)
 		}
+		close(_done)
 	}()
-}
-
-func Stop() error {
-	srv.Shutdown(nil)
-	return nil
+	// Listen for stop signal.
+	go func() {
+		select {
+		case <-stop:
+			if err := srv.Shutdown(nil); err != nil {
+				log.Errorf("srv.Shutdown(): %v", err)
+			}
+		case <-_done:
+		}
+	}()
+	return _done
 }

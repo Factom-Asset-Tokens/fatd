@@ -50,6 +50,7 @@ var jrpcMethods = jrpc.MethodMap{
 	"get-transactions":       getTransactions(false),
 	"get-transactions-entry": getTransactions(true),
 	"get-balance":            getBalance,
+	"get-balances":           getBalances,
 	"get-nf-balance":         getNFBalance,
 	"get-stats":              getStats,
 	"get-nf-token":           getNFToken,
@@ -65,7 +66,7 @@ var jrpcMethods = jrpc.MethodMap{
 type ResultGetIssuance struct {
 	ParamsToken
 	Hash      *factom.Bytes32 `json:"entryhash"`
-	Timestamp factom.Time     `json:"timestamp"`
+	Timestamp int64           `json:"timestamp"`
 	Issuance  fat.Issuance    `json:"issuance"`
 }
 
@@ -87,7 +88,7 @@ func getIssuance(entry bool) jrpc.MethodFunc {
 				IssuerChainID: chain.Identity.ChainID,
 			},
 			Hash:      chain.Issuance.Hash,
-			Timestamp: *chain.Issuance.Timestamp,
+			Timestamp: chain.Issuance.Timestamp.Unix(),
 			Issuance:  chain.Issuance,
 		}
 	}
@@ -95,7 +96,7 @@ func getIssuance(entry bool) jrpc.MethodFunc {
 
 type ResultGetTransaction struct {
 	Hash      *factom.Bytes32 `json:"entryhash"`
-	Timestamp factom.Time     `json:"timestamp"`
+	Timestamp int64           `json:"timestamp"`
 	Tx        interface{}     `json:"data"`
 }
 
@@ -127,7 +128,7 @@ func getTransaction(getEntry bool) jrpc.MethodFunc {
 			}
 			return ResultGetTransaction{
 				Hash:      tx.Hash,
-				Timestamp: *tx.Timestamp,
+				Timestamp: tx.Timestamp.Unix(),
 				Tx:        tx,
 			}
 		case fat1.Type:
@@ -137,7 +138,7 @@ func getTransaction(getEntry bool) jrpc.MethodFunc {
 			}
 			return ResultGetTransaction{
 				Hash:      tx.Hash,
-				Timestamp: *tx.Timestamp,
+				Timestamp: tx.Timestamp.Unix(),
 				Tx:        tx,
 			}
 		default:
@@ -163,7 +164,7 @@ func getTransactions(getEntry bool) jrpc.MethodFunc {
 		entries, err := chain.GetEntries(params.StartHash,
 			params.Addresses, params.NFTokenID,
 			params.ToFrom, params.Order,
-			*params.Page, *params.Limit)
+			params.Page, params.Limit)
 		if err == dbr.ErrNotFound {
 			return ErrorTransactionNotFound
 		}
@@ -191,7 +192,7 @@ func getTransactions(getEntry bool) jrpc.MethodFunc {
 					panic(err)
 				}
 				txs[i].Hash = entries[i].Hash
-				txs[i].Timestamp = *entries[i].Timestamp
+				txs[i].Timestamp = entries[i].Timestamp.Unix()
 				txs[i].Tx = tx
 			}
 			return txs
@@ -203,7 +204,7 @@ func getTransactions(getEntry bool) jrpc.MethodFunc {
 					panic(err)
 				}
 				txs[i].Hash = entries[i].Hash
-				txs[i].Timestamp = *entries[i].Timestamp
+				txs[i].Timestamp = entries[i].Timestamp.Unix()
 				txs[i].Tx = tx
 			}
 			return txs
@@ -228,6 +229,52 @@ func getBalance(data json.RawMessage) interface{} {
 	return adr.Balance
 }
 
+type ResultGetBalances map[factom.Bytes32]uint64
+
+func (r ResultGetBalances) MarshalJSON() ([]byte, error) {
+	strMap := make(map[string]uint64, len(r))
+	for chainID, balance := range r {
+		strMap[chainID.String()] = balance
+	}
+	return json.Marshal(strMap)
+}
+func (r *ResultGetBalances) UnmarshalJSON(data []byte) error {
+	var strMap map[string]uint64
+	if err := json.Unmarshal(data, &strMap); err != nil {
+		return err
+	}
+	*r = make(map[factom.Bytes32]uint64, len(strMap))
+	var chainID factom.Bytes32
+	for str, balance := range strMap {
+		if err := chainID.Set(str); err != nil {
+			return err
+		}
+		(*r)[chainID] = balance
+	}
+	return nil
+}
+
+func getBalances(data json.RawMessage) interface{} {
+	params := ParamsGetBalances{}
+	if _, err := validate(data, &params); err != nil {
+		return err
+	}
+
+	issuedIDs := state.Chains.GetIssued()
+	balances := make(ResultGetBalances, len(issuedIDs))
+	for _, chainID := range issuedIDs {
+		chain := state.Chains.Get(&chainID)
+		adr, err := chain.GetAddress(params.Address)
+		if err != nil {
+			panic(err)
+		}
+		if adr.Balance > 0 {
+			balances[chainID] = adr.Balance
+		}
+	}
+	return balances
+}
+
 func getNFBalance(data json.RawMessage) interface{} {
 	params := ParamsGetNFBalance{}
 	chain, err := validate(data, &params)
@@ -242,7 +289,7 @@ func getNFBalance(data json.RawMessage) interface{} {
 	}
 
 	tkns, err := chain.GetNFTokensForOwner(params.Address,
-		*params.Page, *params.Limit, params.Order)
+		params.Page, params.Limit, params.Order)
 	if err != nil {
 		panic(err)
 	}
@@ -259,11 +306,11 @@ func getNFBalance(data json.RawMessage) interface{} {
 type ResultGetStats struct {
 	ParamsToken
 	Issuance                 *fat.Issuance
-	CirculatingSupply        uint64       `json:"circulating"`
-	Burned                   uint64       `json:"burned"`
-	Transactions             int          `json:"transactions"`
-	IssuanceTimestamp        factom.Time  `json:"issuancets"`
-	LastTransactionTimestamp *factom.Time `json:"lasttxts,omitempty"`
+	CirculatingSupply        uint64 `json:"circulating"`
+	Burned                   uint64 `json:"burned"`
+	Transactions             int    `json:"transactions"`
+	IssuanceTimestamp        int64  `json:"issuancets"`
+	LastTransactionTimestamp int64  `json:"lasttxts,omitempty"`
 }
 
 var coinbaseRCDHash = fat.Coinbase()
@@ -285,15 +332,15 @@ func getStats(data json.RawMessage) interface{} {
 		panic(err)
 	}
 
-	var lastTxTs *factom.Time
+	var lastTxTs int64
 	if len(txs) > 0 {
-		lastTxTs = txs[len(txs)-1].Timestamp
+		lastTxTs = txs[len(txs)-1].Timestamp.Unix()
 	}
 	res := ResultGetStats{
 		CirculatingSupply:        chain.Issued - burned,
 		Burned:                   burned,
 		Transactions:             len(txs),
-		IssuanceTimestamp:        *chain.Issuance.Timestamp,
+		IssuanceTimestamp:        chain.Issuance.Timestamp.Unix(),
 		LastTransactionTimestamp: lastTxTs,
 	}
 	if chain.IsIssued() {
@@ -353,7 +400,7 @@ func getNFTokens(data json.RawMessage) interface{} {
 		return err
 	}
 
-	tkns, err := chain.GetAllNFTokens(*params.Page, *params.Limit, params.Order)
+	tkns, err := chain.GetAllNFTokens(params.Page, params.Limit, params.Order)
 	if err != nil {
 		panic(err)
 	}
@@ -520,15 +567,16 @@ func validFAT1Transaction(chain *state.Chain, entry factom.Entry) error {
 }
 
 func getDaemonTokens(data json.RawMessage) interface{} {
-	if data != nil {
-		return ParamsErrorNoParams
+	if _, err := validate(data, nil); err != nil {
+		return err
 	}
 
 	issuedIDs := state.Chains.GetIssued()
 	chains := make([]ParamsToken, len(issuedIDs))
 	for i, chainID := range issuedIDs {
-		chain := state.Chains.Get(chainID)
-		chains[i].ChainID = chainID
+		chain := state.Chains.Get(&chainID)
+		chainID := chainID
+		chains[i].ChainID = &chainID
 		chains[i].TokenID = chain.Token
 		chains[i].IssuerChainID = chain.Issuer
 	}
@@ -541,15 +589,15 @@ type ResultGetDaemonProperties struct {
 }
 
 func getDaemonProperties(data json.RawMessage) interface{} {
-	if data != nil {
-		return ParamsErrorNoParams
+	if _, err := validate(data, nil); err != nil {
+		return err
 	}
 	return ResultGetDaemonProperties{FatdVersion: flag.Revision, APIVersion: APIVersion}
 }
 
 type ResultGetSyncStatus struct {
-	Sync    uint64 `json:"syncheight"`
-	Current uint64 `json:"factomheight"`
+	Sync    uint32 `json:"syncheight"`
+	Current uint32 `json:"factomheight"`
 }
 
 func getSyncStatus(data json.RawMessage) interface{} {
@@ -558,21 +606,30 @@ func getSyncStatus(data json.RawMessage) interface{} {
 }
 
 func validate(data json.RawMessage, params Params) (*state.Chain, error) {
-	if data == nil {
-		return nil, params.Error()
+	if params == nil {
+		if len(data) > 0 {
+			return nil, jrpc.InvalidParams(`no "params" accepted`)
+		}
+		return nil, nil
+	}
+	if len(data) == 0 {
+		return nil, params.IsValid()
 	}
 	if err := unmarshalStrict(data, params); err != nil {
 		return nil, jrpc.InvalidParams(err.Error())
 	}
+	if err := params.IsValid(); err != nil {
+		return nil, err
+	}
 	chainID := params.ValidChainID()
-	if chainID == nil || !params.IsValid() {
-		return nil, params.Error()
+	if chainID != nil {
+		chain := state.Chains.Get(chainID)
+		if !chain.IsIssued() {
+			return nil, ErrorTokenNotFound
+		}
+		return &chain, nil
 	}
-	chain := state.Chains.Get(chainID)
-	if !chain.IsIssued() {
-		return nil, ErrorTokenNotFound
-	}
-	return &chain, nil
+	return nil, nil
 }
 
 func unmarshalStrict(data []byte, v interface{}) error {

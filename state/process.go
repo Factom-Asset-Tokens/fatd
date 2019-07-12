@@ -34,6 +34,16 @@ import (
 	"github.com/Factom-Asset-Tokens/fatd/fat/fat1"
 )
 
+func Process(eb factom.EBlock) error {
+	// Skip ignored chains or EBlocks for heights earlier than this chain's
+	// state.
+	chain := Chains.Get(eb.ChainID)
+	if chain.IsIgnored() || eb.Height <= chain.Metadata.Height {
+		return nil
+	}
+	return chain.Process(eb)
+}
+
 func (chain *Chain) Process(eb factom.EBlock) error {
 	// Ensure changes to chain are saved in Chains.
 	defer Chains.set(eb.ChainID, chain)
@@ -113,7 +123,7 @@ func (chain *Chain) processIssuance(es []factom.Entry) error {
 	for i, e := range es {
 		// If this entry was created before the Identity entry then it
 		// can't be valid.
-		if e.Timestamp.Time().Before(chain.Identity.Timestamp.Time()) {
+		if e.Timestamp.Before(chain.Identity.Timestamp) {
 			log.Debugf("Invalid Issuance Entry: %v, %v", e.Hash,
 				"created before identity")
 			continue

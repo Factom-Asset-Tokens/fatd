@@ -217,15 +217,20 @@ Get overall statistics for a token
 {
   "jsonrpc": "2.0",
   "result": {
-    "type": "FAT-0",
-    "supply": -1,
-    "circulating": 1436,
+    "chainid": "1e5037be95e108c34220d724763444098528e88d08ec30bc15204c98525c3f7d",
+    "tokenid": "test-nft",
+    "issuerid": "888888a37cbf303c0bfc8d0cc7e77885c42000b757bd4d9e659de994477a0904",
+    "Issuance": {
+      "type": "FAT-1",
+      "supply": -1
+      },
+    "circulating": 1,
     "burned": 0,
-    "transactions": 311,
-    "issuancets": 1550612940,
-    "lasttxts": 1553057880
+    "transactions": 1,
+    "issuancets": 1557873300,
+    "lasttxts": 1557880560
   },
-  "id": 9929
+  "id": 1
 }
 ```
 
@@ -394,6 +399,31 @@ Get the Factom block height sync status of the daemon
     "syncheight": 70990,
     "factomheight": 70990
   },
+  "id": 6482
+}
+```
+
+
+
+### `get-balances`:
+
+Get the numeric balance count for all tracked tokens of a public Factoid address. The returned object has keys representing token chain IDs and values represinting the balance of the address in FAT-0 or FAT-1 tokens.
+
+#### Parameters:
+
+| Name      | Type   | Description                | Validation                   | Required |
+| --------- | ------ | -------------------------- | ---------------------------- | -------- |
+| `address` | string | The public Factoid address | Valid Public Factoid address | Y        |
+
+#### Response:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "result": {
+  "0cccd100a1801c0cf4aa2104b15dec94fe6f45d0f3347b016ed20d81059494df": 9007199254743259,
+  "962a18328c83f370113ff212bae21aaf34e5252bc33d59c9db3df2a6bfda966f": 99694
+},
   "id": 6482
 }
 ```

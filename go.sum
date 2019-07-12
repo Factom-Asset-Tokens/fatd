@@ -7,8 +7,10 @@ git.apache.org/thrift.git v0.0.0-20180902110319-2566ecd5d999/go.mod h1:fPE2ZNJGy
 git.apache.org/thrift.git v0.12.0/go.mod h1:fPE2ZNJGynbRyZ4dJvy6G277gSllfV2HJqblrnkyeyg=
 github.com/AdamSLevy/dbr v0.0.0-20190429075658-5db28ac75cea h1:8jg7gBfU9VSu5i12RTCgR4HzPt9ZZCLz+bz9/qFcRtw=
 github.com/AdamSLevy/dbr v0.0.0-20190429075658-5db28ac75cea/go.mod h1:TWT34di9Z4gHhQ/LjVuBGMXKsQgkGhdwNh/ZvFmJ6DU=
-github.com/AdamSLevy/jsonrpc2/v11 v11.3.1 h1:w1LzfXAFfmHMP4lzLqzQC5G2uwl7u0BiLbKDiLnJTAM=
-github.com/AdamSLevy/jsonrpc2/v11 v11.3.1/go.mod h1:7fNjH6BXM0KVswWqj+K/mnOS8wiSke0sE8X46hS+nsc=
+github.com/AdamSLevy/go-merkle v0.0.0-20190611101253-ca33344a884d h1:FWutTJGVqBnL4rLgeNaspUYnmnvkXcmDA3QO3rHBGgU=
+github.com/AdamSLevy/go-merkle v0.0.0-20190611101253-ca33344a884d/go.mod h1:Nw3sh5L40Xs1wno7ndbD/dYWg+vARpBvpX9Zz1YSxbo=
+github.com/AdamSLevy/jsonrpc2/v11 v11.3.2 h1:McSW/pP7K0/Ucjig6AJwW7Khph/XOMYhSB8v3YxMBl4=
+github.com/AdamSLevy/jsonrpc2/v11 v11.3.2/go.mod h1:7fNjH6BXM0KVswWqj+K/mnOS8wiSke0sE8X46hS+nsc=
 github.com/AdamSLevy/pflag v1.0.4 h1:oykgyxDWo391JRRNOLr892UzaK2SmLiAvza8OBLX24U=
 github.com/AdamSLevy/pflag v1.0.4/go.mod h1:UeCxQpw/gAoTUVBfjr8n7qcGZZNmECgohVFOAdlRMtA=
 github.com/BurntSushi/toml v0.3.1 h1:WXkYYl6Yr3qBf1K79EBnL4mak0OimBfB0XUf9Vl28OQ=

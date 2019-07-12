@@ -20,6 +20,12 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 // IN THE SOFTWARE.
 
+// Package engine manages syncing with the Factom blockchain and updating
+// state. Start launches a number of goroutines: one to query for DBlocks
+// sequentially, and a number of workers to concurrently process EBlocks within
+// a DBlock and update state. If any runtime errors occur, engine finishes
+// processing the current set of EBlocks and then exits. See Start for more
+// details.
 package engine
 
 import (
@@ -34,154 +40,207 @@ import (
 )
 
 var (
-	returnError chan error
-	stop        chan error
-	log         _log.Log
-	scanTicker  *time.Ticker
-	c           = flag.FactomClient
+	log _log.Log
+	c   = flag.FactomClient
 )
 
 const (
-	scanInterval = 30 * time.Second
+	scanInterval = 15 * time.Second
 )
 
-func Start() (chan error, error) {
-	if err := state.Load(); err != nil {
-		return nil, err
-	}
+// Start launches the main engine goroutine, which loads state and starts the
+// worker goroutines. If stop is closed or if an error occurs, the engine will
+// finish processing the current DBlock, cleanup and close state, all
+// goroutines will exit, and done will be closed. If the done channel is closed
+// before the stop channel is closed, an error occurred.
+func Start(stop <-chan struct{}) (done <-chan struct{}) {
+	_done := make(chan struct{})
+	go engine(stop, _done)
+	return _done
+}
 
-	setSyncHeight(state.SavedHeight)
+func engine(stop <-chan struct{}, done chan struct{}) {
+	// Ensure done is always closed exactly once.
+	var once sync.Once
+	exit := func() { once.Do(func() { close(done) }) }
+	defer exit()
 
 	log = _log.New("engine")
-	returnError = make(chan error, 1)
-	stop = make(chan error)
 
-	scanTicker = time.NewTicker(scanInterval)
-	go engine()
+	if err := state.Load(); err != nil {
+		log.Error(err)
+		return
+	}
+	// Set up sync and factom heights...
+	setSyncHeight(state.SavedHeight)
+	if err := updateFactomHeight(); err != nil {
+		log.Error(err)
+		return
+	}
 
-	return returnError, nil
-}
-
-func Stop() error {
-	close(stop)
-	state.Close()
-	return nil
-}
-
-func errorStop(err error) {
-	returnError <- err
-	scanTicker.Stop()
-}
-
-func engine() {
-	for {
-		if err := scanNewBlocks(); err != nil {
-			go errorStop(fmt.Errorf("scanNewBlocks(): %v", err))
-		}
-		select {
-		case <-scanTicker.C:
-			continue
-		case <-stop:
+	// Guard against syncing against a network with an earlier blockheight.
+	if syncHeight > factomHeight {
+		log.Errorf("Saved height (%v) > Factom height (%v)",
+			syncHeight, factomHeight)
+		return
+	}
+	if flag.StartScanHeight > -1 { // If -startscanheight was set...
+		if flag.StartScanHeight > int32(factomHeight) {
+			log.Errorf("-startscanheight %v > Factom height (%v)",
+				flag.StartScanHeight, factomHeight)
 			return
+		}
+		// Warn if we are skipping blocks.
+		if flag.StartScanHeight > int32(syncHeight)+1 {
+			log.Warnf("-startscanheight %v skips over %v blocks from the last saved last saved block height which will very likely result in a corrupted database.",
+				flag.StartScanHeight,
+				flag.StartScanHeight-int32(syncHeight)-1)
+		}
+		// We start syncing at syncHeight+1, so subtract one. This
+		// overflows for 0 but it's OK as long as we don't rely on the
+		// value until the first scan loop.
+		setSyncHeight(uint32(flag.StartScanHeight - 1))
+	} else if syncHeight == 0 { // else if the syncHeight has not been set...
+		const mainnetStart = 163180
+		const testnetStart = 60000
+		// This is a hacky, unreliable way to determine what network we
+		// are on. This needs to be replaced with using the actually
+		// Network ID.
+		if factomHeight > mainnetStart {
+			setSyncHeight(mainnetStart) // Set for mainnet
+		} else if factomHeight > testnetStart {
+			setSyncHeight(testnetStart) // Set for testnet
+		} else {
+			var zero uint32         // Avoid constant overflow compile error.
+			setSyncHeight(zero - 1) // Start scan at 0.
+		}
+	}
+
+	wg := &sync.WaitGroup{}
+	eblocks := make(chan factom.EBlock)
+	// Ensure all workers exit and state is closed when we exit.
+	defer close(eblocks)
+	defer state.Close()
+
+	// Launch workers
+	const numWorkers = 8
+	for i := 0; i < numWorkers; i++ {
+		go func() {
+			for eb := range eblocks { // Read until close(eblocks)
+				if err := state.Process(eb); err != nil {
+					log.Errorf("ChainID(%v): %v", eb.ChainID, err)
+					exit() // Tell engine() to exit.
+				}
+				wg.Done()
+			}
+		}()
+	}
+
+	log.Infof("Syncing from block %v to %v...", syncHeight+1, factomHeight)
+	var synced bool
+	var retries int64
+	scanTicker := time.NewTicker(scanInterval)
+	for {
+		if !synced && syncHeight == factomHeight {
+			synced = true
+			log.Debugf("Synced to block %v...", syncHeight)
+			log.Infof("Synced.")
+		}
+
+		// Process all new DBlocks sequentially...
+		for h := syncHeight + 1; h <= factomHeight; h++ {
+			// Get DBlock.
+			var dblock factom.DBlock
+			dblock.Header.Height = h
+			if err := dblock.Get(c); err != nil {
+				log.Errorf("%#v.Get(c): %v", dblock, err)
+				return
+			}
+
+			// Queue all EBlocks for processing and wait.
+			wg.Add(len(dblock.EBlocks))
+			for _, eb := range dblock.EBlocks {
+				eblocks <- eb
+			}
+			wg.Wait() // Wait for all EBlocks to be processed.
+
+			// Check for process errors...
+			select {
+			case <-done:
+				// We cannot consider this DBlock completed.
+				return
+			default:
+			}
+
+			// DBlock completed.
+			setSyncHeight(h)
+			if err := state.SaveHeight(h); err != nil {
+				log.Errorf("state.SaveHeight(%v): %v", h, err)
+				return
+			}
+
+			// Check that we haven't been told to stop.
+			select {
+			case <-stop:
+				return
+			default:
+			}
+
+			if flag.LogDebug && h%100 == 0 {
+				log.Debugf("Synced to block %v...", h)
+			}
+		}
+
+		if synced {
+			// Wait until the next scan tick or we're told to stop.
+			select {
+			case <-scanTicker.C:
+			case <-stop:
+				return
+			}
+		}
+
+		if err := updateFactomHeight(); err != nil {
+			log.Error(err)
+			if flag.FactomScanRetries > -1 &&
+				retries >= flag.FactomScanRetries {
+				return
+			}
+			retries++
+			log.Infof("Retrying in %v... (%v)", scanInterval, retries)
+		} else {
+			retries = 0
 		}
 	}
 }
 
 var (
-	synced                    bool
-	syncHeight, currentHeight uint64
-	heightMtx                 = &sync.RWMutex{}
+	syncHeight, factomHeight uint32
+	heightMtx                = &sync.RWMutex{}
 )
 
-func GetSyncStatus() (sync, current uint64) {
+// GetSyncStatus is a threadsafe way to get the sync height and current Factom
+// Blockchain height.
+func GetSyncStatus() (sync, current uint32) {
 	heightMtx.RLock()
 	defer heightMtx.RUnlock()
-	return syncHeight, currentHeight
+	return syncHeight, factomHeight
 }
 
-func setSyncHeight(sync uint64) {
+func setSyncHeight(sync uint32) {
 	heightMtx.Lock()
 	defer heightMtx.Unlock()
 	syncHeight = sync
 }
-func setCurrentHeight(current uint64) {
-	heightMtx.Lock()
-	defer heightMtx.Unlock()
-	currentHeight = current
-}
-
-func scanNewBlocks() error {
-	// Get the current leader's block height
+func updateFactomHeight() error {
+	// Get the current Factom Blockchain height.
 	var heights factom.Heights
 	err := heights.Get(c)
 	if err != nil {
 		return fmt.Errorf("factom.Heights.Get(c): %v", err)
 	}
-	setCurrentHeight(uint64(heights.Entry))
-	if !synced && currentHeight > state.SavedHeight {
-		log.Infof("Syncing from block %v to %v...",
-			state.SavedHeight, currentHeight)
-	}
-	// Scan blocks from the last saved block height up to but not including
-	// the leader height
-	for height := state.SavedHeight + 1; height <= currentHeight; height++ {
-		log.Debugf("Scanning block %v for FAT entries.", height)
-		dblock := factom.DBlock{Height: height}
-		if err := dblock.Get(c); err != nil {
-			return fmt.Errorf("%#v.Get(c): %v", dblock, err)
-		}
-
-		wg := &sync.WaitGroup{}
-		chainIDs := make(map[factom.Bytes32]struct{}, len(dblock.EBlocks))
-		processErrors := make(map[factom.Bytes32]error, len(dblock.EBlocks))
-		processErrorsMutex := &sync.Mutex{}
-		for _, eb := range dblock.EBlocks {
-			// Because chains are processed concurrently, there
-			// must never be a duplicate ChainID. Since the DBlock
-			// is external data we must validate it. Factomd should
-			// never return a DBlock with duplicate Chain IDs in
-			// its EBlocks. If this happens it indicates a serious
-			// issue with the factomd API endpoint we are talking
-			// to.
-			_, ok := chainIDs[*eb.ChainID]
-			if ok {
-				return fmt.Errorf("duplicate ChainID in DBlock.EBlocks")
-			}
-			chainIDs[*eb.ChainID] = struct{}{}
-
-			// Skip ignored chains or EBlocks for heights earlier
-			// than this chain's state.
-			chain := state.Chains.Get(eb.ChainID)
-			if chain.IsIgnored() || dblock.Height <= chain.Metadata.Height {
-				continue
-			}
-
-			eb := eb
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				if err := chain.Process(eb); err != nil {
-					processErrorsMutex.Lock()
-					defer processErrorsMutex.Unlock()
-					processErrors[*chain.ID] = err
-				}
-			}()
-		}
-		wg.Wait()
-		if len(processErrors) > 0 {
-			for chainID, err := range processErrors {
-				return fmt.Errorf("ChainID(%v): %v", chainID, err)
-			}
-		}
-		setSyncHeight(height)
-		if err := state.SaveHeight(height); err != nil {
-			return err
-		}
-	}
-	if !synced {
-		log.Infof("Synced.")
-		synced = true
-	}
-
+	heightMtx.Lock()
+	defer heightMtx.Unlock()
+	factomHeight = heights.Entry
 	return nil
 }

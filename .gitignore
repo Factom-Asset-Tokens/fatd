@@ -3,3 +3,5 @@ fatd*
 coverage.out
 fat-cli*
 todo
+.vscode
+*.sqlite3

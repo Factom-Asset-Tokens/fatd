@@ -172,9 +172,12 @@ func TestEntry(t *testing.T) {
 	})
 	t.Run("Create", func(t *testing.T) {
 		c := NewClient()
+		c.Factomd.DebugRequest = true
+		c.Walletd.DebugRequest = true
 		balance, err := ec.GetBalance(c)
 		assert := assert.New(t)
-		assert.NoError(err)
+		require := require.New(t)
+		require.NoError(err)
 		if balance == 0 {
 			// Skip if the EC address is not funded.
 			t.SkipNow()
