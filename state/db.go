@@ -43,7 +43,7 @@ import (
 )
 
 var (
-	SavedHeight uint32 = 163180
+	SavedHeight uint32
 	log         _log.Log
 	c           = flag.FactomClient
 )
@@ -93,15 +93,8 @@ func Load() error {
 		}
 	}
 
-	if minHeight < math.MaxUint32 {
-		SavedHeight = minHeight
-	}
-	if flag.StartScanHeight > -1 {
-		if uint32(flag.StartScanHeight-1) > SavedHeight {
-			log.Warnf("-startscanheight (%v) is higher than the last saved block height (%v) which will very likely result in a corrupted database.",
-				flag.StartScanHeight, SavedHeight)
-		}
-		SavedHeight = uint32(flag.StartScanHeight - 1)
+	if minHeight < math.MaxUint32 { // If a minimum was found...
+		SavedHeight = minHeight // use it, otherwise start at zero.
 	}
 	return nil
 }

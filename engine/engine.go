@@ -29,6 +29,7 @@
 package engine
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
@@ -70,16 +71,48 @@ func engine(stop <-chan struct{}, done chan struct{}) {
 		log.Error(err)
 		return
 	}
-
 	// Set up sync and factom heights...
 	setSyncHeight(state.SavedHeight)
-	updateFactomHeight()
-	if syncHeight > factomHeight {
-		// Probably indicates a bad StartScanHeight or we aren't
-		// connected to Factom MainNet.
-		log.Errorf("Saved height (%v) > Factom height (%v)",
-			state.SavedHeight, factomHeight)
+	if err := updateFactomHeight(); err != nil {
+		log.Error(err)
 		return
+	}
+
+	// Guard against syncing against a network with an earlier blockheight.
+	if syncHeight > factomHeight {
+		log.Errorf("Saved height (%v) > Factom height (%v)",
+			syncHeight, factomHeight)
+		return
+	}
+	if flag.StartScanHeight > -1 { // If -startscanheight was set...
+		if flag.StartScanHeight > int32(factomHeight) {
+			log.Errorf("-startscanheight %v > Factom height (%v)",
+				flag.StartScanHeight, factomHeight)
+			return
+		}
+		// Warn if we are skipping blocks.
+		if flag.StartScanHeight > int32(syncHeight)+1 {
+			log.Warnf("-startscanheight %v skips over %v blocks from the last saved last saved block height which will very likely result in a corrupted database.",
+				flag.StartScanHeight,
+				flag.StartScanHeight-int32(syncHeight)-1)
+		}
+		// We start syncing at syncHeight+1, so subtract one. This
+		// overflows for 0 but it's OK as long as we don't rely on the
+		// value until the first scan loop.
+		setSyncHeight(uint32(flag.StartScanHeight - 1))
+	} else if syncHeight == 0 { // else if the syncHeight has not been set...
+		const mainnetStart = 163180
+		const testnetStart = 60000
+		// This is a hacky, unreliable way to determine what network we
+		// are on. This needs to be replaced with using the actually
+		// Network ID.
+		if factomHeight > mainnetStart {
+			setSyncHeight(mainnetStart) // Set for mainnet
+		} else if factomHeight > testnetStart {
+			setSyncHeight(testnetStart) // Set for testnet
+		} else {
+			setSyncHeight(uint32(-1)) // Start scan at 0.
+		}
 	}
 
 	wg := &sync.WaitGroup{}
@@ -165,7 +198,10 @@ func engine(stop <-chan struct{}, done chan struct{}) {
 			}
 		}
 
-		updateFactomHeight()
+		if err := updateFactomHeight(); err != nil {
+			log.Error(err)
+			return
+		}
 	}
 }
 
@@ -187,15 +223,15 @@ func setSyncHeight(sync uint32) {
 	defer heightMtx.Unlock()
 	syncHeight = sync
 }
-func updateFactomHeight() {
+func updateFactomHeight() error {
 	// Get the current Factom Blockchain height.
 	var heights factom.Heights
 	err := heights.Get(c)
 	if err != nil {
-		log.Errorf("factom.Heights.Get(c): %v", err)
-		return
+		return fmt.Errorf("factom.Heights.Get(c): %v", err)
 	}
 	heightMtx.Lock()
 	defer heightMtx.Unlock()
 	factomHeight = heights.Entry
+	return nil
 }
