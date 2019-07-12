@@ -405,6 +405,31 @@ Get the Factom block height sync status of the daemon
 
 
 
+### `get-balances`:
+
+Get the numeric balance count for all tracked tokens of a public Factoid address. The returned object has keys representing token chain IDs and values represinting the balance of the address in FAT-0 or FAT-1 tokens.
+
+#### Parameters:
+
+| Name      | Type   | Description                | Validation                   | Required |
+| --------- | ------ | -------------------------- | ---------------------------- | -------- |
+| `address` | string | The public Factoid address | Valid Public Factoid address | Y        |
+
+#### Response:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "result": {
+  "0cccd100a1801c0cf4aa2104b15dec94fe6f45d0f3347b016ed20d81059494df": 9007199254743259,
+  "962a18328c83f370113ff212bae21aaf34e5252bc33d59c9db3df2a6bfda966f": 99694
+},
+  "id": 6482
+}
+```
+
+
+
 
 
 ## Error Codes
