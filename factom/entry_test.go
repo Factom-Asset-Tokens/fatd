@@ -122,9 +122,6 @@ func TestEntry(t *testing.T) {
 				assert.Equal(*test.Hash, hash)
 			} else {
 				require.EqualError(err, test.Error)
-				assert.Nil(e.ChainID)
-				assert.Nil(e.Content)
-				assert.Nil(e.ExtIDs)
 			}
 		})
 	}

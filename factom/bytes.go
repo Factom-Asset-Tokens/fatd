@@ -69,6 +69,14 @@ func (b *Bytes32) Set(hexStr string) error {
 	return nil
 }
 
+// NewBytesFromString makes a new Bytes object with the hex encoded string data
+// contained in s.
+func NewBytesFromString(s string) Bytes {
+	var b Bytes
+	b.Set(s)
+	return b
+}
+
 // Set decodes a string with hex encoded data.
 func (b *Bytes) Set(hexStr string) error {
 	*b = make(Bytes, hex.DecodedLen(len(hexStr)))

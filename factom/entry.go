@@ -401,13 +401,19 @@ func (e *Entry) UnmarshalBinary(data []byte) error {
 	if data[0] != 0x00 {
 		return fmt.Errorf("invalid version byte")
 	}
-	chainID := data[1:33]
+	i := 1
+	// When the e.ChainID is already populated, just reuse the data.
+	if e.ChainID == nil {
+		e.ChainID = new(Bytes32)
+		copy(e.ChainID[:], data[i:i+len(e.ChainID)])
+	}
+	i += len(e.ChainID)
 	extIDTotalLen := int(binary.BigEndian.Uint16(data[33:35]))
 	if extIDTotalLen == 1 || EntryHeaderLen+extIDTotalLen > len(data) {
 		return fmt.Errorf("invalid ExtIDs length")
 	}
 
-	extIDs := []Bytes{}
+	e.ExtIDs = []Bytes{}
 	pos := EntryHeaderLen
 	for pos < EntryHeaderLen+extIDTotalLen {
 		extIDLen := int(binary.BigEndian.Uint16(data[pos : pos+2]))
@@ -415,18 +421,17 @@ func (e *Entry) UnmarshalBinary(data []byte) error {
 			return fmt.Errorf("error parsing ExtIDs")
 		}
 		pos += 2
-		extIDs = append(extIDs, Bytes(data[pos:pos+extIDLen]))
+		e.ExtIDs = append(e.ExtIDs, Bytes(data[pos:pos+extIDLen]))
 		pos += extIDLen
 	}
+
 	e.Content = data[pos:]
-	e.ExtIDs = extIDs
-	e.ChainID = NewBytes32(chainID)
 	return nil
 }
 
 // ComputeHash returns the Entry's hash as computed by hashing the binary
 // representation of the Entry.
-func (e Entry) ComputeHash() (Bytes32, error) {
+func (e *Entry) ComputeHash() (Bytes32, error) {
 	data, err := e.MarshalBinary()
 	return EntryHash(data), err
 }

@@ -62,7 +62,6 @@ func (eb EBlock) IsPopulated() bool {
 		eb.PrevKeyMR != nil &&
 		eb.PrevFullHash != nil &&
 		eb.BodyMR != nil &&
-		eb.Height > 0 &&
 		eb.ObjectCount > 1
 }
 
@@ -212,6 +211,7 @@ const (
 // UnmarshalBinary unmarshals raw entry block data.
 //
 // Header
+//
 // [ChainID (Bytes32)] +
 // [BodyMR (Bytes32)] +
 // [PrevKeyMR (Bytes32)] +
@@ -221,7 +221,8 @@ const (
 // [Object Count (uint32 BE)]
 //
 // Body
-// [Object 0 (Bytes32)] + // entry hash or minute marker
+//
+// [Object 0 (Bytes32)] // entry hash or minute marker +
 // ... +
 // [Object N (Bytes32)]
 //
@@ -233,11 +234,13 @@ func (eb *EBlock) UnmarshalBinary(data []byte) error {
 	if len(data) > EBlockMaxTotalLen {
 		return fmt.Errorf("invalid length")
 	}
+
+	// When the eb.ChainID is already populated, just reuse the data.
 	if eb.ChainID == nil {
 		eb.ChainID = new(Bytes32)
+		copy(eb.ChainID[:], data[:len(eb.ChainID)])
 	}
-	eb.ChainID = eb.ChainID
-	i := copy(eb.ChainID[:], data[:len(eb.ChainID)])
+	i := len(eb.ChainID)
 	eb.BodyMR = new(Bytes32)
 	i += copy(eb.BodyMR[:], data[i:i+len(eb.BodyMR)])
 	eb.PrevKeyMR = new(Bytes32)
@@ -261,11 +264,12 @@ func (eb *EBlock) UnmarshalBinary(data []byte) error {
 	for oi := range objects {
 		obj := &objects[len(objects)-1-oi] // Reverse object order
 		i += copy(obj[:], data[i:i+len(obj)])
-		if bytes.Compare(obj[:], maxMinute[:]) <= 0 {
-			numMins++
+		if bytes.Compare(obj[:], maxMinute[:]) <= 0 { // if obj <= maxMinute
+			numMins++ // obj is a minute marker
 		}
 	}
-	if bytes.Compare(objects[0][:], maxMinute[:]) > 0 {
+	// The last object (which is now index 0) must be a minute marker.
+	if bytes.Compare(objects[0][:], maxMinute[:]) > 0 { // if obj > maxMinute
 		return fmt.Errorf("invalid minute marker")
 	}
 
@@ -291,9 +295,6 @@ func (eb *EBlock) UnmarshalBinary(data []byte) error {
 }
 
 func (eb *EBlock) MarshalBinaryHeader() ([]byte, error) {
-	if !eb.IsPopulated() {
-		return nil, fmt.Errorf("not populated")
-	}
 	data := make([]byte, eb.MarshalBinaryLen())
 	i := copy(data, eb.ChainID[:])
 	i += copy(data[i:], eb.BodyMR[:])
@@ -303,6 +304,7 @@ func (eb *EBlock) MarshalBinaryHeader() ([]byte, error) {
 	i += 4
 	binary.BigEndian.PutUint32(data[i:], eb.Height)
 	i += 4
+	eb.ObjectCount = eb.CountObjects()
 	binary.BigEndian.PutUint32(data[i:], eb.ObjectCount)
 	i += 4
 	return data, nil
@@ -325,6 +327,9 @@ func (eb *EBlock) MarshalBinary() ([]byte, error) {
 }
 
 func (eb *EBlock) Objects() ([]Bytes32, error) {
+	if eb.ObjectCount == 0 {
+		eb.ObjectCount = eb.CountObjects()
+	}
 	objects := make([]Bytes32, eb.ObjectCount)
 	var lastMin, oi int
 	lastMin = int(eb.Entries[0].Timestamp.Sub(eb.Timestamp).Minutes())
@@ -345,12 +350,15 @@ func (eb *EBlock) Objects() ([]Bytes32, error) {
 	lastE := eb.Entries[len(eb.Entries)-1]
 	lastMin = int(lastE.Timestamp.Sub(eb.Timestamp).Minutes())
 	objects[oi][31] = byte(lastMin)
-	oi++
 	return objects, nil
 }
 
 func (eb *EBlock) CountObjects() uint32 {
-	var numMins, lastMin int
+	if len(eb.Entries) == 0 {
+		panic("no entries")
+	}
+	var lastMin int
+	numMins := 1 // There is always at least one minute marker.
 	for _, e := range eb.Entries {
 		min := int(e.Timestamp.Sub(eb.Timestamp).Minutes())
 		if min > lastMin {
@@ -368,7 +376,7 @@ func (eb *EBlock) MarshalBinaryLen() int {
 	return EBlockHeaderLen + int(eb.ObjectCount)*len(Bytes32{})
 }
 
-func (eb EBlock) ComputeBodyMR() (Bytes32, error) {
+func (eb *EBlock) ComputeBodyMR() (Bytes32, error) {
 	var bodyMR Bytes32
 	objects, err := eb.Objects()
 	if err != nil {
@@ -389,7 +397,7 @@ func (eb EBlock) ComputeBodyMR() (Bytes32, error) {
 	return bodyMR, nil
 }
 
-func (eb EBlock) ComputeFullHash() (Bytes32, error) {
+func (eb *EBlock) ComputeFullHash() (Bytes32, error) {
 	data, err := eb.MarshalBinary()
 	if err != nil {
 		return Bytes32{}, err
@@ -397,7 +405,7 @@ func (eb EBlock) ComputeFullHash() (Bytes32, error) {
 	return sha256.Sum256(data), nil
 }
 
-func (eb EBlock) ComputeHeaderHash() (Bytes32, error) {
+func (eb *EBlock) ComputeHeaderHash() (Bytes32, error) {
 	header, err := eb.MarshalBinaryHeader()
 	if err != nil {
 		return Bytes32{}, err
@@ -405,7 +413,7 @@ func (eb EBlock) ComputeHeaderHash() (Bytes32, error) {
 	return sha256.Sum256(header[:EBlockHeaderLen]), nil
 }
 
-func (eb EBlock) ComputeKeyMR() (Bytes32, error) {
+func (eb *EBlock) ComputeKeyMR() (Bytes32, error) {
 	headerHash, err := eb.ComputeHeaderHash()
 	if err != nil {
 		return Bytes32{}, err
