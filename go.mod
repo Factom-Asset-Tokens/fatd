@@ -3,6 +3,7 @@ module github.com/Factom-Asset-Tokens/fatd
 go 1.12
 
 require (
+	crawshaw.io/sqlite v0.1.3-0.20190520153332-66f853b01dfb
 	github.com/AdamSLevy/go-merkle v0.0.0-20190611101253-ca33344a884d
 	github.com/AdamSLevy/jsonrpc2/v11 v11.3.2
 	github.com/Factom-Asset-Tokens/base58 v0.0.0-20181227014902-61655c4dd885
