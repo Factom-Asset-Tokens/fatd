@@ -56,25 +56,7 @@ func TestDB(t *testing.T) {
 		assert.EqualError(InsertEBlock(cp.Conn, eb, &dbKeyMR),
 			"invalid EBlock{}.PrevKeyMR")
 
-		eID = 1
-		for i, eb := range eblocks {
-			loadedEB, err := SelectEBlockBySequence(cp.Conn, uint32(i))
-			require.NoError(err)
-			assert.Equal(loadedEB.KeyMR, eb.KeyMR)
-			for _, e := range eb.Entries {
-				loadByIDE, validI, err := SelectEntryByID(cp.Conn, eID)
-				eID++
-				loadByHashE, validH, err := SelectEntryByHash(
-					cp.Conn, e.Hash)
-				assert.Equal(loadByIDE, loadByHashE)
-				assert.NoError(err)
-				assert.False(validI)
-				assert.False(validH)
-				assert.Equal(*loadByIDE.Hash, *e.Hash)
-				assert.Equal(loadByIDE.ExtIDs, e.ExtIDs)
-				assert.Equal(loadByIDE.Content, e.Content)
-			}
-		}
+		assert.NoError(ValidateChain(cp.Conn, eb.ChainID))
 	})
 }
 
@@ -83,7 +65,7 @@ var entryCount int
 func genNewEntry(chainID *factom.Bytes32) factom.Entry {
 	extID := []byte(fmt.Sprintf("%v", entryCount))
 	entryCount++
-	data := []byte(fmt.Sprintf("%v", time.Now()))
+	data := []byte("hello world")
 	e := factom.Entry{ChainID: chainID, ExtIDs: []factom.Bytes{extID}, Content: data}
 	hash, err := e.ComputeHash()
 	if err != nil {
@@ -97,7 +79,7 @@ func genChain() []factom.EBlock {
 	eblocks := make([]factom.EBlock, 6)
 	eb := &eblocks[0]
 	height := uint32(10000)
-	timestamp := time.Now().Add(-7 * 24 * time.Hour).Round(time.Minute)
+	timestamp := time.Date(2019, 5, 5, 5, 0, 0, 0, time.Local)
 	eb.Timestamp = timestamp
 	eb.Height = 10000
 	eb.PrevKeyMR = new(factom.Bytes32)
@@ -137,10 +119,17 @@ func genChain() []factom.EBlock {
 		eb.PrevKeyMR = prevKeyMR
 		eb.PrevFullHash = prevFullHash
 		eb.Entries = make([]factom.Entry, 2)
+		lastTimestamp := eb.Timestamp
+		randMinRange := 10
 		for i := range eb.Entries {
 			e := genNewEntry(chainID)
-			e.Timestamp = eb.Timestamp.Add(
-				time.Duration(rand.Intn(10)) * time.Minute)
+			// Ensure that the Timestamp is always greater than or
+			// equal to the last Entry timestamp.
+			rMin := rand.Intn(randMinRange)
+			randMinRange -= rMin
+			e.Timestamp = lastTimestamp.Add(time.Duration(rMin) * time.Minute)
+			lastTimestamp = e.Timestamp
+
 			eb.Entries[i] = e
 		}
 		bodyMR, err := eb.ComputeBodyMR()

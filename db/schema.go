@@ -84,7 +84,10 @@ CREATE INDEX idx_nf_token_transactions_nf_token_id ON nf_token_transactions(nf_t
         id              INTEGER PRIMARY KEY,
         sync_height     INTEGER,
         sync_db_key_mr  BLOB,
-        network_id      BLOB
+        network_id      BLOB,
+        init_entry_id   INTEGER,
+
+        FOREIGN KEY(init_entry_id) REFERENCES entries
 );`
 
 	// For the sake of simplicity, all chain DBs use the exact same schema,

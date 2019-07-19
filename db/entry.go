@@ -18,7 +18,7 @@ func InsertEntry(conn *sqlite.Conn, e factom.Entry, ebSeq uint32) (int64, error)
 	stmt := conn.Prep(`INSERT INTO entries
                 (eb_seq, timestamp, hash, data)
                 VALUES (?, ?, ?, ?);`)
-	stmt.BindInt64(1, int64(ebSeq))
+	stmt.BindInt64(1, int64(int32(ebSeq))) // Preserve uint32(-1) as -1
 	stmt.BindInt64(2, int64(e.Timestamp.Unix()))
 	stmt.BindBytes(3, e.Hash[:])
 	stmt.BindBytes(4, data)

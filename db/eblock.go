@@ -29,7 +29,7 @@ func InsertEBlock(conn *sqlite.Conn, eb factom.EBlock, dbKeyMR *factom.Bytes32) 
 	stmt.BindBytes(2, eb.KeyMR[:])
 	stmt.BindInt64(3, int64(eb.Height))
 	stmt.BindBytes(4, dbKeyMR[:])
-	stmt.BindInt64(5, int64(eb.Timestamp.Unix()))
+	stmt.BindInt64(5, eb.Timestamp.Unix())
 	stmt.BindBytes(6, data)
 
 	_, err = stmt.Step()
@@ -88,7 +88,7 @@ func SelectEBlockBySequence(conn *sqlite.Conn, seq uint32) (factom.EBlock, error
 func SelectKeyMR(conn *sqlite.Conn, seq uint32) (factom.Bytes32, error) {
 	var keyMR factom.Bytes32
 	stmt := conn.Prep(`SELECT key_mr FROM eblocks WHERE seq = ?;`)
-	stmt.BindInt64(1, int64(int32(seq))) // Properly convert uint32(0)-1 to -1
+	stmt.BindInt64(1, int64(int32(seq))) // Preserve uint32(-1) as -1
 	hasRow, err := stmt.Step()
 	if err != nil {
 		return keyMR, err
