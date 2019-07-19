@@ -148,13 +148,15 @@ func TestDataStructures(t *testing.T) {
 
 		c.FactomdServer = courtesyNode
 		ebs, err := eb.GetAllPrev(c)
-		assert.NoError(err)
-		assert.Len(ebs, 6)
-		assert.True(ebs[0].IsFirst())
-		first := ebs[0].Prev()
-		assert.Equal(first.KeyMR, ebs[0].KeyMR,
-			"Prev() should return a copy of itself if it is first")
-		assert.Equal(eb.KeyMR, ebs[len(ebs)-1].KeyMR)
+		var first EBlock
+		if assert.NoError(err) {
+			assert.Len(ebs, 6)
+			assert.True(ebs[0].IsFirst())
+			first = ebs[0].Prev()
+			assert.Equal(first.KeyMR, ebs[0].KeyMR,
+				"Prev() should return a copy of itself if it is first")
+			assert.Equal(eb.KeyMR, ebs[len(ebs)-1].KeyMR)
+		}
 
 		// Fetch the chain head EBlock via the ChainID.
 		// First use an invalid ChainID and an invalid URL.

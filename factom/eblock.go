@@ -113,7 +113,7 @@ func (eb *EBlock) Get(c *Client) error {
 		return err
 	}
 	if *eb.KeyMR != keyMR {
-		return fmt.Errorf("invalid key merkle root")
+		return fmt.Errorf("invalid KeyMR")
 	}
 	return nil
 }
@@ -353,17 +353,25 @@ func (eb *EBlock) Objects() ([]Bytes32, error) {
 	return objects, nil
 }
 
-func (eb *EBlock) CountObjects() uint32 {
+func (eb EBlock) CountObjects() uint32 {
 	if len(eb.Entries) == 0 {
 		panic("no entries")
 	}
-	var lastMin int
-	numMins := 1 // There is always at least one minute marker.
+	mins := make([]bool, 10)
+	var numMins int
 	for _, e := range eb.Entries {
-		min := int(e.Timestamp.Sub(eb.Timestamp).Minutes())
-		if min > lastMin {
+		minute := e.Timestamp.Sub(eb.Timestamp)
+		// Except for zero, timestamps get rounded down including those
+		// that fall exactly on a minute.
+		if minute > 0 && minute.Truncate(time.Minute) == minute {
+			minute -= time.Minute
+		} else {
+			minute = minute.Truncate(time.Minute)
+		}
+		mi := int(minute.Minutes())
+		if !mins[mi] {
+			mins[mi] = true
 			numMins++
-			lastMin = min
 		}
 	}
 	return uint32(len(eb.Entries) + numMins)

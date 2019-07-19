@@ -102,7 +102,7 @@ func engine(stop <-chan struct{}, done chan struct{}) {
 		setSyncHeight(uint32(flag.StartScanHeight - 1))
 	} else if syncHeight == 0 { // else if the syncHeight has not been set...
 		const mainnetStart = 163180
-		const testnetStart = 60000
+		const testnetStart = 60783
 		// This is a hacky, unreliable way to determine what network we
 		// are on. This needs to be replaced with using the actually
 		// Network ID.
