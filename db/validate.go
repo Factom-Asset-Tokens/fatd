@@ -2,20 +2,71 @@ package db
 
 import (
 	"fmt"
+	"os"
+	"time"
 
-	"crawshaw.io/sqlite"
+	"crawshaw.io/sqlite/sqlitex"
+	"github.com/AdamSLevy/sqlitechangeset"
 	"github.com/Factom-Asset-Tokens/fatd/factom"
+	"github.com/Factom-Asset-Tokens/fatd/fat"
+	"github.com/Factom-Asset-Tokens/fatd/flag"
 )
 
 // ValidateChain validates all Entry Hashes and EBlock KeyMRs, as well as the
 // continuity of all stored EBlocks and Entries. It does not validate the
 // validity of the saved DBlock KeyMRs.
-func ValidateChain(conn *sqlite.Conn, chainID *factom.Bytes32) error {
-	eBlockStmt := conn.Prep(SelectEBlockWhere + `true;`)
-	entryStmt := conn.Prep(SelectEntryWhere + `true;`)
+func (chain Chain) Validate() (err error) {
+	// Validate ChainID...
+	read := chain.Pool.Get(nil)
+	write := chain.Conn
+	first, err := SelectEntryByID(read, 1)
+	if err != nil {
+		return err
+	}
+	if !first.IsPopulated() {
+		return fmt.Errorf("no entries")
+	}
+	if *chain.ID != factom.ChainID(first.ExtIDs) {
+		return fmt.Errorf("invalid NameIDs")
+	}
+
+	// We will use a session to determine if recomputing state results in
+	// any changes. If the state is uncorrupted, the session should have an
+	// empty patchset.
+	sess, err := write.CreateSession("")
+	if err != nil {
+		return err
+	}
+	sess.Attach("entries")
+	sess.Attach("addresses")
+	sess.Attach("nf_tokens")
+	sess.Attach("metadata")
+	defer sess.Delete()
+
+	// In case there are any changes, we want to roll back everything. We
+	// don't fix corrupted databases, at least not yet.
+	defer sqlitex.Save(write)(&err)
+
+	// Completely clear the state, while preserving all chain data.
+	sqlitex.ExecScript(write, `
+                UPDATE addresses SET balance = 0;
+                DELETE FROM address_transactions;
+                DELETE FROM nf_tokens;
+                DELETE FROM nf_token_transactions;
+                DELETE FROM eblocks;
+                DELETE FROM entries;
+                UPDATE metadata SET (init_entry_id, num_issued) = (NULL, NULL);
+                `)
+	chain.NumIssued = 0
+	chain.Issuance = fat.Issuance{}
+	chain.apply = chain.ApplyIssuance
+
+	eBlockStmt := read.Prep(SelectEBlockWhere + `true;`) // SELECT all EBlocks.
+	entryStmt := read.Prep(SelectEntryWhere + `true;`)   // SELECT all Entries.
+
+	var eID int = 1     // Entry ID
+	var sequence uint32 // EBlock Sequence
 	var prevKeyMR, prevFullHash factom.Bytes32
-	var sequence uint32
-	var eID int = 1
 	for {
 		eb, err := SelectEBlock(eBlockStmt)
 		if err != nil {
@@ -23,10 +74,10 @@ func ValidateChain(conn *sqlite.Conn, chainID *factom.Bytes32) error {
 		}
 		if !eb.IsPopulated() {
 			// No more EBlocks.
-			return nil
+			break
 		}
 
-		if *eb.ChainID != *chainID {
+		if *eb.ChainID != *chain.ID {
 			return fmt.Errorf("invalid EBlock{%v, %v}: invalid ChainID",
 				eb.Sequence, eb.KeyMR)
 		}
@@ -62,8 +113,8 @@ func ValidateChain(conn *sqlite.Conn, chainID *factom.Bytes32) error {
 		}
 		prevKeyMR = keyMR
 
-		for _, ebe := range eb.Entries {
-			e, valid, err := SelectEntry(entryStmt)
+		for i, ebe := range eb.Entries {
+			e, err := SelectEntry(entryStmt)
 
 			if *e.Hash != *ebe.Hash {
 				return fmt.Errorf("invalid Entry{%v}: broken EBlock link",
@@ -79,23 +130,56 @@ func ValidateChain(conn *sqlite.Conn, chainID *factom.Bytes32) error {
 					e.Hash)
 			}
 
-			if *e.ChainID != *chainID {
+			if *e.ChainID != *chain.ID {
 				return fmt.Errorf("invalid Entry{%v}: invalid ChainID",
 					e.Hash)
 			}
 
 			if e.Timestamp != ebe.Timestamp {
-				return fmt.Errorf(
-					"invalid Entry{%v, %v}: invalid Timestamp ebe %v e %v",
-					eID, e.Hash, ebe.Timestamp, e.Timestamp)
-			}
-
-			// Attempt apply entry as fat entry.
-			if valid != false {
-				return fmt.Errorf("invalid Entry{%v}: marked as valid",
+				return fmt.Errorf("invalid Entry{%v}: invalid Timestamp",
 					e.Hash)
 			}
+
+			eb.Entries[i] = e
 			eID++
 		}
+		dbKeyMR, err := SelectDBKeyMR(read, eb.Sequence)
+		if err != nil {
+			return err
+		}
+		if err := chain.Apply(eb, &dbKeyMR); err != nil {
+			return err
+		}
 	}
+	if sequence == 0 {
+		return fmt.Errorf("no eblocks")
+	}
+
+	changesetSQL, err := sqlitechangeset.SessionToSQL(chain.Conn, sess)
+	if err != nil {
+		chain.Log.Debugf("sqlitechangeset.SessionToSQL(): %v", err)
+		return
+	}
+	if len(changesetSQL) > 0 {
+		defer func() {
+			chain.Log.Warnf("invalid state changeset: %v", changesetSQL)
+			// Write the changeset to a file for later analysis...
+			path := fmt.Sprintf("%v/%v-corrupt-%v.changeset",
+				flag.DBPath, chain.ID.String(), time.Now().Unix())
+			chain.Log.Warnf("writing corrupted state changeset to %v", path)
+			f, err := os.Create(path)
+			if err != nil {
+				chain.Log.Debug(err)
+				return
+			}
+			if _, err := f.WriteString(changesetSQL); err != nil {
+				chain.Log.Debug(err)
+			}
+			if err := f.Close(); err != nil {
+				chain.Log.Debug(err)
+			}
+		}()
+		return fmt.Errorf("could not recompute saved state")
+	}
+	return nil
 }

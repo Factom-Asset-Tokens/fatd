@@ -22,8 +22,8 @@ const (
 	PoolSize = 10
 )
 
-func OpenAll() (cps []ConnPool, err error) {
-	log = _log.New("db")
+func OpenAll() (chains []*Chain, err error) {
+	log = _log.New("pkg", "db")
 	// Try to create the database directory in case it doesn't already
 	// exist.
 	if err := os.Mkdir(flag.DBPath, 0755); err != nil {
@@ -35,10 +35,10 @@ func OpenAll() (cps []ConnPool, err error) {
 
 	defer func() {
 		if err != nil {
-			for _, cp := range cps {
-				cp.Close()
+			for _, chain := range chains {
+				chain.Close()
 			}
-			cps = nil
+			chains = nil
 		}
 	}()
 
@@ -46,9 +46,9 @@ func OpenAll() (cps []ConnPool, err error) {
 	// file names.
 	files, err := ioutil.ReadDir(flag.DBPath)
 	if err != nil {
-		return cps, fmt.Errorf("ioutil.ReadDir(%q): %v", flag.DBPath, err)
+		return nil, fmt.Errorf("ioutil.ReadDir(%q): %v", flag.DBPath, err)
 	}
-	cps = make([]ConnPool, 0, len(files))
+	chains = make([]*Chain, 0, len(files))
 	for _, f := range files {
 		fname := f.Name()
 		chainID, err := fnameToChainID(fname)
@@ -57,14 +57,16 @@ func OpenAll() (cps []ConnPool, err error) {
 			continue
 		}
 		log.Debugf("Loading chain: %v", chainID)
-		cp, err := open(fname, chainDBSchema)
+		chain, err := Open(fname)
 		if err != nil {
-			return cps, err
+			return nil, err
 		}
-		cp.ChainID = chainID
-		cps = append(cps, cp)
+		if *chainID != *chain.ID {
+			return nil, fmt.Errorf("chain id does not match filename")
+		}
+		chains = append(chains, chain)
 	}
-	return cps, nil
+	return chains, nil
 }
 func fnameToChainID(fname string) (*factom.Bytes32, error) {
 	invalidFNameErr := fmt.Errorf("invalid filename: %v", fname)

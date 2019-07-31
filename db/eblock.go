@@ -104,6 +104,25 @@ func SelectKeyMR(conn *sqlite.Conn, seq uint32) (factom.Bytes32, error) {
 	return keyMR, nil
 }
 
+func SelectDBKeyMR(conn *sqlite.Conn, seq uint32) (factom.Bytes32, error) {
+	var dbKeyMR factom.Bytes32
+	stmt := conn.Prep(`SELECT db_key_mr FROM eblocks WHERE seq = ?;`)
+	stmt.BindInt64(1, int64(int32(seq))) // Preserve uint32(-1) as -1
+	hasRow, err := stmt.Step()
+	if err != nil {
+		return dbKeyMR, err
+	}
+	if !hasRow {
+		return dbKeyMR, nil
+	}
+
+	if stmt.ColumnBytes(0, dbKeyMR[:]) != len(dbKeyMR) {
+		return dbKeyMR, fmt.Errorf("invalid key_mr length")
+	}
+
+	return dbKeyMR, nil
+}
+
 func SelectLatestEBlock(conn *sqlite.Conn) (factom.EBlock, factom.Bytes32, error) {
 	var dbKeyMR factom.Bytes32
 	stmt := conn.Prep(`SELECT key_mr, data, timestamp, db_key_mr FROM eblocks

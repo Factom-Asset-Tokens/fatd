@@ -23,16 +23,33 @@ const (
         eb_seq          INTEGER NOT NULL,
         timestamp       INTEGER NOT NULL,
         valid           BOOL NOT NULL DEFAULT FALSE,
-        hash            BLOB NOT NULL UNIQUE,
+        hash            BLOB NOT NULL,
         data            BLOB NOT NULL,
 
         FOREIGN KEY(eb_seq) REFERENCES eblocks
 );
 CREATE INDEX idx_entries_eb_seq ON entries(eb_seq);
+CREATE INDEX idx_entries_hash ON entries(hash);
+`
+
+	createTableTempEntries = `CREATE TABLE temp.entries (
+        id              INTEGER PRIMARY KEY,
+        timestamp       INTEGER NOT NULL,
+        valid           BOOL NOT NULL DEFAULT FALSE,
+        hash            BLOB NOT NULL,
+        data            BLOB NOT NULL,
+);
+CREATE INDEX temp.idx_entries_hash ON entries(hash);
 `
 
 	createTableAddresses = `CREATE TABLE addresses (
-        id              INTEGER PRIMARY KEY,
+        address         BLOB PRIMARY KEY,
+        balance         INTEGER NOT NULL
+                        CONSTRAINT "insufficient balance" CHECK (balance >= 0)
+);
+`
+
+	createTableTempAddresses = `CREATE TABLE temp.addresses (
         address         BLOB NOT NULL UNIQUE,
         balance         INTEGER NOT NULL
                         CONSTRAINT "insufficient balance" CHECK (balance >= 0)
@@ -50,6 +67,19 @@ CREATE INDEX idx_entries_eb_seq ON entries(eb_seq);
         FOREIGN KEY(address_id) REFERENCES addresses
 );
 CREATE INDEX idx_address_transactions_address_id ON address_transactions(address_id);
+`
+
+	createTableTempAddressTransactions = `CREATE TABLE temp.address_transactions (
+        entry_id        INTEGER NOT NULL,
+        address_id      INTEGER NOT NULL,
+        sent_to         BOOL NOT NULL,
+
+        PRIMARY KEY(entry_id, address_id),
+
+        FOREIGN KEY(entry_id)   REFERENCES entries,
+        FOREIGN KEY(address_id) REFERENCES addresses
+);
+CREATE INDEX temp.idx_address_transactions_address_id ON address_transactions(address_id);
 `
 
 	createTableNFTokens = `CREATE TABLE nf_tokens (
@@ -82,13 +112,18 @@ CREATE INDEX idx_nf_token_transactions_nf_token_id ON nf_token_transactions(nf_t
 
 	createTableMetadata = `CREATE TABLE metadata (
         id              INTEGER PRIMARY KEY,
-        sync_height     INTEGER,
-        sync_db_key_mr  BLOB,
-        network_id      BLOB,
+        sync_height     INTEGER NOT NULL,
+        sync_db_key_mr  BLOB NOT NULL,
+        network_id      BLOB NOT NULL,
+        id_key_entry    BLOB,
+        id_key_height   INTEGER,
+
         init_entry_id   INTEGER,
+        num_issued      INTEGER,
 
         FOREIGN KEY(init_entry_id) REFERENCES entries
-);`
+);
+`
 
 	// For the sake of simplicity, all chain DBs use the exact same schema,
 	// regardless of whether they actually make use of the NFTokens tables.
@@ -116,7 +151,7 @@ func validateOrApplySchema(conn *sqlite.Conn, schema string) error {
 		return nil
 	}
 	if fullSchema != schema {
-		return fmt.Errorf("invalid schema: '%v'\n expected: '%#v'",
+		return fmt.Errorf("invalid schema: %v\n expected: %v",
 			fullSchema, schema)
 	}
 	return nil

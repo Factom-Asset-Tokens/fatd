@@ -7,65 +7,118 @@ import (
 	"github.com/Factom-Asset-Tokens/fatd/factom"
 )
 
-func InsertMetadata(conn *sqlite.Conn,
-	height uint32, dbKeyMR *factom.Bytes32, networkID [4]byte) error {
-	stmt := conn.Prep(`INSERT INTO metadata
-                (id, sync_height, sync_db_key_mr, network_id)
-                VALUES (?, ?, ?, ?);`)
-	stmt.BindInt64(1, 0)
-	stmt.BindInt64(2, int64(height))
-	stmt.BindBytes(3, dbKeyMR[:])
-	stmt.BindBytes(4, networkID[:])
-
+func (chain *Chain) InsertMetadata() error {
+	stmt := chain.Conn.Prep(`INSERT INTO metadata
+                (id, sync_height, sync_db_key_mr, network_id, id_key_entry, id_key_height)
+                VALUES (0, ?, ?, ?, ?, ?);`)
+	stmt.BindInt64(1, int64(chain.SyncHeight))
+	stmt.BindBytes(2, chain.SyncDBKeyMR[:])
+	stmt.BindBytes(3, chain.NetworkID[:])
+	if chain.Identity.IsPopulated() {
+		data, err := chain.Identity.MarshalBinary()
+		if err != nil {
+			return err
+		}
+		fmt.Printf("bind bytes %x\n", data)
+		stmt.BindBytes(4, data)
+		stmt.BindInt64(5, int64(chain.Identity.Height))
+	} else {
+		stmt.BindNull(4)
+		stmt.BindNull(5)
+	}
 	_, err := stmt.Step()
 	return err
-
 }
 
-func SaveSync(conn *sqlite.Conn, height uint32, dbKeyMR *factom.Bytes32) error {
+func (chain *Chain) SaveSync() error {
+	stmt := chain.Conn.Prep(`UPDATE metadata SET
+                (sync_height, sync_db_key_mr) = (?, ?) WHERE id = 0;`)
+	stmt.BindInt64(1, int64(chain.SyncHeight))
+	stmt.BindBytes(2, chain.SyncDBKeyMR[:])
+	_, err := stmt.Step()
+	if chain.Conn.Changes() == 0 {
+		panic("nothing updated")
+	}
+	return err
+}
+
+func SaveInitEntryID(conn *sqlite.Conn, id int64) error {
 	stmt := conn.Prep(`UPDATE metadata SET
-                (id, sync_height, sync_db_key_mr) = (?, ?, ?);`)
-	stmt.BindInt64(1, 0)
-	stmt.BindInt64(2, int64(height))
-	stmt.BindBytes(3, dbKeyMR[:])
+                (init_entry_id, num_issued) = (?, 0) WHERE id = 0;`)
+	stmt.BindInt64(1, id)
 	_, err := stmt.Step()
+	if conn.Changes() == 0 {
+		panic("nothing updated")
+	}
 	return err
 }
 
-func SaveInitEntryID(conn *sqlite.Conn, entryID int64) error {
-	stmt := conn.Prep(`UPDATE metadata SET init_entry_id = ?;`)
-	stmt.BindInt64(1, entryID)
+func (chain *Chain) IncrementNumIssued(add uint64) error {
+	stmt := chain.Conn.Prep(`UPDATE metadata SET
+                num_issued = num_issued + ? WHERE id = 0;`)
+	stmt.BindInt64(1, int64(add))
 	_, err := stmt.Step()
+	if chain.Conn.Changes() == 0 {
+		panic("nothing updated")
+	}
+	chain.NumIssued += add
 	return err
-
 }
 
-func SelectMetadata(conn *sqlite.Conn) (int64, uint32, factom.Bytes32, [4]byte, error) {
-	var dbKeyMR factom.Bytes32
-	var networkID [4]byte
-	stmt := conn.Prep(`SELECT sync_height, sync_db_key_mr, network_id, init_entry_id
-                FROM metadata;`)
+func (chain *Chain) LoadMetadata() error {
+	stmt := chain.Conn.Prep(`SELECT sync_height, sync_db_key_mr, network_id,
+                id_key_entry, id_key_height, init_entry_id, num_issued FROM metadata;`)
 	hasRow, err := stmt.Step()
 	if err != nil {
-		return -1, 0, dbKeyMR, networkID, err
+		return err
 	}
 	if !hasRow {
-		return -1, 0, dbKeyMR, networkID, fmt.Errorf("no saved metadata")
+		return fmt.Errorf("no saved metadata")
 	}
 
-	if stmt.ColumnBytes(1, dbKeyMR[:]) != len(dbKeyMR) {
-		return -1, 0, dbKeyMR, networkID,
-			fmt.Errorf("invalid sync_db_key_mr length")
+	chain.SyncHeight = uint32(stmt.ColumnInt64(0))
+
+	chain.SyncDBKeyMR = new(factom.Bytes32)
+	if stmt.ColumnBytes(1, chain.SyncDBKeyMR[:]) != len(chain.SyncDBKeyMR) {
+		return fmt.Errorf("invalid sync_db_key_mr length")
 	}
 
-	if stmt.ColumnBytes(2, networkID[:]) != len(networkID) {
-		return -1, 0, dbKeyMR, networkID, fmt.Errorf("invalid network_id length")
+	if stmt.ColumnBytes(2, chain.NetworkID[:]) != len(chain.NetworkID) {
+		return fmt.Errorf("invalid network_id length")
 	}
 
-	var initEntryID int64 = -1
-	if stmt.ColumnType(3) != sqlite.SQLITE_NULL {
-		initEntryID = stmt.ColumnInt64(3)
+	// Load chain.Identity...
+	if stmt.ColumnType(3) == sqlite.SQLITE_NULL {
+		// No Identity, therefore no Issuance.
+		return nil
 	}
+	idKeyEntryData := make(factom.Bytes, stmt.ColumnLen(3))
+	stmt.ColumnBytes(3, idKeyEntryData)
+	if err := chain.Identity.UnmarshalBinary(idKeyEntryData); err != nil {
+		return fmt.Errorf("chain.Identity.UnmarshalBinary(): %v", err)
+	}
+	chain.Identity.Height = uint32(stmt.ColumnInt64(4))
+	if *chain.Identity.ChainID != *chain.IssuerChainID {
+		return fmt.Errorf("invalid chain.Identity.ChainID")
+	}
+	chain.Identity.ChainID = chain.IssuerChainID // free mem from duplicates
 
-	return initEntryID, uint32(stmt.ColumnInt64(0)), dbKeyMR, networkID, nil
+	// Load chain.Issuance...
+	if stmt.ColumnType(5) == sqlite.SQLITE_NULL {
+		// No issuance entry so far...
+		return nil
+	}
+	initEntryID := stmt.ColumnInt64(5)
+	chain.Issuance.Entry.Entry, err = SelectEntryByID(chain.Conn, initEntryID)
+	if err != nil {
+		return err
+	}
+	if err := chain.Issuance.Validate(chain.ID1); err != nil {
+		return err
+	}
+	chain.SetApplyFunc()
+
+	chain.NumIssued = uint64(stmt.ColumnInt64(6))
+
+	return nil
 }
