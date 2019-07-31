@@ -65,7 +65,7 @@ func engine(stop <-chan struct{}, done chan struct{}) {
 	exit := func() { once.Do(func() { close(done) }) }
 	defer exit()
 
-	log = _log.New("engine")
+	log = _log.New("pkg", "engine")
 
 	if err := state.Load(); err != nil {
 		log.Error(err)

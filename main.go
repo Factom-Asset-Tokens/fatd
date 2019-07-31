@@ -48,7 +48,7 @@ func _main() (ret int) {
 	sigint := make(chan os.Signal, 1)
 	signal.Notify(sigint, os.Interrupt)
 
-	log := log.New("main")
+	log := log.New("pkg", "main")
 	log.Info("Fatd Version: ", flag.Revision)
 	defer log.Info("Factom Asset Token Daemon stopped.")
 

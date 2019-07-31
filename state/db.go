@@ -50,7 +50,7 @@ var (
 
 // Load state from all existing databases
 func Load() error {
-	log = _log.New("state")
+	log = _log.New("pkg", "state")
 	// Try to create the database directory in case it doesn't already
 	// exist.
 	if err := os.Mkdir(flag.DBPath, 0755); err != nil && !os.IsExist(err) {
