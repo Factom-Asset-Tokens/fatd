@@ -69,7 +69,7 @@ func (chain *Chain) Process(eb factom.EBlock) error {
 		}
 
 		// Track this chain going forward.
-		if err := chain.track(first); err != nil {
+		if err := chain.track(eb.Height, first); err != nil {
 			return err
 		}
 		if len(eb.Entries) == 1 {
@@ -94,16 +94,15 @@ func (chain *Chain) process(eb factom.EBlock) (err error) {
 		}
 		chain.saveHeight(eb.Height)
 	}()
-	es := eb.Entries
 	if !chain.IsIssued() {
-		return chain.processIssuance(es)
+		return chain.processIssuance(eb)
 	}
-	return chain.processTransactions(es)
+	return chain.processTransactions(eb.Entries)
 }
 
 // In general the following checks are ordered from cheapest to most expensive
 // in terms of computation and memory.
-func (chain *Chain) processIssuance(es []factom.Entry) error {
+func (chain *Chain) processIssuance(eb factom.EBlock) error {
 	if !chain.Identity.IsPopulated() {
 		// The Identity may not have existed when this chain was first tracked.
 		// Attempt to retrieve it.
@@ -116,11 +115,11 @@ func (chain *Chain) processIssuance(es []factom.Entry) error {
 	}
 	// If these entries were created in a lower block height than the
 	// Identity entry, then none of them can be a valid Issuance entry.
-	if es[0].Height < chain.Identity.Height {
+	if eb.Height < chain.Identity.Height {
 		return nil
 	}
 
-	for i, e := range es {
+	for i, e := range eb.Entries {
 		// If this entry was created before the Identity entry then it
 		// can't be valid.
 		if e.Timestamp.Before(chain.Identity.Timestamp) {
@@ -143,7 +142,7 @@ func (chain *Chain) processIssuance(es []factom.Entry) error {
 		}
 
 		// Process remaining entries as transactions
-		return chain.processTransactions(es[i+1:])
+		return chain.processTransactions(eb.Entries[i+1:])
 	}
 	return nil
 }

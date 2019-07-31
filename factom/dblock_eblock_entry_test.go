@@ -36,7 +36,7 @@ var courtesyNode = "https://courtesy-node.factom.com"
 func TestDataStructures(t *testing.T) {
 	height := uint32(166587)
 	c := NewClient()
-	c.Factomd.DebugRequest = true
+	//c.Factomd.DebugRequest = true
 	db := &DBlock{}
 	db.Header.Height = height
 	t.Run("DBlock", func(t *testing.T) {
@@ -136,7 +136,6 @@ func TestDataStructures(t *testing.T) {
 			assert.True(e.ChainID == eb.ChainID)
 			assert.NotNil(e.Hash)
 			assert.NotNil(e.Timestamp)
-			assert.Equal(height, e.Height)
 		}
 
 		assert.False(eb.IsFirst())
@@ -150,12 +149,12 @@ func TestDataStructures(t *testing.T) {
 		ebs, err := eb.GetAllPrev(c)
 		var first EBlock
 		if assert.NoError(err) {
-			assert.Len(ebs, 6)
-			assert.True(ebs[0].IsFirst())
-			first = ebs[0].Prev()
-			assert.Equal(first.KeyMR, ebs[0].KeyMR,
+			assert.Len(ebs, 5)
+			assert.True(ebs[len(ebs)-1].IsFirst())
+			first = ebs[len(ebs)-1].Prev()
+			assert.Equal(first.KeyMR, ebs[len(ebs)-1].KeyMR,
 				"Prev() should return a copy of itself if it is first")
-			assert.Equal(eb.KeyMR, ebs[len(ebs)-1].KeyMR)
+			assert.Equal(eb.KeyMR, ebs[0].KeyMR)
 		}
 
 		// Fetch the chain head EBlock via the ChainID.
@@ -233,7 +232,6 @@ func TestDataStructures(t *testing.T) {
 		// Validate the entry.
 		assert.Len(e.ExtIDs, 6)
 		assert.NotEmpty(e.Content)
-		assert.Equal(height, e.Height)
 		assert.Equal(time.Unix(1542223080, 0), e.Timestamp)
 		hash, err := e.ComputeHash()
 		assert.NoError(err)
@@ -245,6 +243,4 @@ func TestDataStructures(t *testing.T) {
 		assert.NoError(err)
 		assert.Equal(*e.Hash, hash)
 	})
-
-	assert.Equal(t, Bytes32{}, ZeroBytes32())
 }

@@ -52,12 +52,12 @@ func (chain *Chain) ignore() {
 	chain.ID = nil
 	chain.ChainStatus = ChainStatusIgnored
 }
-func (chain *Chain) track(first factom.Entry) error {
+func (chain *Chain) track(height uint32, first factom.Entry) error {
 	chain.ChainStatus = ChainStatusTracked
 	chain.Identity.ChainID = factom.NewBytes32(first.ExtIDs[3])
 	chain.Metadata.Token = string(first.ExtIDs[1])
 	chain.Metadata.Issuer = chain.Identity.ChainID
-	chain.Metadata.Height = first.Height
+	chain.Metadata.Height = height
 
 	if err := chain.setupDB(); err != nil {
 		return err

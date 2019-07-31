@@ -168,7 +168,8 @@ func TestBytes(t *testing.T) {
 		assert.Equal(b[:], val)
 	})
 
-	t.Run("ZeroBytes32", func(t *testing.T) {
-		assert.Equal(t, Bytes32{}, ZeroBytes32())
+	t.Run("IsZero()", func(t *testing.T) {
+		assert.True(t, Bytes32{}.IsZero())
+		assert.False(t, Bytes32{0: 1}.IsZero())
 	})
 }

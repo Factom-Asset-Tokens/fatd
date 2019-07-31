@@ -252,7 +252,7 @@ var (
 		newNFTokens(NewNFTokenIDRange(6, 11))}
 
 	identityChainID = factom.NewBytes32(validIdentityChainID())
-	tokenChainID    = fat.ChainID("test", *identityChainID)
+	tokenChainID    = fat.ChainID("test", identityChainID)
 )
 
 func newNFTokens(ids ...NFTokensSetter) NFTokens {

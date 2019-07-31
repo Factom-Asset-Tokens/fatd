@@ -72,7 +72,7 @@ func (p ParamsToken) ValidChainID() *factom.Bytes32 {
 	if p.ChainID != nil {
 		return p.ChainID
 	}
-	chainID := fat.ChainID(p.TokenID, *p.IssuerChainID)
+	chainID := fat.ChainID(p.TokenID, p.IssuerChainID)
 	p.ChainID = &chainID
 	return p.ChainID
 }

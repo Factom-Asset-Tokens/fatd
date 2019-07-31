@@ -58,7 +58,6 @@ type Entry struct {
 	Hash      *Bytes32  `json:"entryhash,omitempty"`
 	Timestamp time.Time `json:"-"`
 	ChainID   *Bytes32  `json:"chainid,omitempty"`
-	Height    uint32
 
 	// Entry.Get populates the Content and ExtIDs.
 	ExtIDs  []Bytes `json:"extids"`
@@ -365,8 +364,12 @@ func (e *Entry) MarshalBinary() ([]byte, error) {
 	}
 	copy(data[i:], e.Content)
 	// Compute and save entry hash for later use
-	e.Hash = new(Bytes32)
-	*e.Hash = EntryHash(data)
+	if e.Hash == nil {
+		e.Hash = new(Bytes32)
+	}
+	if e.Hash.IsZero() {
+		*e.Hash = EntryHash(data)
+	}
 	return data, nil
 }
 

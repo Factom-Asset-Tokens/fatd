@@ -416,8 +416,7 @@ func getNFTokens(data json.RawMessage) interface{} {
 }
 
 func sendTransaction(data json.RawMessage) interface{} {
-	var zero factom.EsAddress
-	if flag.EsAdr == zero {
+	if factom.Bytes32(flag.EsAdr).IsZero() {
 		return ErrorNoEC
 	}
 	params := ParamsSendTransaction{}

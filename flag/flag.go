@@ -270,8 +270,7 @@ func Validate() {
 	//log.Debugf("-walletcert    %#v", FactomClient.Walletd.TLSCertFile)
 	debugPrintln()
 
-	var zero factom.EsAddress
-	if EsAdr == zero {
+	if factom.Bytes32(EsAdr).IsZero() {
 		EsAdr, _ = ECAdr.GetEsAddress(FactomClient)
 	} else {
 		ECAdr = EsAdr.ECAddress()

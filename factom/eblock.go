@@ -128,8 +128,7 @@ func (eb *EBlock) GetChainHead(c *Client) error {
 	if err := c.FactomdRequest("chain-head", params, &result); err != nil {
 		return err
 	}
-	var zero Bytes32
-	if *result.KeyMR == zero {
+	if result.KeyMR.IsZero() {
 		if result.ChainInProcessList {
 			return jrpc.Error{Message: "new chain in process list"}
 		} else {
@@ -144,7 +143,7 @@ func (eb *EBlock) GetChainHead(c *Client) error {
 // the PrevKeyMR being all zeroes. IsFirst returns false if eb is not populated
 // or if the PrevKeyMR is not all zeroes.
 func (eb EBlock) IsFirst() bool {
-	return eb.IsPopulated() && *eb.PrevKeyMR == zeroBytes32
+	return eb.IsPopulated() && eb.PrevKeyMR.IsZero()
 }
 
 // Prev returns the an EBlock with its KeyMR initialized to eb.PrevKeyMR and
@@ -158,19 +157,20 @@ func (eb EBlock) Prev() EBlock {
 }
 
 // GetAllPrev returns a slice of all preceding EBlocks in eb's chain, in order
-// from earliest to latest, up to and including eb. So the last element of the
-// returned slice is always equal to eb. If eb is the first entry block in its
-// chain, then it is the only element in the slice.
+// from eb to the first EBlock in the chain. So the 0th element of the returned
+// slice is always equal to eb. If eb is the first entry block in its chain,
+// then it is the only element in the slice.
 //
 // If you are only interested in obtaining the first entry block in eb's chain,
 // and not all of the intermediary ones, then use GetFirst to reduce network
 // calls and memory usage.
 func (eb EBlock) GetAllPrev(c *Client) ([]EBlock, error) {
-	ebs := []EBlock{eb}
-	for ; !ebs[0].IsFirst(); ebs = append([]EBlock{ebs[0].Prev()}, ebs...) {
-		if err := ebs[0].Get(c); err != nil {
+	ebs := []EBlock{}
+	for ; !eb.IsFirst(); eb = eb.Prev() {
+		if err := eb.Get(c); err != nil {
 			return nil, err
 		}
+		ebs = append(ebs, eb)
 	}
 	return ebs, nil
 }
@@ -286,7 +286,6 @@ func (eb *EBlock) UnmarshalBinary(data []byte) error {
 		e := &eb.Entries[ei]
 		e.Timestamp = ts
 		e.ChainID = eb.ChainID
-		e.Height = eb.Height
 		obj := obj
 		e.Hash = &obj
 		ei--

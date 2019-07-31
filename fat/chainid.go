@@ -41,7 +41,7 @@ func ValidTokenNameIDs(nameIDs []factom.Bytes) bool {
 }
 
 // NameIDs returns valid NameIDs
-func NameIDs(tokenID string, issuerChainID factom.Bytes32) []factom.Bytes {
+func NameIDs(tokenID string, issuerChainID *factom.Bytes32) []factom.Bytes {
 	return []factom.Bytes{
 		[]byte("token"), []byte(tokenID),
 		[]byte("issuer"), issuerChainID[:],
@@ -49,6 +49,6 @@ func NameIDs(tokenID string, issuerChainID factom.Bytes32) []factom.Bytes {
 }
 
 // ChainID returns the chain ID for a given token ID and issuer Chain ID.
-func ChainID(tokenID string, issuerChainID factom.Bytes32) factom.Bytes32 {
+func ChainID(tokenID string, issuerChainID *factom.Bytes32) factom.Bytes32 {
 	return factom.ChainID(NameIDs(tokenID, issuerChainID))
 }
