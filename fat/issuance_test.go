@@ -222,7 +222,7 @@ func TestIssuance(t *testing.T) {
 			assert := assert.New(t)
 			i := test.Issuance
 			key := test.IssuerKey
-			err := i.Valid(&key)
+			err := i.Validate(&key)
 			if len(test.Error) == 0 {
 				assert.NoError(err)
 			} else {

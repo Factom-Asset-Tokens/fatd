@@ -132,7 +132,7 @@ func (chain *Chain) processIssuance(eb factom.EBlock) error {
 			return fmt.Errorf("Entry%+v.Get(c): %v", e, err)
 		}
 		issuance := fat.NewIssuance(e)
-		if err := issuance.Valid(&chain.Identity.ID1); err != nil {
+		if err := issuance.Validate(&chain.Identity.ID1); err != nil {
 			log.Debugf("Invalid Issuance Entry: %v, %v", e.Hash, err)
 			continue
 		}
@@ -155,8 +155,9 @@ func (chain *Chain) processTransactions(es []factom.Entry) error {
 		switch chain.Type {
 		case fat0.Type:
 			transaction := fat0.NewTransaction(e)
-			if err := transaction.Valid(chain.Identity.ID1); err != nil {
-				log.Debugf("Invalid Transaction Entry: %v, %v", e.Hash, err)
+			if err := transaction.Validate(chain.Identity.ID1); err != nil {
+				log.Debugf("Invalid Transaction Entry: %v, %v",
+					e.Hash, err)
 				continue
 			}
 			if err := chain.applyFAT0(transaction); err != nil {
@@ -164,8 +165,9 @@ func (chain *Chain) processTransactions(es []factom.Entry) error {
 			}
 		case fat1.Type:
 			transaction := fat1.NewTransaction(e)
-			if err := transaction.Valid(chain.Identity.ID1); err != nil {
-				log.Debugf("Invalid Transaction Entry: %v, %v", e.Hash, err)
+			if err := transaction.Validate(chain.Identity.ID1); err != nil {
+				log.Debugf("Invalid Transaction Entry: %v, %v",
+					e.Hash, err)
 				continue
 			}
 			if err := chain.applyFAT1(transaction); err != nil {

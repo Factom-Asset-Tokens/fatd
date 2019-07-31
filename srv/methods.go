@@ -479,7 +479,7 @@ func sendTransaction(data json.RawMessage) interface{} {
 func validFAT0Transaction(chain *state.Chain, entry factom.Entry) error {
 	tx := fat0.NewTransaction(entry)
 	rpcErr := ErrorInvalidTransaction
-	if err := tx.Valid(chain.ID1); err != nil {
+	if err := tx.Validate(chain.ID1); err != nil {
 		rpcErr.Data = err.Error()
 		return rpcErr
 	}
@@ -509,7 +509,7 @@ func validFAT0Transaction(chain *state.Chain, entry factom.Entry) error {
 func validFAT1Transaction(chain *state.Chain, entry factom.Entry) error {
 	tx := fat1.NewTransaction(entry)
 	rpcErr := ErrorInvalidTransaction
-	if err := tx.Valid(chain.ID1); err != nil {
+	if err := tx.Validate(chain.ID1); err != nil {
 		rpcErr.Data = err.Error()
 		return rpcErr
 	}

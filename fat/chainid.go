@@ -52,3 +52,9 @@ func NameIDs(tokenID string, issuerChainID *factom.Bytes32) []factom.Bytes {
 func ChainID(tokenID string, issuerChainID *factom.Bytes32) factom.Bytes32 {
 	return factom.ChainID(NameIDs(tokenID, issuerChainID))
 }
+
+func TokenIssuer(nameIDs []factom.Bytes) (string, *factom.Bytes32) {
+	var identityChainID factom.Bytes32
+	copy(identityChainID[:], nameIDs[3])
+	return string(nameIDs[1]), &identityChainID
+}

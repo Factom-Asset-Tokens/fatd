@@ -149,7 +149,7 @@ func (t *Transaction) MarshalEntry() error {
 	return t.Entry.MarshalEntry(t)
 }
 
-func (t *Transaction) Valid(idKey factom.IDKey) error {
+func (t *Transaction) Validate(idKey factom.IDKey) error {
 	if err := t.UnmarshalEntry(); err != nil {
 		return err
 	}
