@@ -66,7 +66,6 @@ func main() {
 	if err := identity.Get(c); err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println(identity)
 
 	// We don't need the actual dbKeyMR
 	chain, err := db.OpenNew(first, dblock.KeyMR, Mainnet(), identity)

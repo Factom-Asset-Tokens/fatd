@@ -1,7 +1,6 @@
 package db
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/Factom-Asset-Tokens/fatd/flag"
@@ -9,7 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestValidate(t *testing.T) {
+func TestChainValidate(t *testing.T) {
 	require := require.New(t)
 	flag.DBPath = "./test-fatd.db"
 	flag.LogDebug = true
@@ -18,7 +17,7 @@ func TestValidate(t *testing.T) {
 	require.NotEmptyf(chains, "Test database is empty: %v", flag.DBPath)
 
 	for _, chain := range chains {
-		fmt.Printf("%+v\n", chain)
+		defer chain.Close()
 		assert.NoErrorf(t, chain.Validate(), "Chain{%v}.Validate()", chain.ID)
 	}
 }

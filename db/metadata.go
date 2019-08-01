@@ -5,9 +5,10 @@ import (
 
 	"crawshaw.io/sqlite"
 	"github.com/Factom-Asset-Tokens/fatd/factom"
+	"github.com/Factom-Asset-Tokens/fatd/fat"
 )
 
-func (chain *Chain) InsertMetadata() error {
+func (chain *Chain) insertMetadata() error {
 	stmt := chain.Conn.Prep(`INSERT INTO metadata
                 (id, sync_height, sync_db_key_mr, network_id, id_key_entry, id_key_height)
                 VALUES (0, ?, ?, ?, ?, ?);`)
@@ -30,7 +31,7 @@ func (chain *Chain) InsertMetadata() error {
 	return err
 }
 
-func (chain *Chain) SaveSync() error {
+func (chain *Chain) SetSyncHeight() error {
 	stmt := chain.Conn.Prep(`UPDATE metadata SET
                 (sync_height, sync_db_key_mr) = (?, ?) WHERE id = 0;`)
 	stmt.BindInt64(1, int64(chain.SyncHeight))
@@ -42,18 +43,18 @@ func (chain *Chain) SaveSync() error {
 	return err
 }
 
-func SaveInitEntryID(conn *sqlite.Conn, id int64) error {
-	stmt := conn.Prep(`UPDATE metadata SET
+func (chain *Chain) setInitEntryID(id int64) error {
+	stmt := chain.Conn.Prep(`UPDATE metadata SET
                 (init_entry_id, num_issued) = (?, 0) WHERE id = 0;`)
 	stmt.BindInt64(1, id)
 	_, err := stmt.Step()
-	if conn.Changes() == 0 {
+	if chain.Conn.Changes() == 0 {
 		panic("nothing updated")
 	}
 	return err
 }
 
-func (chain *Chain) IncrementNumIssued(add uint64) error {
+func (chain *Chain) numIssuedAdd(add uint64) error {
 	stmt := chain.Conn.Prep(`UPDATE metadata SET
                 num_issued = num_issued + ? WHERE id = 0;`)
 	stmt.BindInt64(1, int64(add))
@@ -65,7 +66,35 @@ func (chain *Chain) IncrementNumIssued(add uint64) error {
 	return err
 }
 
-func (chain *Chain) LoadMetadata() error {
+func (chain *Chain) loadMetadata() error {
+	// Load NameIDs
+	first, err := SelectEntryByID(chain.Conn, 1)
+	if err != nil {
+		return err
+	}
+	if !first.IsPopulated() {
+		return fmt.Errorf("no first entry")
+	}
+
+	nameIDs := first.ExtIDs
+	if !fat.ValidTokenNameIDs(nameIDs) {
+		return fmt.Errorf("invalid token chain Name IDs")
+	}
+	chain.TokenID, chain.IssuerChainID = fat.TokenIssuer(nameIDs)
+
+	// Load Chain Head
+	eb, dbKeyMR, err := SelectLatestEBlock(chain.Conn)
+	if err != nil {
+		return err
+	}
+	if !eb.IsPopulated() {
+		// A database must always have at least one EBlock.
+		return fmt.Errorf("no eblock in database")
+	}
+	chain.Head = eb
+	chain.DBKeyMR = &dbKeyMR
+	chain.ID = eb.ChainID
+
 	stmt := chain.Conn.Prep(`SELECT sync_height, sync_db_key_mr, network_id,
                 id_key_entry, id_key_height, init_entry_id, num_issued FROM metadata;`)
 	hasRow, err := stmt.Step()
@@ -116,7 +145,7 @@ func (chain *Chain) LoadMetadata() error {
 	if err := chain.Issuance.Validate(chain.ID1); err != nil {
 		return err
 	}
-	chain.SetApplyFunc()
+	chain.setApplyFunc()
 
 	chain.NumIssued = uint64(stmt.ColumnInt64(6))
 

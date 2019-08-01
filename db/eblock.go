@@ -8,11 +8,9 @@ import (
 	"github.com/Factom-Asset-Tokens/fatd/factom"
 )
 
-// InsertEBlock inserts eb only if it is the next factom.EBlock in the
-// sequence.
-func InsertEBlock(conn *sqlite.Conn, eb factom.EBlock, dbKeyMR *factom.Bytes32) error {
+func (chain *Chain) insertEBlock(eb factom.EBlock, dbKeyMR *factom.Bytes32) error {
 	// Ensure that this is the next EBlock.
-	prevKeyMR, err := SelectKeyMR(conn, eb.Sequence-1)
+	prevKeyMR, err := SelectKeyMR(chain.Conn, eb.Sequence-1)
 	if *eb.PrevKeyMR != prevKeyMR {
 		return fmt.Errorf("invalid EBlock{}.PrevKeyMR")
 	}
@@ -22,7 +20,7 @@ func InsertEBlock(conn *sqlite.Conn, eb factom.EBlock, dbKeyMR *factom.Bytes32) 
 	if err != nil {
 		return fmt.Errorf("factom.EBlock{}.MarshalBinary(): %v", err)
 	}
-	stmt := conn.Prep(`INSERT INTO eblocks
+	stmt := chain.Conn.Prep(`INSERT INTO eblocks
                 (seq, key_mr, db_height, db_key_mr, timestamp, data)
                 VALUES (?, ?, ?, ?, ?, ?);`)
 	stmt.BindInt64(1, int64(eb.Sequence))
