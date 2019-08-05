@@ -147,7 +147,7 @@ func (chain Chain) Validate() (err error) {
 		if err != nil {
 			return err
 		}
-		if err := chain.Apply(eb, &dbKeyMR); err != nil {
+		if err := chain.Apply(&dbKeyMR, eb); err != nil {
 			return err
 		}
 	}

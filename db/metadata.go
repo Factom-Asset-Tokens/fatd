@@ -31,15 +31,20 @@ func (chain *Chain) insertMetadata() error {
 	return err
 }
 
-func (chain *Chain) SetSyncHeight() error {
+func (chain *Chain) SetSync(height uint32, dbKeyMR *factom.Bytes32) error {
+	if height <= chain.SyncHeight {
+		return nil
+	}
 	stmt := chain.Conn.Prep(`UPDATE metadata SET
                 (sync_height, sync_db_key_mr) = (?, ?) WHERE id = 0;`)
-	stmt.BindInt64(1, int64(chain.SyncHeight))
-	stmt.BindBytes(2, chain.SyncDBKeyMR[:])
+	stmt.BindInt64(1, int64(height))
+	stmt.BindBytes(2, dbKeyMR[:])
 	_, err := stmt.Step()
 	if chain.Conn.Changes() == 0 {
 		panic("nothing updated")
 	}
+	chain.SyncHeight = height
+	chain.SyncDBKeyMR = dbKeyMR
 	return err
 }
 

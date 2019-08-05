@@ -12,7 +12,7 @@ import (
 
 type applyFunc func(int64, factom.Entry) error
 
-func (chain *Chain) Apply(eb factom.EBlock, dbKeyMR *factom.Bytes32) (err error) {
+func (chain *Chain) Apply(dbKeyMR *factom.Bytes32, eb factom.EBlock) (err error) {
 	// Ensure entire EBlock is applied atomically.
 	defer sqlitex.Save(chain.Conn)(&err)
 
@@ -37,6 +37,13 @@ func (chain *Chain) Apply(eb factom.EBlock, dbKeyMR *factom.Bytes32) (err error)
 }
 
 func (chain *Chain) applyIssuance(ei int64, e factom.Entry) error {
+	// The Identity must exist prior to issuance.
+	if !chain.Identity.IsPopulated() ||
+		e.Timestamp.Before(chain.Identity.Timestamp) {
+		chain.Log.Debugf("Entry{%v}: invalid issuance: %v", e.Hash,
+			"created before identity")
+		return nil
+	}
 	issuance := fat.NewIssuance(e)
 	if err := issuance.Validate(chain.ID1); err != nil {
 		chain.Log.Debugf("Entry{%v}: invalid issuance: %v", e.Hash, err)

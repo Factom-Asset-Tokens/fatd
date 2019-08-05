@@ -20,36 +20,53 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 // IN THE SOFTWARE.
 
-package flag
+package engine_test
 
 import (
-	"strings"
+	"testing"
 
-	. "github.com/Factom-Asset-Tokens/fatd/factom"
+	. "github.com/Factom-Asset-Tokens/fatd/state"
+	"github.com/stretchr/testify/assert"
 )
 
-type FAAddressList []FAAddress
+const (
+	unknownID int = iota
+	trackedID
+	issuedID
+	ignoredID
+)
 
-func (adrs FAAddressList) String() string {
-	if len(adrs) == 0 {
-		return ""
-	}
-	var s string
-	for _, adr := range adrs {
-		s += adr.String() + ","
-	}
-	return s[:len(s)-1]
-}
+var chainStatusTests = []struct {
+	ChainStatus
+	expected [4]bool
+}{{
+	ChainStatus: ChainStatusUnknown,
+	expected:    [4]bool{unknownID: true},
+}, {
+	ChainStatus: ChainStatusTracked,
+	expected:    [4]bool{trackedID: true},
+}, {
+	ChainStatus: ChainStatusIssued,
+	expected:    [4]bool{trackedID: true, issuedID: true},
+}, {
+	ChainStatus: ChainStatusIgnored,
+	expected:    [4]bool{ignoredID: true},
+}}
 
-// Set appends a comma seperated list of FAAddresses.
-func (adrs *FAAddressList) Set(s string) error {
-	adrStrs := strings.Split(s, ",")
-	newAdrs := make(FAAddressList, len(adrStrs))
-	for i, adrStr := range adrStrs {
-		if err := newAdrs[i].Set(adrStr); err != nil {
-			return err
-		}
+func TestChainStatus(t *testing.T) {
+	for _, test := range chainStatusTests {
+		status := test.ChainStatus
+		t.Run(status.String(), func(t *testing.T) {
+			assert := assert.New(t)
+			expected := test.expected
+			assert.Equalf(expected[unknownID], status.IsUnknown(),
+				"IsUnknown()")
+			assert.Equalf(expected[trackedID], status.IsTracked(),
+				"IsTracked()")
+			assert.Equalf(expected[issuedID], status.IsIssued(),
+				"IsIssued()")
+			assert.Equalf(expected[ignoredID], status.IsIgnored(),
+				"IsIgnored()")
+		})
 	}
-	*adrs = append(*adrs, newAdrs...)
-	return nil
 }

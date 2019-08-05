@@ -62,7 +62,6 @@ func (chain *Chain) Process(eb factom.EBlock) error {
 		}
 
 		// Ignore chains with NameIDs that don't match the fat pattern.
-		// FAT1 will also match here.
 		if !fat.ValidTokenNameIDs(first.ExtIDs) {
 			chain.ignore()
 			return nil

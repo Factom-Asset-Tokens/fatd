@@ -49,7 +49,7 @@ type Chain struct {
 	apply applyFunc
 }
 
-func OpenNew(eb factom.EBlock, dbKeyMR *factom.Bytes32, networkID factom.NetworkID,
+func OpenNew(dbKeyMR *factom.Bytes32, eb factom.EBlock, networkID factom.NetworkID,
 	identity factom.Identity) (*Chain, error) {
 	fname := eb.ChainID.String() + dbFileExtension
 	path := flag.DBPath + "/" + fname
@@ -91,7 +91,7 @@ func OpenNew(eb factom.EBlock, dbKeyMR *factom.Bytes32, networkID factom.Network
 	}
 
 	chain.apply = chain.applyIssuance
-	if err := chain.Apply(eb, dbKeyMR); err != nil {
+	if err := chain.Apply(dbKeyMR, eb); err != nil {
 		return nil, err
 	}
 

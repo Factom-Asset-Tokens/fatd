@@ -139,6 +139,20 @@ func (eb *EBlock) GetChainHead(c *Client) error {
 	return nil
 }
 
+// GetEntries calls eb.Get and then calls Get on each Entry in eb.Entries.
+func (eb *EBlock) GetEntries(c *Client) error {
+	if err := eb.Get(c); err != nil {
+		return err
+	}
+	for i := range eb.Entries {
+		e := &eb.Entries[i]
+		if err := e.Get(c); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // IsFirst returns true if this is the first EBlock in its chain, indicated by
 // the PrevKeyMR being all zeroes. IsFirst returns false if eb is not populated
 // or if the PrevKeyMR is not all zeroes.
@@ -156,15 +170,15 @@ func (eb EBlock) Prev() EBlock {
 	return EBlock{ChainID: eb.ChainID, KeyMR: eb.PrevKeyMR}
 }
 
-// GetAllPrev returns a slice of all preceding EBlocks in eb's chain, in order
-// from eb to the first EBlock in the chain. So the 0th element of the returned
-// slice is always equal to eb. If eb is the first entry block in its chain,
-// then it is the only element in the slice.
+// GetPrevAll returns a slice of all preceding EBlocks, in order from eb to the
+// first EBlock in the chain. So the 0th element of the returned slice is
+// always equal to eb. If eb is the first EBlock in the chain, then it is the
+// only element in the slice. Like Get, if eb does not have a KeyMR, the chain
+// head KeyMR is queried first.
 //
 // If you are only interested in obtaining the first entry block in eb's chain,
-// and not all of the intermediary ones, then use GetFirst to reduce network
-// calls and memory usage.
-func (eb EBlock) GetAllPrev(c *Client) ([]EBlock, error) {
+// and not all of the intermediary ones, then use GetFirst.
+func (eb EBlock) GetPrevAll(c *Client) ([]EBlock, error) {
 	ebs := []EBlock{}
 	for ; !eb.IsFirst(); eb = eb.Prev() {
 		if err := eb.Get(c); err != nil {
@@ -175,10 +189,38 @@ func (eb EBlock) GetAllPrev(c *Client) ([]EBlock, error) {
 	return ebs, nil
 }
 
+// GetPrevUpTo returns a slice of all preceding EBlocks, in order from eb up
+// to, but not including, keyMR. So the 0th element of the returned slice is
+// always equal to eb. If *eb.KeyMR == keyMR then nil, nil is returned. If
+// *eb.PrevKeyMR == keyMR, then it is the only element in the slice. If the
+// beginning of the chain is reached without finding keyMR, an error is
+// returned with the fully populated []EBlock. Like Get, if eb does not have a
+// KeyMR, the chain head KeyMR is queried first.
+func (eb EBlock) GetPrevUpTo(c *Client, keyMR Bytes32) ([]EBlock, error) {
+	ebs := []EBlock{}
+	if err := eb.Get(c); err != nil {
+		return nil, err
+	}
+	if *eb.KeyMR == keyMR {
+		return nil, nil
+	}
+	for ; *eb.PrevKeyMR != keyMR && !eb.PrevKeyMR.IsZero(); eb = eb.Prev() {
+		if err := eb.Get(c); err != nil {
+			return nil, err
+		}
+		ebs = append(ebs, eb)
+	}
+	if *ebs[len(ebs)-1].PrevKeyMR != keyMR {
+		return ebs, fmt.Errorf("EBlock{%v} not found prior to EBlock{%v}",
+			keyMR, eb.KeyMR)
+	}
+	return ebs, nil
+}
+
 // GetFirst finds the first Entry Block in eb's chain, and populates eb as
 // such.
 //
-// GetFirst differs from GetAllPrev in that it does not allocate any additional
+// GetFirst differs from GetPrevAll in that it does not allocate any additional
 // EBlocks. GetFirst avoids allocating any new EBlocks by reusing eb to
 // traverse up to the first entry block.
 func (eb *EBlock) GetFirst(c *Client) error {
@@ -433,4 +475,13 @@ func (eb *EBlock) ComputeKeyMR() (Bytes32, error) {
 	i := copy(data, headerHash[:])
 	copy(data[i:], bodyMR[:])
 	return sha256.Sum256(data), nil
+}
+
+func (eb *EBlock) SetTimestamp(ts time.Time) {
+	prevTs := eb.Timestamp
+	for i := range eb.Entries {
+		e := &eb.Entries[i]
+		e.Timestamp = ts.Add(e.Timestamp.Sub(prevTs))
+	}
+	eb.Timestamp = ts
 }

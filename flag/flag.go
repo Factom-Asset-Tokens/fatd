@@ -65,6 +65,13 @@ var (
 
 		"ecadr": "ECADR",
 		"esadr": "ESADR",
+
+		"networkid": "NETWORK_ID",
+
+		"whitelist":        "WHITELIST",
+		"blacklist":        "BLACKLIST",
+		"ignorenewchains":  "IGNORE_NEW_CHAINS",
+		"skipdbvalidation": "SKIP_DB_VALIDATION",
 	}
 	defaults = map[string]interface{}{
 		"startscanheight":   uint64(0),
@@ -91,6 +98,13 @@ var (
 
 		"ecadr": "",
 		"esadr": "",
+
+		"networkid": factom.Mainnet(),
+
+		"whitelist":        (Bytes32List)(nil),
+		"blacklist":        (Bytes32List)(nil),
+		"ignorenewchains":  false,
+		"skipdbvalidation": false,
 	}
 	descriptions = map[string]string{
 		"startscanheight":   "Block height to start scanning for deposits on startup",
@@ -107,6 +121,7 @@ var (
 		"factomdpassword": "Password for API connections to factomd",
 		//"factomdcert":     "The TLS certificate that will be provided by the factomd API server",
 		//"factomdtls":      "Set to true to use TLS when accessing the factomd API",
+		"networkid": `Accepts "main", "test", or four bytes in hex`,
 
 		"w":              "IPAddr:port# of factom-walletd API to use to access wallet",
 		"wallettimeout":  "Timeout for factom-walletd API requests, 0 means never timeout",
@@ -117,6 +132,11 @@ var (
 
 		"ecadr": "Entry Credit Public Address to use to pay for Factom entries",
 		"esadr": "Entry Credit Secret Address to use to pay for Factom entries",
+
+		"whitelist":        "Track only these chains, adding the database if needed",
+		"blacklist":        "Do not track or sync these chains, overrides -whitelist",
+		"ignorenewchains":  "Do not track new chains, sync existing chain databases",
+		"skipdbvalidation": "Skip the full validation check of all chain databases",
 	}
 	flags = complete.Flags{
 		"-startscanheight":   complete.PredictAnything,
@@ -146,6 +166,14 @@ var (
 		"-uninstallcompletion": complete.PredictNothing,
 
 		"-ecadr": predictAddress(false, 1, "-ecadr", ""),
+
+		"-whitelist":       complete.PredictAnything,
+		"-blacklist":       complete.PredictAnything,
+		"-ignorenewchains": complete.PredictNothing,
+
+		"-networkid": complete.PredictSet("main", "test"),
+
+		"-skipdbvalidation": complete.PredictNothing,
 	}
 
 	startScanHeight   uint64      // We parse the flag as unsigned.
@@ -161,10 +189,15 @@ var (
 	APIAddress string
 
 	FactomClient = factom.NewClient()
+	NetworkID    factom.NetworkID
 
 	flagset    map[string]bool
 	log        *logrus.Entry
 	Completion *complete.Complete
+
+	Whitelist, Blacklist Bytes32List
+	ignoreNewChains      bool
+	SkipDBValidation     bool
 )
 
 func init() {
@@ -183,6 +216,7 @@ func init() {
 	flagVar(&FactomClient.Factomd.Timeout, "factomdtimeout")
 	flagVar(&FactomClient.Factomd.User, "factomduser")
 	flagVar(&FactomClient.Factomd.Password, "factomdpassword")
+	flagVar(&NetworkID, "networkid")
 	//flagVar(&FactomClient.Factomd.TLSCertFile, "factomdcert")
 	//flagVar(&FactomClient.Factomd.TLSEnable, "factomdtls")
 
@@ -192,6 +226,11 @@ func init() {
 	flagVar(&FactomClient.Walletd.Password, "walletpassword")
 	//flagVar(&FactomClient.Walletd.TLSCertFile, "walletcert")
 	//flagVar(&FactomClient.Walletd.TLSEnable, "wallettls")
+
+	flagVar(&Whitelist, "whitelist")
+	flagVar(&Blacklist, "blacklist")
+	flagVar(&ignoreNewChains, "ignorenewchains")
+	flagVar(&SkipDBValidation, "skipdbvalidation")
 
 	// Add flags for self installing the CLI completion tool
 	Completion = complete.New(os.Args[0], complete.Command{Flags: flags})
@@ -365,4 +404,12 @@ func setupLogger() {
 		_log.SetLevel(logrus.DebugLevel)
 	}
 	log = _log.WithField("pkg", "flag")
+}
+
+func HasWhitelist() bool {
+	return len(Whitelist) > 0
+}
+
+func IgnoreNewChains() bool {
+	return ignoreNewChains || HasWhitelist()
 }

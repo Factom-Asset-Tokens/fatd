@@ -142,11 +142,11 @@ func TestDataStructures(t *testing.T) {
 
 		// A bad URL will cause an error.
 		c.FactomdServer = "example.com"
-		_, err := eb.GetAllPrev(c)
+		_, err := eb.GetPrevAll(c)
 		assert.Error(err)
 
 		c.FactomdServer = courtesyNode
-		ebs, err := eb.GetAllPrev(c)
+		ebs, err := eb.GetPrevAll(c)
 		var first EBlock
 		if assert.NoError(err) {
 			assert.Len(ebs, 5)
@@ -169,7 +169,7 @@ func TestDataStructures(t *testing.T) {
 		require.False(eb2.IsPopulated())
 		assert.EqualError(eb2.GetFirst(c),
 			`jsonrpc2.Error{Code:-32009, Message:"Missing Chain Head"}`)
-		ebs, err = eb2.GetAllPrev(c)
+		ebs, err = eb2.GetPrevAll(c)
 		assert.EqualError(err,
 			`jsonrpc2.Error{Code:-32009, Message:"Missing Chain Head"}`)
 		assert.Nil(ebs)

@@ -35,7 +35,7 @@ func main() {
 
 	log.SetPrefix(fmt.Sprintf("ChainID: %v ", chainID.String()))
 
-	eblocks, err := EBlock{ChainID: chainID}.GetAllPrev(c)
+	eblocks, err := EBlock{ChainID: chainID}.GetPrevAll(c)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -68,7 +68,7 @@ func main() {
 	}
 
 	// We don't need the actual dbKeyMR
-	chain, err := db.OpenNew(first, dblock.KeyMR, Mainnet(), identity)
+	chain, err := db.OpenNew(dblock.KeyMR, first, Mainnet(), identity)
 	if err != nil {
 		log.Println(err)
 		return
@@ -78,21 +78,17 @@ func main() {
 	eblocks = eblocks[:len(eblocks)-1] // skip first eblock
 	for i := range eblocks {
 		eb := eblocks[len(eblocks)-i-1]
+		if err := eb.GetEntries(c); err != nil {
+			log.Fatal(err)
+		}
 		var dblock DBlock
 		dblock.Header.Height = eb.Height
 		if err := dblock.Get(c); err != nil {
 			log.Fatal(err)
 		}
-		timestamp := dblock.Header.Timestamp
-		for i := range eb.Entries {
-			e := &eb.Entries[i]
-			if err := e.Get(c); err != nil {
-				log.Fatal(err)
-			}
-			e.Timestamp = timestamp.Add(e.Timestamp.Sub(eb.Timestamp))
-		}
-		eb.Timestamp = timestamp
-		if err := chain.Apply(eb, dblock.KeyMR); err != nil {
+		eb.SetTimestamp(dblock.Header.Timestamp)
+
+		if err := chain.Apply(dblock.KeyMR, eb); err != nil {
 			log.Fatal(err)
 		}
 	}
