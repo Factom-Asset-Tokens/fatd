@@ -99,7 +99,7 @@ func (chain *Chain) applyFAT0Tx(
 		if err != nil {
 			return
 		}
-		if err = chain.insertAddressTransaction(ai, ei, true); err != nil {
+		if _, err = chain.insertAddressTransaction(ai, ei, true); err != nil {
 			return
 		}
 	}
@@ -111,7 +111,7 @@ func (chain *Chain) applyFAT0Tx(
 			err = fmt.Errorf("coinbase exceeds max supply")
 			return
 		}
-		if err = chain.insertAddressTransaction(1, ei, false); err != nil {
+		if _, err = chain.insertAddressTransaction(1, ei, false); err != nil {
 			return
 		}
 		err = chain.numIssuedAdd(addIssued)
@@ -124,7 +124,7 @@ func (chain *Chain) applyFAT0Tx(
 		if err != nil {
 			return
 		}
-		if err = chain.insertAddressTransaction(ai, ei, false); err != nil {
+		if _, err = chain.insertAddressTransaction(ai, ei, false); err != nil {
 			return
 		}
 	}
@@ -149,6 +149,10 @@ func (chain *Chain) applyTx(ei int64, e factom.Entry, tx fat.Validator) (bool, e
 }
 
 func (chain *Chain) setApplyFunc() {
+	if !chain.Issuance.IsPopulated() {
+		chain.apply = chain.applyIssuance
+		return
+	}
 	// Adapt to match ApplyFunc.
 	switch chain.Type {
 	case fat0.Type:
@@ -206,7 +210,9 @@ func (chain *Chain) applyFAT1Tx(
 		if err != nil {
 			return
 		}
-		if err = chain.insertAddressTransaction(ai, ei, true); err != nil {
+		var adrTxID int64
+		adrTxID, err = chain.insertAddressTransaction(ai, ei, true)
+		if err != nil {
 			return
 		}
 		for nfID := range nfTkns {
@@ -214,7 +220,7 @@ func (chain *Chain) applyFAT1Tx(
 				return
 			}
 			if err = chain.insertNFTokenTransaction(
-				nfID, ei, ai); err != nil {
+				nfID, adrTxID); err != nil {
 				return
 			}
 		}
@@ -228,7 +234,9 @@ func (chain *Chain) applyFAT1Tx(
 			err = fmt.Errorf("coinbase exceeds max supply")
 			return
 		}
-		if err = chain.insertAddressTransaction(1, ei, false); err != nil {
+		var adrTxID int64
+		adrTxID, err = chain.insertAddressTransaction(1, ei, false)
+		if err != nil {
 			return
 		}
 		for nfID := range nfTkns {
@@ -237,6 +245,10 @@ func (chain *Chain) applyFAT1Tx(
 				continue
 			}
 			if err = chain.setNFTokenMetadata(nfID, metadata); err != nil {
+				return
+			}
+			if err = chain.insertNFTokenTransaction(
+				nfID, adrTxID); err != nil {
 				return
 			}
 		}
@@ -250,8 +262,16 @@ func (chain *Chain) applyFAT1Tx(
 		if err != nil {
 			return
 		}
-		if err = chain.insertAddressTransaction(ai, ei, false); err != nil {
+		var adrTxID int64
+		adrTxID, err = chain.insertAddressTransaction(ai, ei, false)
+		if err != nil {
 			return
+		}
+		for nfID := range nfTkns {
+			if err = chain.insertNFTokenTransaction(
+				nfID, adrTxID); err != nil {
+				return
+			}
 		}
 	}
 	return

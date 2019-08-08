@@ -23,13 +23,7 @@
 package engine
 
 import (
-	"fmt"
-
-	jrpc "github.com/AdamSLevy/jsonrpc2/v11"
-
-	"github.com/Factom-Asset-Tokens/fatd/db"
 	"github.com/Factom-Asset-Tokens/fatd/factom"
-	"github.com/Factom-Asset-Tokens/fatd/fat"
 	"github.com/Factom-Asset-Tokens/fatd/flag"
 )
 
@@ -45,57 +39,28 @@ func Process(dbKeyMR *factom.Bytes32, eb factom.EBlock) error {
 			Chains.ignore(eb.ChainID)
 			return nil
 		}
-		// Load this Entry Block.
-		if err := eb.Get(c); err != nil {
-			return fmt.Errorf("%#v.Get(c): %v", eb, err)
-		}
-		if !eb.IsFirst() {
-			Chains.ignore(eb.ChainID)
-			return nil
-		}
-		// Load first entry of new chain.
-		first := eb.Entries[0]
-		if err := first.Get(c); err != nil {
-			return fmt.Errorf("%#v.Get(c): %v", first, err)
-		}
-
-		// Ignore chains with NameIDs that don't match the fat pattern.
-		nameIDs := first.ExtIDs
-		if !fat.ValidTokenNameIDs(nameIDs) {
-			Chains.ignore(eb.ChainID)
-			return nil
-		}
-
-		var identity factom.Identity
-		_, identity.ChainID = fat.TokenIssuer(nameIDs)
-		if err := identity.Get(c); err != nil {
-			// A jrpc.Error indicates that the identity chain
-			// doesn't yet exist, which we tolerate.
-			if _, ok := err.(jrpc.Error); !ok {
-				return err
-			}
-		}
-
-		if err := eb.GetEntries(c); err != nil {
-			return fmt.Errorf("%#v.GetEntries(c): %v", eb, err)
-		}
-
 		var err error
-		chain.Chain, err = db.OpenNew(dbKeyMR, eb, flag.NetworkID,
-			identity)
+		chain, err = OpenNew(c, dbKeyMR, eb)
 		if err != nil {
-			return fmt.Errorf("db.OpenNew(): %v")
+			return err
 		}
-		if chain.Issuance.IsPopulated() {
-			chain.ChainStatus = ChainStatusIssued
-		} else {
-			chain.ChainStatus = ChainStatusTracked
+		if chain.IsUnknown() {
+			Chains.ignore(eb.ChainID)
+			return nil
 		}
-		Chains.set(chain.ID, chain)
+		if err := chain.Sync(c); err != nil {
+			return err
+		}
+		Chains.set(chain.ID, chain, ChainStatusUnknown)
 		return nil
 	}
 	if eb.Height <= chain.Head.Height {
 		return nil
 	}
-	return chain.Apply(c, dbKeyMR, eb)
+	prevStatus := chain.ChainStatus
+	if err := chain.Apply(c, dbKeyMR, eb); err != nil {
+		return err
+	}
+	Chains.set(chain.ID, chain, prevStatus)
+	return nil
 }

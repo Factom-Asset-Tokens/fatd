@@ -50,7 +50,7 @@ type Chain struct {
 }
 
 func OpenNew(dbKeyMR *factom.Bytes32, eb factom.EBlock, networkID factom.NetworkID,
-	identity factom.Identity) (*Chain, error) {
+	identity factom.Identity) (chain *Chain, err error) {
 	fname := eb.ChainID.String() + dbFileExtension
 	path := flag.DBPath + "/" + fname
 
@@ -60,7 +60,7 @@ func OpenNew(dbKeyMR *factom.Bytes32, eb factom.EBlock, networkID factom.Network
 	}
 
 	// Ensure that the database file doesn't already exist.
-	_, err := os.Stat(path)
+	_, err = os.Stat(path)
 	if err == nil {
 		return nil, fmt.Errorf("already exists: %v", path)
 	}
@@ -68,10 +68,18 @@ func OpenNew(dbKeyMR *factom.Bytes32, eb factom.EBlock, networkID factom.Network
 		return nil, err
 	}
 
-	chain, err := open(fname)
+	chain, err = open(fname)
 	if err != nil {
 		return nil, err
 	}
+	defer func() {
+		if err != nil {
+			chain.Close()
+			if err := os.Remove(path); err != nil {
+				chain.Log.Errorf("os.Remove(): %v", err)
+			}
+		}
+	}()
 	chain.ID = eb.ChainID
 	chain.TokenID, chain.IssuerChainID = fat.TokenIssuer(nameIDs)
 	chain.DBKeyMR = dbKeyMR
@@ -90,7 +98,7 @@ func OpenNew(dbKeyMR *factom.Bytes32, eb factom.EBlock, networkID factom.Network
 		return nil, err
 	}
 
-	chain.apply = chain.applyIssuance
+	chain.setApplyFunc()
 	if err := chain.Apply(dbKeyMR, eb); err != nil {
 		return nil, err
 	}

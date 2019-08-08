@@ -179,14 +179,7 @@ func (eb EBlock) Prev() EBlock {
 // If you are only interested in obtaining the first entry block in eb's chain,
 // and not all of the intermediary ones, then use GetFirst.
 func (eb EBlock) GetPrevAll(c *Client) ([]EBlock, error) {
-	ebs := []EBlock{}
-	for ; !eb.IsFirst(); eb = eb.Prev() {
-		if err := eb.Get(c); err != nil {
-			return nil, err
-		}
-		ebs = append(ebs, eb)
-	}
-	return ebs, nil
+	return eb.GetPrevUpTo(c, Bytes32{})
 }
 
 // GetPrevUpTo returns a slice of all preceding EBlocks, in order from eb up
@@ -197,24 +190,27 @@ func (eb EBlock) GetPrevAll(c *Client) ([]EBlock, error) {
 // returned with the fully populated []EBlock. Like Get, if eb does not have a
 // KeyMR, the chain head KeyMR is queried first.
 func (eb EBlock) GetPrevUpTo(c *Client, keyMR Bytes32) ([]EBlock, error) {
-	ebs := []EBlock{}
 	if err := eb.Get(c); err != nil {
 		return nil, err
 	}
 	if *eb.KeyMR == keyMR {
 		return nil, nil
 	}
-	for ; *eb.PrevKeyMR != keyMR && !eb.PrevKeyMR.IsZero(); eb = eb.Prev() {
+	ebs := []EBlock{eb}
+	for {
+		if *eb.PrevKeyMR == keyMR {
+			return ebs, nil
+		}
+		if eb.IsFirst() {
+			return ebs, fmt.Errorf("EBlock{%v} not found prior to EBlock{%v}",
+				keyMR, eb.KeyMR)
+		}
+		eb = eb.Prev()
 		if err := eb.Get(c); err != nil {
 			return nil, err
 		}
 		ebs = append(ebs, eb)
 	}
-	if *ebs[len(ebs)-1].PrevKeyMR != keyMR {
-		return ebs, fmt.Errorf("EBlock{%v} not found prior to EBlock{%v}",
-			keyMR, eb.KeyMR)
-	}
-	return ebs, nil
 }
 
 // GetFirst finds the first Entry Block in eb's chain, and populates eb as
@@ -277,12 +273,8 @@ func (eb *EBlock) UnmarshalBinary(data []byte) error {
 		return fmt.Errorf("invalid length")
 	}
 
-	// When the eb.ChainID is already populated, just reuse the data.
-	if eb.ChainID == nil {
-		eb.ChainID = new(Bytes32)
-		copy(eb.ChainID[:], data[:len(eb.ChainID)])
-	}
-	i := len(eb.ChainID)
+	eb.ChainID = new(Bytes32)
+	i := copy(eb.ChainID[:], data[:len(eb.ChainID)])
 	eb.BodyMR = new(Bytes32)
 	i += copy(eb.BodyMR[:], data[i:i+len(eb.BodyMR)])
 	eb.PrevKeyMR = new(Bytes32)

@@ -29,6 +29,7 @@ import (
 	"github.com/Factom-Asset-Tokens/fatd/db"
 	"github.com/Factom-Asset-Tokens/fatd/factom"
 	"github.com/Factom-Asset-Tokens/fatd/fat"
+	"github.com/Factom-Asset-Tokens/fatd/flag"
 )
 
 type Chain struct {
@@ -43,24 +44,90 @@ func (chain Chain) String() string {
 		chain.Identity, chain.Issuance)
 }
 
-func (chain *Chain) ignore() {
-	chain.ID = nil // Allow to be GC'd.
-	chain.ChainStatus = ChainStatusIgnored
+func OpenNew(c *factom.Client,
+	dbKeyMR *factom.Bytes32, eb factom.EBlock) (chain Chain, err error) {
+	if err := eb.Get(c); err != nil {
+		return chain, fmt.Errorf("%#v.Get(c): %v", eb, err)
+	}
+	// Load first entry of new chain.
+	first := eb.Entries[0]
+	if err := first.Get(c); err != nil {
+		return chain, fmt.Errorf("%#v.Get(c): %v", first, err)
+	}
+	if !eb.IsFirst() {
+		return
+	}
+
+	// Ignore chains with NameIDs that don't match the fat pattern.
+	nameIDs := first.ExtIDs
+	if !fat.ValidTokenNameIDs(nameIDs) {
+		return
+	}
+
+	var identity factom.Identity
+	_, identity.ChainID = fat.TokenIssuer(nameIDs)
+	if err = identity.Get(c); err != nil {
+		// A jrpc.Error indicates that the identity chain
+		// doesn't yet exist, which we tolerate.
+		if _, ok := err.(jrpc.Error); !ok {
+			return
+		}
+	}
+
+	if err := eb.GetEntries(c); err != nil {
+		return chain, fmt.Errorf("%#v.GetEntries(c): %v", eb, err)
+	}
+
+	chain.Chain, err = db.OpenNew(dbKeyMR, eb, flag.NetworkID, identity)
+	if err != nil {
+		return chain, fmt.Errorf("db.OpenNew(): %v", err)
+	}
+	if chain.Issuance.IsPopulated() {
+		chain.ChainStatus = ChainStatusIssued
+	} else {
+		chain.ChainStatus = ChainStatusTracked
+	}
+	return
 }
-func (chain *Chain) track(first factom.EBlock, dbKeyMR *factom.Bytes32) error {
-	return nil
-}
-func (chain *Chain) issue(issuance fat.Issuance) error {
-	return nil
+
+func (chain *Chain) OpenNewByChainID(c *factom.Client, chainID *factom.Bytes32) error {
+	eblocks, err := factom.EBlock{ChainID: chainID}.GetPrevAll(c)
+	if err != nil {
+		return fmt.Errorf("factom.EBlock{}.GetPrevAll(): %v", err)
+	}
+
+	first := eblocks[len(eblocks)-1]
+	// Get DBlock Timestamp and KeyMR
+	var dblock factom.DBlock
+	dblock.Header.Height = first.Height
+	if err := dblock.Get(c); err != nil {
+		return fmt.Errorf("factom.DBlock{}.Get(): %v", err)
+	}
+	first.SetTimestamp(dblock.Header.Timestamp)
+
+	*chain, err = OpenNew(c, dblock.KeyMR, first)
+	if err != nil {
+		return err
+	}
+	if chain.IsUnknown() {
+		return fmt.Errorf("not a valid FAT chain: %v", chainID)
+	}
+
+	// We already applied the first EBlock. Sync the remaining.
+	return chain.SyncEBlocks(c, eblocks[:len(eblocks)-1])
 }
 
 func (chain *Chain) Sync(c *factom.Client) error {
-	eblocks, err := factom.EBlock{}.GetPrevUpTo(c, *chain.Head.KeyMR)
+	eblocks, err := factom.EBlock{ChainID: chain.ID}.GetPrevUpTo(c, *chain.Head.KeyMR)
 	if err != nil {
 		return fmt.Errorf("factom.EBlock{}.GetPrevUpTo(): %v", err)
 	}
-	for i := range eblocks {
-		eb := eblocks[len(eblocks)-1-i] // Earliest EBlock first.
+	return chain.SyncEBlocks(c, eblocks)
+}
+
+func (chain *Chain) SyncEBlocks(c *factom.Client, ebs []factom.EBlock) error {
+	for i := range ebs {
+		eb := ebs[len(ebs)-1-i] // Earliest EBlock first.
 
 		// Get DBlock Timestamp and KeyMR
 		var dblock factom.DBlock

@@ -49,13 +49,13 @@ func (chain Chain) Validate() (err error) {
 
 	// Completely clear the state, while preserving all chain data.
 	sqlitex.ExecScript(write, `
-                UPDATE addresses SET balance = 0;
-                DELETE FROM address_transactions;
-                DELETE FROM nf_tokens;
-                DELETE FROM nf_token_transactions;
-                DELETE FROM eblocks;
-                DELETE FROM entries;
-                UPDATE metadata SET (init_entry_id, num_issued) = (NULL, NULL);
+                UPDATE "addresses" SET "balance" = 0;
+                DELETE FROM "address_transactions";
+                DELETE FROM "nf_tokens";
+                DELETE FROM "nf_token_transactions";
+                DELETE FROM "eblocks";
+                DELETE FROM "entries";
+                UPDATE "metadata" SET ("init_entry_id", "num_issued") = (NULL, NULL);
                 `)
 	chain.NumIssued = 0
 	chain.Issuance = fat.Issuance{}

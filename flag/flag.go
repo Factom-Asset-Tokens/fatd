@@ -276,6 +276,9 @@ func Parse() {
 	if flagset["startscanheight"] {
 		StartScanHeight = int32(startScanHeight)
 	}
+	if !flagset["networkid"] {
+		NetworkID = factom.Mainnet()
+	}
 }
 
 func Validate() {

@@ -9,8 +9,9 @@ import (
 )
 
 func (chain *Chain) insertMetadata() error {
-	stmt := chain.Conn.Prep(`INSERT INTO metadata
-                (id, sync_height, sync_db_key_mr, network_id, id_key_entry, id_key_height)
+	stmt := chain.Conn.Prep(`INSERT INTO "metadata"
+                ("id", "sync_height", "sync_db_key_mr",
+                        "network_id", "id_key_entry", "id_key_height")
                 VALUES (0, ?, ?, ?, ?, ?);`)
 	stmt.BindInt64(1, int64(chain.SyncHeight))
 	stmt.BindBytes(2, chain.SyncDBKeyMR[:])
@@ -20,7 +21,6 @@ func (chain *Chain) insertMetadata() error {
 		if err != nil {
 			return err
 		}
-		fmt.Printf("bind bytes %x\n", data)
 		stmt.BindBytes(4, data)
 		stmt.BindInt64(5, int64(chain.Identity.Height))
 	} else {
@@ -35,8 +35,8 @@ func (chain *Chain) SetSync(height uint32, dbKeyMR *factom.Bytes32) error {
 	if height <= chain.SyncHeight {
 		return nil
 	}
-	stmt := chain.Conn.Prep(`UPDATE metadata SET
-                (sync_height, sync_db_key_mr) = (?, ?) WHERE id = 0;`)
+	stmt := chain.Conn.Prep(`UPDATE "metadata" SET
+                ("sync_height", "sync_db_key_mr") = (?, ?) WHERE "id" = 0;`)
 	stmt.BindInt64(1, int64(height))
 	stmt.BindBytes(2, dbKeyMR[:])
 	_, err := stmt.Step()
@@ -49,8 +49,8 @@ func (chain *Chain) SetSync(height uint32, dbKeyMR *factom.Bytes32) error {
 }
 
 func (chain *Chain) setInitEntryID(id int64) error {
-	stmt := chain.Conn.Prep(`UPDATE metadata SET
-                (init_entry_id, num_issued) = (?, 0) WHERE id = 0;`)
+	stmt := chain.Conn.Prep(`UPDATE "metadata" SET
+                ("init_entry_id", "num_issued") = (?, 0) WHERE "id" = 0;`)
 	stmt.BindInt64(1, id)
 	_, err := stmt.Step()
 	if chain.Conn.Changes() == 0 {
@@ -60,8 +60,8 @@ func (chain *Chain) setInitEntryID(id int64) error {
 }
 
 func (chain *Chain) numIssuedAdd(add uint64) error {
-	stmt := chain.Conn.Prep(`UPDATE metadata SET
-                num_issued = num_issued + ? WHERE id = 0;`)
+	stmt := chain.Conn.Prep(`UPDATE "metadata" SET
+                "num_issued" = "num_issued" + ? WHERE "id" = 0;`)
 	stmt.BindInt64(1, int64(add))
 	_, err := stmt.Step()
 	if chain.Conn.Changes() == 0 {
@@ -72,6 +72,7 @@ func (chain *Chain) numIssuedAdd(add uint64) error {
 }
 
 func (chain *Chain) loadMetadata() error {
+	defer chain.setApplyFunc()
 	// Load NameIDs
 	first, err := SelectEntryByID(chain.Conn, 1)
 	if err != nil {
@@ -88,7 +89,7 @@ func (chain *Chain) loadMetadata() error {
 	chain.TokenID, chain.IssuerChainID = fat.TokenIssuer(nameIDs)
 
 	// Load Chain Head
-	eb, dbKeyMR, err := SelectLatestEBlock(chain.Conn)
+	eb, dbKeyMR, err := SelectEBlockLatest(chain.Conn)
 	if err != nil {
 		return err
 	}
@@ -100,9 +101,11 @@ func (chain *Chain) loadMetadata() error {
 	chain.DBKeyMR = &dbKeyMR
 	chain.ID = eb.ChainID
 
-	stmt := chain.Conn.Prep(`SELECT sync_height, sync_db_key_mr, network_id,
-                id_key_entry, id_key_height, init_entry_id, num_issued FROM metadata;`)
+	stmt := chain.Conn.Prep(`SELECT "sync_height", "sync_db_key_mr", "network_id",
+                "id_key_entry", "id_key_height", "init_entry_id", "num_issued"
+                        FROM "metadata";`)
 	hasRow, err := stmt.Step()
+	defer stmt.Reset()
 	if err != nil {
 		return err
 	}
@@ -150,7 +153,6 @@ func (chain *Chain) loadMetadata() error {
 	if err := chain.Issuance.Validate(chain.ID1); err != nil {
 		return err
 	}
-	chain.setApplyFunc()
 
 	chain.NumIssued = uint64(stmt.ColumnInt64(6))
 

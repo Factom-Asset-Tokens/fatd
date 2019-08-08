@@ -344,6 +344,7 @@ func (e *Entry) MarshalBinary() ([]byte, error) {
 		return nil, fmt.Errorf("Entry cannot be larger than 10KB")
 	}
 	if e.ChainID == nil {
+		// We assume this is a chain creation entry.
 		e.ChainID = new(Bytes32)
 		*e.ChainID = ChainID(e.ExtIDs)
 	}
@@ -405,12 +406,8 @@ func (e *Entry) UnmarshalBinary(data []byte) error {
 		return fmt.Errorf("invalid version byte")
 	}
 	i := 1
-	// When the e.ChainID is already populated, just reuse the data.
-	if e.ChainID == nil {
-		e.ChainID = new(Bytes32)
-		copy(e.ChainID[:], data[i:i+len(e.ChainID)])
-	}
-	i += len(e.ChainID)
+	e.ChainID = new(Bytes32)
+	i += copy(e.ChainID[:], data[i:i+len(e.ChainID)])
 	extIDTotalLen := int(binary.BigEndian.Uint16(data[33:35]))
 	if extIDTotalLen == 1 || EntryHeaderLen+extIDTotalLen > len(data) {
 		return fmt.Errorf("invalid ExtIDs length")

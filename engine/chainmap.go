@@ -41,42 +41,62 @@ var (
 )
 
 type ChainMap struct {
-	m   map[factom.Bytes32]Chain
-	ids []factom.Bytes32
+	m          map[factom.Bytes32]Chain
+	issuedIDs  []*factom.Bytes32
+	trackedIDs []*factom.Bytes32
 	*sync.RWMutex
 }
 
-func (cm ChainMap) set(id *factom.Bytes32, chain Chain) {
+func (cm ChainMap) set(id *factom.Bytes32, chain Chain, prevStatus ChainStatus) {
 	defer cm.Unlock()
 	cm.Lock()
 	cm.m[*id] = chain
+	if chain.ChainStatus != prevStatus {
+		switch chain.ChainStatus {
+		case ChainStatusIssued:
+			cm.issuedIDs = append(cm.issuedIDs, id)
+			fallthrough
+		case ChainStatusTracked:
+			if prevStatus.IsUnknown() {
+				cm.trackedIDs = append(cm.trackedIDs, id)
+			}
+		}
+	}
 }
 
 func (cm ChainMap) ignore(id *factom.Bytes32) {
-	cm.set(id, Chain{ChainStatus: ChainStatusIgnored})
+	cm.set(id, Chain{ChainStatus: ChainStatusIgnored}, ChainStatusIgnored)
 }
 
 func (cm ChainMap) Get(id *factom.Bytes32) Chain {
 	defer cm.RUnlock()
 	cm.RLock()
-	return cm.m[*id]
+	chain := cm.m[*id]
+	return chain
 }
 
-func (cm ChainMap) GetIssued() []factom.Bytes32 {
+func (cm ChainMap) GetIssued() []*factom.Bytes32 {
 	defer cm.RUnlock()
 	cm.RLock()
-	return cm.ids
+	return cm.issuedIDs
+}
+
+func (cm ChainMap) GetTracked() []*factom.Bytes32 {
+	defer cm.RUnlock()
+	cm.RLock()
+	return cm.trackedIDs
 }
 
 func (cm ChainMap) setSync(height uint32, dbKeyMR *factom.Bytes32) error {
 	defer cm.Unlock()
 	cm.Lock()
 	for _, chain := range cm.m {
-		if chain.Chain != nil {
-			if err := chain.SetSync(height, dbKeyMR); err != nil {
-				chain.Log.Errorf("chain.SetSync(): %v", err)
-				return err
-			}
+		if !chain.IsTracked() {
+			continue
+		}
+		if err := chain.SetSync(height, dbKeyMR); err != nil {
+			chain.Log.Errorf("chain.SetSync(): %v", err)
+			return err
 		}
 		cm.m[*chain.ID] = chain
 	}
@@ -87,7 +107,7 @@ func (cm ChainMap) Close() {
 	defer cm.Unlock()
 	cm.Lock()
 	for _, chain := range cm.m {
-		if chain.Chain != nil {
+		if chain.IsTracked() {
 			chain.Close()
 		}
 	}
@@ -116,7 +136,9 @@ func loadChains() (syncHeight uint32, err error) {
 		Chains.m[chainID] = Chain{ChainStatus: ChainStatusIgnored}
 	}
 
-	syncHeight = math.MaxUint32
+	if len(dbChains) > 0 {
+		syncHeight = math.MaxUint32
+	}
 	for i, dbChain := range dbChains {
 		chain := Chains.m[*dbChain.ID]
 
@@ -128,7 +150,7 @@ func loadChains() (syncHeight uint32, err error) {
 		}
 
 		chain.Chain = dbChain
-		chain.ChainStatus = ChainStatusTracked
+
 		syncHeight = min(syncHeight, chain.SyncHeight)
 
 		if chain.NetworkID != flag.NetworkID {
@@ -149,8 +171,31 @@ func loadChains() (syncHeight uint32, err error) {
 			}
 		}
 
-		Chains.m[*dbChain.ID] = chain
+		chain.ChainStatus = ChainStatusTracked
+		Chains.trackedIDs = append(Chains.trackedIDs, chain.ID)
+		if chain.Issuance.IsPopulated() {
+			chain.ChainStatus = ChainStatusIssued
+			Chains.issuedIDs = append(Chains.issuedIDs, chain.ID)
+		}
+
+		Chains.m[*chain.ID] = chain
 	}
+
+	// Open any whitelisted chains that do not already have databases.
+	for id, chain := range Chains.m {
+		if chain.IsIgnored() || chain.Chain != nil {
+			continue
+		}
+		if err = chain.OpenNewByChainID(c, &id); err != nil {
+			return
+		}
+		Chains.trackedIDs = append(Chains.trackedIDs, chain.ID)
+		if chain.IsIssued() {
+			Chains.issuedIDs = append(Chains.issuedIDs, chain.ID)
+		}
+		Chains.m[*chain.ID] = chain
+	}
+
 	dbChains = nil // Prevent closing any chains from this list.
 	return
 }

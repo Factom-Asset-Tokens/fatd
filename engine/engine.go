@@ -35,8 +35,6 @@ import (
 var (
 	log _log.Log
 	c   = flag.FactomClient
-
-	NetID = factom.Mainnet()
 )
 
 const (
@@ -63,8 +61,8 @@ func Start(stop <-chan struct{}) (done <-chan struct{}) {
 		return
 	}
 	if dblock.Header.NetworkID != flag.NetworkID {
-		log.Errorf("invalid Factom Blockchain NetworkID: %v",
-			dblock.Header.NetworkID)
+		log.Errorf("invalid Factom Blockchain NetworkID: %v, expected: %v",
+			dblock.Header.NetworkID, flag.NetworkID)
 		return
 	}
 
@@ -122,26 +120,25 @@ func Start(stop <-chan struct{}) (done <-chan struct{}) {
 	return _done
 }
 
-func engine(stop <-chan struct{}, done chan struct{}) {
-	// Ensure done is only closed exactly once.
-	var once sync.Once
-	exit := func() { once.Do(func() { close(done) }) }
-	defer exit()
+const numWorkers = 8
 
-	eblocks := make(chan factom.EBlock)
-	// Ensure all workers exit and state is closed when we exit.
-	defer close(eblocks)
+func engine(stop <-chan struct{}, done chan struct{}) {
+	defer close(done)
 	defer Chains.Close()
 
 	// Launch workers
+	eblocks := make(chan factom.EBlock)
+	var once sync.Once
+	stopWorkers := func() { once.Do(func() { close(eblocks) }) }
+	defer stopWorkers()
+
 	var dblock factom.DBlock
 	wg := &sync.WaitGroup{}
-	const numWorkers = 8
 	launchWorkers(numWorkers, func() {
 		for eb := range eblocks { // Read until close(eblocks)
 			if err := Process(dblock.KeyMR, eb); err != nil {
 				log.Errorf("ChainID(%v): %v", eb.ChainID, err)
-				exit() // Tell engine() to exit.
+				stopWorkers() // Tell workers and engine() to exit.
 			}
 			wg.Done()
 		}
@@ -164,6 +161,7 @@ func engine(stop <-chan struct{}, done chan struct{}) {
 		// Process all new DBlocks sequentially...
 		for h := syncHeight + 1; h <= factomHeight; h++ {
 			// Get DBlock.
+			dblock = factom.DBlock{}
 			dblock.Header.Height = h
 			if err := dblock.Get(c); err != nil {
 				log.Errorf("%#v.Get(c): %v", dblock, err)
@@ -179,7 +177,7 @@ func engine(stop <-chan struct{}, done chan struct{}) {
 
 			// Check for process errors...
 			select {
-			case <-done:
+			case <-eblocks:
 				// We cannot consider this DBlock completed.
 				// Sync height will not be updated for all chains.
 				return
@@ -200,7 +198,8 @@ func engine(stop <-chan struct{}, done chan struct{}) {
 			}
 
 			if flag.LogDebug && h%100 == 0 {
-				log.Debugf("Synced to block %v...", h)
+				log.Debugf("Synced to block Height: %v KeyMR: %v",
+					h, dblock.KeyMR)
 			}
 		}
 

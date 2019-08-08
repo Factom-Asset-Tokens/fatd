@@ -8,120 +8,104 @@ import (
 )
 
 const (
-	createTableEBlocks = `CREATE TABLE eblocks (
-        seq             INTEGER PRIMARY KEY,
-        key_mr          BLOB NOT NULL UNIQUE,
-        db_height       INTEGER NOT NULL UNIQUE,
-        db_key_mr       BLOB NOT NULL UNIQUE,
-        timestamp       INTEGER NOT NULL,
-        data            BLOB NOT NULL
+	createTableEBlocks = `CREATE TABLE "eblocks" (
+        "seq"           INTEGER PRIMARY KEY,
+        "key_mr"        BLOB NOT NULL UNIQUE,
+        "db_height"     INTEGER NOT NULL UNIQUE,
+        "db_key_mr"     BLOB NOT NULL UNIQUE,
+        "timestamp"     INTEGER NOT NULL,
+        "data"          BLOB NOT NULL
 );
 `
 
-	createTableEntries = `CREATE TABLE entries (
-        id              INTEGER PRIMARY KEY,
-        eb_seq          INTEGER NOT NULL,
-        timestamp       INTEGER NOT NULL,
-        valid           BOOL NOT NULL DEFAULT FALSE,
-        hash            BLOB NOT NULL,
-        data            BLOB NOT NULL,
+	createTableEntries = `CREATE TABLE "entries" (
+        "id"            INTEGER PRIMARY KEY,
+        "eb_seq"        INTEGER NOT NULL,
+        "timestamp"     INTEGER NOT NULL,
+        "valid"         BOOL NOT NULL DEFAULT FALSE,
+        "hash"          BLOB NOT NULL,
+        "data"          BLOB NOT NULL,
 
-        FOREIGN KEY(eb_seq) REFERENCES eblocks
+        FOREIGN KEY("eb_seq") REFERENCES "eblocks"
 );
-CREATE INDEX idx_entries_eb_seq ON entries(eb_seq);
-CREATE INDEX idx_entries_hash ON entries(hash);
+CREATE INDEX "idx_entries_eb_seq" ON "entries"("eb_seq");
+CREATE INDEX "idx_entries_hash" ON "entries"("hash");
 `
 
-	createTableTempEntries = `CREATE TABLE temp.entries (
-        id              INTEGER PRIMARY KEY,
-        timestamp       INTEGER NOT NULL,
-        valid           BOOL NOT NULL DEFAULT FALSE,
-        hash            BLOB NOT NULL,
-        data            BLOB NOT NULL,
-);
-CREATE INDEX temp.idx_entries_hash ON entries(hash);
-`
-
-	createTableAddresses = `CREATE TABLE addresses (
-        address         BLOB PRIMARY KEY,
-        balance         INTEGER NOT NULL
-                        CONSTRAINT "insufficient balance" CHECK (balance >= 0)
+	createTableAddresses = `CREATE TABLE "addresses" (
+        "id"            INTEGER PRIMARY KEY,
+        "address"       BLOB NOT NULL UNIQUE,
+        "balance"       INTEGER NOT NULL
+                        CONSTRAINT "insufficient balance" CHECK ("balance" >= 0)
 );
 `
 
-	createTableTempAddresses = `CREATE TABLE temp.addresses (
-        address         BLOB NOT NULL UNIQUE,
-        balance         INTEGER NOT NULL
-                        CONSTRAINT "insufficient balance" CHECK (balance >= 0)
+	createTableAddressTransactions = `CREATE TABLE "address_transactions" (
+        "entry_id"      INTEGER NOT NULL,
+        "address_id"    INTEGER NOT NULL,
+        "to"            BOOL NOT NULL,
+
+        PRIMARY KEY("entry_id", "address_id"),
+
+        FOREIGN KEY("entry_id")   REFERENCES "entries",
+        FOREIGN KEY("address_id") REFERENCES "addresses"
 );
+CREATE INDEX "idx_address_transactions_address_id" ON "address_transactions"("address_id");
 `
 
-	createTableAddressTransactions = `CREATE TABLE address_transactions (
-        entry_id        INTEGER NOT NULL,
-        address_id      INTEGER NOT NULL,
-        sent_to         BOOL NOT NULL,
+	createTableNFTokens = `CREATE TABLE "nf_tokens" (
+        "id"                      INTEGER PRIMARY KEY,
+        "metadata"                BLOB,
+        "creation_entry_id"       INTEGER NOT NULL,
+        "owner_id"                INTEGER NOT NULL,
 
-        PRIMARY KEY(entry_id, address_id),
-
-        FOREIGN KEY(entry_id)   REFERENCES entries,
-        FOREIGN KEY(address_id) REFERENCES addresses
+        FOREIGN KEY("creation_entry_id") REFERENCES "entries",
+        FOREIGN KEY("owner_id") REFERENCES "addresses"
 );
-CREATE INDEX idx_address_transactions_address_id ON address_transactions(address_id);
+CREATE INDEX "idx_nf_tokens_metadata" ON nf_tokens("metadata");
+CREATE INDEX "idx_nf_tokens_owner_id" ON nf_tokens("owner_id");
+CREATE VIEW "nf_tokens_addresses" AS
+        SELECT "nf_tokens"."id" AS "id",
+                "metadata",
+                "hash" AS "creation_hash",
+                "address" AS "owner" FROM
+                        "nf_tokens", "addresses", "entries" ON
+                                "owner_id" = "addresses"."id" AND
+                                "creation_entry_id" = "entries"."id";
 `
 
-	createTableTempAddressTransactions = `CREATE TABLE temp.address_transactions (
-        entry_id        INTEGER NOT NULL,
-        address_id      INTEGER NOT NULL,
-        sent_to         BOOL NOT NULL,
+	createTableNFTokensTransactions = `CREATE TABLE "nf_token_transactions" (
+        "adr_tx_id"     INTEGER NOT NULL,
+        "nf_tkn_id"     INTEGER NOT NULL,
 
-        PRIMARY KEY(entry_id, address_id),
+        UNIQUE("adr_tx_id", "nf_tkn_id"),
 
-        FOREIGN KEY(entry_id)   REFERENCES entries,
-        FOREIGN KEY(address_id) REFERENCES addresses
+        FOREIGN KEY("nf_tkn_id") REFERENCES "nf_tokens",
+        FOREIGN KEY("adr_tx_id") REFERENCES "address_transactions"
 );
-CREATE INDEX temp.idx_address_transactions_address_id ON address_transactions(address_id);
+CREATE INDEX "idx_nf_token_transactions_adr_tx_id" ON
+        "nf_token_transactions"("adr_tx_id");
+CREATE INDEX "idx_nf_token_transactions_nf_tkn_id" ON
+        "nf_token_transactions"("nf_tkn_id");
+CREATE VIEW "nf_token_address_transactions" AS
+        SELECT "entry_id", "address_id", "nf_tkn_id", "to" FROM
+                "address_transactions" AS "adr_tx",
+                "nf_token_transactions" AS "tkn_tx"
+                        ON "adr_tx"."rowid" = "tkn_tx"."adr_tx_id";
 `
 
-	createTableNFTokens = `CREATE TABLE nf_tokens (
-        id                      INTEGER PRIMARY KEY,
-        metadata                BLOB,
-        creation_entry_id       INTEGER NOT NULL,
-        owner_id                INTEGER NOT NULL,
+	createTableMetadata = `CREATE TABLE "metadata" (
+        "id"                    INTEGER PRIMARY KEY,
+        "sync_height"           INTEGER NOT NULL,
+        "sync_db_key_mr"        BLOB NOT NULL,
+        "network_id"            BLOB NOT NULL,
+        "id_key_entry"          BLOB,
+        "id_key_height"         INTEGER,
 
-        FOREIGN KEY(creation_entry_id) REFERENCES entries,
-        FOREIGN KEY(owner_id) REFERENCES addresses
-);
-CREATE INDEX idx_nf_tokens_metadata ON nf_tokens(metadata);
-CREATE INDEX idx_nf_tokens_owner_id ON nf_tokens(owner_id);
-`
+        "init_entry_id"         INTEGER,
+        "num_issued"            INTEGER,
 
-	createTableNFTokensTransactions = `CREATE TABLE nf_token_transactions (
-        entry_id        INTEGER NOT NULL,
-        nf_token_id     INTEGER NOT NULL,
-        owner_id        INTEGER NOT NULL,
-
-        PRIMARY KEY(entry_id, nf_token_id),
-
-        FOREIGN KEY(entry_id)    REFERENCES entries,
-        FOREIGN KEY(nf_token_id) REFERENCES nf_tokens,
-        FOREIGN KEY(owner_id)    REFERENCES addresses
-);
-CREATE INDEX idx_nf_token_transactions_owner_id ON nf_token_transactions(owner_id);
-CREATE INDEX idx_nf_token_transactions_nf_token_id ON nf_token_transactions(nf_token_id);
-`
-
-	createTableMetadata = `CREATE TABLE metadata (
-        id              INTEGER PRIMARY KEY,
-        sync_height     INTEGER NOT NULL,
-        sync_db_key_mr  BLOB NOT NULL,
-        network_id      BLOB NOT NULL,
-        id_key_entry    BLOB,
-        id_key_height   INTEGER,
-
-        init_entry_id   INTEGER,
-        num_issued      INTEGER,
-
-        FOREIGN KEY(init_entry_id) REFERENCES entries
+        FOREIGN KEY("init_entry_id") REFERENCES "entries"
 );
 `
 
@@ -157,7 +141,7 @@ func validateOrApplySchema(conn *sqlite.Conn, schema string) error {
 	return nil
 }
 func getFullSchema(conn *sqlite.Conn) (string, error) {
-	const selectSchema = `SELECT sql FROM sqlite_master;`
+	const selectSchema = `SELECT "sql" FROM "sqlite_master";`
 	var schema string
 	err := sqlitex.ExecTransient(conn, selectSchema,
 		func(stmt *sqlite.Stmt) error {
