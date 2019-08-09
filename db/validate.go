@@ -16,6 +16,7 @@ import (
 // continuity of all stored EBlocks and Entries. It does not validate the
 // validity of the saved DBlock KeyMRs.
 func (chain Chain) Validate() (err error) {
+	chain.Log.Debug("Validating database...")
 	// Validate ChainID...
 	read := chain.Pool.Get(nil)
 	write := chain.Conn

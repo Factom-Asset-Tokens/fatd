@@ -240,15 +240,15 @@ func (chain *Chain) applyFAT1Tx(
 			return
 		}
 		for nfID := range nfTkns {
+			if err = chain.insertNFTokenTransaction(
+				nfID, adrTxID); err != nil {
+				return
+			}
 			metadata := tx.TokenMetadata[nfID]
 			if len(metadata) == 0 {
 				continue
 			}
 			if err = chain.setNFTokenMetadata(nfID, metadata); err != nil {
-				return
-			}
-			if err = chain.insertNFTokenTransaction(
-				nfID, adrTxID); err != nil {
 				return
 			}
 		}

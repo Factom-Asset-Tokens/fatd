@@ -96,13 +96,16 @@ func SelectEntryCount(conn *sqlite.Conn, validOnly bool) (int64, error) {
 func SelectEntryByAddress(conn *sqlite.Conn, startHash *factom.Bytes32,
 	adrs []factom.FAAddress, nfTkns fat1.NFTokens,
 	toFrom, order string,
-	page, limit int64) ([]factom.Entry, error) {
+	page, limit uint64) ([]factom.Entry, error) {
+	if page == 0 {
+		return nil, fmt.Errorf("invalid page")
+	}
 	var sql sql
 	sql.Append(SelectEntryWhere + `"valid" = true`)
 	if startHash != nil {
 		sql.Append(` AND "id" >= (SELECT "id" FROM "entries" WHERE "hash" = ?)`,
-			func(s *sqlite.Stmt, c int) int {
-				s.BindBytes(c, startHash[:])
+			func(s *sqlite.Stmt, p int) int {
+				s.BindBytes(p, startHash[:])
 				return 1
 			})
 	}
@@ -110,39 +113,38 @@ func SelectEntryByAddress(conn *sqlite.Conn, startHash *factom.Bytes32,
 	switch strings.ToLower(toFrom) {
 	case "to":
 		to = true
-	case "from":
-	case "":
+	case "from", "":
 	default:
 		panic(fmt.Errorf("invalid toFrom: %v", toFrom))
 	}
 	if len(nfTkns) > 0 {
 		sql.Append(` AND "id" IN (
                                 SELECT "entry_id" FROM "nf_token_address_transactions"
-                                        WHERE "nf_token_id" IN (`) // 2 open (
-		sql.Bind(len(nfTkns), func(s *sqlite.Stmt, c int) int {
+                                        WHERE "nf_tkn_id" IN (`) // 2 open (
+		sql.Bind(len(nfTkns), func(s *sqlite.Stmt, p int) int {
 			i := 0
 			for nfTkn := range nfTkns {
-				s.BindInt64(c+i, int64(nfTkn))
+				s.BindInt64(p+i, int64(nfTkn))
 				i++
 			}
 			return len(nfTkns)
 		})
 		sql.Append(`)`) // 1 open (
 		if len(adrs) > 0 {
-			sql.Append(` AND "owner_id" IN (
+			sql.Append(` AND "address_id" IN (
                                 SELECT "id" FROM "addresses"
                                         WHERE "address" IN (`) // 3 open (
-			sql.Bind(len(adrs), func(s *sqlite.Stmt, c int) int {
+			sql.Bind(len(adrs), func(s *sqlite.Stmt, p int) int {
 				for i, adr := range adrs {
-					s.BindBytes(c+i, adr[:])
+					s.BindBytes(p+i, adr[:])
 				}
 				return len(adrs)
 			})
 			sql.Append(`))`) // 1 open (
 		}
 		if len(toFrom) > 0 {
-			sql.Append(` AND "to" = ?`, func(s *sqlite.Stmt, c int) int {
-				s.BindBool(c, to)
+			sql.Append(` AND "to" = ?`, func(s *sqlite.Stmt, p int) int {
+				s.BindBool(p, to)
 				return 1
 			})
 		}
@@ -150,18 +152,20 @@ func SelectEntryByAddress(conn *sqlite.Conn, startHash *factom.Bytes32,
 	} else if len(adrs) > 0 {
 		sql.Append(` AND "id" IN (
                                 SELECT "entry_id" FROM "address_transactions"
-                                        WHERE "address" IN (?`) // 2 open (
+                                        WHERE "address_id" IN (
+                                                SELECT "id" FROM "addresses"
+                                                        WHERE "address" IN (`) // 3 open (
 
-		sql.Bind(len(adrs), func(s *sqlite.Stmt, c int) int {
+		sql.Bind(len(adrs), func(s *sqlite.Stmt, p int) int {
 			for i, adr := range adrs {
-				s.BindBytes(c+i, adr[:])
+				s.BindBytes(p+i, adr[:])
 			}
 			return len(adrs)
 		})
-		sql.Append(`)`) // 1 open (
+		sql.Append(`))`) // 1 open (
 		if len(toFrom) > 0 {
-			sql.Append(` AND "to" = ?`, func(s *sqlite.Stmt, c int) int {
-				s.BindBool(c, to)
+			sql.Append(` AND "to" = ?`, func(s *sqlite.Stmt, p int) int {
+				s.BindBool(p, to)
 				return 1
 			})
 		}

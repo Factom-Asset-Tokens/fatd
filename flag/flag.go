@@ -99,10 +99,6 @@ var (
 		"ecadr": "",
 		"esadr": "",
 
-		"networkid": factom.Mainnet(),
-
-		"whitelist":        (Bytes32List)(nil),
-		"blacklist":        (Bytes32List)(nil),
 		"ignorenewchains":  false,
 		"skipdbvalidation": false,
 	}
@@ -171,7 +167,7 @@ var (
 		"-blacklist":       complete.PredictAnything,
 		"-ignorenewchains": complete.PredictNothing,
 
-		"-networkid": complete.PredictSet("main", "test"),
+		"-networkid": complete.PredictSet("main", "test", "local", "0x"),
 
 		"-skipdbvalidation": complete.PredictNothing,
 	}
@@ -277,7 +273,7 @@ func Parse() {
 		StartScanHeight = int32(startScanHeight)
 	}
 	if !flagset["networkid"] {
-		NetworkID = factom.Mainnet()
+		NetworkID = factom.MainnetID()
 	}
 }
 
@@ -317,6 +313,12 @@ func Validate() {
 	} else {
 		ECAdr = EsAdr.ECAddress()
 	}
+
+	if IgnoreNewChains() && flagset["startscanheight"] {
+		log.Fatal(
+			"-startscanheight incompatible with -ignorenewchains and -whitelist")
+	}
+
 }
 
 func flagVar(v interface{}, name string) {

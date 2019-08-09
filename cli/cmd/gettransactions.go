@@ -37,9 +37,10 @@ import (
 
 var (
 	paramsGetTxs = srv.ParamsGetTransactions{
-		StartHash:   new(factom.Bytes32),
-		NFTokenID:   new(fat1.NFTokenID),
-		ParamsToken: srv.ParamsToken{ChainID: paramsToken.ChainID},
+		StartHash:        new(factom.Bytes32),
+		NFTokenID:        new(fat1.NFTokenID),
+		ParamsToken:      srv.ParamsToken{ChainID: paramsToken.ChainID},
+		ParamsPagination: srv.ParamsPagination{Page: new(uint64)},
 	}
 	to, from       bool
 	transactionIDs []factom.Bytes32
@@ -80,7 +81,7 @@ more, and in the case of a FAT-1 chain, by a single --nftokenid. Use --page and
 	rootCmplCmd.Sub["help"].Sub["get"].Sub["transactions"] = complete.Command{}
 
 	flags := cmd.Flags()
-	flags.Uint64VarP(&paramsGetTxs.Page, "page", "p", 1, "Page of returned txs")
+	flags.Uint64VarP(paramsGetTxs.Page, "page", "p", 1, "Page of returned txs")
 	flags.Uint64VarP(&paramsGetTxs.Limit, "limit", "l", 10, "Limit of returned txs")
 	flags.VarPF((*txOrder)(&paramsGetTxs.Order), "order", "", "Order of returned txs").
 		DefValue = "asc"
@@ -159,6 +160,15 @@ func validateGetTxsFlags(cmd *cobra.Command, args []string) error {
 
 	if !flags.Changed("nftokenid") {
 		paramsGetTxs.NFTokenID = nil
+	}
+	if flags.Changed("page") {
+		if *paramsGetTxs.Page == 0 {
+			return fmt.Errorf("--page cannot be 0, starts at 1")
+		}
+		if *paramsGetTxs.Page == 1 {
+			// No need to explicitly send "page": 1
+			paramsGetTxs.Page = nil
+		}
 	}
 
 	return nil

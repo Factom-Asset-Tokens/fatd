@@ -164,11 +164,14 @@ func getTransactions(getEntry bool) jrpc.MethodFunc {
 		defer chain.Put(conn)
 
 		// Lookup Txs
-		nfTkns, _ := fat1.NewNFTokens(params.NFTokenID)
+		var nfTkns fat1.NFTokens
+		if params.NFTokenID != nil {
+			nfTkns, _ = fat1.NewNFTokens(params.NFTokenID)
+		}
 		entries, err := db.SelectEntryByAddress(conn, params.StartHash,
 			params.Addresses, nfTkns,
 			params.ToFrom, params.Order,
-			int64(params.Page), int64(params.Limit))
+			*params.Page, params.Limit)
 		if err != nil {
 			panic(err)
 		}
@@ -296,7 +299,7 @@ func getNFBalance(data json.RawMessage) interface{} {
 	conn := chain.Pool.Get(nil)
 	defer chain.Put(conn)
 	tkns, err := db.SelectNFTokensByOwner(conn, params.Address,
-		int64(params.Page), int64(params.Limit), params.Order)
+		*params.Page, params.Limit, params.Order)
 	if err != nil {
 		panic(err)
 	}
@@ -429,7 +432,7 @@ func getNFTokens(data json.RawMessage) interface{} {
 	defer chain.Put(conn)
 
 	tkns, owners, creationHashes, metadata, err := db.SelectNFTokens(conn,
-		params.Order, int64(params.Page), int64(params.Limit))
+		params.Order, *params.Page, params.Limit)
 	if err != nil {
 		panic(err)
 	}
@@ -479,15 +482,20 @@ func getDaemonTokens(data json.RawMessage) interface{} {
 }
 
 type ResultGetDaemonProperties struct {
-	FatdVersion string `json:"fatdversion"`
-	APIVersion  string `json:"apiversion"`
+	FatdVersion string           `json:"fatdversion"`
+	APIVersion  string           `json:"apiversion"`
+	NetworkID   factom.NetworkID `json:"factomnetworkid"`
 }
 
 func getDaemonProperties(data json.RawMessage) interface{} {
 	if _, err := validate(data, nil); err != nil {
 		return err
 	}
-	return ResultGetDaemonProperties{FatdVersion: flag.Revision, APIVersion: APIVersion}
+	return ResultGetDaemonProperties{
+		FatdVersion: flag.Revision,
+		APIVersion:  APIVersion,
+		NetworkID:   flag.NetworkID,
+	}
 }
 
 type ResultGetSyncStatus struct {

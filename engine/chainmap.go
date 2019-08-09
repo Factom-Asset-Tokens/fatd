@@ -47,7 +47,7 @@ type ChainMap struct {
 	*sync.RWMutex
 }
 
-func (cm ChainMap) set(id *factom.Bytes32, chain Chain, prevStatus ChainStatus) {
+func (cm *ChainMap) set(id *factom.Bytes32, chain Chain, prevStatus ChainStatus) {
 	defer cm.Unlock()
 	cm.Lock()
 	cm.m[*id] = chain
@@ -113,6 +113,9 @@ func (cm ChainMap) Close() {
 	}
 }
 
+// loadChains loads all chains from the database that are not blacklisted, and
+// syncs them. Any whitelisted chains that are not previously tracked are
+// synced. The lowest sync height among all chain databases is returned.
 func loadChains() (syncHeight uint32, err error) {
 	dbChains, err := db.OpenAll()
 	if err != nil {

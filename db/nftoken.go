@@ -2,6 +2,7 @@ package db
 
 import (
 	"encoding/json"
+	"fmt"
 
 	"crawshaw.io/sqlite"
 	"github.com/Factom-Asset-Tokens/fatd/factom"
@@ -71,8 +72,11 @@ func SelectNFToken(conn *sqlite.Conn,
 }
 
 func SelectNFTokens(conn *sqlite.Conn,
-	order string, page, limit int64) ([]fat1.NFTokenID,
+	order string, page, limit uint64) ([]fat1.NFTokenID,
 	[]factom.FAAddress, []factom.Bytes32, [][]byte, error) {
+	if page == 0 {
+		return nil, nil, nil, nil, fmt.Errorf("invalid page")
+	}
 	stmt := conn.Prep(`SELECT "id", "owner", "creation_hash", "metadata"
                         FROM "nf_tokens_addresses";`)
 	defer stmt.Reset()
@@ -113,7 +117,10 @@ func SelectNFTokens(conn *sqlite.Conn,
 }
 
 func SelectNFTokensByOwner(conn *sqlite.Conn, adr *factom.FAAddress,
-	page, limit int64, order string) ([]fat1.NFTokenID, error) {
+	page, limit uint64, order string) ([]fat1.NFTokenID, error) {
+	if page == 0 {
+		return nil, fmt.Errorf("invalid page")
+	}
 	var sql sql
 	sql.Append(`SELECT "id" FROM "nf_tokens" WHERE "owner_id" = (
                 SELECT "id" FROM "addresses" WHERE "address" = ?)`,

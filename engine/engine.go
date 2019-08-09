@@ -49,7 +49,7 @@ const (
 func Start(stop <-chan struct{}) (done <-chan struct{}) {
 	log = _log.New("pkg", "engine")
 
-	// Verify Factom Blockchain NetworkID
+	// Verify Factom Blockchain NetworkID...
 	if err := updateFactomHeight(); err != nil {
 		log.Error(err)
 		return
@@ -74,7 +74,16 @@ func Start(stop <-chan struct{}) (done <-chan struct{}) {
 		return
 	}
 
-	if flag.StartScanHeight > -1 { // If -startscanheight was set...
+	if flag.IgnoreNewChains() {
+		// We can assume that all chains are synced to their
+		// chainheads, so we can start at the current height if we are
+		// ignoring new chains.
+		syncHeight = factomHeight
+		if len(Chains.trackedIDs) == 0 {
+			log.Error("no chains to track")
+			return
+		}
+	} else if flag.StartScanHeight > -1 { // If -startscanheight was set...
 		if flag.StartScanHeight > int32(factomHeight) {
 			log.Errorf("-startscanheight %v > Factom height (%v)",
 				flag.StartScanHeight, factomHeight)
@@ -90,29 +99,18 @@ func Start(stop <-chan struct{}) (done <-chan struct{}) {
 		// overflows for 0 but it's OK as long as we don't rely on the
 		// value until the first scan loop.
 		syncHeight = uint32(flag.StartScanHeight - 1)
-	} else if flag.IgnoreNewChains() {
-		// We can assume that all chains are synced to their
-		// chainheads, so we can start at the current height if we are
-		// ignoring new chains.
-		syncHeight = factomHeight
 	} else if syncHeight == 0 { // else if the syncHeight has not been set...
 		switch flag.NetworkID {
-		case factom.Mainnet():
+		case factom.MainnetID():
 			const mainnetStart = 163180
 			syncHeight = mainnetStart // Set for mainnet
-		case factom.Testnet():
+		case factom.TestnetID():
 			const testnetStart = 60783
-			setSyncHeight(testnetStart) // Set for testnet
+			syncHeight = testnetStart // Set for testnet
 		default:
 			var zero uint32       // Avoid constant overflow compile error.
 			syncHeight = zero - 1 // Start scan at 0.
 		}
-	}
-	// Guard against syncing against a network with an earlier blockheight.
-	if syncHeight > factomHeight {
-		log.Errorf("Saved height (%v) > Factom height (%v)",
-			syncHeight, factomHeight)
-		return
 	}
 
 	_done := make(chan struct{})
@@ -144,8 +142,8 @@ func engine(stop <-chan struct{}, done chan struct{}) {
 		}
 	})
 
-	if !flag.IgnoreNewChains() {
-		log.Infof("Searching for FAT chains from block %v to %v...",
+	if !flag.IgnoreNewChains() && syncHeight < factomHeight {
+		log.Infof("Searching for new FAT chains from block %v to %v...",
 			syncHeight+1, factomHeight)
 	}
 	var synced bool
@@ -178,8 +176,10 @@ func engine(stop <-chan struct{}, done chan struct{}) {
 			// Check for process errors...
 			select {
 			case <-eblocks:
-				// We cannot consider this DBlock completed.
-				// Sync height will not be updated for all chains.
+				// One or more of the workers had an error and
+				// closed the eblocks channel.
+				// We cannot consider this DBlock completed, so
+				// we do not update sync height for all chains.
 				return
 			default:
 			}
