@@ -156,9 +156,6 @@ func (b Bytes32) Value() (driver.Value, error) {
 var _ sql.Scanner = &Bytes32{}
 var _ driver.Valuer = Bytes32{}
 
-var zeroBytes32 Bytes32
-
-// ZeroBytes32 returns an all zero Byte32.
-func ZeroBytes32() Bytes32 {
-	return zeroBytes32
+func (b Bytes32) IsZero() bool {
+	return b == Bytes32{}
 }

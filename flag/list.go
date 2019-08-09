@@ -25,10 +25,10 @@ package flag
 import (
 	"strings"
 
-	. "github.com/Factom-Asset-Tokens/fatd/factom"
+	"github.com/Factom-Asset-Tokens/fatd/factom"
 )
 
-type FAAddressList []FAAddress
+type FAAddressList []factom.FAAddress
 
 func (adrs FAAddressList) String() string {
 	if len(adrs) == 0 {
@@ -41,7 +41,7 @@ func (adrs FAAddressList) String() string {
 	return s[:len(s)-1]
 }
 
-// Set appends a comma seperated list of FAAddresses.
+// Set appends a comma seperated list of factom.FAAddresses.
 func (adrs *FAAddressList) Set(s string) error {
 	adrStrs := strings.Split(s, ",")
 	newAdrs := make(FAAddressList, len(adrStrs))
@@ -51,5 +51,31 @@ func (adrs *FAAddressList) Set(s string) error {
 		}
 	}
 	*adrs = append(*adrs, newAdrs...)
+	return nil
+}
+
+type Bytes32List []factom.Bytes32
+
+func (b32s Bytes32List) String() string {
+	if len(b32s) == 0 {
+		return ""
+	}
+	var s string
+	for _, b32 := range b32s {
+		s += b32.String() + ","
+	}
+	return s[:len(s)-1]
+}
+
+// Set appends a comma seperated list of factom.FAAddresses.
+func (b32s *Bytes32List) Set(s string) error {
+	b32Strs := strings.Split(s, ",")
+	newB32s := make(Bytes32List, len(b32Strs))
+	for i, b32Str := range b32Strs {
+		if err := newB32s[i].Set(b32Str); err != nil {
+			return err
+		}
+	}
+	*b32s = append(*b32s, newB32s...)
 	return nil
 }

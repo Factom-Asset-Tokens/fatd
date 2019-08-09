@@ -221,7 +221,7 @@ func TestTransaction(t *testing.T) {
 			assert := assert.New(t)
 			tx := test.Tx
 			key := test.IssuerKey
-			err := tx.Valid(&key)
+			err := tx.Validate(&key)
 			if len(test.Error) != 0 {
 				assert.Contains(err.Error(), test.Error)
 				return
@@ -252,7 +252,7 @@ var (
 		newNFTokens(NewNFTokenIDRange(6, 11))}
 
 	identityChainID = factom.NewBytes32(validIdentityChainID())
-	tokenChainID    = fat.ChainID("test", *identityChainID)
+	tokenChainID    = fat.ChainID("test", identityChainID)
 )
 
 func newNFTokens(ids ...NFTokensSetter) NFTokens {

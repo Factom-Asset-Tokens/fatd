@@ -430,7 +430,7 @@ func validateChainIDFlags(cmd *cobra.Command, _ []string) error {
 	return nil
 }
 func initChainID() {
-	NameIDs = fat.NameIDs(paramsToken.TokenID, *paramsToken.IssuerChainID)
+	NameIDs = fat.NameIDs(paramsToken.TokenID, paramsToken.IssuerChainID)
 	*paramsToken.ChainID = factom.ChainID(NameIDs)
 	vrbLog.Println("Token Chain ID:", paramsToken.ChainID)
 }

@@ -35,7 +35,6 @@ import (
 
 var logErr = func(_ ...interface{}) {}
 
-// parseAPIFlags parses
 func parseAPIFlags() error {
 	args := strings.Fields(os.Getenv("COMP_LINE"))[1:]
 	if err := apiFlags.Parse(args); err != nil {

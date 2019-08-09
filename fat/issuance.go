@@ -102,9 +102,9 @@ func (i *Issuance) MarshalEntry() error {
 	return i.Entry.MarshalEntry(i)
 }
 
-// Valid performs all validation checks and returns nil if i is a valid
+// Validate performs all validation checks and returns nil if i is a valid
 // Issuance.
-func (i *Issuance) Valid(idKey factom.IDKey) error {
+func (i *Issuance) Validate(idKey factom.IDKey) error {
 	if err := i.UnmarshalEntry(); err != nil {
 		return err
 	}

@@ -36,7 +36,7 @@ var courtesyNode = "https://courtesy-node.factom.com"
 func TestDataStructures(t *testing.T) {
 	height := uint32(166587)
 	c := NewClient()
-	c.Factomd.DebugRequest = true
+	//c.Factomd.DebugRequest = true
 	db := &DBlock{}
 	db.Header.Height = height
 	t.Run("DBlock", func(t *testing.T) {
@@ -136,26 +136,25 @@ func TestDataStructures(t *testing.T) {
 			assert.True(e.ChainID == eb.ChainID)
 			assert.NotNil(e.Hash)
 			assert.NotNil(e.Timestamp)
-			assert.Equal(height, e.Height)
 		}
 
 		assert.False(eb.IsFirst())
 
 		// A bad URL will cause an error.
 		c.FactomdServer = "example.com"
-		_, err := eb.GetAllPrev(c)
+		_, err := eb.GetPrevAll(c)
 		assert.Error(err)
 
 		c.FactomdServer = courtesyNode
-		ebs, err := eb.GetAllPrev(c)
+		ebs, err := eb.GetPrevAll(c)
 		var first EBlock
 		if assert.NoError(err) {
-			assert.Len(ebs, 6)
-			assert.True(ebs[0].IsFirst())
-			first = ebs[0].Prev()
-			assert.Equal(first.KeyMR, ebs[0].KeyMR,
+			assert.Len(ebs, 5)
+			assert.True(ebs[len(ebs)-1].IsFirst())
+			first = ebs[len(ebs)-1].Prev()
+			assert.Equal(first.KeyMR, ebs[len(ebs)-1].KeyMR,
 				"Prev() should return a copy of itself if it is first")
-			assert.Equal(eb.KeyMR, ebs[len(ebs)-1].KeyMR)
+			assert.Equal(eb.KeyMR, ebs[0].KeyMR)
 		}
 
 		// Fetch the chain head EBlock via the ChainID.
@@ -170,7 +169,7 @@ func TestDataStructures(t *testing.T) {
 		require.False(eb2.IsPopulated())
 		assert.EqualError(eb2.GetFirst(c),
 			`jsonrpc2.Error{Code:-32009, Message:"Missing Chain Head"}`)
-		ebs, err = eb2.GetAllPrev(c)
+		ebs, err = eb2.GetPrevAll(c)
 		assert.EqualError(err,
 			`jsonrpc2.Error{Code:-32009, Message:"Missing Chain Head"}`)
 		assert.Nil(ebs)
@@ -233,7 +232,6 @@ func TestDataStructures(t *testing.T) {
 		// Validate the entry.
 		assert.Len(e.ExtIDs, 6)
 		assert.NotEmpty(e.Content)
-		assert.Equal(height, e.Height)
 		assert.Equal(time.Unix(1542223080, 0), e.Timestamp)
 		hash, err := e.ComputeHash()
 		assert.NoError(err)
@@ -245,6 +243,4 @@ func TestDataStructures(t *testing.T) {
 		assert.NoError(err)
 		assert.Equal(*e.Hash, hash)
 	})
-
-	assert.Equal(t, Bytes32{}, ZeroBytes32())
 }

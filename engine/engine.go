@@ -20,12 +20,6 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 // IN THE SOFTWARE.
 
-// Package engine manages syncing with the Factom blockchain and updating
-// state. Start launches a number of goroutines: one to query for DBlocks
-// sequentially, and a number of workers to concurrently process EBlocks within
-// a DBlock and update state. If any runtime errors occur, engine finishes
-// processing the current set of EBlocks and then exits. See Start for more
-// details.
 package engine
 
 import (
@@ -36,7 +30,6 @@ import (
 	"github.com/Factom-Asset-Tokens/fatd/factom"
 	"github.com/Factom-Asset-Tokens/fatd/flag"
 	_log "github.com/Factom-Asset-Tokens/fatd/log"
-	"github.com/Factom-Asset-Tokens/fatd/state"
 )
 
 var (
@@ -54,89 +47,107 @@ const (
 // goroutines will exit, and done will be closed. If the done channel is closed
 // before the stop channel is closed, an error occurred.
 func Start(stop <-chan struct{}) (done <-chan struct{}) {
-	_done := make(chan struct{})
-	go engine(stop, _done)
-	return _done
-}
+	log = _log.New("pkg", "engine")
 
-func engine(stop <-chan struct{}, done chan struct{}) {
-	// Ensure done is always closed exactly once.
-	var once sync.Once
-	exit := func() { once.Do(func() { close(done) }) }
-	defer exit()
-
-	log = _log.New("engine")
-
-	if err := state.Load(); err != nil {
-		log.Error(err)
-		return
-	}
-	// Set up sync and factom heights...
-	setSyncHeight(state.SavedHeight)
+	// Verify Factom Blockchain NetworkID
 	if err := updateFactomHeight(); err != nil {
 		log.Error(err)
 		return
 	}
-
-	// Guard against syncing against a network with an earlier blockheight.
-	if syncHeight > factomHeight {
-		log.Errorf("Saved height (%v) > Factom height (%v)",
-			syncHeight, factomHeight)
+	var dblock factom.DBlock
+	dblock.Header.Height = factomHeight
+	if err := dblock.Get(c); err != nil {
+		log.Errorf("dblock.Get(): %v", err)
 		return
 	}
+	if dblock.Header.NetworkID != flag.NetworkID {
+		log.Errorf("invalid Factom Blockchain NetworkID: %v, expected: %v",
+			dblock.Header.NetworkID, flag.NetworkID)
+		return
+	}
+
+	// Load and sync all existing and whitelisted chains.
+	var err error
+	syncHeight, err = loadChains()
+	if err != nil {
+		log.Error(err)
+		return
+	}
+
 	if flag.StartScanHeight > -1 { // If -startscanheight was set...
 		if flag.StartScanHeight > int32(factomHeight) {
 			log.Errorf("-startscanheight %v > Factom height (%v)",
 				flag.StartScanHeight, factomHeight)
 			return
 		}
-		// Warn if we are skipping blocks.
-		if flag.StartScanHeight > int32(syncHeight)+1 {
-			log.Warnf("-startscanheight %v skips over %v blocks from the last saved last saved block height which will very likely result in a corrupted database.",
+		if !flag.IgnoreNewChains() &&
+			flag.StartScanHeight > int32(syncHeight)+1 {
+			log.Warnf("-startscanheight %v skips over %v blocks from the last saved last saved block height which will result in missing any new FAT Chains created in those blocks.",
 				flag.StartScanHeight,
 				flag.StartScanHeight-int32(syncHeight)-1)
 		}
 		// We start syncing at syncHeight+1, so subtract one. This
 		// overflows for 0 but it's OK as long as we don't rely on the
 		// value until the first scan loop.
-		setSyncHeight(uint32(flag.StartScanHeight - 1))
+		syncHeight = uint32(flag.StartScanHeight - 1)
+	} else if flag.IgnoreNewChains() {
+		// We can assume that all chains are synced to their
+		// chainheads, so we can start at the current height if we are
+		// ignoring new chains.
+		syncHeight = factomHeight
 	} else if syncHeight == 0 { // else if the syncHeight has not been set...
-		const mainnetStart = 163180
-		const testnetStart = 60783
-		// This is a hacky, unreliable way to determine what network we
-		// are on. This needs to be replaced with using the actually
-		// Network ID.
-		if factomHeight > mainnetStart {
-			setSyncHeight(mainnetStart) // Set for mainnet
-		} else if factomHeight > testnetStart {
+		switch flag.NetworkID {
+		case factom.Mainnet():
+			const mainnetStart = 163180
+			syncHeight = mainnetStart // Set for mainnet
+		case factom.Testnet():
+			const testnetStart = 60783
 			setSyncHeight(testnetStart) // Set for testnet
-		} else {
-			var zero uint32         // Avoid constant overflow compile error.
-			setSyncHeight(zero - 1) // Start scan at 0.
+		default:
+			var zero uint32       // Avoid constant overflow compile error.
+			syncHeight = zero - 1 // Start scan at 0.
 		}
 	}
-
-	wg := &sync.WaitGroup{}
-	eblocks := make(chan factom.EBlock)
-	// Ensure all workers exit and state is closed when we exit.
-	defer close(eblocks)
-	defer state.Close()
-
-	// Launch workers
-	const numWorkers = 8
-	for i := 0; i < numWorkers; i++ {
-		go func() {
-			for eb := range eblocks { // Read until close(eblocks)
-				if err := state.Process(eb); err != nil {
-					log.Errorf("ChainID(%v): %v", eb.ChainID, err)
-					exit() // Tell engine() to exit.
-				}
-				wg.Done()
-			}
-		}()
+	// Guard against syncing against a network with an earlier blockheight.
+	if syncHeight > factomHeight {
+		log.Errorf("Saved height (%v) > Factom height (%v)",
+			syncHeight, factomHeight)
+		return
 	}
 
-	log.Infof("Syncing from block %v to %v...", syncHeight+1, factomHeight)
+	_done := make(chan struct{})
+	go engine(stop, _done)
+	return _done
+}
+
+const numWorkers = 8
+
+func engine(stop <-chan struct{}, done chan struct{}) {
+	defer close(done)
+	defer Chains.Close()
+
+	// Launch workers
+	eblocks := make(chan factom.EBlock)
+	var once sync.Once
+	stopWorkers := func() { once.Do(func() { close(eblocks) }) }
+	defer stopWorkers()
+
+	var dblock factom.DBlock
+	wg := &sync.WaitGroup{}
+	launchWorkers(numWorkers, func() {
+		for eb := range eblocks { // Read until close(eblocks)
+			if err := Process(dblock.KeyMR, eb); err != nil {
+				log.Errorf("ChainID(%v): %v", eb.ChainID, err)
+				stopWorkers() // Tell workers and engine() to exit.
+			}
+			wg.Done()
+		}
+	})
+
+	if !flag.IgnoreNewChains() {
+		log.Infof("Searching for FAT chains from block %v to %v...",
+			syncHeight+1, factomHeight)
+	}
 	var synced bool
 	var retries int64
 	scanTicker := time.NewTicker(scanInterval)
@@ -150,14 +161,14 @@ func engine(stop <-chan struct{}, done chan struct{}) {
 		// Process all new DBlocks sequentially...
 		for h := syncHeight + 1; h <= factomHeight; h++ {
 			// Get DBlock.
-			var dblock factom.DBlock
+			dblock = factom.DBlock{}
 			dblock.Header.Height = h
 			if err := dblock.Get(c); err != nil {
 				log.Errorf("%#v.Get(c): %v", dblock, err)
 				return
 			}
 
-			// Queue all EBlocks for processing and wait.
+			// Queue all EBlocks for processing.
 			wg.Add(len(dblock.EBlocks))
 			for _, eb := range dblock.EBlocks {
 				eblocks <- eb
@@ -166,16 +177,16 @@ func engine(stop <-chan struct{}, done chan struct{}) {
 
 			// Check for process errors...
 			select {
-			case <-done:
+			case <-eblocks:
 				// We cannot consider this DBlock completed.
+				// Sync height will not be updated for all chains.
 				return
 			default:
 			}
 
 			// DBlock completed.
 			setSyncHeight(h)
-			if err := state.SaveHeight(h); err != nil {
-				log.Errorf("state.SaveHeight(%v): %v", h, err)
+			if err := Chains.setSync(h, dblock.KeyMR); err != nil {
 				return
 			}
 
@@ -187,7 +198,8 @@ func engine(stop <-chan struct{}, done chan struct{}) {
 			}
 
 			if flag.LogDebug && h%100 == 0 {
-				log.Debugf("Synced to block %v...", h)
+				log.Debugf("Synced to block Height: %v KeyMR: %v",
+					h, dblock.KeyMR)
 			}
 		}
 
@@ -243,4 +255,10 @@ func updateFactomHeight() error {
 	defer heightMtx.Unlock()
 	factomHeight = heights.Entry
 	return nil
+}
+
+func launchWorkers(num int, job func()) {
+	for i := 0; i < num; i++ {
+		go job()
+	}
 }

@@ -28,7 +28,7 @@ import (
 	"strings"
 	"time"
 
-	. "github.com/Factom-Asset-Tokens/fatd/factom"
+	"github.com/Factom-Asset-Tokens/fatd/factom"
 	"github.com/posener/complete"
 )
 
@@ -87,16 +87,16 @@ func predictAddress(fa bool, num int, flagName, suffix string) complete.PredictF
 
 func listAddresses(fa bool) []string {
 	parseWalletFlags()
-	var adrs []Address
+	var adrs []factom.Address
 	if fa {
 		as, _ := FactomClient.GetFAAddresses()
-		adrs = make([]Address, len(as))
+		adrs = make([]factom.Address, len(as))
 		for i, adr := range as {
 			adrs[i] = adr
 		}
 	} else {
 		as, _ := FactomClient.GetECAddresses()
-		adrs = make([]Address, len(as))
+		adrs = make([]factom.Address, len(as))
 		for i, adr := range as {
 			adrs[i] = adr
 		}
@@ -107,7 +107,7 @@ func listAddresses(fa bool) []string {
 	}
 	return adrStrs
 }
-func String(adr Address) string {
+func String(adr factom.Address) string {
 	return adr.String()
 }
 

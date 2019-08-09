@@ -37,6 +37,10 @@ import (
 	"golang.org/x/crypto/ed25519"
 )
 
+type Validator interface {
+	Validate(factom.IDKey) error
+}
+
 // Entry has variables and methods common to all fat0 entries.
 type Entry struct {
 	Metadata json.RawMessage `json:"metadata,omitempty"`

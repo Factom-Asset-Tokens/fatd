@@ -32,7 +32,7 @@ type Log struct {
 	*logrus.Entry
 }
 
-func New(pkg string) Log {
+func New(key string, value interface{}) Log {
 	log := logrus.New()
 	log.Formatter = &logrus.TextFormatter{ForceColors: true,
 		DisableTimestamp:       true,
@@ -40,5 +40,5 @@ func New(pkg string) Log {
 	if flag.LogDebug {
 		log.SetLevel(logrus.DebugLevel)
 	}
-	return Log{Entry: log.WithField("pkg", pkg)}
+	return Log{Entry: log.WithField(key, value)}
 }

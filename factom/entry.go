@@ -58,7 +58,6 @@ type Entry struct {
 	Hash      *Bytes32  `json:"entryhash,omitempty"`
 	Timestamp time.Time `json:"-"`
 	ChainID   *Bytes32  `json:"chainid,omitempty"`
-	Height    uint32
 
 	// Entry.Get populates the Content and ExtIDs.
 	ExtIDs  []Bytes `json:"extids"`
@@ -345,6 +344,7 @@ func (e *Entry) MarshalBinary() ([]byte, error) {
 		return nil, fmt.Errorf("Entry cannot be larger than 10KB")
 	}
 	if e.ChainID == nil {
+		// We assume this is a chain creation entry.
 		e.ChainID = new(Bytes32)
 		*e.ChainID = ChainID(e.ExtIDs)
 	}
@@ -365,8 +365,12 @@ func (e *Entry) MarshalBinary() ([]byte, error) {
 	}
 	copy(data[i:], e.Content)
 	// Compute and save entry hash for later use
-	e.Hash = new(Bytes32)
-	*e.Hash = EntryHash(data)
+	if e.Hash == nil {
+		e.Hash = new(Bytes32)
+	}
+	if e.Hash.IsZero() {
+		*e.Hash = EntryHash(data)
+	}
 	return data, nil
 }
 
@@ -402,12 +406,8 @@ func (e *Entry) UnmarshalBinary(data []byte) error {
 		return fmt.Errorf("invalid version byte")
 	}
 	i := 1
-	// When the e.ChainID is already populated, just reuse the data.
-	if e.ChainID == nil {
-		e.ChainID = new(Bytes32)
-		copy(e.ChainID[:], data[i:i+len(e.ChainID)])
-	}
-	i += len(e.ChainID)
+	e.ChainID = new(Bytes32)
+	i += copy(e.ChainID[:], data[i:i+len(e.ChainID)])
 	extIDTotalLen := int(binary.BigEndian.Uint16(data[33:35]))
 	if extIDTotalLen == 1 || EntryHeaderLen+extIDTotalLen > len(data) {
 		return fmt.Errorf("invalid ExtIDs length")

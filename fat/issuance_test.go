@@ -61,7 +61,7 @@ var (
 
 func TestChainID(t *testing.T) {
 	assert.Equal(t, "b54c4310530dc4dd361101644fa55cb10aec561e7874a7b786ea3b66f2c6fdfb",
-		ChainID("test", *identityChainID).String())
+		ChainID("test", identityChainID).String())
 }
 
 var validTokenNameIDsTests = []struct {
@@ -222,7 +222,7 @@ func TestIssuance(t *testing.T) {
 			assert := assert.New(t)
 			i := test.Issuance
 			key := test.IssuerKey
-			err := i.Valid(&key)
+			err := i.Validate(&key)
 			if len(test.Error) == 0 {
 				assert.NoError(err)
 			} else {

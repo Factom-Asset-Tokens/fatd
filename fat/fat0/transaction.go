@@ -111,10 +111,10 @@ func (t Transaction) IsCoinbase() bool {
 	return amount != 0
 }
 
-// Valid performs all validation checks and returns nil if t is a valid
+// Validate performs all validation checks and returns nil if t is a valid
 // Transaction. If t is a coinbase transaction then idKey is used to validate
 // the RCD. Otherwise RCDs are checked against the input addresses.
-func (t *Transaction) Valid(idKey factom.IDKey) error {
+func (t *Transaction) Validate(idKey factom.IDKey) error {
 	if err := t.UnmarshalEntry(); err != nil {
 		return err
 	}

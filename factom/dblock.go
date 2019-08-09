@@ -36,9 +36,6 @@ import (
 )
 
 var (
-	mainnetID = [...]byte{0xFA, 0x92, 0xE5, 0xA2}
-	testnetID = [...]byte{0xFA, 0x92, 0xE5, 0xA3}
-
 	adminBlockChainID       = Bytes32{31: 0x0a}
 	entryCreditBlockChainID = Bytes32{31: 0x0c}
 	factoidBlockChainID     = Bytes32{31: 0x0f}
@@ -57,7 +54,7 @@ type DBlock struct {
 }
 
 type DBlockHeader struct {
-	NetworkID [4]byte `json:"networkid"`
+	NetworkID NetworkID `json:"networkid"`
 
 	BodyMR       *Bytes32 `json:"bodymr"`
 	PrevKeyMR    *Bytes32 `json:"prevkeymr"`

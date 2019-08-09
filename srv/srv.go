@@ -45,7 +45,7 @@ var (
 // server exits for any reason. If the done channel is closed before the stop
 // channel is closed, an error occurred. Errors are logged.
 func Start(stop <-chan struct{}) (done <-chan struct{}) {
-	log = _log.New("srv")
+	log = _log.New("pkg", "srv")
 
 	// Set up JSON RPC 2.0 handler with correct headers.
 	jrpc.DebugMethodFunc = true
