@@ -316,6 +316,7 @@ func getNFBalance(data json.RawMessage) interface{} {
 type ResultGetStats struct {
 	ParamsToken
 	Issuance                 *fat.Issuance
+	IssuanceHash             *factom.Bytes32
 	CirculatingSupply        uint64 `json:"circulating"`
 	Burned                   uint64 `json:"burned"`
 	Transactions             int64  `json:"transactions"`
@@ -364,6 +365,7 @@ func getStats(data json.RawMessage) interface{} {
 	res.ChainID = chain.ID
 	res.TokenID = chain.TokenID
 	res.IssuerChainID = chain.Identity.ChainID
+	res.IssuanceHash = chain.Issuance.Hash
 	return res
 }
 

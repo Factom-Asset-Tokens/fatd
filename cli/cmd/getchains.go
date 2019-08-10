@@ -127,6 +127,7 @@ Token ID: %q
 func printStats(chainID *factom.Bytes32, stats srv.ResultGetStats) {
 	fmt.Printf(`Chain ID: %v
 Issuer Identity Chain ID: %v
+Issuance Entry Hash: %v
 Token ID: %v
 Type: %v
 Symbol: %q
@@ -136,7 +137,7 @@ Burned:            %v
 Number of Transactions: %v
 Issuance Timestamp: %v
 `,
-		chainID, stats.IssuerChainID, stats.TokenID,
+		chainID, stats.IssuerChainID, stats.IssuanceHash, stats.TokenID,
 		stats.Issuance.Type, stats.Issuance.Symbol,
 		stats.Issuance.Supply, stats.CirculatingSupply, stats.Burned,
 		stats.Transactions,
