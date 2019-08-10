@@ -54,6 +54,9 @@ func SelectAddressBalance(conn *sqlite.Conn, adr *factom.FAAddress) (uint64, err
 	stmt := conn.Prep(`SELECT "balance" FROM "addresses" WHERE "address" = ?;`)
 	stmt.BindBytes(1, adr[:])
 	bal, err := sqlitex.ResultInt64(stmt)
+	if err != nil && err.Error() == "sqlite: statement has no results" {
+		return 0, nil
+	}
 	if err != nil {
 		return 0, err
 	}
