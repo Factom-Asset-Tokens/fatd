@@ -76,13 +76,14 @@ func SelectEntryByID(conn *sqlite.Conn, id int64) (factom.Entry, error) {
 
 func SelectEntryByHash(conn *sqlite.Conn, hash *factom.Bytes32) (factom.Entry, error) {
 	stmt := conn.Prep(SelectEntryWhere + `"hash" = ?;`)
+	stmt.BindBytes(1, hash[:])
 	defer stmt.Reset()
 	return SelectEntry(stmt)
 }
 
-func SelectEntryByHashValid(conn *sqlite.Conn,
-	hash *factom.Bytes32) (factom.Entry, error) {
+func SelectEntryByHashValid(conn *sqlite.Conn, hash *factom.Bytes32) (factom.Entry, error) {
 	stmt := conn.Prep(SelectEntryWhere + `"hash" = ? AND "valid" = true;`)
+	stmt.BindBytes(1, hash[:])
 	defer stmt.Reset()
 	return SelectEntry(stmt)
 }
