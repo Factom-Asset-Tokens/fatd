@@ -455,15 +455,50 @@ func getNFTokens(data json.RawMessage) interface{} {
 }
 
 func sendTransaction(data json.RawMessage) interface{} {
-	return nil
-}
+	return jrpc.NewError(-34000, "not implemented", "send-transaction")
+	if factom.Bytes32(flag.EsAdr).IsZero() {
+		return ErrorNoEC
+	}
+	params := ParamsSendTransaction{}
+	chain, err := validate(data, &params)
+	if err != nil {
+		return err
+	}
 
-func validFAT0Transaction(chain *engine.Chain, entry factom.Entry) error {
-	return nil
-}
+	entry := params.Entry()
+	//txErr, dbErr := chain.TestApply(entry)
+	//if dbErr != nil {
+	//	panic(err)
+	//}
+	//if txErr != nil {
+	//	err := ErrorTransactionNotFound
+	//	err.Data = txErr
+	//	return err
+	//}
 
-func validFAT1Transaction(chain *engine.Chain, entry factom.Entry) error {
-	return nil
+	balance, err := flag.ECAdr.GetBalance(c)
+	if err != nil {
+		panic(err)
+	}
+	cost, err := entry.Cost()
+	if err != nil {
+		rerr := ErrorInvalidTransaction
+		rerr.Data = err
+		return rerr
+	}
+	if balance < uint64(cost) {
+		return ErrorNoEC
+	}
+	txID, err := entry.ComposeCreate(c, flag.EsAdr)
+	if err != nil {
+		panic(err)
+	}
+
+	return struct {
+		ChainID *factom.Bytes32 `json:"chainid"`
+		TxID    *factom.Bytes32 `json:"txid"`
+		Hash    *factom.Bytes32 `json:"entryhash"`
+	}{ChainID: chain.ID, TxID: txID, Hash: entry.Hash}
 }
 
 func getDaemonTokens(data json.RawMessage) interface{} {
