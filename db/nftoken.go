@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"crawshaw.io/sqlite"
+	"crawshaw.io/sqlite/sqlitex"
 	"github.com/Factom-Asset-Tokens/fatd/factom"
 	"github.com/Factom-Asset-Tokens/fatd/fat/fat1"
 )
@@ -41,6 +42,19 @@ func (chain *Chain) insertNFTokenTransaction(nfID fat1.NFTokenID, adrTxID int64)
 	stmt.BindInt64(2, adrTxID)
 	_, err := stmt.Step()
 	return err
+}
+
+func SelectNFTokenOwnerID(conn *sqlite.Conn, nfTkn fat1.NFTokenID) (int64, error) {
+	stmt := conn.Prep(`SELECT "owner_id" FROM "nf_tokens" WHERE "id" = ?;`)
+	stmt.BindInt64(1, int64(nfTkn))
+	ownerID, err := sqlitex.ResultInt64(stmt)
+	if err != nil && err.Error() == "sqlite: statement has no results" {
+		return -1, nil
+	}
+	if err != nil {
+		return -1, err
+	}
+	return ownerID, nil
 }
 
 func SelectNFToken(conn *sqlite.Conn,

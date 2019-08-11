@@ -93,6 +93,33 @@ func (chain *Chain) applyFAT0Tx(
 		return
 	}
 
+	if tx.IsCoinbase() {
+		addIssued := tx.Inputs[fat.Coinbase()]
+		if chain.Supply > 0 &&
+			int64(chain.NumIssued+addIssued) > chain.Supply {
+			err = fmt.Errorf("coinbase exceeds max supply")
+			return
+		}
+		if _, err = chain.insertAddressTransaction(1, ei, false); err != nil {
+			return
+		}
+		if err = chain.numIssuedAdd(addIssued); err != nil {
+			return
+		}
+	} else {
+		for adr, amount := range tx.Inputs {
+			var ai int64
+			ai, err = chain.addressSub(&adr, amount)
+			if err != nil {
+				return
+			}
+			if _, err = chain.insertAddressTransaction(ai, ei,
+				false); err != nil {
+				return
+			}
+		}
+	}
+
 	for adr, amount := range tx.Outputs {
 		var ai int64
 		ai, err = chain.addressAdd(&adr, amount)
@@ -104,30 +131,6 @@ func (chain *Chain) applyFAT0Tx(
 		}
 	}
 
-	if tx.IsCoinbase() {
-		addIssued := tx.Inputs[fat.Coinbase()]
-		if chain.Supply > 0 &&
-			int64(chain.NumIssued+addIssued) > chain.Supply {
-			err = fmt.Errorf("coinbase exceeds max supply")
-			return
-		}
-		if _, err = chain.insertAddressTransaction(1, ei, false); err != nil {
-			return
-		}
-		err = chain.numIssuedAdd(addIssued)
-		return
-	}
-
-	for adr, amount := range tx.Inputs {
-		var ai int64
-		ai, err = chain.addressSub(&adr, amount)
-		if err != nil {
-			return
-		}
-		if _, err = chain.insertAddressTransaction(ai, ei, false); err != nil {
-			return
-		}
-	}
 	return
 }
 
@@ -204,28 +207,6 @@ func (chain *Chain) applyFAT1Tx(
 		return
 	}
 
-	for adr, nfTkns := range tx.Outputs {
-		var ai int64
-		ai, err = chain.addressAdd(&adr, uint64(len(nfTkns)))
-		if err != nil {
-			return
-		}
-		var adrTxID int64
-		adrTxID, err = chain.insertAddressTransaction(ai, ei, true)
-		if err != nil {
-			return
-		}
-		for nfID := range nfTkns {
-			if err = chain.setNFTokenOwner(nfID, ai, ei); err != nil {
-				return
-			}
-			if err = chain.insertNFTokenTransaction(
-				nfID, adrTxID); err != nil {
-				return
-			}
-		}
-	}
-
 	if tx.IsCoinbase() {
 		nfTkns := tx.Inputs[fat.Coinbase()]
 		addIssued := uint64(len(nfTkns))
@@ -252,27 +233,65 @@ func (chain *Chain) applyFAT1Tx(
 				return
 			}
 		}
-		err = chain.numIssuedAdd(addIssued)
-		return
+		if err = chain.numIssuedAdd(addIssued); err != nil {
+			return
+		}
+	} else {
+		for adr, nfTkns := range tx.Inputs {
+			var ai int64
+			ai, err = chain.addressSub(&adr, uint64(len(nfTkns)))
+			if err != nil {
+				return
+			}
+			var adrTxID int64
+			adrTxID, err = chain.insertAddressTransaction(ai, ei, false)
+			if err != nil {
+				return
+			}
+			for nfTkn := range nfTkns {
+				var ownerID int64
+				ownerID, err = SelectNFTokenOwnerID(chain.Conn, nfTkn)
+				if err != nil {
+					return
+				}
+				if ownerID == -1 {
+					err = fmt.Errorf("no such NFToken{%v}", nfTkn)
+					return
+				}
+				if ownerID != ai {
+					err = fmt.Errorf("NFToken{%v} not owned by %v",
+						nfTkn, adr)
+					return
+				}
+				if err = chain.insertNFTokenTransaction(
+					nfTkn, adrTxID); err != nil {
+					return
+				}
+			}
+		}
 	}
 
-	for adr, nfTkns := range tx.Inputs {
+	for adr, nfTkns := range tx.Outputs {
 		var ai int64
-		ai, err = chain.addressSub(&adr, uint64(len(nfTkns)))
+		ai, err = chain.addressAdd(&adr, uint64(len(nfTkns)))
 		if err != nil {
 			return
 		}
 		var adrTxID int64
-		adrTxID, err = chain.insertAddressTransaction(ai, ei, false)
+		adrTxID, err = chain.insertAddressTransaction(ai, ei, true)
 		if err != nil {
 			return
 		}
 		for nfID := range nfTkns {
+			if err = chain.setNFTokenOwner(nfID, ai, ei); err != nil {
+				return
+			}
 			if err = chain.insertNFTokenTransaction(
 				nfID, adrTxID); err != nil {
 				return
 			}
 		}
 	}
+
 	return
 }
