@@ -10,15 +10,25 @@ import (
 	"github.com/Factom-Asset-Tokens/fatd/fat/fat1"
 )
 
-func (chain *Chain) setNFTokenOwner(nfID fat1.NFTokenID, aID, eID int64) error {
+func (chain *Chain) insertNFToken(nfID fat1.NFTokenID, adrID, entryID int64) error {
 	stmt := chain.Conn.Prep(`INSERT INTO "nf_tokens"
-                ("id", "owner_id", "creation_entry_id") VALUES (?, ?, ?)
-                ON CONFLICT("id") DO
-                UPDATE SET "owner_id" = "excluded"."owner_id";`)
+                ("id", "owner_id", "creation_entry_id") VALUES (?, ?, ?);`)
 	stmt.BindInt64(1, int64(nfID))
-	stmt.BindInt64(2, aID)
-	stmt.BindInt64(3, eID)
+	stmt.BindInt64(2, adrID)
+	stmt.BindInt64(3, entryID)
 	_, err := stmt.Step()
+	return err
+}
+
+func (chain *Chain) setNFTokenOwner(nfID fat1.NFTokenID, adrID int64) error {
+	stmt := chain.Conn.Prep(`UPDATE "nf_tokens"
+                SET "owner_id" = ? WHERE "id" = ?;`)
+	stmt.BindInt64(1, adrID)
+	stmt.BindInt64(2, int64(nfID))
+	_, err := stmt.Step()
+	if chain.Conn.Changes() == 0 {
+		panic("no NFTokenID updated")
+	}
 	return err
 }
 

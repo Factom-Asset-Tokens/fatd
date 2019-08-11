@@ -68,7 +68,7 @@ func main() {
 	}
 
 	// We don't need the actual dbKeyMR
-	chain, err := db.OpenNew(dblock.KeyMR, first, Mainnet(), identity)
+	chain, err := db.OpenNew(dblock.KeyMR, first, MainnetID(), identity)
 	if err != nil {
 		log.Println(err)
 		return

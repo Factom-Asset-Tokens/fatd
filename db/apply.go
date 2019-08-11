@@ -221,6 +221,11 @@ func (chain *Chain) applyFAT1Tx(
 			return
 		}
 		for nfID := range nfTkns {
+			// Insert the NFToken with the coinbase address as a
+			// placeholder for the owner.
+			if err = chain.insertNFToken(nfID, 1, ei); err != nil {
+				return
+			}
 			if err = chain.insertNFTokenTransaction(
 				nfID, adrTxID); err != nil {
 				return
@@ -283,7 +288,7 @@ func (chain *Chain) applyFAT1Tx(
 			return
 		}
 		for nfID := range nfTkns {
-			if err = chain.setNFTokenOwner(nfID, ai, ei); err != nil {
+			if err = chain.setNFTokenOwner(nfID, ai); err != nil {
 				return
 			}
 			if err = chain.insertNFTokenTransaction(
