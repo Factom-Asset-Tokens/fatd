@@ -35,7 +35,13 @@ func (chain *Chain) setEntryValid(id int64) error {
 	stmt := chain.Conn.Prep(`UPDATE "entries" SET "valid" = 1 WHERE "id" = ?;`)
 	stmt.BindInt64(1, id)
 	_, err := stmt.Step()
-	return err
+	if err != nil {
+		return err
+	}
+	if chain.Conn.Changes() == 0 {
+		panic("no entries updated")
+	}
+	return nil
 }
 
 const SelectEntryWhere = `SELECT "hash", "data", "timestamp" FROM "entries" WHERE `

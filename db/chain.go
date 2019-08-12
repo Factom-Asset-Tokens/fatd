@@ -192,6 +192,9 @@ func open(fname string) (*Chain, error) {
 	if err := validateOrApplySchema(conn, chainDBSchema); err != nil {
 		return nil, err
 	}
+	if err := sqlitex.ExecScript(conn, `PRAGMA foreign_keys = ON;`); err != nil {
+		return nil, err
+	}
 	flags = baseFlags | sqlite.SQLITE_OPEN_READONLY
 	pool, err := sqlitex.Open(path, flags, PoolSize)
 	if err != nil {

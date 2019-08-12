@@ -131,7 +131,7 @@ func validateGetTxsFlags(cmd *cobra.Command, args []string) error {
 	flags := cmd.LocalFlags()
 	if len(transactionIDs) > 0 {
 		for _, flgName := range []string{"page", "order", "page", "limit",
-			"starttxhash", "to", "from", "nftokenid", "address"} {
+			"starttx", "to", "from", "nftokenid", "address"} {
 			if flags.Changed(flgName) {
 				return fmt.Errorf("--%v is incompatible with TXID arguments",
 					flgName)
@@ -154,7 +154,7 @@ func validateGetTxsFlags(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	if !flags.Changed("starttxhash") {
+	if !flags.Changed("starttx") {
 		paramsGetTxs.StartHash = nil
 	}
 

@@ -26,7 +26,6 @@ type sql struct {
 // are called and the stmt is returned ready for its first Stmt.Step() call.
 func (sql *sql) Prep(conn *sqlite.Conn) *sqlite.Stmt {
 	sql.sql.WriteString(`;`)
-	log.Debug(sql.sql.String())
 	stmt := conn.Prep(sql.sql.String())
 	param := 1
 	for _, bind := range sql.binds {
