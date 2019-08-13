@@ -59,35 +59,36 @@ func (chain *Chain) applyIssuance(ei int64, e factom.Entry) error {
 	return nil
 }
 
-func (chain *Chain) applyFAT0Tx(
-	ei int64, e factom.Entry) (tx fat0.Transaction, err error) {
-	tx = fat0.NewTransaction(e)
-	valid, err := chain.applyTx(ei, e, &tx)
-	if err != nil {
-		return
+func applyTxRollback(chain *Chain, e factom.Entry, tx interface {
+	IsCoinbase() bool
+},
+	rollback func(*error), txErr, err *error) {
+	if *err != nil {
+		rollback(err)
+	} else if *txErr != nil {
+		rollback(txErr)
+		chain.Log.Debugf("Entry{%v}: invalid %v transaction: %v",
+			e.Hash, chain.Type, txErr)
+	} else {
+		var cbStr string
+		if tx.IsCoinbase() {
+			cbStr = "Coinbase "
+		}
+		chain.Log.Debugf("Valid %v %vTransaction: %v %+v",
+			chain.Type, cbStr, e.Hash, tx)
 	}
-	if !valid {
+}
+
+func (chain *Chain) ApplyFAT0Tx(ei int64, e factom.Entry) (tx fat0.Transaction,
+	txErr, err error) {
+	tx = fat0.NewTransaction(e)
+	txErr, err = chain.applyTx(ei, e, &tx)
+	if err != nil || txErr != nil {
 		return
 	}
 
-	// Do not return, but log, any errors past this point as they are
-	// related to being unable to apply a transaction.
-	defer func() {
-		if err != nil {
-			chain.Log.Debugf("Entry{%v}: invalid %v transaction: %v",
-				e.Hash, chain.Type, err)
-			err = nil
-		} else {
-			var cbStr string
-			if tx.IsCoinbase() {
-				cbStr = "Coinbase "
-			}
-			chain.Log.Debugf("Valid %v %vTransaction: %v %+v",
-				chain.Type, cbStr, tx.Hash, tx)
-		}
-	}()
-	// But first rollback on any error.
-	defer sqlitex.Save(chain.Conn)(&err)
+	rollback := sqlitex.Save(chain.Conn)
+	defer applyTxRollback(chain, e, tx, rollback, &txErr, &err)
 
 	if err = chain.setEntryValid(ei); err != nil {
 		return
@@ -95,22 +96,21 @@ func (chain *Chain) applyFAT0Tx(
 
 	if tx.IsCoinbase() {
 		addIssued := tx.Inputs[fat.Coinbase()]
-		if chain.Supply > 0 &&
-			int64(chain.NumIssued+addIssued) > chain.Supply {
-			err = fmt.Errorf("coinbase exceeds max supply")
-			return
-		}
-		if _, err = chain.insertAddressTransaction(1, ei, false); err != nil {
+		if chain.Supply > 0 && int64(chain.NumIssued+addIssued) > chain.Supply {
+			txErr = fmt.Errorf("coinbase exceeds max supply")
 			return
 		}
 		if err = chain.numIssuedAdd(addIssued); err != nil {
 			return
 		}
+		if _, err = chain.insertAddressTransaction(1, ei, false); err != nil {
+			return
+		}
 	} else {
 		for adr, amount := range tx.Inputs {
 			var ai int64
-			ai, err = chain.addressSub(&adr, amount)
-			if err != nil {
+			ai, txErr, err = chain.addressSub(&adr, amount)
+			if err != nil || txErr != nil {
 				return
 			}
 			if _, err = chain.insertAddressTransaction(ai, ei,
@@ -134,21 +134,22 @@ func (chain *Chain) applyFAT0Tx(
 	return
 }
 
-func (chain *Chain) applyTx(ei int64, e factom.Entry, tx fat.Validator) (bool, error) {
+func (chain *Chain) applyTx(ei int64, e factom.Entry, tx fat.Validator) (error, error) {
 	if err := tx.Validate(chain.ID1); err != nil {
 		chain.Log.Debugf("Entry{%v}: invalid %v transaction: %v",
 			e.Hash, chain.Type, err)
-		return false, nil
+		return err, nil
 	}
 	valid, err := checkEntryUniqueValid(chain.Conn, ei, e.Hash)
 	if err != nil {
-		return false, err
+		return nil, err
 	}
 	if !valid {
 		chain.Log.Debugf("Entry{%v}: invalid %v transaction: %v",
-			e.Hash, chain.Type, "replay")
+			e.Hash, chain.Type, "replay: hash previously marked valid")
+		return fmt.Errorf("replay: hash previously marked valid"), nil
 	}
-	return valid, nil
+	return nil, nil
 }
 
 func (chain *Chain) setApplyFunc() {
@@ -160,12 +161,12 @@ func (chain *Chain) setApplyFunc() {
 	switch chain.Type {
 	case fat0.Type:
 		chain.apply = func(ei int64, e factom.Entry) error {
-			_, err := chain.applyFAT0Tx(ei, e)
+			_, _, err := chain.ApplyFAT0Tx(ei, e)
 			return err
 		}
 	case fat1.Type:
 		chain.apply = func(ei int64, e factom.Entry) error {
-			_, err := chain.applyFAT1Tx(ei, e)
+			_, _, err := chain.ApplyFAT1Tx(ei, e)
 			return err
 		}
 	default:
@@ -173,35 +174,19 @@ func (chain *Chain) setApplyFunc() {
 	}
 }
 
-func (chain *Chain) applyFAT1Tx(
-	ei int64, e factom.Entry) (tx fat1.Transaction, err error) {
+func (chain *Chain) ApplyFAT1Tx(ei int64, e factom.Entry) (tx fat1.Transaction,
+	txErr, err error) {
 	tx = fat1.NewTransaction(e)
-	valid, err := chain.applyTx(ei, e, &tx)
+	txErr, err = chain.applyTx(ei, e, &tx)
 	if err != nil {
 		return
 	}
-	if !valid {
+	if txErr != nil {
 		return
 	}
 
-	// Do not return, but log, any errors past this point as they are
-	// related to being unable to apply a transaction.
-	defer func() {
-		if err != nil {
-			chain.Log.Debugf("Entry{%v}: invalid %v transaction: %v",
-				e.Hash, chain.Type, err)
-			err = nil
-		} else {
-			var cbStr string
-			if tx.IsCoinbase() {
-				cbStr = "Coinbase "
-			}
-			chain.Log.Debugf("Valid %v %vTransaction: %v %+v",
-				chain.Type, cbStr, tx.Hash, tx)
-		}
-	}()
-	// But first rollback on any error.
-	defer sqlitex.Save(chain.Conn)(&err)
+	rollback := sqlitex.Save(chain.Conn)
+	defer applyTxRollback(chain, e, tx, rollback, &txErr, &err)
 
 	if err = chain.setEntryValid(ei); err != nil {
 		return
@@ -210,9 +195,11 @@ func (chain *Chain) applyFAT1Tx(
 	if tx.IsCoinbase() {
 		nfTkns := tx.Inputs[fat.Coinbase()]
 		addIssued := uint64(len(nfTkns))
-		if chain.Supply > 0 &&
-			int64(chain.NumIssued+addIssued) > chain.Supply {
-			err = fmt.Errorf("coinbase exceeds max supply")
+		if chain.Supply > 0 && int64(chain.NumIssued+addIssued) > chain.Supply {
+			txErr = fmt.Errorf("coinbase exceeds max supply")
+			return
+		}
+		if err = chain.numIssuedAdd(addIssued); err != nil {
 			return
 		}
 		var adrTxID int64
@@ -223,11 +210,11 @@ func (chain *Chain) applyFAT1Tx(
 		for nfID := range nfTkns {
 			// Insert the NFToken with the coinbase address as a
 			// placeholder for the owner.
-			if err = chain.insertNFToken(nfID, 1, ei); err != nil {
+			txErr, err = chain.insertNFToken(nfID, 1, ei)
+			if err != nil || txErr != nil {
 				return
 			}
-			if err = chain.insertNFTokenTransaction(
-				nfID, adrTxID); err != nil {
+			if err = chain.insertNFTokenTransaction(nfID, adrTxID); err != nil {
 				return
 			}
 			metadata := tx.TokenMetadata[nfID]
@@ -238,14 +225,11 @@ func (chain *Chain) applyFAT1Tx(
 				return
 			}
 		}
-		if err = chain.numIssuedAdd(addIssued); err != nil {
-			return
-		}
 	} else {
 		for adr, nfTkns := range tx.Inputs {
 			var ai int64
-			ai, err = chain.addressSub(&adr, uint64(len(nfTkns)))
-			if err != nil {
+			ai, txErr, err = chain.addressSub(&adr, uint64(len(nfTkns)))
+			if err != nil || txErr != nil {
 				return
 			}
 			var adrTxID int64
@@ -260,11 +244,11 @@ func (chain *Chain) applyFAT1Tx(
 					return
 				}
 				if ownerID == -1 {
-					err = fmt.Errorf("no such NFToken{%v}", nfTkn)
+					txErr = fmt.Errorf("no such NFToken{%v}", nfTkn)
 					return
 				}
 				if ownerID != ai {
-					err = fmt.Errorf("NFToken{%v} not owned by %v",
+					txErr = fmt.Errorf("NFToken{%v} not owned by %v",
 						nfTkn, adr)
 					return
 				}
@@ -291,8 +275,7 @@ func (chain *Chain) applyFAT1Tx(
 			if err = chain.setNFTokenOwner(nfID, ai); err != nil {
 				return
 			}
-			if err = chain.insertNFTokenTransaction(
-				nfID, adrTxID); err != nil {
+			if err = chain.insertNFTokenTransaction(nfID, adrTxID); err != nil {
 				return
 			}
 		}

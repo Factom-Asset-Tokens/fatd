@@ -17,6 +17,7 @@ func TestChainValidate(t *testing.T) {
 	require.NotEmptyf(chains, "Test database is empty: %v", flag.DBPath)
 
 	for _, chain := range chains {
+		chain := chain
 		defer chain.Close()
 		assert.NoErrorf(t, chain.Validate(), "Chain{%v}.Validate()", chain.ID)
 	}

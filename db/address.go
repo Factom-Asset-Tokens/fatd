@@ -22,17 +22,18 @@ func (chain *Chain) addressAdd(adr *factom.FAAddress, add uint64) (int64, error)
 	return SelectAddressID(chain.Conn, adr)
 }
 
-func (chain *Chain) addressSub(adr *factom.FAAddress, sub uint64) (int64, error) {
+func (chain *Chain) addressSub(adr *factom.FAAddress, sub uint64) (int64, error, error) {
 	if sub == 0 {
 		// Allow tx's with zeros to result in an INSERT.
-		return chain.addressAdd(adr, 0)
+		id, err := chain.addressAdd(adr, 0)
+		return id, nil, err
 	}
 	id, err := SelectAddressID(chain.Conn, adr)
 	if err != nil {
-		return id, err
+		return id, nil, err
 	}
 	if id < 0 {
-		return id, fmt.Errorf("insufficient balance: %v", adr)
+		return id, fmt.Errorf("insufficient balance: %v", adr), nil
 	}
 	stmt := chain.Conn.Prep(
 		`UPDATE addresses SET balance = balance - ? WHERE rowid = ?;`)
@@ -40,14 +41,14 @@ func (chain *Chain) addressSub(adr *factom.FAAddress, sub uint64) (int64, error)
 	stmt.BindInt64(2, id)
 	if _, err := stmt.Step(); err != nil {
 		if sqlite.ErrCode(err) == sqlite.SQLITE_CONSTRAINT_CHECK {
-			return id, fmt.Errorf("insufficient balance: %v", adr)
+			return id, fmt.Errorf("insufficient balance: %v", adr), nil
 		}
-		return id, err
+		return id, nil, err
 	}
 	if chain.Conn.Changes() == 0 {
 		panic("no balances updated")
 	}
-	return id, nil
+	return id, nil, nil
 }
 
 func SelectAddressBalance(conn *sqlite.Conn, adr *factom.FAAddress) (uint64, error) {

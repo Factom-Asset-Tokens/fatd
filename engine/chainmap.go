@@ -186,7 +186,7 @@ func loadChains() (syncHeight uint32, err error) {
 
 	// Open any whitelisted chains that do not already have databases.
 	for id, chain := range Chains.m {
-		if chain.IsIgnored() || chain.Chain != nil {
+		if chain.IsIgnored() || chain.Conn != nil {
 			continue
 		}
 		if err = chain.OpenNewByChainID(c, &id); err != nil {

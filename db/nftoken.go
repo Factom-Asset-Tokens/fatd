@@ -10,19 +10,23 @@ import (
 	"github.com/Factom-Asset-Tokens/fatd/fat/fat1"
 )
 
-func (chain *Chain) insertNFToken(nfID fat1.NFTokenID, adrID, entryID int64) error {
+func (chain *Chain) insertNFToken(nfID fat1.NFTokenID, adrID, entryID int64) (error, error) {
 	stmt := chain.Conn.Prep(`INSERT INTO "nf_tokens"
                 ("id", "owner_id", "creation_entry_id") VALUES (?, ?, ?);`)
 	stmt.BindInt64(1, int64(nfID))
 	stmt.BindInt64(2, adrID)
 	stmt.BindInt64(3, entryID)
-	_, err := stmt.Step()
-	return err
+	if _, err := stmt.Step(); err != nil {
+		if sqlite.ErrCode(err) == sqlite.SQLITE_CONSTRAINT_PRIMARYKEY {
+			return fmt.Errorf("NFTokenID{%v} already exists", nfID), nil
+		}
+		return nil, err
+	}
+	return nil, nil
 }
 
 func (chain *Chain) setNFTokenOwner(nfID fat1.NFTokenID, adrID int64) error {
-	stmt := chain.Conn.Prep(`UPDATE "nf_tokens"
-                SET "owner_id" = ? WHERE "id" = ?;`)
+	stmt := chain.Conn.Prep(`UPDATE "nf_tokens" SET "owner_id" = ? WHERE "id" = ?;`)
 	stmt.BindInt64(1, adrID)
 	stmt.BindInt64(2, int64(nfID))
 	_, err := stmt.Step()
@@ -32,10 +36,8 @@ func (chain *Chain) setNFTokenOwner(nfID fat1.NFTokenID, adrID int64) error {
 	return err
 }
 
-func (chain *Chain) setNFTokenMetadata(
-	nfID fat1.NFTokenID, metadata json.RawMessage) error {
-	stmt := chain.Conn.Prep(`UPDATE "nf_tokens"
-                SET "metadata" = ? WHERE "id" = ?;`)
+func (chain *Chain) setNFTokenMetadata(nfID fat1.NFTokenID, metadata json.RawMessage) error {
+	stmt := chain.Conn.Prep(`UPDATE "nf_tokens" SET "metadata" = ? WHERE "id" = ?;`)
 	stmt.BindBytes(1, metadata)
 	stmt.BindInt64(2, int64(nfID))
 	_, err := stmt.Step()
@@ -50,6 +52,7 @@ func (chain *Chain) insertNFTokenTransaction(nfID fat1.NFTokenID, adrTxID int64)
                 ("nf_tkn_id", "adr_tx_id") VALUES (?, ?);`)
 	stmt.BindInt64(1, int64(nfID))
 	stmt.BindInt64(2, adrTxID)
+
 	_, err := stmt.Step()
 	return err
 }
@@ -67,8 +70,8 @@ func SelectNFTokenOwnerID(conn *sqlite.Conn, nfTkn fat1.NFTokenID) (int64, error
 	return ownerID, nil
 }
 
-func SelectNFToken(conn *sqlite.Conn,
-	nfTkn fat1.NFTokenID) (factom.FAAddress, factom.Bytes32, []byte, error) {
+func SelectNFToken(conn *sqlite.Conn, nfTkn fat1.NFTokenID) (factom.FAAddress,
+	factom.Bytes32, []byte, error) {
 	var owner factom.FAAddress
 	var creationHash factom.Bytes32
 	stmt := conn.Prep(`SELECT "owner", "metadata", "creation_hash"
@@ -95,8 +98,7 @@ func SelectNFToken(conn *sqlite.Conn,
 	return owner, creationHash, metadata, nil
 }
 
-func SelectNFTokens(conn *sqlite.Conn,
-	order string, page, limit uint64) ([]fat1.NFTokenID,
+func SelectNFTokens(conn *sqlite.Conn, order string, page, limit uint64) ([]fat1.NFTokenID,
 	[]factom.FAAddress, []factom.Bytes32, [][]byte, error) {
 	if page == 0 {
 		return nil, nil, nil, nil, fmt.Errorf("invalid page")
