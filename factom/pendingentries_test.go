@@ -66,20 +66,20 @@ func TestPendingEntries(t *testing.T) {
 		return bytes.Compare(ci, cj) < 0
 	}), "not sorted")
 
-	es := pe.Entries(Bytes32{})
+	es := pe.Entries(&Bytes32{})
 	if len(es) > 0 {
 		assert.Nil(es[0].ChainID)
 	}
 	chainID := pe[len(pe)-1].ChainID
 	if chainID != nil {
-		es := pe.Entries(*chainID)
+		es := pe.Entries(chainID)
 		require.NotEmpty(es)
 		for _, e := range es {
 			assert.Equal(*e.ChainID, *chainID)
 		}
 	}
 
-	es = pe.Entries(*searchID)
+	es = pe.Entries(searchID)
 	if len(es) == 0 {
 		return
 	}

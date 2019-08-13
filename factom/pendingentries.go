@@ -55,7 +55,7 @@ func (pe *PendingEntries) Get(c *Client) error {
 
 // Entries efficiently finds and returns all entries in pe for the given
 // chainID, if any exist. Otherwise, Entries returns nil.
-func (pe PendingEntries) Entries(chainID Bytes32) []Entry {
+func (pe PendingEntries) Entries(chainID *Bytes32) []Entry {
 	// Find the first index of the entry with this chainID.
 	ei := sort.Search(len(pe), func(i int) bool {
 		var c []byte
@@ -65,10 +65,10 @@ func (pe PendingEntries) Entries(chainID Bytes32) []Entry {
 		}
 		return bytes.Compare(c, chainID[:]) >= 0
 	})
-	if ei < len(pe) && *pe[ei].ChainID == chainID {
+	if ei < len(pe) && *pe[ei].ChainID == *chainID {
 		// Find all remaining entries with the chainID.
 		for i, e := range pe[ei:] {
-			if *e.ChainID != chainID {
+			if *e.ChainID != *chainID {
 				return pe[ei : ei+i]
 			}
 		}
