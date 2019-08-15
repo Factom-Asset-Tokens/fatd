@@ -50,29 +50,27 @@ type Chain struct {
 }
 
 func OpenNew(dbKeyMR *factom.Bytes32, eb factom.EBlock, networkID factom.NetworkID,
-	identity factom.Identity) (chain Chain, err error) {
+	identity factom.Identity) (chain *Chain, err error) {
 	fname := eb.ChainID.String() + dbFileExtension
 	path := flag.DBPath + "/" + fname
 
 	nameIDs := eb.Entries[0].ExtIDs
 	if !fat.ValidTokenNameIDs(nameIDs) {
-		err = fmt.Errorf("invalid token chain Name IDs")
-		return
+		return nil, fmt.Errorf("invalid token chain Name IDs")
 	}
 
 	// Ensure that the database file doesn't already exist.
 	_, err = os.Stat(path)
 	if err == nil {
-		err = fmt.Errorf("already exists: %v", path)
-		return
+		return nil, fmt.Errorf("already exists: %v", path)
 	}
 	if !os.IsNotExist(err) { // Any other error is unexpected.
-		return
+		return nil, err
 	}
 
 	chain, err = open(fname)
 	if err != nil {
-		return
+		return nil, err
 	}
 	defer func() {
 		if err != nil {
@@ -90,36 +88,38 @@ func OpenNew(dbKeyMR *factom.Bytes32, eb factom.EBlock, networkID factom.Network
 	chain.SyncDBKeyMR = dbKeyMR
 	chain.NetworkID = networkID
 
-	if err = chain.insertMetadata(); err != nil {
-		return
+	if err := chain.insertMetadata(); err != nil {
+		return nil, err
 	}
 
 	// Ensure that the coinbase address has rowid = 1.
 	coinbase := fat.Coinbase()
-	if _, err = chain.addressAdd(&coinbase, 0); err != nil {
-		return
+	if _, err := chain.addressAdd(&coinbase, 0); err != nil {
+		return nil, err
 	}
 
 	chain.setApplyFunc()
-	if err = chain.Apply(dbKeyMR, eb); err != nil {
-		return
+	if err := chain.Apply(dbKeyMR, eb); err != nil {
+		return nil, err
 	}
 
-	return
+	return chain, nil
 }
 
-func Open(fname string) (chain Chain, err error) {
-	chain, err = open(fname)
+func Open(fname string) (*Chain, error) {
+	chain, err := open(fname)
 	if err != nil {
-		return
+		return nil, err
 	}
-	if err = chain.loadMetadata(); err != nil {
-		return
+
+	if err := chain.loadMetadata(); err != nil {
+		return nil, err
 	}
-	return
+
+	return chain, nil
 }
 
-func OpenAll() (chains []Chain, err error) {
+func OpenAll() (chains []*Chain, err error) {
 	log = _log.New("pkg", "db")
 	// Try to create the database directory in case it doesn't already
 	// exist.
@@ -145,7 +145,7 @@ func OpenAll() (chains []Chain, err error) {
 	if err != nil {
 		return nil, fmt.Errorf("ioutil.ReadDir(%q): %v", flag.DBPath, err)
 	}
-	chains = make([]Chain, 0, len(files))
+	chains = make([]*Chain, 0, len(files))
 	for _, f := range files {
 		fname := f.Name()
 		chainID, err := fnameToChainID(fname)
@@ -178,7 +178,7 @@ func fnameToChainID(fname string) (*factom.Bytes32, error) {
 	return chainID, nil
 }
 
-func open(fname string) (chain Chain, err error) {
+func open(fname string) (*Chain, error) {
 	const baseFlags = sqlite.SQLITE_OPEN_WAL |
 		sqlite.SQLITE_OPEN_URI |
 		sqlite.SQLITE_OPEN_NOMUTEX
@@ -186,26 +186,24 @@ func open(fname string) (chain Chain, err error) {
 	flags := baseFlags | sqlite.SQLITE_OPEN_READWRITE | sqlite.SQLITE_OPEN_CREATE
 	conn, err := sqlite.OpenConn(path, flags)
 	if err != nil {
-		err = fmt.Errorf("sqlite.OpenConn(%q, %x): %v",
+		return nil, fmt.Errorf("sqlite.OpenConn(%q, %x): %v",
 			path, flags, err)
-		return
 	}
-	if err = validateOrApplySchema(conn, chainDBSchema); err != nil {
-		return
+	if err := validateOrApplySchema(conn, chainDBSchema); err != nil {
+		return nil, err
 	}
-	if err = sqlitex.ExecScript(conn, `PRAGMA foreign_keys = ON;`); err != nil {
-		return
+	if err := sqlitex.ExecScript(conn, `PRAGMA foreign_keys = ON;`); err != nil {
+		return nil, err
 	}
-	flags = baseFlags | sqlite.SQLITE_OPEN_READWRITE
+	flags = baseFlags | sqlite.SQLITE_OPEN_READONLY
 	pool, err := sqlitex.Open(path, flags, PoolSize)
 	if err != nil {
-		err = fmt.Errorf("sqlitex.Open(%q, %x, %v): %v",
+		return nil, fmt.Errorf("sqlitex.Open(%q, %x, %v): %v",
 			path, flags, PoolSize, err)
-		return
 	}
-	chain = Chain{Conn: conn, Pool: pool,
-		Log: _log.New("chain", strings.TrimRight(fname, dbFileExtension))}
-	return
+	return &Chain{Conn: conn, Pool: pool,
+		Log: _log.New("chain", strings.TrimRight(fname, dbFileExtension)),
+	}, nil
 }
 
 func (chain *Chain) Close() {
@@ -215,16 +213,5 @@ func (chain *Chain) Close() {
 	// Close this last so that the wal and shm files are removed.
 	if err := chain.Conn.Close(); err != nil {
 		chain.Log.Errorf("chain.Conn.Close(): %v", err)
-	}
-}
-
-var alwaysRollback = fmt.Errorf("always rollback")
-
-func (chain *Chain) Get() (*sqlite.Conn, func()) {
-	conn := chain.Pool.Get(nil)
-	rollback := sqlitex.Save(conn)
-	return conn, func() {
-		rollback(&alwaysRollback)
-		chain.Pool.Put(conn)
 	}
 }

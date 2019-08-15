@@ -184,9 +184,11 @@ func loadChains() (syncHeight uint32, err error) {
 		Chains.m[*chain.ID] = chain
 	}
 
+	dbChains = nil // Prevent closing any chains from this list.
+
 	// Open any whitelisted chains that do not already have databases.
 	for id, chain := range Chains.m {
-		if chain.IsIgnored() || chain.Conn != nil {
+		if chain.IsIgnored() || chain.Chain != nil {
 			continue
 		}
 		if err = chain.OpenNewByChainID(c, &id); err != nil {
@@ -199,7 +201,6 @@ func loadChains() (syncHeight uint32, err error) {
 		Chains.m[*chain.ID] = chain
 	}
 
-	dbChains = nil // Prevent closing any chains from this list.
 	return
 }
 func min(a, b uint32) uint32 {
