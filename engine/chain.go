@@ -34,7 +34,7 @@ import (
 
 type Chain struct {
 	ChainStatus
-	*db.Chain
+	db.Chain
 }
 
 func (chain Chain) String() string {

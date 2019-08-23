@@ -37,8 +37,10 @@ import (
 	"golang.org/x/crypto/ed25519"
 )
 
-type Validator interface {
+type Transaction interface {
 	Validate(factom.IDKey) error
+	IsCoinbase() bool
+	FactomEntry() factom.Entry
 }
 
 // Entry has variables and methods common to all fat0 entries.
@@ -46,6 +48,10 @@ type Entry struct {
 	Metadata json.RawMessage `json:"metadata,omitempty"`
 
 	factom.Entry `json:"-"`
+}
+
+func (e Entry) FactomEntry() factom.Entry {
+	return e.Entry
 }
 
 // UnmarshalEntry unmarshals the content of the factom.Entry into the provided

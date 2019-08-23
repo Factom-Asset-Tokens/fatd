@@ -106,8 +106,9 @@ func getTransaction(getEntry bool) jrpc.MethodFunc {
 			return err
 		}
 
-		conn := chain.Pool.Get(nil)
-		defer chain.Put(conn)
+		conn, put := chain.Get()
+		defer put()
+
 		entry, err := db.SelectEntryByHashValid(conn, params.Hash)
 		if err != nil {
 			panic(err)
@@ -154,14 +155,15 @@ func getTransactions(getEntry bool) jrpc.MethodFunc {
 		if err != nil {
 			return err
 		}
+
 		if params.NFTokenID != nil && chain.Type != fat1.Type {
 			err := ErrorTokenNotFound
 			err.Data = "Token Chain is not FAT-1"
 			return err
 		}
 
-		conn := chain.Pool.Get(nil)
-		defer chain.Put(conn)
+		conn, put := chain.Get()
+		defer put()
 
 		// Lookup Txs
 		var nfTkns fat1.NFTokens
@@ -226,8 +228,8 @@ func getBalance(data json.RawMessage) interface{} {
 		return err
 	}
 
-	conn := chain.Pool.Get(nil)
-	defer chain.Put(conn)
+	conn, put := chain.Get()
+	defer put()
 	balance, err := db.SelectAddressBalance(conn, params.Address)
 	if err != nil {
 		panic(err)
@@ -270,8 +272,8 @@ func getBalances(data json.RawMessage) interface{} {
 	balances := make(ResultGetBalances, len(issuedIDs))
 	for _, chainID := range issuedIDs {
 		chain := engine.Chains.Get(chainID)
-		conn := chain.Pool.Get(nil)
-		defer chain.Put(conn)
+		conn, put := chain.Get()
+		defer put()
 		balance, err := db.SelectAddressBalance(conn, params.Address)
 		if err != nil {
 			panic(err)
@@ -296,8 +298,8 @@ func getNFBalance(data json.RawMessage) interface{} {
 		return err
 	}
 
-	conn := chain.Pool.Get(nil)
-	defer chain.Put(conn)
+	conn, put := chain.Get()
+	defer put()
 	tkns, err := db.SelectNFTokensByOwner(conn, params.Address,
 		*params.Page, params.Limit, params.Order)
 	if err != nil {
@@ -334,8 +336,9 @@ func getStats(data json.RawMessage) interface{} {
 		return err
 	}
 
-	conn := chain.Pool.Get(nil)
-	defer chain.Put(conn)
+	conn, put := chain.Get()
+	defer put()
+
 	burned, err := db.SelectAddressBalance(conn, &coinbaseRCDHash)
 	if err != nil {
 		panic(err)
@@ -390,8 +393,8 @@ func getNFToken(data json.RawMessage) interface{} {
 		return err
 	}
 
-	conn := chain.Pool.Get(nil)
-	defer chain.Put(conn)
+	conn, put := chain.Get()
+	defer put()
 
 	owner, creationHash, metadata, err := db.SelectNFToken(conn, *params.NFTokenID)
 	if err != nil {
@@ -430,8 +433,8 @@ func getNFTokens(data json.RawMessage) interface{} {
 		return err
 	}
 
-	conn := chain.Pool.Get(nil)
-	defer chain.Put(conn)
+	conn, put := chain.Get()
+	defer put()
 
 	tkns, owners, creationHashes, metadata, err := db.SelectNFTokens(conn,
 		params.Order, *params.Page, params.Limit)
@@ -455,7 +458,6 @@ func getNFTokens(data json.RawMessage) interface{} {
 }
 
 func sendTransaction(data json.RawMessage) interface{} {
-	return jrpc.NewError(-34000, "not implemented", "send-transaction")
 	if factom.Bytes32(flag.EsAdr).IsZero() {
 		return ErrorNoEC
 	}
@@ -473,6 +475,7 @@ func sendTransaction(data json.RawMessage) interface{} {
 		panic(err)
 	}
 
+	// Replace the conn
 	chain.Conn = conn
 
 	entry := params.Entry()

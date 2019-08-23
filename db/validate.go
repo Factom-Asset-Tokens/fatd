@@ -60,7 +60,7 @@ func (chain Chain) Validate() (err error) {
                 `)
 	chain.NumIssued = 0
 	chain.Issuance = fat.Issuance{}
-	chain.apply = chain.applyIssuance
+	chain.setApplyFunc()
 
 	eBlockStmt := read.Prep(SelectEBlockWhere + `true;`) // SELECT all EBlocks.
 	entryStmt := read.Prep(SelectEntryWhere + `true;`)   // SELECT all Entries.

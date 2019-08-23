@@ -20,12 +20,11 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 // IN THE SOFTWARE.
 
-package engine_test
+package engine
 
 import (
 	"testing"
 
-	. "github.com/Factom-Asset-Tokens/fatd/state"
 	"github.com/stretchr/testify/assert"
 )
 
