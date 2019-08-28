@@ -83,14 +83,14 @@ var (
 		"apiaddress": ":8078",
 
 		"s":               "http://localhost:8088",
-		"factomdtimeout":  time.Duration(0),
+		"factomdtimeout":  20 * time.Second,
 		"factomduser":     "",
 		"factomdpassword": "",
 		//"factomdcert":     "",
 		//"factomdtls":      false,
 
 		"w":              "http://localhost:8089",
-		"wallettimeout":  time.Duration(0),
+		"wallettimeout":  10 * time.Second,
 		"walletuser":     "",
 		"walletpassword": "",
 		//"walletcert":     "",
