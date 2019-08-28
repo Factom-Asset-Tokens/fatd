@@ -11,7 +11,7 @@ import (
 	"github.com/Factom-Asset-Tokens/fatd/fat/fat1"
 )
 
-func (chain *Chain) insertEntry(e factom.Entry, ebSeq uint32) (int64, error) {
+func (chain *Chain) InsertEntry(e factom.Entry, ebSeq uint32) (int64, error) {
 	data, err := e.MarshalBinary()
 	if err != nil {
 		panic(fmt.Errorf("factom.Entry{}.MarshalBinary(): %v", err))

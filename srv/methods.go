@@ -458,65 +458,69 @@ func getNFTokens(data json.RawMessage) interface{} {
 }
 
 func sendTransaction(data json.RawMessage) interface{} {
-	if factom.Bytes32(flag.EsAdr).IsZero() {
-		return ErrorNoEC
-	}
 	params := ParamsSendTransaction{}
 	chain, err := validate(data, &params)
 	if err != nil {
 		return err
 	}
+	if !params.DoNotSend && factom.Bytes32(flag.EsAdr).IsZero() {
+		return ErrorNoEC
+	}
 
 	conn, put := chain.Get()
 	defer put()
-
-	count, err := db.SelectEntryCount(conn, false)
-	if err != nil {
-		panic(err)
-	}
 
 	// Replace the conn
 	chain.Conn = conn
 
 	entry := params.Entry()
+	var ei int64
+	ei, err = chain.InsertEntry(entry, chain.Head.Sequence)
+	if err != nil {
+		panic(err)
+	}
+
 	var txErr error
 	switch chain.Type {
 	case fat0.Type:
-		_, txErr, err = chain.ApplyFAT0Tx(count+1, entry)
+		_, txErr, err = chain.ApplyFAT0Tx(ei, entry)
 	case fat1.Type:
-		_, txErr, err = chain.ApplyFAT1Tx(count+1, entry)
+		_, txErr, err = chain.ApplyFAT1Tx(ei, entry)
 	}
 	if err != nil {
 		panic(err)
 	}
 	if txErr != nil {
 		err := ErrorInvalidTransaction
-		err.Data = txErr
+		err.Data = txErr.Error()
 		return err
 	}
 
-	balance, err := flag.ECAdr.GetBalance(c)
-	if err != nil {
-		panic(err)
-	}
-	cost, err := entry.Cost()
-	if err != nil {
-		rerr := ErrorInvalidTransaction
-		rerr.Data = err
-		return rerr
-	}
-	if balance < uint64(cost) {
-		return ErrorNoEC
-	}
-	txID, err := entry.ComposeCreate(c, flag.EsAdr)
-	if err != nil {
-		panic(err)
+	var txID *factom.Bytes32
+	if !params.DoNotSend {
+		balance, err := flag.ECAdr.GetBalance(c)
+		if err != nil {
+			panic(err)
+		}
+		cost, err := entry.Cost()
+		if err != nil {
+			rerr := ErrorInvalidTransaction
+			rerr.Data = err.Error()
+			return rerr
+		}
+		if balance < uint64(cost) {
+			return ErrorNoEC
+		}
+		txID, err = entry.ComposeCreate(c, flag.EsAdr)
+		if err != nil {
+			panic(err)
+		}
 	}
 
 	return struct {
 		ChainID *factom.Bytes32 `json:"chainid"`
-		TxID    *factom.Bytes32 `json:"txid"`
-		Hash    *factom.Bytes32 `json:"entryhash"`
+		TxID    *factom.Bytes32 `json:"factomtx,omitempty"`
+		Hash    *factom.Bytes32 `json:"fattx"`
 	}{ChainID: chain.ID, TxID: txID, Hash: entry.Hash}
 }
 

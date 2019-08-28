@@ -32,7 +32,7 @@ func (chain *Chain) Apply(dbKeyMR *factom.Bytes32, eb factom.EBlock) (err error)
 	// Save and apply each entry.
 	for _, e := range eb.Entries {
 		var ei int64
-		ei, err = chain.insertEntry(e, chain.Head.Sequence)
+		ei, err = chain.InsertEntry(e, chain.Head.Sequence)
 		if err != nil {
 			return
 		}
@@ -120,7 +120,7 @@ func (chain *Chain) Save(tx fat.Transaction) func(txErr, err *error) {
 		}
 		if *txErr != nil {
 			chain.Log.Debugf("Entry{%v}: invalid %v transaction: %v",
-				e.Hash, chain.Type, txErr)
+				e.Hash, chain.Type, *txErr)
 			return
 		}
 		var cbStr string

@@ -238,25 +238,45 @@ func (p *ParamsGetAllNFTokens) IsValid() error {
 
 type ParamsSendTransaction struct {
 	ParamsToken
-	ExtIDs  []factom.Bytes `json:"extids"`
-	Content factom.Bytes   `json:"content"`
+	ExtIDs    []factom.Bytes `json:"extids,omitempty"`
+	Content   factom.Bytes   `json:"content,omitempty"`
+	Raw       factom.Bytes   `json:"raw,omitempty"`
+	DoNotSend bool           `json:"donotsend,omitempty"`
+	entry     factom.Entry
 }
 
-func (p ParamsSendTransaction) IsValid() error {
+func (p *ParamsSendTransaction) IsValid() error {
+	if p.Raw != nil {
+		if p.ExtIDs != nil || p.Content != nil {
+			return jrpc.InvalidParams(
+				`"raw cannot be used with "content" or "extids"`)
+		}
+		if err := p.entry.UnmarshalBinary(p.Raw); err != nil {
+			return jrpc.InvalidParams(err)
+		}
+		p.entry.Timestamp = time.Now()
+		p.ChainID = p.entry.ChainID
+		return nil
+	}
 	if err := p.ParamsToken.IsValid(); err != nil {
 		return err
 	}
 	if len(p.Content) == 0 || len(p.ExtIDs) == 0 {
-		return jrpc.InvalidParams(`required: "content" and "extids"`)
+		return jrpc.InvalidParams(`required: "raw" or "content" and "extids"`)
 	}
-	return nil
-}
-
-func (p ParamsSendTransaction) Entry() factom.Entry {
-	return factom.Entry{
+	p.entry = factom.Entry{
 		ExtIDs:    p.ExtIDs,
 		Content:   p.Content,
 		Timestamp: time.Now(),
 		ChainID:   p.ChainID,
 	}
+	if _, err := p.entry.ComputeHash(); err != nil {
+		return jrpc.InvalidParams(err)
+	}
+
+	return nil
+}
+
+func (p ParamsSendTransaction) Entry() factom.Entry {
+	return p.entry
 }
