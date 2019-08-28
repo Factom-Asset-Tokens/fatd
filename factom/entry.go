@@ -426,6 +426,14 @@ func (e *Entry) UnmarshalBinary(data []byte) error {
 	}
 
 	e.Content = data[pos:]
+
+	// Compute and save entry hash if not populated.
+	if e.Hash == nil {
+		e.Hash = new(Bytes32)
+	}
+	if e.Hash.IsZero() {
+		*e.Hash = EntryHash(data)
+	}
 	return nil
 }
 
@@ -433,7 +441,12 @@ func (e *Entry) UnmarshalBinary(data []byte) error {
 // representation of the Entry.
 func (e *Entry) ComputeHash() (Bytes32, error) {
 	data, err := e.MarshalBinary()
-	return EntryHash(data), err
+	if err != nil {
+		return Bytes32{}, err
+	}
+	hash := EntryHash(data)
+	e.Hash = &hash
+	return hash, err
 }
 
 // EntryHash returns the Entry hash of data. Entry's are hashed via:
