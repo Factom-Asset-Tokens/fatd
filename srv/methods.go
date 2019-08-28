@@ -519,8 +519,8 @@ func sendTransaction(data json.RawMessage) interface{} {
 
 	return struct {
 		ChainID *factom.Bytes32 `json:"chainid"`
-		TxID    *factom.Bytes32 `json:"factomtx,omitempty"`
-		Hash    *factom.Bytes32 `json:"fattx"`
+		TxID    *factom.Bytes32 `json:"factomtxid,omitempty"`
+		Hash    *factom.Bytes32 `json:"fattxid"`
 	}{ChainID: chain.ID, TxID: txID, Hash: entry.Hash}
 }
 

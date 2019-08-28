@@ -247,7 +247,7 @@ type ParamsSendTransaction struct {
 
 func (p *ParamsSendTransaction) IsValid() error {
 	if p.Raw != nil {
-		if p.ExtIDs != nil || p.Content != nil {
+		if p.ExtIDs != nil || p.Content != nil || p.ParamsToken != (ParamsToken{}) {
 			return jrpc.InvalidParams(
 				`"raw cannot be used with "content" or "extids"`)
 		}
