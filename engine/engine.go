@@ -24,8 +24,11 @@ package engine
 
 import (
 	"fmt"
+	"path/filepath"
 	"sync"
 	"time"
+
+	"github.com/nightlyone/lockfile"
 
 	"github.com/Factom-Asset-Tokens/fatd/factom"
 	"github.com/Factom-Asset-Tokens/fatd/flag"
@@ -33,8 +36,9 @@ import (
 )
 
 var (
-	log _log.Log
-	c   = flag.FactomClient
+	log      _log.Log
+	c        = flag.FactomClient
+	lockFile lockfile.Lockfile
 )
 
 const (
@@ -48,6 +52,25 @@ const (
 // before the stop channel is closed, an error occurred.
 func Start(stop <-chan struct{}) (done <-chan struct{}) {
 	log = _log.New("pkg", "engine")
+
+	// Try to create a lockfile
+	lockFilePath, err := filepath.Abs(flag.DBPath + "/db.lock")
+	lockFile, err = lockfile.New(lockFilePath)
+	if err != nil {
+		log.Error(err)
+		return
+	}
+	if err = lockFile.TryLock(); err != nil {
+		log.Errorf("Database in use by other process.")
+		return
+	}
+	defer func() {
+		if done == nil {
+			if err := lockFile.Unlock(); err != nil {
+				log.Errorf("lockFile.Unlock(): %v", err)
+			}
+		}
+	}()
 
 	// Verify Factom Blockchain NetworkID...
 	if err := updateFactomHeight(); err != nil {
@@ -67,12 +90,16 @@ func Start(stop <-chan struct{}) (done <-chan struct{}) {
 	}
 
 	// Load and sync all existing and whitelisted chains.
-	var err error
 	syncHeight, err = loadChains()
 	if err != nil {
 		log.Error(err)
 		return
 	}
+	defer func() {
+		if done == nil {
+			Chains.Close()
+		}
+	}()
 
 	if flag.IgnoreNewChains() {
 		// We can assume that all chains are synced to their
@@ -121,8 +148,13 @@ func Start(stop <-chan struct{}) (done <-chan struct{}) {
 const numWorkers = 8
 
 func engine(stop <-chan struct{}, done chan struct{}) {
-	defer close(done)
-	defer Chains.Close()
+	defer func() {
+		Chains.Close()
+		if err := lockFile.Unlock(); err != nil {
+			log.Errorf("lockFile.Unlock(): %v", err)
+		}
+		close(done)
+	}()
 
 	// Launch workers
 	eblocks := make(chan factom.EBlock)
