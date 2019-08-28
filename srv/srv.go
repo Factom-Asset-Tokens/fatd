@@ -67,6 +67,7 @@ func Start(stop <-chan struct{}) (done <-chan struct{}) {
 
 	// Start server.
 	_done := make(chan struct{})
+	log.Infof("Listening on %v...", flag.APIAddress)
 	go func() {
 		if err := srv.ListenAndServe(); err != http.ErrServerClosed {
 			log.Errorf("srv.ListenAndServe(): %v", err)

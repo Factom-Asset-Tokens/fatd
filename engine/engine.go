@@ -90,6 +90,10 @@ func Start(stop <-chan struct{}) (done <-chan struct{}) {
 	}
 
 	// Load and sync all existing and whitelisted chains.
+	log.Infof("Loading chain databases from %v...", flag.DBPath)
+	if flag.SkipDBValidation {
+		log.Warn("Skipping database validation...")
+	}
 	syncHeight, err = loadChains()
 	if err != nil {
 		log.Error(err)
