@@ -238,11 +238,11 @@ func (p *ParamsGetAllNFTokens) IsValid() error {
 
 type ParamsSendTransaction struct {
 	ParamsToken
-	ExtIDs    []factom.Bytes `json:"extids,omitempty"`
-	Content   factom.Bytes   `json:"content,omitempty"`
-	Raw       factom.Bytes   `json:"raw,omitempty"`
-	DoNotSend bool           `json:"donotsend,omitempty"`
-	entry     factom.Entry
+	ExtIDs  []factom.Bytes `json:"extids,omitempty"`
+	Content factom.Bytes   `json:"content,omitempty"`
+	Raw     factom.Bytes   `json:"raw,omitempty"`
+	DryRun  bool           `json:"dryrun,omitempty"`
+	entry   factom.Entry
 }
 
 func (p *ParamsSendTransaction) IsValid() error {

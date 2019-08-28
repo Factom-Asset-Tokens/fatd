@@ -463,7 +463,7 @@ func sendTransaction(data json.RawMessage) interface{} {
 	if err != nil {
 		return err
 	}
-	if !params.DoNotSend && factom.Bytes32(flag.EsAdr).IsZero() {
+	if !params.DryRun && factom.Bytes32(flag.EsAdr).IsZero() {
 		return ErrorNoEC
 	}
 
@@ -497,7 +497,7 @@ func sendTransaction(data json.RawMessage) interface{} {
 	}
 
 	var txID *factom.Bytes32
-	if !params.DoNotSend {
+	if !params.DryRun {
 		balance, err := flag.ECAdr.GetBalance(c)
 		if err != nil {
 			panic(err)
@@ -519,8 +519,8 @@ func sendTransaction(data json.RawMessage) interface{} {
 
 	return struct {
 		ChainID *factom.Bytes32 `json:"chainid"`
-		TxID    *factom.Bytes32 `json:"factomtxid,omitempty"`
-		Hash    *factom.Bytes32 `json:"fattxid"`
+		TxID    *factom.Bytes32 `json:"txid,omitempty"`
+		Hash    *factom.Bytes32 `json:"entryhash"`
 	}{ChainID: chain.ID, TxID: txID, Hash: entry.Hash}
 }
 

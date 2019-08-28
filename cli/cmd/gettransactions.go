@@ -51,7 +51,7 @@ var getTxsCmd = func() *cobra.Command {
 	cmd := &cobra.Command{
 		DisableFlagsInUseLine: true,
 		Use: `
-transactions --chainid <chain-id> TXID...
+transactions --chainid <chain-id> TXHASH...
 
   fat-cli get transactions --chainid <chain-id> [--starttx <tx-hash>]
         [--page <page>] [--limit <limit>] [--order <"asc" | "desc">]
