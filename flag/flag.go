@@ -96,6 +96,12 @@ var (
 		//"walletcert":     "",
 		//"wallettls":      false,
 
+		"username": "",
+		"password": "",
+		"cert":     "",
+		"certkey":  "",
+		"tls":      false,
+
 		"ecadr": "",
 		"esadr": "",
 
@@ -125,6 +131,11 @@ var (
 		"walletpassword": "Password for API connections to factom-walletd",
 		//"walletcert":     "The TLS certificate that will be provided by the factom-walletd API server",
 		//"wallettls":      "Set to true to use TLS when accessing the factom-walletd API",
+
+		"username": "Username for connections to FATD server.",
+		"password": "Password for connections to FATD server.",
+		"cert":     "Path to TLS certificate for the FATD server.",
+		"tls":      "Set to true to use TLS when accessing the FATD server.",
 
 		"ecadr": "Entry Credit Public Address to use to pay for Factom entries",
 		"esadr": "Entry Credit Secret Address to use to pay for Factom entries",
@@ -156,6 +167,12 @@ var (
 		"-walletpassword": complete.PredictAnything,
 		//"-walletcert":     complete.PredictFiles("*"),
 		//"-wallettls":      complete.PredictNothing,
+
+		"-username": complete.PredictNothing,
+		"-password": complete.PredictNothing,
+		"-cert":     complete.PredictFiles("*"),
+		"-certkey":  complete.PredictFiles("*"),
+		"-tls":      complete.PredictNothing,
 
 		"-y":                   complete.PredictNothing,
 		"-installcompletion":   complete.PredictNothing,
@@ -194,6 +211,12 @@ var (
 	Whitelist, Blacklist Bytes32List
 	ignoreNewChains      bool
 	SkipDBValidation     bool
+
+	Username    string
+	Password    string
+	TLSCertFile string
+	TLSKeyFile  string
+	TLSEnable   bool
 )
 
 func init() {
@@ -227,6 +250,13 @@ func init() {
 	flagVar(&Blacklist, "blacklist")
 	flagVar(&ignoreNewChains, "ignorenewchains")
 	flagVar(&SkipDBValidation, "skipdbvalidation")
+
+	// Added in FatD authentication info.
+	flagVar(&Username, "username")
+	flagVar(&Password, "password")
+	flagVar(&TLSCertFile, "cert")
+	flagVar(&TLSKeyFile, "certkey")
+	flagVar(&TLSEnable, "tls")
 
 	// Add flags for self installing the CLI completion tool
 	Completion = complete.New(os.Args[0], complete.Command{Flags: flags})
@@ -287,6 +317,10 @@ func Validate() {
 	if len(FactomClient.Walletd.Password) > 0 {
 		walletdPassword = "<redacted>"
 	}
+	authPassword := "\"\""
+	if len(Password) > 0 {
+		authPassword = "<redacted>"
+	}
 
 	log.Debugf("-dbpath            %#v", DBPath)
 	log.Debugf("-apiaddress        %#v", APIAddress)
@@ -305,6 +339,9 @@ func Validate() {
 	log.Debugf("-wallettimeout %v ", FactomClient.Walletd.Timeout)
 	log.Debugf("-walletuser    %#v", FactomClient.Walletd.User)
 	log.Debugf("-walletpass    %v ", walletdPassword)
+
+	log.Debugf("-username    %#v", Username)
+	log.Debugf("-password    %v ", authPassword)
 	//log.Debugf("-walletcert    %#v", FactomClient.Walletd.TLSCertFile)
 	debugPrintln()
 
@@ -413,6 +450,10 @@ func setupLogger() {
 
 func HasWhitelist() bool {
 	return len(Whitelist) > 0
+}
+
+func HasAuth() bool {
+	return Username != "" && Password != ""
 }
 
 func IgnoreNewChains() bool {

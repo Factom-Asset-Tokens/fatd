@@ -28,6 +28,7 @@ import (
 	jrpc "github.com/AdamSLevy/jsonrpc2/v11"
 	"github.com/Factom-Asset-Tokens/fatd/flag"
 	_log "github.com/Factom-Asset-Tokens/fatd/log"
+	"github.com/goji/httpauth"
 	"github.com/rs/cors"
 )
 
@@ -59,17 +60,20 @@ func Start(stop <-chan struct{}) (done <-chan struct{}) {
 
 	// Set up server.
 	srvMux := http.NewServeMux()
-	srvMux.Handle("/", handler)
-	srvMux.Handle("/v1", handler)
+
+	srvMux.Handle("/", handleAuth(handler))
+	srvMux.Handle("/v1", handleAuth(handler))
+
 	cors := cors.New(cors.Options{AllowedOrigins: []string{"*"}})
 	srv = http.Server{Handler: cors.Handler(srvMux)}
+
 	srv.Addr = flag.APIAddress
 
 	// Start server.
 	_done := make(chan struct{})
 	log.Infof("Listening on %v...", flag.APIAddress)
 	go func() {
-		if err := srv.ListenAndServe(); err != http.ErrServerClosed {
+		if err := listenAndServe(srv); err != http.ErrServerClosed {
 			log.Errorf("srv.ListenAndServe(): %v", err)
 		}
 		close(_done)
@@ -85,4 +89,21 @@ func Start(stop <-chan struct{}) (done <-chan struct{}) {
 		}
 	}()
 	return _done
+}
+
+func listenAndServe(server http.Server) interface{} {
+	if flag.TLSEnable {
+		return server.ListenAndServeTLS(flag.TLSCertFile, flag.TLSKeyFile)
+	} else {
+		return server.ListenAndServe()
+	}
+
+}
+
+func handleAuth(handlerFunc http.HandlerFunc) http.Handler {
+	if flag.HasAuth() {
+		return (httpauth.SimpleBasicAuth(flag.Username, flag.Password))(handlerFunc)
+	} else {
+		return handlerFunc
+	}
 }
