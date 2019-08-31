@@ -30,6 +30,9 @@ func (chain *Chain) addressSub(adr *factom.FAAddress, sub uint64) (int64, error,
 	}
 	id, err := SelectAddressID(chain.Conn, adr)
 	if err != nil {
+		if err == sqlitexNoResultsErr {
+			return id, fmt.Errorf("insufficient balance: %v", adr), nil
+		}
 		return id, nil, err
 	}
 	if id < 0 {
@@ -51,11 +54,13 @@ func (chain *Chain) addressSub(adr *factom.FAAddress, sub uint64) (int64, error,
 	return id, nil, nil
 }
 
+var sqlitexNoResultsErr = fmt.Errorf("sqlite: statement has no results")
+
 func SelectAddressBalance(conn *sqlite.Conn, adr *factom.FAAddress) (uint64, error) {
 	stmt := conn.Prep(`SELECT "balance" FROM "addresses" WHERE "address" = ?;`)
 	stmt.BindBytes(1, adr[:])
 	bal, err := sqlitex.ResultInt64(stmt)
-	if err != nil && err.Error() == "sqlite: statement has no results" {
+	if err != nil && err == sqlitexNoResultsErr {
 		return 0, nil
 	}
 	if err != nil {
