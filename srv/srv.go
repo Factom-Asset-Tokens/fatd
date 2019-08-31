@@ -60,7 +60,16 @@ func Start(stop <-chan struct{}) (done <-chan struct{}) {
 			jrpcHandler(w, r)
 		})
 	if flag.HasAuth {
-		handler = httpauth.SimpleBasicAuth(flag.Username, flag.Password)(handler)
+		authOpts := httpauth.AuthOptions{
+			User:     flag.Username,
+			Password: flag.Password,
+			UnauthorizedHandler: http.HandlerFunc(
+				func(w http.ResponseWriter, _ *http.Request) {
+					w.WriteHeader(http.StatusUnauthorized)
+					w.Write([]byte(`{}`))
+				}),
+		}
+		handler = httpauth.BasicAuth(authOpts)(handler)
 	}
 
 	// Set up server.
