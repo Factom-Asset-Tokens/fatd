@@ -51,18 +51,23 @@ func Start(stop <-chan struct{}) (done <-chan struct{}) {
 	// Set up JSON RPC 2.0 handler with correct headers.
 	jrpc.DebugMethodFunc = true
 	jrpcHandler := jrpc.HTTPRequestHandler(jrpcMethods)
-	var handler http.HandlerFunc = func(w http.ResponseWriter, r *http.Request) {
-		header := w.Header()
-		header.Add(FatdVersionHeaderKey, flag.Revision)
-		header.Add(FatdAPIVersionHeaderKey, APIVersion)
-		jrpcHandler(w, r)
+
+	var handler http.Handler = http.HandlerFunc(
+		func(w http.ResponseWriter, r *http.Request) {
+			header := w.Header()
+			header.Add(FatdVersionHeaderKey, flag.Revision)
+			header.Add(FatdAPIVersionHeaderKey, APIVersion)
+			jrpcHandler(w, r)
+		})
+	if flag.HasAuth {
+		handler = httpauth.SimpleBasicAuth(flag.Username, flag.Password)(handler)
 	}
 
 	// Set up server.
 	srvMux := http.NewServeMux()
 
-	srvMux.Handle("/", handleAuth(handler))
-	srvMux.Handle("/v1", handleAuth(handler))
+	srvMux.Handle("/", handler)
+	srvMux.Handle("/v1", handler)
 
 	cors := cors.New(cors.Options{AllowedOrigins: []string{"*"}})
 	srv = http.Server{Handler: cors.Handler(srvMux)}
@@ -73,7 +78,13 @@ func Start(stop <-chan struct{}) (done <-chan struct{}) {
 	_done := make(chan struct{})
 	log.Infof("Listening on %v...", flag.APIAddress)
 	go func() {
-		if err := listenAndServe(srv); err != http.ErrServerClosed {
+		var err error
+		if flag.HasTLS {
+			err = srv.ListenAndServeTLS(flag.TLSCertFile, flag.TLSKeyFile)
+		} else {
+			err = srv.ListenAndServe()
+		}
+		if err != http.ErrServerClosed {
 			log.Errorf("srv.ListenAndServe(): %v", err)
 		}
 		close(_done)
@@ -89,21 +100,4 @@ func Start(stop <-chan struct{}) (done <-chan struct{}) {
 		}
 	}()
 	return _done
-}
-
-func listenAndServe(server http.Server) interface{} {
-	if flag.TLSEnable {
-		return server.ListenAndServeTLS(flag.TLSCertFile, flag.TLSKeyFile)
-	} else {
-		return server.ListenAndServe()
-	}
-
-}
-
-func handleAuth(handlerFunc http.HandlerFunc) http.Handler {
-	if flag.HasAuth() {
-		return (httpauth.SimpleBasicAuth(flag.Username, flag.Password))(handlerFunc)
-	} else {
-		return handlerFunc
-	}
 }

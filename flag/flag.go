@@ -47,7 +47,11 @@ var (
 
 		"dbpath": "DB_PATH",
 
-		"apiaddress": "API_ADDRESS",
+		"apiaddress":  "API_ADDRESS",
+		"apiusername": "API_USERNAME",
+		"apipassword": "API_PASSWORD",
+		"apitlscert":  "API_TLS_CERT",
+		"apitlskey":   "API_TLS_KEY",
 
 		"s":               "FACTOMD_SERVER",
 		"factomdtimeout":  "FACTOMD_TIMEOUT",
@@ -80,7 +84,11 @@ var (
 
 		"dbpath": "./fatd.db",
 
-		"apiaddress": ":8078",
+		"apiaddress":  ":8078",
+		"apiusername": "",
+		"apipassword": "",
+		"apitlscert":  "",
+		"apitlskey":   "",
 
 		"s":               "http://localhost:8088",
 		"factomdtimeout":  20 * time.Second,
@@ -96,12 +104,6 @@ var (
 		//"walletcert":     "",
 		//"wallettls":      false,
 
-		"username": "",
-		"password": "",
-		"cert":     "",
-		"certkey":  "",
-		"tls":      false,
-
 		"ecadr": "",
 		"esadr": "",
 
@@ -115,7 +117,11 @@ var (
 
 		"dbpath": "Path to the folder containing all database files",
 
-		"apiaddress": "IPAddr:port# to bind to for serving the JSON RPC 2.0 API",
+		"apiaddress":  "IPAddr:port# to bind to for serving the fatd API",
+		"apiusername": "Username required for connections to fatd API",
+		"apipassword": "Password required for connections to fatd API",
+		"apitlscert":  "Path to TLS certificate for the fatd API",
+		"apitlskey":   "Path to TLS Key for the fatd API",
 
 		"s":               "IPAddr:port# of factomd API to use to access blockchain",
 		"factomdtimeout":  "Timeout for factomd API requests, 0 means never timeout",
@@ -132,11 +138,6 @@ var (
 		//"walletcert":     "The TLS certificate that will be provided by the factom-walletd API server",
 		//"wallettls":      "Set to true to use TLS when accessing the factom-walletd API",
 
-		"username": "Username for connections to FATD server.",
-		"password": "Password for connections to FATD server.",
-		"cert":     "Path to TLS certificate for the FATD server.",
-		"tls":      "Set to true to use TLS when accessing the FATD server.",
-
 		"ecadr": "Entry Credit Public Address to use to pay for Factom entries",
 		"esadr": "Entry Credit Secret Address to use to pay for Factom entries",
 
@@ -152,7 +153,11 @@ var (
 
 		"-dbpath": complete.PredictFiles("*"),
 
-		"-apiaddress": complete.PredictAnything,
+		"-apiaddress":  complete.PredictAnything,
+		"-apiusername": complete.PredictAnything,
+		"-apipassword": complete.PredictAnything,
+		"-apitlscert":  complete.PredictFiles("*.cert"),
+		"-apitlskey":   complete.PredictFiles("*.key"),
 
 		"-s":               complete.PredictAnything,
 		"-factomdtimeout":  complete.PredictAnything,
@@ -212,11 +217,13 @@ var (
 	ignoreNewChains      bool
 	SkipDBValidation     bool
 
-	Username    string
-	Password    string
+	HasAuth  bool
+	Username string
+	Password string
+
+	HasTLS      bool
 	TLSCertFile string
 	TLSKeyFile  string
-	TLSEnable   bool
 )
 
 func init() {
@@ -227,6 +234,11 @@ func init() {
 	flagVar(&DBPath, "dbpath")
 
 	flagVar(&APIAddress, "apiaddress")
+	// Added in FatD authentication info.
+	flagVar(&Username, "apiusername")
+	flagVar(&Password, "apipassword")
+	flagVar(&TLSCertFile, "apitlscert")
+	flagVar(&TLSKeyFile, "apitlskey")
 
 	flagVar(&ECAdr, "ecadr")
 	flagVar(&EsAdr, "esadr")
@@ -250,13 +262,6 @@ func init() {
 	flagVar(&Blacklist, "blacklist")
 	flagVar(&ignoreNewChains, "ignorenewchains")
 	flagVar(&SkipDBValidation, "skipdbvalidation")
-
-	// Added in FatD authentication info.
-	flagVar(&Username, "username")
-	flagVar(&Password, "password")
-	flagVar(&TLSCertFile, "cert")
-	flagVar(&TLSKeyFile, "certkey")
-	flagVar(&TLSEnable, "tls")
 
 	// Add flags for self installing the CLI completion tool
 	Completion = complete.New(os.Args[0], complete.Command{Flags: flags})
@@ -309,17 +314,17 @@ func Parse() {
 
 func Validate() {
 	// Redact private data from debug output.
-	factomdPassword := "\"\""
+	factomdPassword := `""`
 	if len(FactomClient.Factomd.Password) > 0 {
 		factomdPassword = "<redacted>"
 	}
-	walletdPassword := "\"\""
+	walletdPassword := `""`
 	if len(FactomClient.Walletd.Password) > 0 {
 		walletdPassword = "<redacted>"
 	}
-	authPassword := "\"\""
+	apiPassword := `""`
 	if len(Password) > 0 {
-		authPassword = "<redacted>"
+		apiPassword = "<redacted>"
 	}
 
 	log.Debugf("-dbpath            %#v", DBPath)
@@ -332,17 +337,18 @@ func Validate() {
 	log.Debugf("-factomdtimeout %v ", FactomClient.Factomd.Timeout)
 	log.Debugf("-factomduser    %#v", FactomClient.Factomd.User)
 	log.Debugf("-factomdpass    %v ", factomdPassword)
-	//log.Debugf("-factomdcert    %#v", FactomClient.Factomd.TLSCertFile)
 	debugPrintln()
 
 	log.Debugf("-w              %#v", FactomClient.WalletdServer)
 	log.Debugf("-wallettimeout %v ", FactomClient.Walletd.Timeout)
 	log.Debugf("-walletuser    %#v", FactomClient.Walletd.User)
 	log.Debugf("-walletpass    %v ", walletdPassword)
+	debugPrintln()
 
-	log.Debugf("-username    %#v", Username)
-	log.Debugf("-password    %v ", authPassword)
-	//log.Debugf("-walletcert    %#v", FactomClient.Walletd.TLSCertFile)
+	log.Debugf("-apiusername    %#v", Username)
+	log.Debugf("-apipassword    %v ", apiPassword)
+	log.Debugf("-apitlscert     %#v", TLSCertFile)
+	log.Debugf("-apitlskey      %#v", TLSKeyFile)
 	debugPrintln()
 
 	if factom.Bytes32(EsAdr).IsZero() {
@@ -356,6 +362,18 @@ func Validate() {
 			"-startscanheight incompatible with -ignorenewchains and -whitelist")
 	}
 
+	if len(Username) > 0 || len(Password) > 0 {
+		if len(Username) == 0 || len(Password) == 0 {
+			log.Fatal("-apiusername and -apipassword must be used together")
+		}
+		HasAuth = true
+	}
+	if len(TLSCertFile) > 0 || len(TLSKeyFile) > 0 {
+		if len(TLSCertFile) == 0 || len(TLSKeyFile) == 0 {
+			log.Fatal("-apitlscert and -apitlskey must be used together")
+		}
+		HasTLS = true
+	}
 }
 
 func flagVar(v interface{}, name string) {
@@ -450,10 +468,6 @@ func setupLogger() {
 
 func HasWhitelist() bool {
 	return len(Whitelist) > 0
-}
-
-func HasAuth() bool {
-	return Username != "" && Password != ""
 }
 
 func IgnoreNewChains() bool {
