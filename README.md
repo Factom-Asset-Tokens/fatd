@@ -174,20 +174,24 @@ Control how fatd runs using additional options at startup. For example:
 | `dbpath`          | Specify the path to use as fatd's sqlite database.           | Valid system path        | Current working directory |
 | `ecpub`           | The public Entry Credit address used to pay for submitting transactions | Valid EC address         | -                         |
 | `apiaddress`      | What port string the FAT daemon RPC will be bound to         | String                   | `:8078`                   |
+| `apiusername`     | The basic HTTP auth username to require for connections to fatd | String                   | -                         |
+| `apipassword`     | The basic HTTP auth username to require for connections to fatd | String                   | -                         |
+| `apitlscert`      | The file path to the TLS certificate file to use for secure conncetions | Valid system path        | -                         |
+| `apitlskey`       | The file path to the TLS key file to use for secure conncetions | Valid system path        | -                         |
 |                   |                                                              |                          |                           |
 | `s`               | The URL of the Factom API host                               | Valid URL                | `localhost:8088`          |
-| `factomdtimeout`  | The timeout in seconds to time out requests to factomd       | integer                  | 0                         |
-| `factomduser`     | The username of the user for factomd API authentication      | string                   | -                         |
-| `factomdpassword` | The password of the user for factomd API authentication      | string                   | -                         |
+| `factomdtimeout`  | The timeout in seconds to time out requests to factomd       | Integer                  | 0                         |
+| `factomduser`     | The username of the user for factomd API authentication      | String                   | -                         |
+| `factomdpassword` | The password of the user for factomd API authentication      | String                   | -                         |
 | `factomdcert`     | Path to the factomd connection TLS certificate file          | Valid system path string | -                         |
-| `factomdtls`      | Whether to use TLS on connection to factomd                  | boolean                  | false                     |
+| `factomdtls`      | Whether to use TLS on connection to factomd                  | Boolean                  | false                     |
 |                   |                                                              |                          |                           |
 | `w`               | The URL of the Factom Wallet Daemon API host                 | Valid URL                | `localhost:8089`          |
-| `wallettimeout`   | The timeout in seconds to time out requests to factomd       | integer                  | 0                         |
-| `walletuser`      | The username of the user for walletd API authentication      | string                   | -                         |
-| `walletpassword`  | The username of the user for walletd API authentication      | string                   | -                         |
+| `wallettimeout`   | The timeout in seconds to time out requests to factomd       | Integer                  | 0                         |
+| `walletuser`      | The username of the user for walletd API authentication      | String                   | -                         |
+| `walletpassword`  | The username of the user for walletd API authentication      | String                   | -                         |
 | `walletcert`      | Path to the walletd connection TLS certificate file          | Valid system path string | -                         |
-| `wallettls`       | Whether to use TLS on connection to walletd                  | boolean                  | false                     |
+| `wallettls`       | Whether to use TLS on connection to walletd                  | Boolean                  | false                     |
 
 For a complete up to date list of flags & options please see `flag/flag.go`
 
