@@ -52,7 +52,7 @@ func TestPendingEntries(t *testing.T) {
 		return
 	}
 
-	fmt.Printf("%+v\n", pe)
+	fmt.Printf("pe: %+v\n", pe)
 
 	require.True(sort.SliceIsSorted(pe, func(i, j int) bool {
 		var ci, cj []byte
@@ -63,7 +63,7 @@ func TestPendingEntries(t *testing.T) {
 		if ej.ChainID != nil {
 			cj = ej.ChainID[:]
 		}
-		return bytes.Compare(ci, cj) < 0
+		return bytes.Compare(ci, cj) > 0
 	}), "not sorted")
 
 	es := pe.Entries(&Bytes32{})
@@ -83,7 +83,7 @@ func TestPendingEntries(t *testing.T) {
 	if len(es) == 0 {
 		return
 	}
-	fmt.Printf("%+v\n", es)
+	fmt.Printf("es: %+v\n", es)
 	for _, e := range es {
 		assert.Equal(*e.ChainID, *searchID)
 	}
