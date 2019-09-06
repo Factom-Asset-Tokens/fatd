@@ -215,9 +215,16 @@ func open(fname string) (chain Chain, err error) {
 	if err = validateOrApplySchema(conn, chainDBSchema); err != nil {
 		return
 	}
+	// We only really need foreign key checks on the main database write
+	// connection.
 	if err = sqlitex.ExecScript(conn, `PRAGMA foreign_keys = ON;`); err != nil {
 		return
 	}
+
+	// This pool is technically RWrite to allow for the same functions to
+	// be used for the "send-transaction" API method. But chain.Get()
+	// creates a Savepoint around any connections from this pool and always
+	// rollsback, making this effectively a readonly connection.
 	flags = baseFlags
 	pool, err := sqlitex.Open(path, flags, PoolSize)
 	if err != nil {
@@ -230,6 +237,7 @@ func open(fname string) (chain Chain, err error) {
 	}, nil
 }
 
+// Close all database connections. Log any errors.
 func (chain *Chain) Close() {
 	if err := chain.Pool.Close(); err != nil {
 		chain.Log.Errorf("chain.Pool.Close(): %v", err)
@@ -240,11 +248,15 @@ func (chain *Chain) Close() {
 	}
 }
 
+// Get() returns a threadsafe connection to the database, and a function to
+// release the connection back to the pool. The connection allows writes but no
+// writes will persist or ever be visible to any other connection as all
+// changes are rolled back, making this effectively a readonly connection.
 func (chain *Chain) Get() (*sqlite.Conn, func()) {
 	conn := chain.Pool.Get(nil)
 	rollback := sqlitex.Save(conn)
 	return conn, func() {
-		rollback(&rollbackErr)
+		rollback(&alwaysRollbackErr)
 		chain.Pool.Put(conn)
 	}
 }

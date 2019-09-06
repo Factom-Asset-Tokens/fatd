@@ -10,7 +10,7 @@ import (
 	"github.com/Factom-Asset-Tokens/fatd/fat/fat1"
 )
 
-type applyFunc func(*Chain, int64, factom.Entry) error
+type applyFunc func(*Chain, int64, factom.Entry) (txErr, err error)
 
 func (chain *Chain) Apply(dbKeyMR *factom.Bytes32, eb factom.EBlock) (err error) {
 	// Ensure entire EBlock is applied atomically.
@@ -31,19 +31,22 @@ func (chain *Chain) Apply(dbKeyMR *factom.Bytes32, eb factom.EBlock) (err error)
 
 	// Save and apply each entry.
 	for _, e := range eb.Entries {
-		var ei int64
-		ei, err = chain.InsertEntry(e, chain.Head.Sequence)
-		if err != nil {
-			return
-		}
-		if err = chain.apply(chain, ei, e); err != nil {
+		if _, err = chain.ApplyEntry(e); err != nil {
 			return
 		}
 	}
 	return
 }
 
-var rollbackErr = fmt.Errorf("rollback")
+func (chain *Chain) ApplyEntry(e factom.Entry) (txErr, err error) {
+	ei, err := chain.InsertEntry(e, chain.Head.Sequence)
+	if err != nil {
+		return
+	}
+	return chain.apply(chain, ei, e)
+}
+
+var alwaysRollbackErr = fmt.Errorf("always rollback")
 
 func (chain *Chain) applyIssuance(ei int64, e factom.Entry) (issueErr, err error) {
 	issuance := fat.NewIssuance(e)
@@ -51,7 +54,7 @@ func (chain *Chain) applyIssuance(ei int64, e factom.Entry) (issueErr, err error
 	chainCopy := *chain
 	defer func() {
 		if err != nil || issueErr != nil {
-			rollback(&rollbackErr)
+			rollback(&alwaysRollbackErr)
 			// Reset chain on error
 			*chain = chainCopy
 		}
@@ -82,23 +85,26 @@ func (chain *Chain) applyIssuance(ei int64, e factom.Entry) (issueErr, err error
 
 func (chain *Chain) setApplyFunc() {
 	if !chain.Issuance.IsPopulated() {
-		chain.apply = func(chain *Chain, ei int64, e factom.Entry) error {
-			_, err := chain.applyIssuance(ei, e)
-			return err
+		chain.apply = func(chain *Chain, ei int64, e factom.Entry) (
+			txErr, err error) {
+			txErr, err = chain.applyIssuance(ei, e)
+			return
 		}
 		return
 	}
 	// Adapt to match ApplyFunc.
 	switch chain.Type {
 	case fat0.Type:
-		chain.apply = func(chain *Chain, ei int64, e factom.Entry) error {
-			_, _, err := chain.ApplyFAT0Tx(ei, e)
-			return err
+		chain.apply = func(chain *Chain, ei int64, e factom.Entry) (
+			txErr, err error) {
+			_, txErr, err = chain.ApplyFAT0Tx(ei, e)
+			return
 		}
 	case fat1.Type:
-		chain.apply = func(chain *Chain, ei int64, e factom.Entry) error {
-			_, _, err := chain.ApplyFAT1Tx(ei, e)
-			return err
+		chain.apply = func(chain *Chain, ei int64, e factom.Entry) (
+			txErr, err error) {
+			_, txErr, err = chain.ApplyFAT1Tx(ei, e)
+			return
 		}
 	default:
 		panic("invalid FAT type")
@@ -111,7 +117,7 @@ func (chain *Chain) Save(tx fat.Transaction) func(txErr, err *error) {
 	return func(txErr, err *error) {
 		e := tx.FactomEntry()
 		if *err != nil || *txErr != nil {
-			rollback(&rollbackErr)
+			rollback(&alwaysRollbackErr)
 			// Reset chain on error
 			*chain = chainCopy
 		}
