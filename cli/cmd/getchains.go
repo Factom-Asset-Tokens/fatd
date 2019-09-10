@@ -115,7 +115,8 @@ Token ID: %q
 
 	for _, chainID := range chainIDs {
 		vrbLog.Printf("Fetching token chain details... %v", chainID)
-		params := srv.ParamsToken{ChainID: &chainID}
+		params := srv.ParamsToken{ChainID: &chainID,
+			IncludePending: paramsToken.IncludePending}
 		var stats srv.ResultGetStats
 		if err := FATClient.Request("get-stats", params, &stats); err != nil {
 			errLog.Fatal(err)

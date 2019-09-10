@@ -27,6 +27,7 @@ import (
 	"io/ioutil"
 	"os"
 	"strings"
+	"time"
 	//"strings"
 
 	"crawshaw.io/sqlite"
@@ -253,4 +254,10 @@ func (chain *Chain) Close() {
 func (chain *Chain) Get() (*sqlite.Conn, func()) {
 	conn := chain.Pool.Get(nil)
 	return conn, func() { chain.Pool.Put(conn) }
+}
+
+func (chain *Chain) LatestEntryTimestamp() time.Time {
+	entries := chain.Head.Entries
+	lastID := len(entries) - 1
+	return entries[lastID].Timestamp
 }

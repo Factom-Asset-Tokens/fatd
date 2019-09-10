@@ -26,6 +26,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/Factom-Asset-Tokens/fatd/factom"
 	"github.com/Factom-Asset-Tokens/fatd/fat/fat1"
@@ -37,10 +38,11 @@ import (
 
 var (
 	paramsGetTxs = srv.ParamsGetTransactions{
-		StartHash:        new(factom.Bytes32),
-		NFTokenID:        new(fat1.NFTokenID),
-		ParamsToken:      srv.ParamsToken{ChainID: paramsToken.ChainID},
-		ParamsPagination: srv.ParamsPagination{Page: new(uint64)},
+		StartHash:   new(factom.Bytes32),
+		NFTokenID:   new(fat1.NFTokenID),
+		ParamsToken: srv.ParamsToken{ChainID: paramsToken.ChainID},
+		ParamsPagination: srv.ParamsPagination{Page: new(uint64),
+			Order: "desc"},
 	}
 	to, from       bool
 	transactionIDs []factom.Bytes32
@@ -84,7 +86,7 @@ more, and in the case of a FAT-1 chain, by a single --nftokenid. Use --page and
 	flags.Uint64VarP(paramsGetTxs.Page, "page", "p", 1, "Page of returned txs")
 	flags.Uint64VarP(&paramsGetTxs.Limit, "limit", "l", 10, "Limit of returned txs")
 	flags.VarPF((*txOrder)(&paramsGetTxs.Order), "order", "", "Order of returned txs").
-		DefValue = "asc"
+		DefValue = "desc"
 	flags.BoolVar(&to, "to", false, "Request only txs TO the given --address set")
 	flags.BoolVar(&from, "from", false, "Request only txs FROM the given --address set")
 	flags.VarPF(paramsGetTxs.StartHash, "starttx", "",
@@ -128,6 +130,7 @@ func validateGetTxsFlags(cmd *cobra.Command, args []string) error {
 	if err := validateChainIDFlags(cmd, args); err != nil {
 		return err
 	}
+	paramsGetTxs.IncludePending = paramsToken.IncludePending
 	flags := cmd.LocalFlags()
 	if len(transactionIDs) > 0 {
 		for _, flgName := range []string{"page", "order", "page", "limit",
@@ -208,9 +211,13 @@ func getTxs(_ *cobra.Command, _ []string) {
 }
 
 func printTx(result srv.ResultGetTransaction) {
+	if result.Pending {
+		fmt.Println("PENDING TX")
+	}
 	fmt.Println("TXID:", result.Hash)
-	fmt.Println("Timestamp:", result.Timestamp)
+	fmt.Println("Timestamp:", time.Unix(result.Timestamp, 0))
 	fmt.Println("TX:", (string)(*result.Tx.(*json.RawMessage)))
+
 	fmt.Println()
 }
 
@@ -238,7 +245,7 @@ func (o *txOrder) Set(str string) error {
 	switch str {
 	case "asc", "ascending", "earliest":
 		*o = "asc"
-	case "desc", "descending", "latest":
+	case "des", "desc", "descending", "latest":
 		*o = "desc"
 	default:
 		return fmt.Errorf(`must be "asc" or "desc"`)

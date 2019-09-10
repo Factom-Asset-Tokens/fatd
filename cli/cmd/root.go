@@ -273,6 +273,8 @@ CLI Completion
 		"Token ID of a FAT chain")
 	flags.VarPF(paramsToken.IssuerChainID, "identity", "I",
 		"Issuer Identity Chain ID of a FAT chain").DefValue = ""
+	flags.BoolVarP(&paramsToken.IncludePending, "includepending", "P", false,
+		"Include pending transactions")
 
 	generateCmplFlags(cmd, rootCmplCmd.Flags)
 	return cmd
@@ -288,6 +290,8 @@ var apiCmplFlags = complete.Flags{
 var tokenCmplFlags = complete.Flags{
 	"--chainid": PredictChainIDs,
 	"-C":        PredictChainIDs,
+	"--pending": complete.PredictNothing,
+	"-P":        complete.PredictNothing,
 }
 
 func validateRunCompletionFlags(cmd *cobra.Command, _ []string) error {

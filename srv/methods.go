@@ -97,6 +97,7 @@ type ResultGetTransaction struct {
 	Hash      *factom.Bytes32 `json:"entryhash"`
 	Timestamp int64           `json:"timestamp"`
 	Tx        interface{}     `json:"data"`
+	Pending   bool            `json:"pending,omitempty"`
 }
 
 func getTransaction(getEntry bool) jrpc.MethodFunc {
@@ -120,30 +121,26 @@ func getTransaction(getEntry bool) jrpc.MethodFunc {
 			return entry
 		}
 
+		result := ResultGetTransaction{
+			Hash:      entry.Hash,
+			Timestamp: entry.Timestamp.Unix(),
+			Pending:   chain.LatestEntryTimestamp().Before(entry.Timestamp),
+		}
+
+		var tx fat.Transaction
 		switch chain.Type {
 		case fat0.Type:
-			tx := fat0.NewTransaction(entry)
-			if err := tx.UnmarshalEntry(); err != nil {
-				panic(err)
-			}
-			return ResultGetTransaction{
-				Hash:      tx.Hash,
-				Timestamp: tx.Timestamp.Unix(),
-				Tx:        tx,
-			}
+			tx = fat0.NewTransaction(entry)
 		case fat1.Type:
-			tx := fat1.NewTransaction(entry)
-			if err := tx.UnmarshalEntry(); err != nil {
-				panic(err)
-			}
-			return ResultGetTransaction{
-				Hash:      tx.Hash,
-				Timestamp: tx.Timestamp.Unix(),
-				Tx:        tx,
-			}
+			tx = fat1.NewTransaction(entry)
 		default:
 			panic(fmt.Sprintf("unknown FAT type: %v", chain.Type))
 		}
+		if err := tx.UnmarshalEntry(); err != nil {
+			panic(err)
+		}
+		result.Tx = tx
+		return result
 	}
 }
 
@@ -186,34 +183,27 @@ func getTransactions(getEntry bool) jrpc.MethodFunc {
 			return entries
 		}
 
-		switch chain.Type {
-		case fat0.Type:
-			txs := make([]ResultGetTransaction, len(entries))
-			for i := range txs {
-				tx := fat0.NewTransaction(entries[i])
-				if err := tx.UnmarshalEntry(); err != nil {
-					panic(err)
-				}
-				txs[i].Hash = entries[i].Hash
-				txs[i].Timestamp = entries[i].Timestamp.Unix()
-				txs[i].Tx = tx
+		txs := make([]ResultGetTransaction, len(entries))
+		for i := range txs {
+			entry := entries[i]
+			var tx fat.Transaction
+			switch chain.Type {
+			case fat0.Type:
+				tx = fat0.NewTransaction(entry)
+			case fat1.Type:
+				tx = fat1.NewTransaction(entry)
+			default:
+				panic(fmt.Sprintf("unknown FAT type: %v", chain.Type))
 			}
-			return txs
-		case fat1.Type:
-			txs := make([]ResultGetTransaction, len(entries))
-			for i := range txs {
-				tx := fat1.NewTransaction(entries[i])
-				if err := tx.UnmarshalEntry(); err != nil {
-					panic(err)
-				}
-				txs[i].Hash = entries[i].Hash
-				txs[i].Timestamp = entries[i].Timestamp.Unix()
-				txs[i].Tx = tx
+			if err := tx.UnmarshalEntry(); err != nil {
+				panic(err)
 			}
-			return txs
-		default:
-			panic(fmt.Sprintf("unknown FAT type: %v", chain.Type))
+			txs[i].Hash = entry.Hash
+			txs[i].Timestamp = entry.Timestamp.Unix()
+			txs[i].Pending = chain.LatestEntryTimestamp().Before(entry.Timestamp)
+			txs[i].Tx = tx
 		}
+		return txs
 
 	}
 }

@@ -156,12 +156,12 @@ func (chain *Chain) applyTx(ei int64, tx fat.Transaction) (txErr, err error) {
 	return nil, nil
 }
 
-func (chain *Chain) ApplyFAT0Tx(ei int64, e factom.Entry) (tx fat0.Transaction,
+func (chain *Chain) ApplyFAT0Tx(ei int64, e factom.Entry) (tx *fat0.Transaction,
 	txErr, err error) {
 	tx = fat0.NewTransaction(e)
-	defer chain.Save(&tx)(&txErr, &err)
+	defer chain.Save(tx)(&txErr, &err)
 
-	if txErr, err = chain.applyTx(ei, &tx); err != nil || txErr != nil {
+	if txErr, err = chain.applyTx(ei, tx); err != nil || txErr != nil {
 		return
 	}
 
@@ -205,12 +205,12 @@ func (chain *Chain) ApplyFAT0Tx(ei int64, e factom.Entry) (tx fat0.Transaction,
 	return
 }
 
-func (chain *Chain) ApplyFAT1Tx(ei int64, e factom.Entry) (tx fat1.Transaction,
+func (chain *Chain) ApplyFAT1Tx(ei int64, e factom.Entry) (tx *fat1.Transaction,
 	txErr, err error) {
 	tx = fat1.NewTransaction(e)
-	defer chain.Save(&tx)(&txErr, &err)
+	defer chain.Save(tx)(&txErr, &err)
 
-	if txErr, err = chain.applyTx(ei, &tx); err != nil || txErr != nil {
+	if txErr, err = chain.applyTx(ei, tx); err != nil || txErr != nil {
 		return
 	}
 

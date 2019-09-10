@@ -96,7 +96,6 @@ func (p *Pending) Sync(chain db.Chain) error {
 		if err := p.Chain.Conn.ChangesetApply(inverse, nil, conflictFn); err != nil {
 			return err
 		}
-		chain.Log.Debug("apply PendSess")
 	}
 
 	if p.MainSess != nil {
@@ -108,7 +107,6 @@ func (p *Pending) Sync(chain db.Chain) error {
 		if err := p.Chain.Conn.ChangesetApply(changeset, nil, nil); err != nil {
 			return err
 		}
-		chain.Log.Debug("apply MainSess")
 	}
 
 	return nil
@@ -262,6 +260,8 @@ func (p *Pending) Open(chain db.Chain) (err error) {
 	}
 	c.Close() // Redundant connection...
 	p.Chain = chain
+	log := p.Chain.Log.Entry
+	p.Chain.Log.Entry = log.WithField("db", "pending")
 	p.Chain.Conn, p.Chain.Pool = conn, pool
 	return
 }

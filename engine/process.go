@@ -72,7 +72,6 @@ func Process(dbKeyMR *factom.Bytes32, eb factom.EBlock) error {
 			cached.Timestamp = e.Timestamp
 			*e = cached
 		}
-		chain.Log.Debug("main sync")
 		if err := chain.Pending.Sync(chain.Chain); err != nil {
 			return err
 		}

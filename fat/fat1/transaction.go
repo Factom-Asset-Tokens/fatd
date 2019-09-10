@@ -44,8 +44,8 @@ type Transaction struct {
 var _ fat.Transaction = &Transaction{}
 
 // NewTransaction returns a Transaction initialized with the given entry.
-func NewTransaction(entry factom.Entry) Transaction {
-	return Transaction{Entry: fat.Entry{Entry: entry}}
+func NewTransaction(entry factom.Entry) *Transaction {
+	return &Transaction{Entry: fat.Entry{Entry: entry}}
 }
 
 func (t *Transaction) UnmarshalJSON(data []byte) error {

@@ -41,6 +41,7 @@ type Transaction interface {
 	Validate(factom.IDKey) error
 	IsCoinbase() bool
 	FactomEntry() factom.Entry
+	UnmarshalEntry() error
 }
 
 // Entry has variables and methods common to all fat0 entries.

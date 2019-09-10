@@ -42,7 +42,7 @@ var (
 )
 
 const (
-	scanInterval = 15 * time.Second
+	scanInterval = 30 * time.Second
 )
 
 // Start launches the main engine goroutine, which loads state and starts the

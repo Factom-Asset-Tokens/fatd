@@ -98,6 +98,7 @@ func getBalanceArgs(cmd *cobra.Command, args []string) error {
 func getBalance(cmd *cobra.Command, _ []string) {
 	if paramsToken.ChainID == nil {
 		var params srv.ParamsGetBalances
+		params.IncludePending = paramsToken.IncludePending
 		vrbLog.Println("Fetching balances for all chains...")
 		for _, adr := range addresses {
 			params.Address = &adr
@@ -128,6 +129,7 @@ func getBalance(cmd *cobra.Command, _ []string) {
 	case fat0.Type:
 		params := srv.ParamsGetBalance{}
 		params.ChainID = paramsToken.ChainID
+		params.IncludePending = paramsToken.IncludePending
 		vrbLog.Println("Fetching balances...")
 		for _, adr := range addresses {
 			params.Address = &adr
@@ -142,6 +144,7 @@ func getBalance(cmd *cobra.Command, _ []string) {
 		var params srv.ParamsGetNFBalance
 		params.Limit = math.MaxUint64
 		params.ChainID = paramsToken.ChainID
+		params.IncludePending = paramsToken.IncludePending
 		vrbLog.Println("Fetching NF balances...")
 		for _, adr := range addresses {
 			params.Address = &adr
