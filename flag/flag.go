@@ -26,6 +26,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 	"time"
 
@@ -44,6 +45,7 @@ var (
 		"startscanheight":   "START_SCAN_HEIGHT",
 		"factomscanretries": "FACTOM_SCAN_RETRIES",
 		"debug":             "DEBUG",
+		"disablepending":    "DISABLE_PENDING",
 
 		"dbpath": "DB_PATH",
 
@@ -81,6 +83,7 @@ var (
 		"startscanheight":   uint64(0),
 		"factomscanretries": int64(0),
 		"debug":             false,
+		"disablepending":    false,
 
 		"dbpath": "./fatd.db",
 
@@ -114,6 +117,7 @@ var (
 		"startscanheight":   "Block height to start scanning for deposits on startup",
 		"factomscanretries": "Number of times to consecutively retry fetching the latest height before exiting, use -1 for unlimited",
 		"debug":             "Log debug messages",
+		"disablepending":    "Do not scan for pending txs, reducing memory usage",
 
 		"dbpath": "Path to the folder containing all database files",
 
@@ -141,7 +145,7 @@ var (
 		"ecadr": "Entry Credit Public Address to use to pay for Factom entries",
 		"esadr": "Entry Credit Secret Address to use to pay for Factom entries",
 
-		"whitelist":        "Track only these chains, adding the database if needed",
+		"whitelist":        "Track only these chains, creating the database if needed",
 		"blacklist":        "Do not track or sync these chains, overrides -whitelist",
 		"ignorenewchains":  "Do not track new chains, sync existing chain databases",
 		"skipdbvalidation": "Skip the full validation check of all chain databases",
@@ -150,6 +154,7 @@ var (
 		"-startscanheight":   complete.PredictAnything,
 		"-factomscanretries": complete.PredictAnything,
 		"-debug":             complete.PredictNothing,
+		"-disablepending":    complete.PredictNothing,
 
 		"-dbpath": complete.PredictFiles("*"),
 
@@ -197,6 +202,7 @@ var (
 	startScanHeight   uint64      // We parse the flag as unsigned.
 	StartScanHeight   int32  = -1 // We work with the signed value.
 	LogDebug          bool
+	DisablePending    bool
 	FactomScanRetries int64 = -1
 
 	EsAdr factom.EsAddress
@@ -230,6 +236,7 @@ func init() {
 	flagVar(&startScanHeight, "startscanheight")
 	flagVar(&FactomScanRetries, "factomscanretries")
 	flagVar(&LogDebug, "debug")
+	flagVar(&DisablePending, "disablepending")
 
 	flagVar(&DBPath, "dbpath")
 
@@ -282,6 +289,7 @@ func Parse() {
 	loadFromEnv(&startScanHeight, "startscanheight")
 	loadFromEnv(&FactomScanRetries, "factomscanretries")
 	loadFromEnv(&LogDebug, "debug")
+	loadFromEnv(&DisablePending, "disablepending")
 
 	loadFromEnv(&DBPath, "dbpath")
 
@@ -350,6 +358,13 @@ func Validate() {
 	log.Debugf("-apitlscert     %#v", TLSCertFile)
 	log.Debugf("-apitlskey      %#v", TLSKeyFile)
 	debugPrintln()
+
+	var err error
+	DBPath, err = filepath.Abs(DBPath)
+	if err != nil {
+		log.Fatalf("-dbpath %v: %v", DBPath, err)
+	}
+	DBPath += fmt.Sprintf("%c", filepath.Separator)
 
 	if factom.Bytes32(EsAdr).IsZero() {
 		EsAdr, _ = ECAdr.GetEsAddress(FactomClient)
@@ -467,7 +482,7 @@ func setupLogger() {
 }
 
 func HasWhitelist() bool {
-	return len(Whitelist) > 0
+	return flagset["whitelist"]
 }
 
 func IgnoreNewChains() bool {

@@ -7,10 +7,10 @@ github.com/AdamSLevy/jsonrpc2/v11 v11.3.2 h1:McSW/pP7K0/Ucjig6AJwW7Khph/XOMYhSB8
 github.com/AdamSLevy/jsonrpc2/v11 v11.3.2/go.mod h1:7fNjH6BXM0KVswWqj+K/mnOS8wiSke0sE8X46hS+nsc=
 github.com/AdamSLevy/pflag v1.0.4 h1:oykgyxDWo391JRRNOLr892UzaK2SmLiAvza8OBLX24U=
 github.com/AdamSLevy/pflag v1.0.4/go.mod h1:UeCxQpw/gAoTUVBfjr8n7qcGZZNmECgohVFOAdlRMtA=
-github.com/AdamSLevy/sqlite v0.1.3-0.20190729192944-6cbd592f144c h1:n+ha40YmIj3rnMvg4KkNUmPRHC+U0axIZFe51LVJdaM=
-github.com/AdamSLevy/sqlite v0.1.3-0.20190729192944-6cbd592f144c/go.mod h1:igAO5JulrQ1DbdZdtVq48mnZUBAPOeFzer7VhDWNtW4=
-github.com/AdamSLevy/sqlitechangeset v0.0.0-20190731000048-d57789e63df5 h1:2gBp1whWHlQvpYS9vdlmGKYBvs1qwzrxmov8KjUnBGE=
-github.com/AdamSLevy/sqlitechangeset v0.0.0-20190731000048-d57789e63df5/go.mod h1:X5d1YVaSKMYV0QrZbPKcsWhE4k3wiWP/BDUbz2dDi1M=
+github.com/AdamSLevy/sqlite v0.1.3-0.20190909223149-1ad299dae455 h1:f3m3JW4YkEDN62N036HWMFbLgT+wVgqd5UUunixT2PQ=
+github.com/AdamSLevy/sqlite v0.1.3-0.20190909223149-1ad299dae455/go.mod h1:igAO5JulrQ1DbdZdtVq48mnZUBAPOeFzer7VhDWNtW4=
+github.com/AdamSLevy/sqlitechangeset v0.0.0-20190910025316-7fba69e6303e h1:wRP8CEe6U4Q4tSD0GWUUoQ0uICteUsjD4nNkvFms2k8=
+github.com/AdamSLevy/sqlitechangeset v0.0.0-20190910025316-7fba69e6303e/go.mod h1:AL34KMJ3RXL3U2gX6MWurmneH0u/ergvXeVTsUBufcc=
 github.com/BurntSushi/toml v0.3.1 h1:WXkYYl6Yr3qBf1K79EBnL4mak0OimBfB0XUf9Vl28OQ=
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
 github.com/Factom-Asset-Tokens/base58 v0.0.0-20181227014902-61655c4dd885 h1:rfy2fwMrOZPqQgjsH7VCreGMSPzcvqQrfjeSs8nf+sY=

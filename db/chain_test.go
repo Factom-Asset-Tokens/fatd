@@ -10,9 +10,8 @@ import (
 
 func TestChainValidate(t *testing.T) {
 	require := require.New(t)
-	flag.DBPath = "./test-fatd.db"
 	flag.LogDebug = true
-	chains, err := OpenAll()
+	chains, err := OpenAll("./test-fatd.db/")
 	require.NoError(err, "OpenAll()")
 	require.NotEmptyf(chains, "Test database is empty: %v", flag.DBPath)
 

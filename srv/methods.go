@@ -71,10 +71,11 @@ type ResultGetIssuance struct {
 func getIssuance(entry bool) jrpc.MethodFunc {
 	return func(data json.RawMessage) interface{} {
 		params := ParamsToken{}
-		chain, err := validate(data, &params)
+		chain, put, err := validate(data, &params)
 		if err != nil {
 			return err
 		}
+		defer put()
 
 		if entry {
 			return chain.Issuance.Entry.Entry
@@ -101,15 +102,13 @@ type ResultGetTransaction struct {
 func getTransaction(getEntry bool) jrpc.MethodFunc {
 	return func(data json.RawMessage) interface{} {
 		params := ParamsGetTransaction{}
-		chain, err := validate(data, &params)
+		chain, put, err := validate(data, &params)
 		if err != nil {
 			return err
 		}
-
-		conn, put := chain.Get()
 		defer put()
 
-		entry, err := db.SelectEntryByHashValid(conn, params.Hash)
+		entry, err := db.SelectEntryByHashValid(chain.Conn, params.Hash)
 		if err != nil {
 			panic(err)
 		}
@@ -151,10 +150,11 @@ func getTransaction(getEntry bool) jrpc.MethodFunc {
 func getTransactions(getEntry bool) jrpc.MethodFunc {
 	return func(data json.RawMessage) interface{} {
 		params := ParamsGetTransactions{}
-		chain, err := validate(data, &params)
+		chain, put, err := validate(data, &params)
 		if err != nil {
 			return err
 		}
+		defer put()
 
 		if params.NFTokenID != nil && chain.Type != fat1.Type {
 			err := ErrorTokenNotFound
@@ -162,15 +162,12 @@ func getTransactions(getEntry bool) jrpc.MethodFunc {
 			return err
 		}
 
-		conn, put := chain.Get()
-		defer put()
-
 		// Lookup Txs
 		var nfTkns fat1.NFTokens
 		if params.NFTokenID != nil {
 			nfTkns, _ = fat1.NewNFTokens(params.NFTokenID)
 		}
-		entries, err := db.SelectEntryByAddress(conn, params.StartHash,
+		entries, err := db.SelectEntryByAddress(chain.Conn, params.StartHash,
 			params.Addresses, nfTkns,
 			params.ToFrom, params.Order,
 			*params.Page, params.Limit)
@@ -223,14 +220,13 @@ func getTransactions(getEntry bool) jrpc.MethodFunc {
 
 func getBalance(data json.RawMessage) interface{} {
 	params := ParamsGetBalance{}
-	chain, err := validate(data, &params)
+	chain, put, err := validate(data, &params)
 	if err != nil {
 		return err
 	}
-
-	conn, put := chain.Get()
 	defer put()
-	balance, err := db.SelectAddressBalance(conn, params.Address)
+
+	balance, err := db.SelectAddressBalance(chain.Conn, params.Address)
 	if err != nil {
 		panic(err)
 	}
@@ -264,7 +260,7 @@ func (r *ResultGetBalances) UnmarshalJSON(data []byte) error {
 
 func getBalances(data json.RawMessage) interface{} {
 	params := ParamsGetBalances{}
-	if _, err := validate(data, &params); err != nil {
+	if _, _, err := validate(data, &params); err != nil {
 		return err
 	}
 
@@ -272,6 +268,9 @@ func getBalances(data json.RawMessage) interface{} {
 	balances := make(ResultGetBalances, len(issuedIDs))
 	for _, chainID := range issuedIDs {
 		chain := engine.Chains.Get(chainID)
+		if params.HasIncludePending() {
+			chain.ApplyPending()
+		}
 		conn, put := chain.Get()
 		defer put()
 		balance, err := db.SelectAddressBalance(conn, params.Address)
@@ -287,10 +286,11 @@ func getBalances(data json.RawMessage) interface{} {
 
 func getNFBalance(data json.RawMessage) interface{} {
 	params := ParamsGetNFBalance{}
-	chain, err := validate(data, &params)
+	chain, put, err := validate(data, &params)
 	if err != nil {
 		return err
 	}
+	defer put()
 
 	if chain.Type != fat1.Type {
 		err := ErrorTokenNotFound
@@ -298,9 +298,7 @@ func getNFBalance(data json.RawMessage) interface{} {
 		return err
 	}
 
-	conn, put := chain.Get()
-	defer put()
-	tkns, err := db.SelectNFTokensByOwner(conn, params.Address,
+	tkns, err := db.SelectNFTokensByOwner(chain.Conn, params.Address,
 		*params.Page, params.Limit, params.Order)
 	if err != nil {
 		panic(err)
@@ -331,25 +329,23 @@ var coinbaseRCDHash = fat.Coinbase()
 
 func getStats(data json.RawMessage) interface{} {
 	params := ParamsToken{}
-	chain, err := validate(data, &params)
+	chain, put, err := validate(data, &params)
 	if err != nil {
 		return err
 	}
-
-	conn, put := chain.Get()
 	defer put()
 
-	burned, err := db.SelectAddressBalance(conn, &coinbaseRCDHash)
+	burned, err := db.SelectAddressBalance(chain.Conn, &coinbaseRCDHash)
 	if err != nil {
 		panic(err)
 	}
-	txCount, err := db.SelectEntryCount(conn, true)
-	e, err := db.SelectEntryLatestValid(conn)
+	txCount, err := db.SelectEntryCount(chain.Conn, true)
+	e, err := db.SelectEntryLatestValid(chain.Conn)
 	if err != nil {
 		panic(err)
 	}
 
-	nonZeroBalances, err := db.SelectAddressCount(conn, true)
+	nonZeroBalances, err := db.SelectAddressCount(chain.Conn, true)
 	if err != nil {
 		panic(err)
 	}
@@ -382,10 +378,11 @@ type ResultGetNFToken struct {
 
 func getNFToken(data json.RawMessage) interface{} {
 	params := ParamsGetNFToken{}
-	chain, err := validate(data, &params)
+	chain, put, err := validate(data, &params)
 	if err != nil {
 		return err
 	}
+	defer put()
 
 	if chain.Type != fat1.Type {
 		err := ErrorTokenNotFound
@@ -393,10 +390,7 @@ func getNFToken(data json.RawMessage) interface{} {
 		return err
 	}
 
-	conn, put := chain.Get()
-	defer put()
-
-	owner, creationHash, metadata, err := db.SelectNFToken(conn, *params.NFTokenID)
+	owner, creationHash, metadata, err := db.SelectNFToken(chain.Conn, *params.NFTokenID)
 	if err != nil {
 		panic(err)
 	}
@@ -422,10 +416,11 @@ func getNFToken(data json.RawMessage) interface{} {
 
 func getNFTokens(data json.RawMessage) interface{} {
 	params := ParamsGetAllNFTokens{}
-	chain, err := validate(data, &params)
+	chain, put, err := validate(data, &params)
 	if err != nil {
 		return err
 	}
+	defer put()
 
 	if chain.Type != fat1.Type {
 		err := ErrorTokenNotFound
@@ -433,10 +428,7 @@ func getNFTokens(data json.RawMessage) interface{} {
 		return err
 	}
 
-	conn, put := chain.Get()
-	defer put()
-
-	tkns, owners, creationHashes, metadata, err := db.SelectNFTokens(conn,
+	tkns, owners, creationHashes, metadata, err := db.SelectNFTokens(chain.Conn,
 		params.Order, *params.Page, params.Limit)
 	if err != nil {
 		panic(err)
@@ -459,34 +451,17 @@ func getNFTokens(data json.RawMessage) interface{} {
 
 func sendTransaction(data json.RawMessage) interface{} {
 	params := ParamsSendTransaction{}
-	chain, err := validate(data, &params)
+	chain, put, err := validate(data, &params)
 	if err != nil {
 		return err
 	}
+	defer put()
 	if !params.DryRun && factom.Bytes32(flag.EsAdr).IsZero() {
 		return ErrorNoEC
 	}
 
-	conn, put := chain.Get()
-	defer put()
-
-	// Replace the conn
-	chain.Conn = conn
-
 	entry := params.Entry()
-	var ei int64
-	ei, err = chain.InsertEntry(entry, chain.Head.Sequence)
-	if err != nil {
-		panic(err)
-	}
-
-	var txErr error
-	switch chain.Type {
-	case fat0.Type:
-		_, txErr, err = chain.ApplyFAT0Tx(ei, entry)
-	case fat1.Type:
-		_, txErr, err = chain.ApplyFAT1Tx(ei, entry)
-	}
+	txErr, err := chain.ApplyEntry(entry)
 	if err != nil {
 		panic(err)
 	}
@@ -525,7 +500,7 @@ func sendTransaction(data json.RawMessage) interface{} {
 }
 
 func getDaemonTokens(data json.RawMessage) interface{} {
-	if _, err := validate(data, nil); err != nil {
+	if _, _, err := validate(data, nil); err != nil {
 		return err
 	}
 
@@ -548,7 +523,7 @@ type ResultGetDaemonProperties struct {
 }
 
 func getDaemonProperties(data json.RawMessage) interface{} {
-	if _, err := validate(data, nil); err != nil {
+	if _, _, err := validate(data, nil); err != nil {
 		return err
 	}
 	return ResultGetDaemonProperties{
@@ -568,31 +543,39 @@ func getSyncStatus(data json.RawMessage) interface{} {
 	return ResultGetSyncStatus{Sync: sync, Current: current}
 }
 
-func validate(data json.RawMessage, params Params) (*engine.Chain, error) {
+func validate(data json.RawMessage, params Params) (*engine.Chain, func(), error) {
 	if params == nil {
 		if len(data) > 0 {
-			return nil, jrpc.InvalidParams(`no "params" accepted`)
+			return nil, nil, jrpc.InvalidParams(`no "params" accepted`)
 		}
-		return nil, nil
+		return nil, nil, nil
 	}
 	if len(data) == 0 {
-		return nil, params.IsValid()
+		return nil, nil, params.IsValid()
 	}
 	if err := unmarshalStrict(data, params); err != nil {
-		return nil, jrpc.InvalidParams(err.Error())
+		return nil, nil, jrpc.InvalidParams(err.Error())
 	}
 	if err := params.IsValid(); err != nil {
-		return nil, err
+		return nil, nil, err
+	}
+	if params.HasIncludePending() && flag.DisablePending {
+		return nil, nil, ErrorPendingDisabled
 	}
 	chainID := params.ValidChainID()
 	if chainID != nil {
 		chain := engine.Chains.Get(chainID)
 		if !chain.IsIssued() {
-			return nil, ErrorTokenNotFound
+			return nil, nil, ErrorTokenNotFound
 		}
-		return &chain, nil
+		if params.HasIncludePending() {
+			chain.ApplyPending()
+		}
+		conn, put := chain.Get()
+		chain.Conn = conn
+		return &chain, put, nil
 	}
-	return nil, nil
+	return nil, nil, nil
 }
 
 func unmarshalStrict(data []byte, v interface{}) error {

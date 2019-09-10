@@ -24,12 +24,12 @@ func (chain *Chain) Apply(dbKeyMR *factom.Bytes32, eb factom.EBlock) (err error)
 
 	chain.Head = eb
 
-	// Save latest EBlock.
+	// Insert latest EBlock.
 	if err = chain.insertEBlock(eb, dbKeyMR); err != nil {
 		return
 	}
 
-	// Save and apply each entry.
+	// Insert each entry and attempt to apply it...
 	for _, e := range eb.Entries {
 		if _, err = chain.ApplyEntry(e); err != nil {
 			return
@@ -57,15 +57,14 @@ func (chain *Chain) applyIssuance(ei int64, e factom.Entry) (issueErr, err error
 			rollback(&alwaysRollbackErr)
 			// Reset chain on error
 			*chain = chainCopy
-		}
-		if err != nil {
-			return
-		}
-		if issueErr != nil {
-			chain.Log.Debugf("Entry{%v}: invalid issuance: %v",
+			if err != nil {
+				return
+			}
+			chain.Log.Debugf("Entry{%v}: invalid Issuance: %v",
 				e.Hash, issueErr)
 			return
 		}
+		rollback(&err) // commit
 		chain.Log.Debugf("Valid Issuance Entry: %v %+v", e.Hash, issuance)
 	}()
 	// The Identity must exist prior to issuance.
@@ -120,15 +119,14 @@ func (chain *Chain) Save(tx fat.Transaction) func(txErr, err *error) {
 			rollback(&alwaysRollbackErr)
 			// Reset chain on error
 			*chain = chainCopy
-		}
-		if *err != nil {
-			return
-		}
-		if *txErr != nil {
-			chain.Log.Debugf("Entry{%v}: invalid %v transaction: %v",
+			if *err != nil {
+				return
+			}
+			chain.Log.Debugf("Entry{%v}: invalid %v Transaction: %v",
 				e.Hash, chain.Type, *txErr)
 			return
 		}
+		rollback(err)
 		var cbStr string
 		if tx.IsCoinbase() {
 			cbStr = "Coinbase "

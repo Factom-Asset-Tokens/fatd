@@ -12,6 +12,10 @@ import (
 	"github.com/Factom-Asset-Tokens/fatd/flag"
 )
 
+func init() {
+	sqlitechangeset.AlwaysUseBlob = true
+}
+
 // ValidateChain validates all Entry Hashes and EBlock KeyMRs, as well as the
 // continuity of all stored EBlocks and Entries. It does not validate the
 // validity of the saved DBlock KeyMRs.

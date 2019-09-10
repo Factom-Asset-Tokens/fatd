@@ -35,6 +35,7 @@ import (
 type Params interface {
 	IsValid() error
 	ValidChainID() *factom.Bytes32
+	HasIncludePending() bool
 }
 
 // ParamsToken scopes a request down to a single FAT token using either the
@@ -43,6 +44,8 @@ type ParamsToken struct {
 	ChainID       *factom.Bytes32 `json:"chainid,omitempty"`
 	TokenID       string          `json:"tokenid,omitempty"`
 	IssuerChainID *factom.Bytes32 `json:"issuerid,omitempty"`
+
+	IncludePending bool `json:"includepending,omitempty"`
 }
 
 func (p ParamsToken) IsValid() error {
@@ -67,6 +70,8 @@ func (p ParamsToken) IsValid() error {
 	return jrpc.InvalidParams(
 		`required: either "chainid" or both "tokenid" and "issuerid"`)
 }
+
+func (p ParamsToken) HasIncludePending() bool { return p.IncludePending }
 
 func (p ParamsToken) ValidChainID() *factom.Bytes32 {
 	if p.ChainID != nil {
@@ -189,8 +194,11 @@ func (p ParamsGetBalance) IsValid() error {
 }
 
 type ParamsGetBalances struct {
-	Address *factom.FAAddress `json:"address,omitempty"`
+	Address        *factom.FAAddress `json:"address,omitempty"`
+	IncludePending bool              `json:"includepending,omitempty"`
 }
+
+func (p ParamsGetBalances) HasIncludePending() bool { return p.IncludePending }
 
 func (p ParamsGetBalances) IsValid() error {
 	if p.Address == nil {

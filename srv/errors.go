@@ -34,4 +34,6 @@ var (
 		"token is in the process of syncing")
 	ErrorNoEC = jrpc.NewError(-32806, "No Entry Credits",
 		"not configured with entry credits")
+	ErrorPendingDisabled = jrpc.NewError(-32807, "Pending Transactions Disabled",
+		"fatd is not tracking pending transactions")
 )

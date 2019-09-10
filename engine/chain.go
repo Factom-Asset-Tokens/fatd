@@ -23,9 +23,13 @@
 package engine
 
 import (
+	"bytes"
 	"fmt"
 
+	"crawshaw.io/sqlite"
+
 	jrpc "github.com/AdamSLevy/jsonrpc2/v11"
+
 	"github.com/Factom-Asset-Tokens/fatd/db"
 	"github.com/Factom-Asset-Tokens/fatd/factom"
 	"github.com/Factom-Asset-Tokens/fatd/fat"
@@ -35,6 +39,79 @@ import (
 type Chain struct {
 	ChainStatus
 	db.Chain
+
+	Pending Pending
+}
+
+type Pending struct {
+	PendSess *sqlite.Session
+	MainSess *sqlite.Session
+	Chain    db.Chain
+	Entries  map[factom.Bytes32]factom.Entry
+}
+
+func (p *Pending) Close() {
+	p.DeleteSessions()
+	p.Chain.Close()
+}
+
+func (p *Pending) DeleteSessions() {
+	if p.PendSess != nil {
+		p.PendSess.Delete()
+		p.PendSess = nil
+	}
+	if p.MainSess != nil {
+		p.MainSess.Delete()
+		p.MainSess = nil
+	}
+}
+
+func (p *Pending) Sync(chain db.Chain) error {
+	// Reset p.Chain to chain, but preserve the existing Conn and Pool.
+	conn, pool := p.Chain.Conn, p.Chain.Pool
+	p.Chain = chain
+	p.Chain.Conn, p.Chain.Pool = conn, pool
+
+	p.Entries = nil
+
+	// Ensure the sessions are deleted and freed.
+	defer p.DeleteSessions()
+
+	if p.PendSess != nil {
+		// Revert all of the pending transactions by applying the inverse of
+		// the changeset tracked by session.
+		changeset := &bytes.Buffer{}
+		if err := p.PendSess.Changeset(changeset); err != nil {
+			return err
+		}
+		inverse := bytes.NewBuffer(make([]byte, 0, changeset.Cap()))
+		if err := sqlite.ChangesetInvert(inverse, changeset); err != nil {
+			return err
+		}
+		conflictFn := func(cType sqlite.ConflictType,
+			_ sqlite.ChangesetIter) sqlite.ConflictAction {
+			chain.Log.Errorf("ChangesetApply Conflict: %v", cType)
+			return sqlite.SQLITE_CHANGESET_ABORT
+		}
+		if err := p.Chain.Conn.ChangesetApply(inverse, nil, conflictFn); err != nil {
+			return err
+		}
+		chain.Log.Debug("apply PendSess")
+	}
+
+	if p.MainSess != nil {
+		// Apply all of the official transactions.
+		changeset := &bytes.Buffer{}
+		if err := p.MainSess.Changeset(changeset); err != nil {
+			return err
+		}
+		if err := p.Chain.Conn.ChangesetApply(changeset, nil, nil); err != nil {
+			return err
+		}
+		chain.Log.Debug("apply MainSess")
+	}
+
+	return nil
 }
 
 func (chain Chain) String() string {
@@ -50,7 +127,7 @@ func OpenNew(c *factom.Client,
 		return chain, fmt.Errorf("%#v.Get(c): %v", eb, err)
 	}
 	// Load first entry of new chain.
-	first := eb.Entries[0]
+	first := &eb.Entries[0]
 	if err := first.Get(c); err != nil {
 		return chain, fmt.Errorf("%#v.Get(c): %v", first, err)
 	}
@@ -78,7 +155,7 @@ func OpenNew(c *factom.Client,
 		return chain, fmt.Errorf("%#v.GetEntries(c): %v", eb, err)
 	}
 
-	chain.Chain, err = db.OpenNew(dbKeyMR, eb, flag.NetworkID, identity)
+	chain.Chain, err = db.OpenNew(flag.DBPath, dbKeyMR, eb, flag.NetworkID, identity)
 	if err != nil {
 		return chain, fmt.Errorf("db.OpenNew(): %v", err)
 	}
@@ -87,6 +164,7 @@ func OpenNew(c *factom.Client,
 	} else {
 		chain.ChainStatus = ChainStatusTracked
 	}
+	chain.Pending.Chain = chain.Chain
 	return
 }
 
@@ -166,4 +244,24 @@ func (chain *Chain) Apply(c *factom.Client,
 		chain.ChainStatus = ChainStatusIssued
 	}
 	return nil
+}
+
+func (p *Pending) Open(chain db.Chain) (err error) {
+	dbURI := fmt.Sprintf("file:%v?mode=memory&cache=shared", chain.ID)
+	conn, err := chain.Conn.BackupToDB("", dbURI)
+	defer func() {
+		if err != nil {
+			conn.Close()
+		}
+	}()
+
+	// Open the pending database connection and pool
+	c, pool, err := db.OpenConnPool(dbURI)
+	if err != nil {
+		return
+	}
+	c.Close() // Redundant connection...
+	p.Chain = chain
+	p.Chain.Conn, p.Chain.Pool = conn, pool
+	return
 }

@@ -24,7 +24,7 @@ package engine
 
 import (
 	"fmt"
-	"path/filepath"
+	"os"
 	"sync"
 	"time"
 
@@ -53,15 +53,23 @@ const (
 func Start(stop <-chan struct{}) (done <-chan struct{}) {
 	log = _log.New("pkg", "engine")
 
+	// Try to create the main and pending database directories, in case
+	// they don't already exist.
+	if err := createDir(flag.DBPath); err != nil {
+		log.Error(err)
+		return
+	}
+
 	// Try to create a lockfile
-	lockFilePath, err := filepath.Abs(flag.DBPath + "/db.lock")
+	lockFilePath := flag.DBPath + "db.lock"
+	var err error
 	lockFile, err = lockfile.New(lockFilePath)
 	if err != nil {
 		log.Error(err)
 		return
 	}
 	if err = lockFile.TryLock(); err != nil {
-		log.Errorf("Database in use by other process.")
+		log.Errorf("Database in use by other process. %v", err)
 		return
 	}
 	defer func() {
@@ -240,6 +248,34 @@ func engine(stop <-chan struct{}, done chan struct{}) {
 		}
 
 		if synced {
+			var pe factom.PendingEntries
+			if flag.DisablePending {
+				goto WAIT
+			}
+			// Get and apply any pending entries
+			if err := pe.Get(c); err != nil {
+				log.Error(err)
+				return
+			}
+			for i, j := 0, 0; i < len(pe); i = j {
+				e := pe[i]
+				if e.ChainID == nil {
+					// No more revealed entries
+					break
+				}
+				// Grab remaining entries with this chain ID.
+				for j = i + 1; j < len(pe); j++ {
+					chainID := pe[j].ChainID
+					if chainID == nil || *chainID != *e.ChainID {
+						break
+					}
+				}
+				if err := ProcessPending(pe[i:j]...); err != nil {
+					log.Error(err)
+					return
+				}
+			}
+		WAIT:
 			// Wait until the next scan tick or we're told to stop.
 			select {
 			case <-scanTicker.C:
@@ -297,4 +333,13 @@ func launchWorkers(num int, job func()) {
 	for i := 0; i < num; i++ {
 		go job()
 	}
+}
+
+func createDir(path string) error {
+	if err := os.Mkdir(path, 0755); err != nil {
+		if !os.IsExist(err) {
+			return fmt.Errorf("os.Mkdir(%#v): %v", path, err)
+		}
+	}
+	return nil
 }

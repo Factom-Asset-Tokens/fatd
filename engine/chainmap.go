@@ -108,6 +108,9 @@ func (cm ChainMap) Close() {
 	cm.Lock()
 	for _, chain := range cm.m {
 		if chain.IsTracked() {
+			if chain.Pending.Chain.Conn != nil {
+				chain.Pending.Close()
+			}
 			chain.Close()
 		}
 	}
@@ -117,7 +120,7 @@ func (cm ChainMap) Close() {
 // syncs them. Any whitelisted chains that are not previously tracked are
 // synced. The lowest sync height among all chain databases is returned.
 func loadChains() (syncHeight uint32, err error) {
-	dbChains, err := db.OpenAll()
+	dbChains, err := db.OpenAll(flag.DBPath)
 	if err != nil {
 		return
 	}

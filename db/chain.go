@@ -27,13 +27,13 @@ import (
 	"io/ioutil"
 	"os"
 	"strings"
+	//"strings"
 
 	"crawshaw.io/sqlite"
 	"crawshaw.io/sqlite/sqlitex"
 
 	"github.com/Factom-Asset-Tokens/fatd/factom"
 	"github.com/Factom-Asset-Tokens/fatd/fat"
-	"github.com/Factom-Asset-Tokens/fatd/flag"
 	_log "github.com/Factom-Asset-Tokens/fatd/log"
 )
 
@@ -64,6 +64,7 @@ type Chain struct {
 	fat.Issuance
 	NumIssued uint64
 
+	DBFile        string
 	*sqlite.Conn  // Read/Write
 	*sqlitex.Pool // Read Only Pool
 	Log           _log.Log
@@ -71,10 +72,12 @@ type Chain struct {
 	apply applyFunc
 }
 
-func OpenNew(dbKeyMR *factom.Bytes32, eb factom.EBlock, networkID factom.NetworkID,
+// dbPath must be path ending in os.Separator
+func OpenNew(dbPath string,
+	dbKeyMR *factom.Bytes32, eb factom.EBlock, networkID factom.NetworkID,
 	identity factom.Identity) (chain Chain, err error) {
 	fname := eb.ChainID.String() + dbFileExtension
-	path := flag.DBPath + "/" + fname
+	path := dbPath + fname
 
 	nameIDs := eb.Entries[0].ExtIDs
 	if !fat.ValidTokenNameIDs(nameIDs) {
@@ -92,7 +95,7 @@ func OpenNew(dbKeyMR *factom.Bytes32, eb factom.EBlock, networkID factom.Network
 		return
 	}
 
-	chain, err = open(fname)
+	chain.Conn, chain.Pool, err = OpenConnPool(dbPath + fname)
 	if err != nil {
 		return
 	}
@@ -104,6 +107,8 @@ func OpenNew(dbKeyMR *factom.Bytes32, eb factom.EBlock, networkID factom.Network
 			}
 		}
 	}()
+	chain.Log = _log.New("chain", strings.TrimRight(fname, dbFileExtension))
+	chain.DBFile = fname
 	chain.ID = eb.ChainID
 	chain.TokenID, chain.IssuerChainID = fat.TokenIssuer(nameIDs)
 	chain.DBKeyMR = dbKeyMR
@@ -130,28 +135,25 @@ func OpenNew(dbKeyMR *factom.Bytes32, eb factom.EBlock, networkID factom.Network
 	return
 }
 
-func Open(fname string) (chain Chain, err error) {
-	chain, err = open(fname)
+func Open(dbPath, fname string) (chain Chain, err error) {
+	chain.Conn, chain.Pool, err = OpenConnPool(dbPath + fname)
 	if err != nil {
 		return
 	}
-	if err = chain.loadMetadata(); err != nil {
-		return
-	}
+	defer func() {
+		if err != nil {
+			chain.Close()
+		}
+	}()
+	chain.Log = _log.New("chain", strings.TrimRight(fname, dbFileExtension))
+	chain.DBFile = fname
+
+	err = chain.loadMetadata()
 	return
 }
 
-func OpenAll() (chains []Chain, err error) {
+func OpenAll(dbPath string) (chains []Chain, err error) {
 	log = _log.New("pkg", "db")
-	// Try to create the database directory in case it doesn't already
-	// exist.
-	if err := os.Mkdir(flag.DBPath, 0755); err != nil {
-		if !os.IsExist(err) {
-			return nil, fmt.Errorf("os.Mkdir(%#v): %v", flag.DBPath, err)
-		}
-		log.Debug("Using existing database directory...")
-	}
-
 	defer func() {
 		if err != nil {
 			for _, chain := range chains {
@@ -163,9 +165,9 @@ func OpenAll() (chains []Chain, err error) {
 
 	// Scan through all files within the database directory. Ignore invalid
 	// file names.
-	files, err := ioutil.ReadDir(flag.DBPath)
+	files, err := ioutil.ReadDir(dbPath)
 	if err != nil {
-		return nil, fmt.Errorf("ioutil.ReadDir(%q): %v", flag.DBPath, err)
+		return nil, fmt.Errorf("ioutil.ReadDir(%q): %v", dbPath, err)
 	}
 	chains = make([]Chain, 0, len(files))
 	for _, f := range files {
@@ -175,14 +177,16 @@ func OpenAll() (chains []Chain, err error) {
 			continue
 		}
 		log.Debugf("Loading chain: %v", chainID)
-		chain, err := Open(fname)
+		chain, err := Open(dbPath, fname)
 		if err != nil {
 			return nil, err
 		}
-		if *chainID != *chain.ID {
-			return nil, fmt.Errorf("chain id does not match filename")
-		}
 		chains = append(chains, chain)
+		if *chainID != *chain.ID {
+			return nil, fmt.Errorf(
+				"filename %v does not match database Chain ID %v",
+				fname, chain.ID)
+		}
 	}
 	return chains, nil
 }
@@ -200,41 +204,37 @@ func fnameToChainID(fname string) (*factom.Bytes32, error) {
 	return chainID, nil
 }
 
-func open(fname string) (chain Chain, err error) {
+func OpenConnPool(dbURI string) (conn *sqlite.Conn, pool *sqlitex.Pool,
+	err error) {
 	const baseFlags = sqlite.SQLITE_OPEN_WAL |
 		sqlite.SQLITE_OPEN_URI |
-		sqlite.SQLITE_OPEN_NOMUTEX |
-		sqlite.SQLITE_OPEN_READWRITE
-	path := flag.DBPath + "/" + fname
-	flags := baseFlags | sqlite.SQLITE_OPEN_CREATE
-	conn, err := sqlite.OpenConn(path, flags)
-	if err != nil {
-		err = fmt.Errorf("sqlite.OpenConn(%q, %x): %v", path, flags, err)
+		sqlite.SQLITE_OPEN_NOMUTEX
+	flags := baseFlags | sqlite.SQLITE_OPEN_READWRITE | sqlite.SQLITE_OPEN_CREATE
+	if conn, err = sqlite.OpenConn(dbURI, flags); err != nil {
+		err = fmt.Errorf("sqlite.OpenConn(%q, %x): %v", dbURI, flags, err)
 		return
 	}
+	defer func() {
+		if err != nil {
+			if err := conn.Close(); err != nil {
+				log.Error(err)
+			}
+		}
+	}()
 	if err = validateOrApplySchema(conn, chainDBSchema); err != nil {
 		return
 	}
-	// We only really need foreign key checks on the main database write
-	// connection.
 	if err = sqlitex.ExecScript(conn, `PRAGMA foreign_keys = ON;`); err != nil {
 		return
 	}
 
-	// This pool is technically RWrite to allow for the same functions to
-	// be used for the "send-transaction" API method. But chain.Get()
-	// creates a Savepoint around any connections from this pool and always
-	// rollsback, making this effectively a readonly connection.
-	flags = baseFlags
-	pool, err := sqlitex.Open(path, flags, PoolSize)
-	if err != nil {
+	flags = baseFlags | sqlite.SQLITE_OPEN_READWRITE
+	if pool, err = sqlitex.Open(dbURI, flags, PoolSize); err != nil {
 		err = fmt.Errorf("sqlitex.Open(%q, %x, %v): %v",
-			path, flags, PoolSize, err)
+			dbURI, flags, PoolSize, err)
 		return
 	}
-	return Chain{Conn: conn, Pool: pool,
-		Log: _log.New("chain", strings.TrimRight(fname, dbFileExtension)),
-	}, nil
+	return
 }
 
 // Close all database connections. Log any errors.
@@ -249,14 +249,8 @@ func (chain *Chain) Close() {
 }
 
 // Get() returns a threadsafe connection to the database, and a function to
-// release the connection back to the pool. The connection allows writes but no
-// writes will persist or ever be visible to any other connection as all
-// changes are rolled back, making this effectively a readonly connection.
+// release the connection back to the pool.
 func (chain *Chain) Get() (*sqlite.Conn, func()) {
 	conn := chain.Pool.Get(nil)
-	rollback := sqlitex.Save(conn)
-	return conn, func() {
-		rollback(&alwaysRollbackErr)
-		chain.Pool.Put(conn)
-	}
+	return conn, func() { chain.Pool.Put(conn) }
 }
