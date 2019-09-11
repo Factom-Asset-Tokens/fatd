@@ -143,7 +143,7 @@ func SelectNFTokens(conn *sqlite.Conn, order string, page, limit uint64) ([]fat1
 }
 
 func SelectNFTokensByOwner(conn *sqlite.Conn, adr *factom.FAAddress,
-	page, limit uint64, order string) ([]fat1.NFTokenID, error) {
+	page, limit uint64, order string) (fat1.NFTokens, error) {
 	if page == 0 {
 		return nil, fmt.Errorf("invalid page")
 	}
@@ -158,7 +158,7 @@ func SelectNFTokensByOwner(conn *sqlite.Conn, adr *factom.FAAddress,
 
 	stmt := sql.Prep(conn)
 	defer stmt.Reset()
-	var nfTkns []fat1.NFTokenID
+	nfTkns := make(fat1.NFTokens)
 	for {
 		hasRow, err := stmt.Step()
 		if err != nil {
@@ -167,7 +167,9 @@ func SelectNFTokensByOwner(conn *sqlite.Conn, adr *factom.FAAddress,
 		if !hasRow {
 			break
 		}
-		nfTkns = append(nfTkns, fat1.NFTokenID(stmt.ColumnInt64(0)))
+		if err := nfTkns.Set(fat1.NFTokenID(stmt.ColumnInt64(0))); err != nil {
+			panic(err)
+		}
 	}
 	return nfTkns, nil
 }
