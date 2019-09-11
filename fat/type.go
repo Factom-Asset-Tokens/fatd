@@ -32,6 +32,7 @@ type Type uint64
 const (
 	TypeFAT0 Type = iota
 	TypeFAT1
+	TypeFAT2
 )
 
 func (t *Type) Set(s string) error {
@@ -68,6 +69,8 @@ func (t Type) IsValid() bool {
 	case TypeFAT0:
 		fallthrough
 	case TypeFAT1:
+		fallthrough
+	case TypeFAT2:
 		return true
 	}
 	return false
