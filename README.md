@@ -62,7 +62,7 @@ dynamically link to the SQLite3 C shared libraries to the `fatd` Golang binary.
 CGo requires that GCC be available on your system.
 
 The following dependencies are required to build `fatd` and `fat-cli`.
-- [Golang](https://golang.org/) 1.11.4 or later. The latest official release of
+- [Golang](https://golang.org/) 1.13 or later. The latest official release of
   Golang is always recommended.
 - [goimports](https://godoc.org/golang.org/x/tools/cmd/goimports) is used by
   the code generation used in the `./factom` package. The code generation step
