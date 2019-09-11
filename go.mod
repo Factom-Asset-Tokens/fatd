@@ -22,13 +22,11 @@ require (
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.3
 	github.com/spf13/viper v1.4.0
-	github.com/stretchr/testify v1.3.1-0.20190311161405-34c6fa2dc709
-	golang.org/x/crypto v0.0.0-20190701094942-4def268fd1a4
+	github.com/stretchr/testify v1.4.0
+	golang.org/x/crypto v0.0.0-20190909091759-094676da4a83
 	golang.org/x/sys v0.0.0-20190801041406-cbf593c0f2f3 // indirect
 	golang.org/x/text v0.3.2 // indirect
 )
-
-replace github.com/gocraft/dbr => github.com/AdamSLevy/dbr v0.0.0-20190429075658-5db28ac75cea
 
 replace github.com/spf13/pflag v1.0.3 => github.com/AdamSLevy/pflag v1.0.4
 
