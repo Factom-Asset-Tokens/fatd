@@ -29,9 +29,9 @@ import (
 
 	jrpc "github.com/AdamSLevy/jsonrpc2/v11"
 
+	"github.com/Factom-Asset-Tokens/factom"
 	"github.com/Factom-Asset-Tokens/fatd/db"
 	"github.com/Factom-Asset-Tokens/fatd/engine"
-	"github.com/Factom-Asset-Tokens/factom"
 	"github.com/Factom-Asset-Tokens/fatd/fat"
 	"github.com/Factom-Asset-Tokens/fatd/fat/fat0"
 	"github.com/Factom-Asset-Tokens/fatd/fat/fat1"
@@ -440,6 +440,7 @@ func getNFTokens(data json.RawMessage) interface{} {
 }
 
 func sendTransaction(data json.RawMessage) interface{} {
+	return jrpc.NewError(-34000, "not implemented", "send-transaction")
 	params := ParamsSendTransaction{}
 	chain, put, err := validate(data, &params)
 	if err != nil {
