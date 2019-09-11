@@ -40,13 +40,13 @@ var transactionTests = []struct {
 	Error     string
 	IssuerKey factom.ID1Key
 	Coinbase  bool
-	Tx        Transaction
+	Tx        *Transaction
 }{{
 	Name: "valid",
 	Tx:   validTx(),
 }, {
 	Name: "valid (single outputs)",
-	Tx: func() Transaction {
+	Tx: func() *Transaction {
 		out := outputs()
 		out[outputAddresses[0].FAAddress().String()] +=
 			out[outputAddresses[1].FAAddress().String()] +
@@ -85,7 +85,7 @@ var transactionTests = []struct {
 }, {
 	Name:  "invalid JSON (invalid inputs, zero amount)",
 	Error: "*fat0.Transaction.Inputs: *fat0.AddressAmountMap: invalid amount (0): ",
-	Tx: func() Transaction {
+	Tx: func() *Transaction {
 		in := inputs()
 		in[inputAddresses[0].FAAddress().String()] = 0
 		return setFieldTransaction("inputs", in)
@@ -125,7 +125,7 @@ var transactionTests = []struct {
 }, {
 	Name:  "invalid data (sum mismatch)",
 	Error: "*fat0.Transaction: sum(inputs) != sum(outputs)",
-	Tx: func() Transaction {
+	Tx: func() *Transaction {
 		out := outputs()
 		out[outputAddresses[0].FAAddress().String()]++
 		return setFieldTransaction("outputs", out)
@@ -134,7 +134,7 @@ var transactionTests = []struct {
 	Name:      "invalid data (coinbase)",
 	Error:     "*fat0.Transaction: invalid coinbase transaction",
 	IssuerKey: issuerKey,
-	Tx: func() Transaction {
+	Tx: func() *Transaction {
 		m := validCoinbaseTxEntryContentMap()
 		in := coinbaseInputs()
 		in[inputAddresses[0].FAAddress().String()] = 1
@@ -148,7 +148,7 @@ var transactionTests = []struct {
 	Name:      "invalid data (coinbase, coinbase outputs)",
 	Error:     "*fat0.Transaction: duplicate address: ",
 	IssuerKey: issuerKey,
-	Tx: func() Transaction {
+	Tx: func() *Transaction {
 		m := validCoinbaseTxEntryContentMap()
 		in := coinbaseInputs()
 		out := coinbaseOutputs()
@@ -161,7 +161,7 @@ var transactionTests = []struct {
 }, {
 	Name:  "invalid data (inputs outputs overlap)",
 	Error: "*fat0.Transaction: duplicate address: ",
-	Tx: func() Transaction {
+	Tx: func() *Transaction {
 		m := validTxEntryContentMap()
 		in := inputs()
 		in[outputAddresses[0].FAAddress().String()] =
@@ -173,7 +173,7 @@ var transactionTests = []struct {
 }, {
 	Name:  "invalid ExtIDs (timestamp)",
 	Error: "timestamp salt expired",
-	Tx: func() Transaction {
+	Tx: func() *Transaction {
 		t := validTx()
 		t.ExtIDs[0] = factom.Bytes("100")
 		return t
@@ -181,7 +181,7 @@ var transactionTests = []struct {
 }, {
 	Name:  "invalid ExtIDs (length)",
 	Error: "invalid number of ExtIDs",
-	Tx: func() Transaction {
+	Tx: func() *Transaction {
 		t := validTx()
 		t.ExtIDs = append(t.ExtIDs, factom.Bytes{})
 		return t
@@ -193,7 +193,7 @@ var transactionTests = []struct {
 }, {
 	Name:  "RCD input mismatch",
 	Error: "invalid RCDs",
-	Tx: func() Transaction {
+	Tx: func() *Transaction {
 		t := validTx()
 		adrs := twoAddresses()
 		t.Sign(adrs[0], adrs[1])
@@ -239,25 +239,25 @@ var (
 )
 
 // Transactions
-func omitFieldTransaction(field string) Transaction {
+func omitFieldTransaction(field string) *Transaction {
 	m := validTxEntryContentMap()
 	delete(m, field)
 	return transaction(marshal(m))
 }
-func setFieldTransaction(field string, value interface{}) Transaction {
+func setFieldTransaction(field string, value interface{}) *Transaction {
 	m := validTxEntryContentMap()
 	m[field] = value
 	return transaction(marshal(m))
 }
-func validTx() Transaction {
+func validTx() *Transaction {
 	return transaction(marshal(validTxEntryContentMap()))
 }
-func coinbaseTx() Transaction {
+func coinbaseTx() *Transaction {
 	t := transaction(marshal(validCoinbaseTxEntryContentMap()))
 	t.Sign(issuerSecret)
 	return t
 }
-func transaction(content factom.Bytes) Transaction {
+func transaction(content factom.Bytes) *Transaction {
 	e := factom.Entry{
 		ChainID: &tokenChainID,
 		Content: content,
@@ -270,7 +270,7 @@ func transaction(content factom.Bytes) Transaction {
 	t.Sign(adrs...)
 	return t
 }
-func invalidField(field string) Transaction {
+func invalidField(field string) *Transaction {
 	m := validTxEntryContentMap()
 	m[field] = []int{0}
 	return transaction(marshal(m))
@@ -327,20 +327,20 @@ func coinbaseOutputs() map[string]uint64 {
 var transactionMarshalEntryTests = []struct {
 	Name  string
 	Error string
-	Tx    Transaction
+	Tx    *Transaction
 }{{
 	Name: "valid",
 	Tx:   newTransaction(),
 }, {
 	Name: "valid (omit zero balances)",
-	Tx: func() Transaction {
+	Tx: func() *Transaction {
 		t := newTransaction()
 		t.Inputs[fat.Coinbase()] = 0
 		return t
 	}(),
 }, {
 	Name: "valid (metadata)",
-	Tx: func() Transaction {
+	Tx: func() *Transaction {
 		t := newTransaction()
 		t.Metadata = json.RawMessage(`{"memo":"Rent for Dec 2018"}`)
 		return t
@@ -348,7 +348,7 @@ var transactionMarshalEntryTests = []struct {
 }, {
 	Name:  "invalid data",
 	Error: "json: error calling MarshalJSON for type *fat0.Transaction: sum(inputs) != sum(outputs)",
-	Tx: func() Transaction {
+	Tx: func() *Transaction {
 		t := newTransaction()
 		t.Inputs[inputAddresses[0].FAAddress()]++
 		return t
@@ -356,7 +356,7 @@ var transactionMarshalEntryTests = []struct {
 }, {
 	Name:  "invalid data",
 	Error: "json: error calling MarshalJSON for type *fat0.Transaction: json: error calling MarshalJSON for type fat0.AddressAmountMap: empty",
-	Tx: func() Transaction {
+	Tx: func() *Transaction {
 		t := newTransaction()
 		t.Inputs = make(AddressAmountMap)
 		t.Outputs = make(AddressAmountMap)
@@ -365,7 +365,7 @@ var transactionMarshalEntryTests = []struct {
 }, {
 	Name:  "invalid metadata JSON",
 	Error: "json: error calling MarshalJSON for type *fat0.Transaction: json: error calling MarshalJSON for type json.RawMessage: invalid character 'a' looking for beginning of object key string",
-	Tx: func() Transaction {
+	Tx: func() *Transaction {
 		t := newTransaction()
 		t.Metadata = json.RawMessage("{asdf")
 		return t
@@ -387,8 +387,8 @@ func TestTransactionMarshalEntry(t *testing.T) {
 	}
 }
 
-func newTransaction() Transaction {
-	return Transaction{
+func newTransaction() *Transaction {
+	return &Transaction{
 		Inputs:  inputAddressAmountMap(),
 		Outputs: outputAddressAmountMap(),
 	}

@@ -34,7 +34,7 @@ import (
 	"github.com/Factom-Asset-Tokens/factom"
 	"github.com/Factom-Asset-Tokens/fatd/fat/jsonlen"
 
-	"golang.org/x/crypto/ed25519"
+	"crypto/ed25519"
 )
 
 type Transaction interface {

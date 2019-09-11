@@ -40,13 +40,13 @@ var transactionTests = []struct {
 	Error     string
 	IssuerKey factom.ID1Key
 	Coinbase  bool
-	Tx        Transaction
+	Tx        *Transaction
 }{{
 	Name: "valid",
 	Tx:   validTx(),
 }, {
 	Name: "valid (single outputs)",
-	Tx: func() Transaction {
+	Tx: func() *Transaction {
 		out := outputs()
 		out[outputAddresses[0].FAAddress().String()].
 			Append(out[outputAddresses[1].FAAddress().String()])
@@ -110,7 +110,7 @@ var transactionTests = []struct {
 }, {
 	Name:  "invalid data (Input Output mismatch)",
 	Error: "*fat1.Transaction: Inputs and Outputs mismatch: number of NFTokenIDs differ",
-	Tx: func() Transaction {
+	Tx: func() *Transaction {
 		out := outputs()
 		NFTokenID(1000).Set(out[outputAddresses[0].FAAddress().String()])
 		return setFieldTransaction("outputs", out)
@@ -118,7 +118,7 @@ var transactionTests = []struct {
 }, {
 	Name:  "invalid data (Input Output mismatch)",
 	Error: "*fat1.Transaction: Inputs and Outputs mismatch: missing NFTokenID: 1000",
-	Tx: func() Transaction {
+	Tx: func() *Transaction {
 		in := inputs()
 		NFTokenID(1001).Set(in[inputAddresses[0].FAAddress().String()])
 		out := outputs()
@@ -132,7 +132,7 @@ var transactionTests = []struct {
 	Name:      "invalid data (coinbase)",
 	Error:     "*fat1.Transaction: invalid coinbase transaction",
 	IssuerKey: issuerKey,
-	Tx: func() Transaction {
+	Tx: func() *Transaction {
 		m := validCoinbaseTxEntryContentMap()
 		in := coinbaseInputs()
 		in[inputAddresses[0].FAAddress().String()] = newNFTokens(NFTokenID(1000))
@@ -146,7 +146,7 @@ var transactionTests = []struct {
 	Name:      "invalid data (coinbase, coinbase outputs)",
 	Error:     "*fat1.Transaction: Inputs and Outputs intersect: duplicate address: ",
 	IssuerKey: issuerKey,
-	Tx: func() Transaction {
+	Tx: func() *Transaction {
 		m := validCoinbaseTxEntryContentMap()
 		in := coinbaseInputs()
 		out := coinbaseOutputs()
@@ -161,7 +161,7 @@ var transactionTests = []struct {
 	Name:      "invalid data (coinbase, tokenmetadata)",
 	Error:     "*fat1.Transaction.TokenMetadata: too many NFTokenIDs",
 	IssuerKey: issuerKey,
-	Tx: func() Transaction {
+	Tx: func() *Transaction {
 		m := validCoinbaseTxEntryContentMap()
 		in := coinbaseInputs()
 		delete(in[fat.Coinbase().String()], NFTokenID(0))
@@ -175,7 +175,7 @@ var transactionTests = []struct {
 }, {
 	Name:  "invalid data (inputs outputs overlap)",
 	Error: "*fat1.Transaction: Inputs and Outputs intersect: duplicate address: ",
-	Tx: func() Transaction {
+	Tx: func() *Transaction {
 		m := validTxEntryContentMap()
 		in := inputs()
 		in[outputAddresses[0].FAAddress().String()] =
@@ -187,7 +187,7 @@ var transactionTests = []struct {
 }, {
 	Name:  "invalid ExtIDs (timestamp)",
 	Error: "timestamp salt expired",
-	Tx: func() Transaction {
+	Tx: func() *Transaction {
 		t := validTx()
 		t.ExtIDs[0] = factom.Bytes("100")
 		return t
@@ -195,7 +195,7 @@ var transactionTests = []struct {
 }, {
 	Name:  "invalid ExtIDs (length)",
 	Error: "invalid number of ExtIDs",
-	Tx: func() Transaction {
+	Tx: func() *Transaction {
 		t := validTx()
 		t.ExtIDs = append(t.ExtIDs, factom.Bytes{})
 		return t
@@ -207,7 +207,7 @@ var transactionTests = []struct {
 }, {
 	Name:  "RCD input mismatch",
 	Error: "invalid RCDs",
-	Tx: func() Transaction {
+	Tx: func() *Transaction {
 		t := validTx()
 		adrs := twoAddresses()
 		t.Sign(adrs[0], adrs[1])
@@ -264,25 +264,25 @@ func newNFTokens(ids ...NFTokensSetter) NFTokens {
 }
 
 // Transactions
-func omitFieldTransaction(field string) Transaction {
+func omitFieldTransaction(field string) *Transaction {
 	m := validTxEntryContentMap()
 	delete(m, field)
 	return transaction(marshal(m))
 }
-func setFieldTransaction(field string, value interface{}) Transaction {
+func setFieldTransaction(field string, value interface{}) *Transaction {
 	m := validTxEntryContentMap()
 	m[field] = value
 	return transaction(marshal(m))
 }
-func validTx() Transaction {
+func validTx() *Transaction {
 	return transaction(marshal(validTxEntryContentMap()))
 }
-func coinbaseTx() Transaction {
+func coinbaseTx() *Transaction {
 	t := transaction(marshal(validCoinbaseTxEntryContentMap()))
 	t.Sign(issuerSecret)
 	return t
 }
-func transaction(content factom.Bytes) Transaction {
+func transaction(content factom.Bytes) *Transaction {
 	e := factom.Entry{
 		ChainID: &tokenChainID,
 		Content: content,
@@ -295,7 +295,7 @@ func transaction(content factom.Bytes) Transaction {
 	t.Sign(adrs...)
 	return t
 }
-func invalidField(field string) Transaction {
+func invalidField(field string) *Transaction {
 	m := validTxEntryContentMap()
 	m[field] = []int{0}
 	return transaction(marshal(m))
@@ -359,20 +359,20 @@ func coinbaseOutputs() map[string]NFTokens {
 var transactionMarshalEntryTests = []struct {
 	Name  string
 	Error string
-	Tx    Transaction
+	Tx    *Transaction
 }{{
 	Name: "valid",
 	Tx:   newTransaction(),
 }, {
 	Name: "valid (omit zero balances)",
-	Tx: func() Transaction {
+	Tx: func() *Transaction {
 		t := newTransaction()
 		t.Inputs[fat.Coinbase()], _ = NewNFTokens()
 		return t
 	}(),
 }, {
 	Name: "valid (metadata)",
-	Tx: func() Transaction {
+	Tx: func() *Transaction {
 		t := newTransaction()
 		t.Metadata = json.RawMessage(`{"memo":"Rent for Dec 2018"}`)
 		return t
@@ -380,7 +380,7 @@ var transactionMarshalEntryTests = []struct {
 }, {
 	Name:  "invalid data",
 	Error: "json: error calling MarshalJSON for type *fat1.Transaction: Inputs and Outputs mismatch: number of NFTokenIDs differ",
-	Tx: func() Transaction {
+	Tx: func() *Transaction {
 		t := newTransaction()
 		t.Inputs[inputAddresses[0].FAAddress()].Set(NFTokenID(12345))
 		return t
@@ -388,7 +388,7 @@ var transactionMarshalEntryTests = []struct {
 }, {
 	Name:  "invalid metadata JSON",
 	Error: "json: error calling MarshalJSON for type *fat1.Transaction: json: error calling MarshalJSON for type json.RawMessage: invalid character 'a' looking for beginning of object key string",
-	Tx: func() Transaction {
+	Tx: func() *Transaction {
 		t := newTransaction()
 		t.Metadata = json.RawMessage("{asdf")
 		return t
@@ -410,8 +410,8 @@ func TestTransactionMarshalEntry(t *testing.T) {
 	}
 }
 
-func newTransaction() Transaction {
-	return Transaction{
+func newTransaction() *Transaction {
+	return &Transaction{
 		Inputs:  inputAddressNFTokensMap(),
 		Outputs: outputAddressNFTokensMap(),
 	}
