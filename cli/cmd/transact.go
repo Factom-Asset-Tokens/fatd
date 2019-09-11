@@ -27,7 +27,7 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/Factom-Asset-Tokens/fatd/factom"
+	"github.com/Factom-Asset-Tokens/factom"
 	"github.com/Factom-Asset-Tokens/fatd/fat"
 	"github.com/Factom-Asset-Tokens/fatd/fat/fat0"
 	"github.com/Factom-Asset-Tokens/fatd/fat/fat1"

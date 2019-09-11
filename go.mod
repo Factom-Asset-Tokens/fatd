@@ -8,6 +8,7 @@ require (
 	github.com/AdamSLevy/jsonrpc2/v11 v11.3.2
 	github.com/AdamSLevy/sqlitechangeset v0.0.0-20190910025316-7fba69e6303e
 	github.com/Factom-Asset-Tokens/base58 v0.0.0-20181227014902-61655c4dd885
+	github.com/Factom-Asset-Tokens/factom v0.0.0-20190911030001-cff277216c13
 	github.com/goji/httpauth v0.0.0-20160601135302-2da839ab0f4d
 	github.com/konsorten/go-windows-terminal-sequences v1.0.2 // indirect
 	github.com/magiconair/properties v1.8.1 // indirect

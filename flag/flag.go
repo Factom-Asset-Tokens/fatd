@@ -30,7 +30,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/Factom-Asset-Tokens/fatd/factom"
+	"github.com/Factom-Asset-Tokens/factom"
 	"github.com/posener/complete"
 	"github.com/sirupsen/logrus"
 )

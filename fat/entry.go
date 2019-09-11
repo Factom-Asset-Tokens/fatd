@@ -31,7 +31,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/Factom-Asset-Tokens/fatd/factom"
+	"github.com/Factom-Asset-Tokens/factom"
 	"github.com/Factom-Asset-Tokens/fatd/fat/jsonlen"
 
 	"golang.org/x/crypto/ed25519"

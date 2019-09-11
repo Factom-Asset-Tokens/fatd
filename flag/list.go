@@ -25,7 +25,7 @@ package flag
 import (
 	"strings"
 
-	"github.com/Factom-Asset-Tokens/fatd/factom"
+	"github.com/Factom-Asset-Tokens/factom"
 )
 
 type FAAddressList []factom.FAAddress

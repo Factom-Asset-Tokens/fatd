@@ -31,7 +31,7 @@ import (
 	"time"
 
 	jrpc "github.com/AdamSLevy/jsonrpc2/v11"
-	"github.com/Factom-Asset-Tokens/fatd/factom"
+	"github.com/Factom-Asset-Tokens/factom"
 	"github.com/Factom-Asset-Tokens/fatd/fat"
 	"github.com/Factom-Asset-Tokens/fatd/srv"
 	homedir "github.com/mitchellh/go-homedir"

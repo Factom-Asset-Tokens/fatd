@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"crawshaw.io/sqlite"
-	"github.com/Factom-Asset-Tokens/fatd/factom"
+	"github.com/Factom-Asset-Tokens/factom"
 )
 
 func (chain *Chain) insertEBlock(eb factom.EBlock, dbKeyMR *factom.Bytes32) error {

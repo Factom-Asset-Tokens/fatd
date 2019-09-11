@@ -25,7 +25,7 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/Factom-Asset-Tokens/fatd/factom"
+	"github.com/Factom-Asset-Tokens/factom"
 	"github.com/Factom-Asset-Tokens/fatd/srv"
 	"github.com/posener/complete"
 	"github.com/spf13/cobra"

@@ -25,7 +25,7 @@ package fat
 import (
 	"unicode/utf8"
 
-	"github.com/Factom-Asset-Tokens/fatd/factom"
+	"github.com/Factom-Asset-Tokens/factom"
 )
 
 // ValidTokenNameIDs returns true if the nameIDs match the pattern for a valid

@@ -41,8 +41,6 @@ CLI_LDFLAGS  = "$(GO_LDFLAGS)/cli/cmd.Revision=$(REVISION)"
 DEPSRC = go.mod go.sum
 SRC = $(DEPSRC) $(filter-out %_test.go,$(wildcard *.go */*.go */*/*.go))
 
-GENSRC=factom/idkey_gen.go factom/idkey_gen_test.go
-
 FATDSRC=$(filter-out cli/%,$(SRC)) $(GENSRC)
 fatd: $(FATDSRC)
 	go build -ldflags=$(FATD_LDFLAGS) ./
@@ -76,10 +74,6 @@ fat-cli.exe: $(CLISRC)
 
 fat-cli-linux: $(CLISRC)
 	env GOOS=linux GOARCH=amd64 go build -ldflags=$(CLI_LDFLAGS) -o fat-cli ./cli
-
-$(GENSRC): factom/gen.go  factom/genmain.go $(wildcard factom/*.tmpl)
-	go generate ./factom
-
 
 .PHONY: clean clean-gen purge-db unpurge-db
 

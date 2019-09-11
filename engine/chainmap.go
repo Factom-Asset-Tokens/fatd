@@ -28,7 +28,7 @@ import (
 	"sync"
 
 	"github.com/Factom-Asset-Tokens/fatd/db"
-	"github.com/Factom-Asset-Tokens/fatd/factom"
+	"github.com/Factom-Asset-Tokens/factom"
 	"github.com/Factom-Asset-Tokens/fatd/flag"
 )
 

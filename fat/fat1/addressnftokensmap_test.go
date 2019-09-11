@@ -26,7 +26,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/Factom-Asset-Tokens/fatd/factom"
+	"github.com/Factom-Asset-Tokens/factom"
 	"github.com/stretchr/testify/assert"
 )
 

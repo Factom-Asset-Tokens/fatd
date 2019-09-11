@@ -5,7 +5,7 @@ import (
 
 	"crawshaw.io/sqlite"
 	"crawshaw.io/sqlite/sqlitex"
-	"github.com/Factom-Asset-Tokens/fatd/factom"
+	"github.com/Factom-Asset-Tokens/factom"
 )
 
 func (chain *Chain) addressAdd(adr *factom.FAAddress, add uint64) (int64, error) {
