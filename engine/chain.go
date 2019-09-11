@@ -246,19 +246,19 @@ func (chain *Chain) Apply(c *factom.Client,
 
 func (p *Pending) Open(chain db.Chain) (err error) {
 	dbURI := fmt.Sprintf("file:%v?mode=memory&cache=shared", chain.ID)
-	conn, err := chain.Conn.BackupToDB("", dbURI)
-	defer func() {
-		if err != nil {
-			conn.Close()
-		}
-	}()
-
-	// Open the pending database connection and pool
-	c, pool, err := db.OpenConnPool(dbURI)
+	c, err := chain.Conn.BackupToDB("", dbURI)
 	if err != nil {
 		return
 	}
-	c.Close() // Redundant connection...
+	// Close connection to in memory database only after we have the other
+	// connections open.
+	defer c.Close()
+
+	// Open the pending database connection and pool
+	conn, pool, err := db.OpenConnPool(dbURI)
+	if err != nil {
+		return
+	}
 	p.Chain = chain
 	log := p.Chain.Log.Entry
 	p.Chain.Log.Entry = log.WithField("db", "pending")
