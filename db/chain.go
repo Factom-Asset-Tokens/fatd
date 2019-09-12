@@ -229,7 +229,7 @@ func OpenConnPool(dbURI string) (conn *sqlite.Conn, pool *sqlitex.Pool,
 		return
 	}
 
-	flags = baseFlags | sqlite.SQLITE_OPEN_READWRITE
+	flags = baseFlags | sqlite.SQLITE_OPEN_READONLY
 	if pool, err = sqlitex.Open(dbURI, flags, PoolSize); err != nil {
 		err = fmt.Errorf("sqlitex.Open(%q, %x, %v): %v",
 			dbURI, flags, PoolSize, err)

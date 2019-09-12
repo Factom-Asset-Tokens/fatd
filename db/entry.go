@@ -199,12 +199,13 @@ func SelectEntryByAddress(conn *sqlite.Conn, startHash *factom.Bytes32,
 	return entries, nil
 }
 
-func checkEntryUniqueValid(conn *sqlite.Conn,
+func CheckEntryUniquelyValid(conn *sqlite.Conn,
 	id int64, hash *factom.Bytes32) (bool, error) {
 	stmt := conn.Prep(`SELECT count(*) FROM "entries" WHERE
-                "valid" = true AND "id" < ? AND "hash" = ?;`)
-	stmt.BindInt64(1, id)
-	stmt.BindBytes(2, hash[:])
+                "valid" = true AND (? OR "id" < ?) AND "hash" = ?;`)
+	stmt.BindBool(1, id > 0)
+	stmt.BindInt64(2, id)
+	stmt.BindBytes(3, hash[:])
 	val, err := sqlitex.ResultInt(stmt)
 	if err != nil {
 		return false, err

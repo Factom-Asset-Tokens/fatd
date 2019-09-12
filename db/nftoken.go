@@ -78,14 +78,13 @@ func SelectNFToken(conn *sqlite.Conn, nfTkn fat1.NFTokenID) (factom.FAAddress,
                         FROM "nf_tokens_addresses" WHERE "id" = ?;`)
 	stmt.BindInt64(1, int64(nfTkn))
 	hasRow, err := stmt.Step()
+	defer stmt.Reset()
 	if err != nil {
-		stmt.Reset()
 		return owner, creationHash, nil, err
 	}
 	if !hasRow {
 		return owner, creationHash, nil, nil
 	}
-	defer stmt.Reset()
 	if stmt.ColumnBytes(0, owner[:]) != len(owner) {
 		panic("invalid address length")
 	}

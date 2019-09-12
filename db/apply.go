@@ -138,22 +138,22 @@ func (chain *Chain) Save(tx fat.Transaction) func(txErr, err *error) {
 
 func (chain *Chain) applyTx(ei int64, tx fat.Transaction) (txErr, err error) {
 	if txErr = tx.Validate(chain.ID1); txErr != nil {
-		return txErr, nil
+		return
 	}
 	e := tx.FactomEntry()
-	valid, err := checkEntryUniqueValid(chain.Conn, ei, e.Hash)
+	valid, err := CheckEntryUniquelyValid(chain.Conn, ei, e.Hash)
 	if err != nil {
-		return nil, err
+		return
 	}
 	if !valid {
-		return fmt.Errorf("replay: hash previously marked valid"), nil
+		txErr = fmt.Errorf("replay: hash previously marked valid")
+		return
 	}
 
 	if err = chain.setEntryValid(ei); err != nil {
 		return
 	}
-
-	return nil, nil
+	return
 }
 
 func (chain *Chain) ApplyFAT0Tx(ei int64, e factom.Entry) (tx *fat0.Transaction,
@@ -297,7 +297,8 @@ func (chain *Chain) ApplyFAT1Tx(ei int64, e factom.Entry) (tx *fat1.Transaction,
 			if err = chain.setNFTokenOwner(nfID, ai); err != nil {
 				return
 			}
-			if err = chain.insertNFTokenTransaction(nfID, adrTxID); err != nil {
+			if err = chain.insertNFTokenTransaction(
+				nfID, adrTxID); err != nil {
 				return
 			}
 		}

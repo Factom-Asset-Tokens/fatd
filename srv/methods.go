@@ -216,7 +216,7 @@ func getBalance(data json.RawMessage) interface{} {
 	}
 	defer put()
 
-	balance, err := db.SelectAddressBalance(chain.Conn, params.Address)
+	_, balance, err := db.SelectAddressIDBalance(chain.Conn, params.Address)
 	if err != nil {
 		panic(err)
 	}
@@ -263,7 +263,7 @@ func getBalances(data json.RawMessage) interface{} {
 		}
 		conn, put := chain.Get()
 		defer put()
-		balance, err := db.SelectAddressBalance(conn, params.Address)
+		_, balance, err := db.SelectAddressIDBalance(conn, params.Address)
 		if err != nil {
 			panic(err)
 		}
@@ -325,7 +325,7 @@ func getStats(data json.RawMessage) interface{} {
 	}
 	defer put()
 
-	burned, err := db.SelectAddressBalance(chain.Conn, &coinbaseRCDHash)
+	_, burned, err := db.SelectAddressIDBalance(chain.Conn, &coinbaseRCDHash)
 	if err != nil {
 		panic(err)
 	}
@@ -440,7 +440,6 @@ func getNFTokens(data json.RawMessage) interface{} {
 }
 
 func sendTransaction(data json.RawMessage) interface{} {
-	return jrpc.NewError(-34000, "not implemented", "send-transaction")
 	params := ParamsSendTransaction{}
 	chain, put, err := validate(data, &params)
 	if err != nil {
@@ -452,7 +451,13 @@ func sendTransaction(data json.RawMessage) interface{} {
 	}
 
 	entry := params.Entry()
-	txErr, err := chain.ApplyEntry(entry)
+	var txErr error
+	switch chain.Type {
+	case fat0.Type:
+		txErr, err = attemptApplyFAT0Tx(chain, entry)
+	case fat1.Type:
+		txErr, err = attemptApplyFAT1Tx(chain, entry)
+	}
 	if err != nil {
 		panic(err)
 	}
@@ -488,6 +493,104 @@ func sendTransaction(data json.RawMessage) interface{} {
 		TxID    *factom.Bytes32 `json:"txid,omitempty"`
 		Hash    *factom.Bytes32 `json:"entryhash"`
 	}{ChainID: chain.ID, TxID: txID, Hash: entry.Hash}
+}
+func attemptApplyFAT0Tx(chain *engine.Chain, e factom.Entry) (txErr, err error) {
+	// Validate tx
+	tx := fat0.NewTransaction(e)
+	txErr, err = applyTx(chain, tx)
+
+	if tx.IsCoinbase() {
+		addIssued := tx.Inputs[fat.Coinbase()]
+		if chain.Supply > 0 && int64(chain.NumIssued+addIssued) > chain.Supply {
+			txErr = fmt.Errorf("coinbase exceeds max supply")
+			return
+		}
+	} else {
+		// Check all input balances
+		for adr, amount := range tx.Inputs {
+			var bal uint64
+			if _, bal, err = db.SelectAddressIDBalance(
+				chain.Conn, &adr); err != nil {
+				return
+			}
+			if amount > bal {
+				txErr = fmt.Errorf("insufficient balance: %v", adr)
+				return
+			}
+		}
+	}
+	return
+}
+func attemptApplyFAT1Tx(chain *engine.Chain, e factom.Entry) (txErr, err error) {
+	// Validate tx
+	tx := fat1.NewTransaction(e)
+	txErr, err = applyTx(chain, tx)
+
+	if tx.IsCoinbase() {
+		nfTkns := tx.Inputs[fat.Coinbase()]
+		addIssued := uint64(len(nfTkns))
+		if chain.Supply > 0 && int64(chain.NumIssued+addIssued) > chain.Supply {
+			txErr = fmt.Errorf("coinbase exceeds max supply")
+			return
+		}
+		for nfID := range nfTkns {
+			var ownerID int64
+			ownerID, err = db.SelectNFTokenOwnerID(chain.Conn, nfID)
+			if err != nil {
+				return
+			}
+			if ownerID != -1 {
+				txErr = fmt.Errorf("NFTokenID{%v} already exists", nfID)
+				return
+			}
+		}
+	} else {
+		for adr, nfTkns := range tx.Inputs {
+			var adrID int64
+			var bal uint64
+			adrID, bal, err = db.SelectAddressIDBalance(chain.Conn, &adr)
+			if err != nil {
+				return
+			}
+			amount := uint64(len(nfTkns))
+			if amount > bal {
+				txErr = fmt.Errorf("insufficient balance: %v", adr)
+				return
+			}
+			for nfTkn := range nfTkns {
+				var ownerID int64
+				ownerID, err = db.SelectNFTokenOwnerID(chain.Conn, nfTkn)
+				if err != nil {
+					return
+				}
+				if ownerID == -1 {
+					txErr = fmt.Errorf("no such NFToken{%v}", nfTkn)
+					return
+				}
+				if ownerID != adrID {
+					txErr = fmt.Errorf("NFToken{%v} not owned by %v",
+						nfTkn, adr)
+					return
+				}
+			}
+		}
+	}
+	return
+}
+func applyTx(chain *engine.Chain, tx fat.Transaction) (txErr, err error) {
+	if txErr = tx.Validate(chain.ID1); txErr != nil {
+		return
+	}
+	e := tx.FactomEntry()
+	valid, err := db.CheckEntryUniquelyValid(chain.Conn, 0, e.Hash)
+	if err != nil {
+		return
+	}
+	if !valid {
+		txErr = fmt.Errorf("replay: hash previously marked valid")
+		return
+	}
+	return
 }
 
 func getDaemonTokens(data json.RawMessage) interface{} {

@@ -56,17 +56,22 @@ func (chain *Chain) addressSub(adr *factom.FAAddress, sub uint64) (int64, error,
 
 var sqlitexNoResultsErr = "sqlite: statement has no results"
 
-func SelectAddressBalance(conn *sqlite.Conn, adr *factom.FAAddress) (uint64, error) {
-	stmt := conn.Prep(`SELECT "balance" FROM "addresses" WHERE "address" = ?;`)
+func SelectAddressIDBalance(conn *sqlite.Conn,
+	adr *factom.FAAddress) (adrID int64, bal uint64, err error) {
+	adrID = -1
+	stmt := conn.Prep(`SELECT "id", "balance" FROM "addresses" WHERE "address" = ?;`)
+	defer stmt.Reset()
 	stmt.BindBytes(1, adr[:])
-	bal, err := sqlitex.ResultInt64(stmt)
-	if err != nil && err.Error() == sqlitexNoResultsErr {
-		return 0, nil
-	}
+	hasRow, err := stmt.Step()
 	if err != nil {
-		return 0, err
+		return
 	}
-	return uint64(bal), nil
+	if !hasRow {
+		return
+	}
+	adrID = stmt.ColumnInt64(0)
+	bal = uint64(stmt.ColumnInt64(1))
+	return
 }
 
 func SelectAddressID(conn *sqlite.Conn, adr *factom.FAAddress) (int64, error) {

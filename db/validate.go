@@ -23,6 +23,7 @@ func (chain Chain) Validate() (err error) {
 	chain.Log.Debug("Validating database...")
 	// Validate ChainID...
 	read := chain.Pool.Get(nil)
+	defer chain.Pool.Put(read)
 	write := chain.Conn
 	first, err := SelectEntryByID(read, 1)
 	if err != nil {
@@ -67,7 +68,9 @@ func (chain Chain) Validate() (err error) {
 	chain.setApplyFunc()
 
 	eBlockStmt := read.Prep(SelectEBlockWhere + `true;`) // SELECT all EBlocks.
-	entryStmt := read.Prep(SelectEntryWhere + `true;`)   // SELECT all Entries.
+	defer eBlockStmt.Reset()
+	entryStmt := read.Prep(SelectEntryWhere + `true;`) // SELECT all Entries.
+	defer entryStmt.Reset()
 
 	var eID int = 1     // Entry ID
 	var sequence uint32 // EBlock Sequence
