@@ -7,6 +7,13 @@ assignees: ''
 
 ---
 
+!!! **DO NOT REPORT SECURITY ISSUES HERE** !!!
+
+If the issue is security related, copy this template and email the issue to
+[adam@canonical-ledgers.com](mailto:adam@canonical-ledgers.com).
+
+!!! **DO NOT REPORT SECURITY ISSUES HERE** !!!
+
 **Describe the bug**
 A clear and concise description of what the bug is.
 
