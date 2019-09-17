@@ -133,6 +133,19 @@ de-duplicate code that needs to *do* the same thing to more than one type.
 
 #### Pointer/Value semantics
 
+#### Factory functions
+Factory functions construct and initialize a type and by convention start with
+the word `New`.
+
+Only create factory functions for types where the initialization/set-up is not
+possible or obvious from outside the package.
+
+Do not simply create factory functions out of convenience. It is preferred that
+types that can be initialized by the user, are left to the user to initialize.
+
+Factory functions must follow the data semantics of the type. See Pointer/Value
+semantics above.
+
 
 ### Goroutines
 
@@ -142,6 +155,9 @@ solution be considered.
 
 
 ### Logging
+
+Only main, engine, and srv get to log. No other package may log. Other packages
+must return errors up to the caller.
 
 
 ### Documentation
