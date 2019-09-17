@@ -22,6 +22,17 @@ spent debugging later.
 >
 > -- [Bill Kenedy, Ardan Labs](https://twitter.com/goinggodotnet)
 
+## Recommended Reading
+
+- [SOLID Go Design by Dave Cheney](https://dave.cheney.net/2016/08/20/solid-go-design)
+- [Data and Semantics by Bill Kenedy](https://www.ardanlabs.com/blog/2017/06/design-philosophy-on-data-and-semantics.html)
+- [For Range Semantics by Bill Kenedy](https://www.ardanlabs.com/blog/2017/06/for-range-semantics.html)
+- [Interface Values are Valueless by Bill Kenedy](https://www.ardanlabs.com/blog/2018/03/interface-values-are-valueless.html)
+- [On Packaging by Bill Kenedy](https://www.ardanlabs.com/blog/2017/02/design-philosophy-on-packaging.html)
+- [On Logging by Bill Kenedy](https://www.ardanlabs.com/blog/2017/05/design-philosophy-on-logging.html)
+- [Ardan Labs Go Training repo](https://github.com/ardanlabs/gotraining)
+- [Go and SQLite by David Crawshaw](https://crawshaw.io/blog/go-and-sqlite)
+
 ## Git
 
 ### Committing
@@ -85,10 +96,40 @@ Always run `go mod tidy` before committing your code.
 ### Packages
 
 Packages should *provide* something useful and specific, not just contain
-things. Common or util packages and the like are prohibited.
+things. Packages named `common`, `utils`, and the like are prohibited.
 
+### Variables
+
+When intentionally declaring a variable with its zero value, use the `var`
+declaration syntax.
+```golang
+var x int
+```
+
+Only use the short declaration syntax `:=` when declaring AND initializing a
+variable to a non-zero value.
+```golang
+y := Type{Hello: "World"}
+x, err := computeX()
+```
+
+Never do this: `x := Type{}`
+
+### Errors
+Errors must always be checked, even if it is extremely unlikely, or guaranteed
+not to occur. Most errors should cause `fatd` to cleanly exit. Only a few
+specific errors should
 
 ### Types
+
+#### Interfaces
+Interfaces define behavior, not data. Do not use interfaces to represent data.
+Interfaces should describe what something *does*, not what it *is*.
+
+As a general rule, you probably don't need an interface. Create the concrete
+type first and *discover* the appropriate interfaces later when you refactor to
+de-duplicate code that needs to *do* the same thing to more than one type.
+
 
 #### Pointer/Value semantics
 
