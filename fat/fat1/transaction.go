@@ -31,6 +31,8 @@ import (
 	"github.com/Factom-Asset-Tokens/fatd/fat/jsonlen"
 )
 
+const Type = fat.TypeFAT1
+
 // Transaction represents a fat1 transaction, which can be a normal account
 // transaction or a coinbase transaction depending on the Inputs and the
 // RCD/signature pair.
