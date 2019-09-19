@@ -27,19 +27,12 @@ import (
 
 	"crawshaw.io/sqlite"
 	"crawshaw.io/sqlite/sqlitex"
+	"github.com/Factom-Asset-Tokens/fatd/db/addresses"
 	"github.com/Factom-Asset-Tokens/fatd/db/eblocks"
 	"github.com/Factom-Asset-Tokens/fatd/db/entries"
 )
 
 const (
-	createTableAddresses = `CREATE TABLE "addresses" (
-        "id"            INTEGER PRIMARY KEY,
-        "address"       BLOB NOT NULL UNIQUE,
-        "balance"       INTEGER NOT NULL
-                        CONSTRAINT "insufficient balance" CHECK ("balance" >= 0)
-);
-`
-
 	createTableAddressTransactions = `CREATE TABLE "address_transactions" (
         "entry_id"      INTEGER NOT NULL,
         "address_id"    INTEGER NOT NULL,
@@ -113,7 +106,7 @@ CREATE VIEW "nf_token_address_transactions" AS
 	// regardless of whether they actually make use of the NFTokens tables.
 	chainDBSchema = eblocks.CreateTable +
 		entries.CreateTable +
-		createTableAddresses +
+		addresses.CreateTable +
 		createTableAddressTransactions +
 		createTableNFTokens +
 		createTableNFTokensTransactions +

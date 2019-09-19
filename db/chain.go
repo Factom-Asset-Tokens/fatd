@@ -34,6 +34,7 @@ import (
 	"crawshaw.io/sqlite/sqlitex"
 
 	"github.com/Factom-Asset-Tokens/factom"
+	"github.com/Factom-Asset-Tokens/fatd/db/addresses"
 	"github.com/Factom-Asset-Tokens/fatd/fat"
 	_log "github.com/Factom-Asset-Tokens/fatd/log"
 )
@@ -124,7 +125,7 @@ func OpenNew(dbPath string,
 
 	// Ensure that the coinbase address has rowid = 1.
 	coinbase := fat.Coinbase()
-	if _, err = chain.addressAdd(&coinbase, 0); err != nil {
+	if _, err = addresses.Add(chain.Conn, &coinbase, 0); err != nil {
 		return
 	}
 

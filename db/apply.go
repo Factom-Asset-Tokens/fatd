@@ -27,6 +27,7 @@ import (
 
 	"crawshaw.io/sqlite/sqlitex"
 	"github.com/Factom-Asset-Tokens/factom"
+	"github.com/Factom-Asset-Tokens/fatd/db/addresses"
 	"github.com/Factom-Asset-Tokens/fatd/db/eblocks"
 	"github.com/Factom-Asset-Tokens/fatd/db/entries"
 	"github.com/Factom-Asset-Tokens/fatd/fat"
@@ -198,18 +199,19 @@ func (chain *Chain) ApplyFAT0Tx(ei int64, e factom.Entry) (tx *fat0.Transaction,
 		if err = chain.numIssuedAdd(addIssued); err != nil {
 			return
 		}
-		if _, err = chain.insertAddressTransaction(1, ei, false); err != nil {
+		if _, err = addresses.InsertTransaction(
+			chain.Conn, 1, ei, false); err != nil {
 			return
 		}
 	} else {
 		for adr, amount := range tx.Inputs {
 			var ai int64
-			ai, txErr, err = chain.addressSub(&adr, amount)
+			ai, txErr, err = addresses.Sub(chain.Conn, &adr, amount)
 			if err != nil || txErr != nil {
 				return
 			}
-			if _, err = chain.insertAddressTransaction(ai, ei,
-				false); err != nil {
+			if _, err = addresses.InsertTransaction(
+				chain.Conn, ai, ei, false); err != nil {
 				return
 			}
 		}
@@ -217,11 +219,12 @@ func (chain *Chain) ApplyFAT0Tx(ei int64, e factom.Entry) (tx *fat0.Transaction,
 
 	for adr, amount := range tx.Outputs {
 		var ai int64
-		ai, err = chain.addressAdd(&adr, amount)
+		ai, err = addresses.Add(chain.Conn, &adr, amount)
 		if err != nil {
 			return
 		}
-		if _, err = chain.insertAddressTransaction(ai, ei, true); err != nil {
+		if _, err = addresses.InsertTransaction(
+			chain.Conn, ai, ei, true); err != nil {
 			return
 		}
 	}
@@ -249,7 +252,7 @@ func (chain *Chain) ApplyFAT1Tx(ei int64, e factom.Entry) (tx *fat1.Transaction,
 			return
 		}
 		var adrTxID int64
-		adrTxID, err = chain.insertAddressTransaction(1, ei, false)
+		adrTxID, err = addresses.InsertTransaction(chain.Conn, 1, ei, false)
 		if err != nil {
 			return
 		}
@@ -274,12 +277,14 @@ func (chain *Chain) ApplyFAT1Tx(ei int64, e factom.Entry) (tx *fat1.Transaction,
 	} else {
 		for adr, nfTkns := range tx.Inputs {
 			var ai int64
-			ai, txErr, err = chain.addressSub(&adr, uint64(len(nfTkns)))
+			ai, txErr, err = addresses.Sub(
+				chain.Conn, &adr, uint64(len(nfTkns)))
 			if err != nil || txErr != nil {
 				return
 			}
 			var adrTxID int64
-			adrTxID, err = chain.insertAddressTransaction(ai, ei, false)
+			adrTxID, err = addresses.InsertTransaction(
+				chain.Conn, ai, ei, false)
 			if err != nil {
 				return
 			}
@@ -308,12 +313,12 @@ func (chain *Chain) ApplyFAT1Tx(ei int64, e factom.Entry) (tx *fat1.Transaction,
 
 	for adr, nfTkns := range tx.Outputs {
 		var ai int64
-		ai, err = chain.addressAdd(&adr, uint64(len(nfTkns)))
+		ai, err = addresses.Add(chain.Conn, &adr, uint64(len(nfTkns)))
 		if err != nil {
 			return
 		}
 		var adrTxID int64
-		adrTxID, err = chain.insertAddressTransaction(ai, ei, true)
+		adrTxID, err = addresses.InsertTransaction(chain.Conn, ai, ei, true)
 		if err != nil {
 			return
 		}

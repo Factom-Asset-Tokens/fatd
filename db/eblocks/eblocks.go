@@ -20,6 +20,8 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 // IN THE SOFTWARE.
 
+// Package eblocks provides functions and SQL framents for working with the
+// "eblocks" table, which stores factom.EBlock.
 package eblocks
 
 import (
@@ -41,7 +43,7 @@ const CreateTable = `CREATE TABLE "eblocks" (
 );
 `
 
-// Insert eb into the "eblocks" table on conn with dbKeyMR.
+// Insert eb into the "eblocks" table with dbKeyMR.
 func Insert(conn *sqlite.Conn, eb factom.EBlock, dbKeyMR *factom.Bytes32) error {
 	// Ensure that this is the next EBlock.
 	prevKeyMR, err := SelectKeyMR(conn, eb.Sequence-1)

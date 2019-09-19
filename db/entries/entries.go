@@ -20,6 +20,8 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 // IN THE SOFTWARE.
 
+// Package entries provides functions and SQL framents for working with the
+// "entries" table, which stores factom.Entry with a valid flag.
 package entries
 
 import (
@@ -49,7 +51,8 @@ CREATE INDEX "idx_entries_eb_seq" ON "entries"("eb_seq");
 CREATE INDEX "idx_entries_hash" ON "entries"("hash");
 `
 
-// Insert e into the "entries" table on conn with the EBlock reference ebSeq.
+// Insert e into the "entries" table with the EBlock reference ebSeq. If
+// successful, the new row id of e is returned.
 func Insert(conn *sqlite.Conn, e factom.Entry, ebSeq uint32) (int64, error) {
 	data, err := e.MarshalBinary()
 	if err != nil {

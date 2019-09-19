@@ -31,6 +31,7 @@ import (
 
 	"github.com/Factom-Asset-Tokens/factom"
 	"github.com/Factom-Asset-Tokens/fatd/db"
+	"github.com/Factom-Asset-Tokens/fatd/db/addresses"
 	"github.com/Factom-Asset-Tokens/fatd/db/entries"
 	"github.com/Factom-Asset-Tokens/fatd/engine"
 	"github.com/Factom-Asset-Tokens/fatd/fat"
@@ -217,7 +218,7 @@ func getBalance(data json.RawMessage) interface{} {
 	}
 	defer put()
 
-	_, balance, err := db.SelectAddressIDBalance(chain.Conn, params.Address)
+	_, balance, err := addresses.SelectIDBalance(chain.Conn, params.Address)
 	if err != nil {
 		panic(err)
 	}
@@ -264,7 +265,7 @@ func getBalances(data json.RawMessage) interface{} {
 		}
 		conn, put := chain.Get()
 		defer put()
-		_, balance, err := db.SelectAddressIDBalance(conn, params.Address)
+		_, balance, err := addresses.SelectIDBalance(conn, params.Address)
 		if err != nil {
 			panic(err)
 		}
@@ -326,7 +327,7 @@ func getStats(data json.RawMessage) interface{} {
 	}
 	defer put()
 
-	_, burned, err := db.SelectAddressIDBalance(chain.Conn, &coinbaseRCDHash)
+	_, burned, err := addresses.SelectIDBalance(chain.Conn, &coinbaseRCDHash)
 	if err != nil {
 		panic(err)
 	}
@@ -336,7 +337,7 @@ func getStats(data json.RawMessage) interface{} {
 		panic(err)
 	}
 
-	nonZeroBalances, err := db.SelectAddressCount(chain.Conn, true)
+	nonZeroBalances, err := addresses.SelectCount(chain.Conn, true)
 	if err != nil {
 		panic(err)
 	}
@@ -510,7 +511,7 @@ func attemptApplyFAT0Tx(chain *engine.Chain, e factom.Entry) (txErr, err error) 
 		// Check all input balances
 		for adr, amount := range tx.Inputs {
 			var bal uint64
-			if _, bal, err = db.SelectAddressIDBalance(
+			if _, bal, err = addresses.SelectIDBalance(
 				chain.Conn, &adr); err != nil {
 				return
 			}
@@ -549,7 +550,7 @@ func attemptApplyFAT1Tx(chain *engine.Chain, e factom.Entry) (txErr, err error) 
 		for adr, nfTkns := range tx.Inputs {
 			var adrID int64
 			var bal uint64
-			adrID, bal, err = db.SelectAddressIDBalance(chain.Conn, &adr)
+			adrID, bal, err = addresses.SelectIDBalance(chain.Conn, &adr)
 			if err != nil {
 				return
 			}
