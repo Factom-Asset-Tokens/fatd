@@ -27,33 +27,11 @@ import (
 
 	"crawshaw.io/sqlite"
 	"crawshaw.io/sqlite/sqlitex"
+	"github.com/Factom-Asset-Tokens/fatd/db/eblocks"
+	"github.com/Factom-Asset-Tokens/fatd/db/entries"
 )
 
 const (
-	createTableEBlocks = `CREATE TABLE "eblocks" (
-        "seq"           INTEGER PRIMARY KEY,
-        "key_mr"        BLOB NOT NULL UNIQUE,
-        "db_height"     INTEGER NOT NULL UNIQUE,
-        "db_key_mr"     BLOB NOT NULL UNIQUE,
-        "timestamp"     INTEGER NOT NULL,
-        "data"          BLOB NOT NULL
-);
-`
-
-	createTableEntries = `CREATE TABLE "entries" (
-        "id"            INTEGER PRIMARY KEY,
-        "eb_seq"        INTEGER NOT NULL,
-        "timestamp"     INTEGER NOT NULL,
-        "valid"         BOOL NOT NULL DEFAULT FALSE,
-        "hash"          BLOB NOT NULL,
-        "data"          BLOB NOT NULL,
-
-        FOREIGN KEY("eb_seq") REFERENCES "eblocks"
-);
-CREATE INDEX "idx_entries_eb_seq" ON "entries"("eb_seq");
-CREATE INDEX "idx_entries_hash" ON "entries"("hash");
-`
-
 	createTableAddresses = `CREATE TABLE "addresses" (
         "id"            INTEGER PRIMARY KEY,
         "address"       BLOB NOT NULL UNIQUE,
@@ -133,8 +111,8 @@ CREATE VIEW "nf_token_address_transactions" AS
 
 	// For the sake of simplicity, all chain DBs use the exact same schema,
 	// regardless of whether they actually make use of the NFTokens tables.
-	chainDBSchema = createTableEBlocks +
-		createTableEntries +
+	chainDBSchema = eblocks.CreateTable +
+		entries.CreateTable +
 		createTableAddresses +
 		createTableAddressTransactions +
 		createTableNFTokens +

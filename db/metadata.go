@@ -27,6 +27,8 @@ import (
 
 	"crawshaw.io/sqlite"
 	"github.com/Factom-Asset-Tokens/factom"
+	"github.com/Factom-Asset-Tokens/fatd/db/eblocks"
+	"github.com/Factom-Asset-Tokens/fatd/db/entries"
 	"github.com/Factom-Asset-Tokens/fatd/fat"
 )
 
@@ -96,7 +98,7 @@ func (chain *Chain) numIssuedAdd(add uint64) error {
 func (chain *Chain) loadMetadata() error {
 	defer chain.setApplyFunc()
 	// Load NameIDs
-	first, err := SelectEntryByID(chain.Conn, 1)
+	first, err := entries.SelectByID(chain.Conn, 1)
 	if err != nil {
 		return err
 	}
@@ -111,7 +113,7 @@ func (chain *Chain) loadMetadata() error {
 	chain.TokenID, chain.IssuerChainID = fat.TokenIssuer(nameIDs)
 
 	// Load Chain Head
-	eb, dbKeyMR, err := SelectEBlockLatest(chain.Conn)
+	eb, dbKeyMR, err := eblocks.SelectLatest(chain.Conn)
 	if err != nil {
 		return err
 	}
@@ -168,7 +170,7 @@ func (chain *Chain) loadMetadata() error {
 		return nil
 	}
 	initEntryID := stmt.ColumnInt64(5)
-	chain.Issuance.Entry.Entry, err = SelectEntryByID(chain.Conn, initEntryID)
+	chain.Issuance.Entry.Entry, err = entries.SelectByID(chain.Conn, initEntryID)
 	if err != nil {
 		return err
 	}

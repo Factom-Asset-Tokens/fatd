@@ -30,6 +30,8 @@ import (
 	"crawshaw.io/sqlite/sqlitex"
 	"github.com/AdamSLevy/sqlitechangeset"
 	"github.com/Factom-Asset-Tokens/factom"
+	"github.com/Factom-Asset-Tokens/fatd/db/eblocks"
+	"github.com/Factom-Asset-Tokens/fatd/db/entries"
 	"github.com/Factom-Asset-Tokens/fatd/fat"
 	"github.com/Factom-Asset-Tokens/fatd/flag"
 )
@@ -47,7 +49,7 @@ func (chain Chain) Validate() (err error) {
 	read := chain.Pool.Get(nil)
 	defer chain.Pool.Put(read)
 	write := chain.Conn
-	first, err := SelectEntryByID(read, 1)
+	first, err := entries.SelectByID(read, 1)
 	if err != nil {
 		return err
 	}
@@ -89,16 +91,16 @@ func (chain Chain) Validate() (err error) {
 	chain.Issuance = fat.Issuance{}
 	chain.setApplyFunc()
 
-	eBlockStmt := read.Prep(SelectEBlockWhere + `true;`) // SELECT all EBlocks.
+	eBlockStmt := read.Prep(eblocks.SelectWhere + `true;`) // SELECT all EBlocks.
 	defer eBlockStmt.Reset()
-	entryStmt := read.Prep(SelectEntryWhere + `true;`) // SELECT all Entries.
+	entryStmt := read.Prep(entries.SelectWhere + `true;`) // SELECT all Entries.
 	defer entryStmt.Reset()
 
 	var eID int = 1     // Entry ID
 	var sequence uint32 // EBlock Sequence
 	var prevKeyMR, prevFullHash factom.Bytes32
 	for {
-		eb, err := SelectEBlock(eBlockStmt)
+		eb, err := eblocks.Select(eBlockStmt)
 		if err != nil {
 			return err
 		}
@@ -144,7 +146,7 @@ func (chain Chain) Validate() (err error) {
 		prevKeyMR = keyMR
 
 		for i, ebe := range eb.Entries {
-			e, err := SelectEntry(entryStmt)
+			e, err := entries.Select(entryStmt)
 
 			if *e.Hash != *ebe.Hash {
 				return fmt.Errorf("invalid Entry{%v}: broken EBlock link",
@@ -173,7 +175,7 @@ func (chain Chain) Validate() (err error) {
 			eb.Entries[i] = e
 			eID++
 		}
-		dbKeyMR, err := SelectDBKeyMR(read, eb.Sequence)
+		dbKeyMR, err := eblocks.SelectDBKeyMR(read, eb.Sequence)
 		if err != nil {
 			return err
 		}

@@ -41,7 +41,7 @@ var (
 		StartHash:   new(factom.Bytes32),
 		NFTokenID:   new(fat1.NFTokenID),
 		ParamsToken: srv.ParamsToken{ChainID: paramsToken.ChainID},
-		ParamsPagination: srv.ParamsPagination{Page: new(uint64),
+		ParamsPagination: srv.ParamsPagination{Page: new(uint),
 			Order: "desc"},
 	}
 	to, from       bool
@@ -83,8 +83,8 @@ more, and in the case of a FAT-1 chain, by a single --nftokenid. Use --page and
 	rootCmplCmd.Sub["help"].Sub["get"].Sub["transactions"] = complete.Command{}
 
 	flags := cmd.Flags()
-	flags.Uint64VarP(paramsGetTxs.Page, "page", "p", 1, "Page of returned txs")
-	flags.Uint64VarP(&paramsGetTxs.Limit, "limit", "l", 10, "Limit of returned txs")
+	flags.UintVarP(paramsGetTxs.Page, "page", "p", 1, "Page of returned txs")
+	flags.UintVarP(&paramsGetTxs.Limit, "limit", "l", 10, "Limit of returned txs")
 	flags.VarPF((*txOrder)(&paramsGetTxs.Order), "order", "", "Order of returned txs").
 		DefValue = "desc"
 	flags.BoolVar(&to, "to", false, "Request only txs TO the given --address set")

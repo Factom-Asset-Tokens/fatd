@@ -31,6 +31,7 @@ import (
 
 	"github.com/Factom-Asset-Tokens/factom"
 	"github.com/Factom-Asset-Tokens/fatd/db"
+	"github.com/Factom-Asset-Tokens/fatd/db/entries"
 	"github.com/Factom-Asset-Tokens/fatd/engine"
 	"github.com/Factom-Asset-Tokens/fatd/fat"
 	"github.com/Factom-Asset-Tokens/fatd/fat/fat0"
@@ -109,7 +110,7 @@ func getTransaction(getEntry bool) jrpc.MethodFunc {
 		}
 		defer put()
 
-		entry, err := db.SelectEntryByHashValid(chain.Conn, params.Hash)
+		entry, err := entries.SelectValidByHash(chain.Conn, params.Hash)
 		if err != nil {
 			panic(err)
 		}
@@ -164,7 +165,7 @@ func getTransactions(getEntry bool) jrpc.MethodFunc {
 		if params.NFTokenID != nil {
 			nfTkns, _ = fat1.NewNFTokens(params.NFTokenID)
 		}
-		entries, err := db.SelectEntryByAddress(chain.Conn, params.StartHash,
+		entries, err := entries.SelectByAddress(chain.Conn, params.StartHash,
 			params.Addresses, nfTkns,
 			params.ToFrom, params.Order,
 			*params.Page, params.Limit)
@@ -329,8 +330,8 @@ func getStats(data json.RawMessage) interface{} {
 	if err != nil {
 		panic(err)
 	}
-	txCount, err := db.SelectEntryCount(chain.Conn, true)
-	e, err := db.SelectEntryLatestValid(chain.Conn)
+	txCount, err := entries.SelectCount(chain.Conn, true)
+	e, err := entries.SelectLatestValid(chain.Conn)
 	if err != nil {
 		panic(err)
 	}
@@ -582,7 +583,7 @@ func applyTx(chain *engine.Chain, tx fat.Transaction) (txErr, err error) {
 		return
 	}
 	e := tx.FactomEntry()
-	valid, err := db.CheckEntryUniquelyValid(chain.Conn, 0, e.Hash)
+	valid, err := entries.CheckUniquelyValid(chain.Conn, 0, e.Hash)
 	if err != nil {
 		return
 	}

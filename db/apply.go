@@ -27,6 +27,8 @@ import (
 
 	"crawshaw.io/sqlite/sqlitex"
 	"github.com/Factom-Asset-Tokens/factom"
+	"github.com/Factom-Asset-Tokens/fatd/db/eblocks"
+	"github.com/Factom-Asset-Tokens/fatd/db/entries"
 	"github.com/Factom-Asset-Tokens/fatd/fat"
 	"github.com/Factom-Asset-Tokens/fatd/fat/fat0"
 	"github.com/Factom-Asset-Tokens/fatd/fat/fat1"
@@ -47,7 +49,7 @@ func (chain *Chain) Apply(dbKeyMR *factom.Bytes32, eb factom.EBlock) (err error)
 	chain.Head = eb
 
 	// Insert latest EBlock.
-	if err = chain.insertEBlock(eb, dbKeyMR); err != nil {
+	if err = eblocks.Insert(chain.Conn, eb, dbKeyMR); err != nil {
 		return
 	}
 
@@ -61,7 +63,7 @@ func (chain *Chain) Apply(dbKeyMR *factom.Bytes32, eb factom.EBlock) (err error)
 }
 
 func (chain *Chain) ApplyEntry(e factom.Entry) (txErr, err error) {
-	ei, err := chain.InsertEntry(e, chain.Head.Sequence)
+	ei, err := entries.Insert(chain.Conn, e, chain.Head.Sequence)
 	if err != nil {
 		return
 	}
@@ -163,7 +165,7 @@ func (chain *Chain) applyTx(ei int64, tx fat.Transaction) (txErr, err error) {
 		return
 	}
 	e := tx.FactomEntry()
-	valid, err := CheckEntryUniquelyValid(chain.Conn, ei, e.Hash)
+	valid, err := entries.CheckUniquelyValid(chain.Conn, ei, e.Hash)
 	if err != nil {
 		return
 	}
@@ -172,7 +174,7 @@ func (chain *Chain) applyTx(ei int64, tx fat.Transaction) (txErr, err error) {
 		return
 	}
 
-	if err = chain.setEntryValid(ei); err != nil {
+	if err = entries.SetValid(chain.Conn, ei); err != nil {
 		return
 	}
 	return

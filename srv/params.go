@@ -83,14 +83,14 @@ func (p ParamsToken) ValidChainID() *factom.Bytes32 {
 }
 
 type ParamsPagination struct {
-	Page  *uint64 `json:"page,omitempty"`
-	Limit uint64  `json:"limit,omitempty"`
-	Order string  `json:"order,omitempty"`
+	Page  *uint  `json:"page,omitempty"`
+	Limit uint   `json:"limit,omitempty"`
+	Order string `json:"order,omitempty"`
 }
 
 func (p *ParamsPagination) IsValid() error {
 	if p.Page == nil {
-		p.Page = new(uint64)
+		p.Page = new(uint)
 		*p.Page = 1
 	} else if *p.Page == 0 {
 		return jrpc.InvalidParams(

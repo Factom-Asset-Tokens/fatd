@@ -29,6 +29,7 @@ import (
 	"crawshaw.io/sqlite"
 	"crawshaw.io/sqlite/sqlitex"
 	"github.com/Factom-Asset-Tokens/factom"
+	"github.com/Factom-Asset-Tokens/fatd/db/sqlbuilder"
 	"github.com/Factom-Asset-Tokens/fatd/fat/fat1"
 )
 
@@ -119,7 +120,7 @@ func SelectNFToken(conn *sqlite.Conn, nfTkn fat1.NFTokenID) (factom.FAAddress,
 	return owner, creationHash, metadata, nil
 }
 
-func SelectNFTokens(conn *sqlite.Conn, order string, page, limit uint64) ([]fat1.NFTokenID,
+func SelectNFTokens(conn *sqlite.Conn, order string, page, limit uint) ([]fat1.NFTokenID,
 	[]factom.FAAddress, []factom.Bytes32, [][]byte, error) {
 	if page == 0 {
 		return nil, nil, nil, nil, fmt.Errorf("invalid page")
@@ -164,18 +165,18 @@ func SelectNFTokens(conn *sqlite.Conn, order string, page, limit uint64) ([]fat1
 }
 
 func SelectNFTokensByOwner(conn *sqlite.Conn, adr *factom.FAAddress,
-	page, limit uint64, order string) (fat1.NFTokens, error) {
+	page, limit uint, order string) (fat1.NFTokens, error) {
 	if page == 0 {
 		return nil, fmt.Errorf("invalid page")
 	}
-	var sql sql
+	var sql sqlbuilder.SQLBuilder
 	sql.Append(`SELECT "id" FROM "nf_tokens" WHERE "owner_id" = (
                 SELECT "id" FROM "addresses" WHERE "address" = ?)`,
 		func(s *sqlite.Stmt, c int) int {
 			s.BindBytes(c, adr[:])
 			return 1
 		})
-	sql.OrderPaginate(order, page, limit)
+	sql.OrderByPaginate("id", order, page, limit)
 
 	stmt := sql.Prep(conn)
 	defer stmt.Reset()
