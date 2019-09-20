@@ -118,7 +118,28 @@ Never do this: `x := Type{}`
 ### Errors
 Errors must always be checked, even if it is extremely unlikely, or guaranteed
 not to occur. Most errors should cause `fatd` to cleanly exit. Only a few
-specific errors should
+exceptions to this rule:
+- network server errors like 500 may be retried
+- transaction validation errors, named `txErr` by convention
+
+Never report normal errors by panicking.
+
+#### Panic
+Panics represent a program integrity error. A program integrity error is when
+the program does something that is or should be impossible, or never happen.
+
+Examples of integrity issues:
+- An out of bounds array or slice access or write
+- A nil ptr dereference
+- A function that must only ever be used in a certain way, with valid inputs.
+  e.g. regexp.MustCompile
+
+The idea of an integrity error, is that when the program is written correctly,
+this should never occur. So if this occurs, the program is misusing something
+critical.
+
+If you panic on an error, you should explain in comments why the error
+represents an integrity issue, if it is not exceedingly obvious.
 
 ### Types
 
