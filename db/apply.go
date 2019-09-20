@@ -30,6 +30,7 @@ import (
 	"github.com/Factom-Asset-Tokens/fatd/db/addresses"
 	"github.com/Factom-Asset-Tokens/fatd/db/eblocks"
 	"github.com/Factom-Asset-Tokens/fatd/db/entries"
+	"github.com/Factom-Asset-Tokens/fatd/db/nftokens"
 	"github.com/Factom-Asset-Tokens/fatd/fat"
 	"github.com/Factom-Asset-Tokens/fatd/fat/fat0"
 	"github.com/Factom-Asset-Tokens/fatd/fat/fat1"
@@ -199,7 +200,7 @@ func (chain *Chain) ApplyFAT0Tx(ei int64, e factom.Entry) (tx *fat0.Transaction,
 		if err = chain.numIssuedAdd(addIssued); err != nil {
 			return
 		}
-		if _, err = addresses.InsertTransaction(
+		if _, err = addresses.InsertTransactionRelation(
 			chain.Conn, 1, ei, false); err != nil {
 			return
 		}
@@ -210,7 +211,7 @@ func (chain *Chain) ApplyFAT0Tx(ei int64, e factom.Entry) (tx *fat0.Transaction,
 			if err != nil || txErr != nil {
 				return
 			}
-			if _, err = addresses.InsertTransaction(
+			if _, err = addresses.InsertTransactionRelation(
 				chain.Conn, ai, ei, false); err != nil {
 				return
 			}
@@ -223,7 +224,7 @@ func (chain *Chain) ApplyFAT0Tx(ei int64, e factom.Entry) (tx *fat0.Transaction,
 		if err != nil {
 			return
 		}
-		if _, err = addresses.InsertTransaction(
+		if _, err = addresses.InsertTransactionRelation(
 			chain.Conn, ai, ei, true); err != nil {
 			return
 		}
@@ -252,25 +253,27 @@ func (chain *Chain) ApplyFAT1Tx(ei int64, e factom.Entry) (tx *fat1.Transaction,
 			return
 		}
 		var adrTxID int64
-		adrTxID, err = addresses.InsertTransaction(chain.Conn, 1, ei, false)
+		adrTxID, err = addresses.InsertTransactionRelation(chain.Conn, 1, ei, false)
 		if err != nil {
 			return
 		}
 		for nfID := range nfTkns {
 			// Insert the NFToken with the coinbase address as a
 			// placeholder for the owner.
-			txErr, err = chain.insertNFToken(nfID, 1, ei)
+			txErr, err = nftokens.Insert(chain.Conn, nfID, 1, ei)
 			if err != nil || txErr != nil {
 				return
 			}
-			if err = chain.insertNFTokenTransaction(nfID, adrTxID); err != nil {
+			if err = nftokens.InsertTransactionRelation(
+				chain.Conn, nfID, adrTxID); err != nil {
 				return
 			}
 			metadata := tx.TokenMetadata[nfID]
 			if len(metadata) == 0 {
 				continue
 			}
-			if err = chain.setNFTokenMetadata(nfID, metadata); err != nil {
+			if err = nftokens.SetMetadata(
+				chain.Conn, nfID, metadata); err != nil {
 				return
 			}
 		}
@@ -283,14 +286,14 @@ func (chain *Chain) ApplyFAT1Tx(ei int64, e factom.Entry) (tx *fat1.Transaction,
 				return
 			}
 			var adrTxID int64
-			adrTxID, err = addresses.InsertTransaction(
+			adrTxID, err = addresses.InsertTransactionRelation(
 				chain.Conn, ai, ei, false)
 			if err != nil {
 				return
 			}
 			for nfTkn := range nfTkns {
 				var ownerID int64
-				ownerID, err = SelectNFTokenOwnerID(chain.Conn, nfTkn)
+				ownerID, err = nftokens.SelectOwnerID(chain.Conn, nfTkn)
 				if err != nil {
 					return
 				}
@@ -303,8 +306,8 @@ func (chain *Chain) ApplyFAT1Tx(ei int64, e factom.Entry) (tx *fat1.Transaction,
 						nfTkn, adr)
 					return
 				}
-				if err = chain.insertNFTokenTransaction(
-					nfTkn, adrTxID); err != nil {
+				if err = nftokens.InsertTransactionRelation(
+					chain.Conn, nfTkn, adrTxID); err != nil {
 					return
 				}
 			}
@@ -318,16 +321,17 @@ func (chain *Chain) ApplyFAT1Tx(ei int64, e factom.Entry) (tx *fat1.Transaction,
 			return
 		}
 		var adrTxID int64
-		adrTxID, err = addresses.InsertTransaction(chain.Conn, ai, ei, true)
+		adrTxID, err = addresses.InsertTransactionRelation(
+			chain.Conn, ai, ei, true)
 		if err != nil {
 			return
 		}
 		for nfID := range nfTkns {
-			if err = chain.setNFTokenOwner(nfID, ai); err != nil {
+			if err = nftokens.SetOwner(chain.Conn, nfID, ai); err != nil {
 				return
 			}
-			if err = chain.insertNFTokenTransaction(
-				nfID, adrTxID); err != nil {
+			if err = nftokens.InsertTransactionRelation(
+				chain.Conn, nfID, adrTxID); err != nil {
 				return
 			}
 		}

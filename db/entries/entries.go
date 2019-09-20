@@ -37,6 +37,9 @@ import (
 )
 
 // CreateTable is a SQL string that creates the "entries" table.
+//
+// The "entries" table has a foreign key reference to the "eblocks" table,
+// which must exist first.
 const CreateTable = `CREATE TABLE "entries" (
         "id"            INTEGER PRIMARY KEY,
         "eb_seq"        INTEGER NOT NULL,
@@ -153,8 +156,10 @@ func SelectCount(conn *sqlite.Conn, validOnly bool) (int64, error) {
 	return sqlitex.ResultInt64(stmt)
 }
 
-// SelectByAddress returns the all factom.Entry where adrs and nfTkns were
-// involved in the valid transaction.
+// SelectByAddress returns all the factom.Entry where adrs and nfTkns were
+// involved in the valid transaction, for the given pagination range.
+//
+// Pages start at 1.
 //
 // TODO: This should probably be moved out of the entries package and into a db
 // package that is more specific to FAT0 and FAT1.

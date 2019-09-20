@@ -57,6 +57,8 @@ func Add(conn *sqlite.Conn, adr *factom.FAAddress, add uint64) (int64, error) {
 	return SelectID(conn, adr)
 }
 
+const sqlitexNoResultsErr = "sqlite: statement has no results"
+
 // Sub subtracts sub from the balance of adr creating the row in "addresses" if
 // it does not exist and sub is 0. If successful, the row id of adr is
 // returned. If subtracting sub would result in a negative balance, txErr is
@@ -94,8 +96,6 @@ func Sub(conn *sqlite.Conn,
 	return id, nil, nil
 }
 
-var sqlitexNoResultsErr = "sqlite: statement has no results"
-
 // SelectIDBalance returns the row id and balance for the given adr.
 func SelectIDBalance(conn *sqlite.Conn,
 	adr *factom.FAAddress) (adrID int64, bal uint64, err error) {
@@ -129,23 +129,4 @@ func SelectCount(conn *sqlite.Conn, nonZeroOnly bool) (int64, error) {
                 AND (? OR "balance" > 0);`)
 	stmt.BindBool(1, !nonZeroOnly)
 	return sqlitex.ResultInt64(stmt)
-}
-
-// InsertTransaction inserts a row into "address_transactions" relating the
-// adrID with the entryID with the given transaction direction, to. If
-// successful, the row id for the new row in "address_transactions" is
-// returned.
-func InsertTransaction(conn *sqlite.Conn,
-	adrID int64, entryID int64, to bool) (int64, error) {
-	stmt := conn.Prep(`INSERT INTO "address_transactions"
-                ("address_id", "entry_id", "to") VALUES
-                (?, ?, ?)`)
-	stmt.BindInt64(1, adrID)
-	stmt.BindInt64(2, entryID)
-	stmt.BindBool(3, to)
-	_, err := stmt.Step()
-	if err != nil {
-		return -1, err
-	}
-	return conn.LastInsertRowID(), nil
 }

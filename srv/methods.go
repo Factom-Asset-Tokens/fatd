@@ -30,9 +30,9 @@ import (
 	jrpc "github.com/AdamSLevy/jsonrpc2/v11"
 
 	"github.com/Factom-Asset-Tokens/factom"
-	"github.com/Factom-Asset-Tokens/fatd/db"
 	"github.com/Factom-Asset-Tokens/fatd/db/addresses"
 	"github.com/Factom-Asset-Tokens/fatd/db/entries"
+	"github.com/Factom-Asset-Tokens/fatd/db/nftokens"
 	"github.com/Factom-Asset-Tokens/fatd/engine"
 	"github.com/Factom-Asset-Tokens/fatd/fat"
 	"github.com/Factom-Asset-Tokens/fatd/fat/fat0"
@@ -290,7 +290,7 @@ func getNFBalance(data json.RawMessage) interface{} {
 		return err
 	}
 
-	tkns, err := db.SelectNFTokensByOwner(chain.Conn, params.Address,
+	tkns, err := nftokens.SelectByOwner(chain.Conn, params.Address,
 		*params.Page, params.Limit, params.Order)
 	if err != nil {
 		panic(err)
@@ -382,7 +382,8 @@ func getNFToken(data json.RawMessage) interface{} {
 		return err
 	}
 
-	owner, creationHash, metadata, err := db.SelectNFToken(chain.Conn, *params.NFTokenID)
+	owner, creationHash, metadata, err := nftokens.SelectData(
+		chain.Conn, *params.NFTokenID)
 	if err != nil {
 		panic(err)
 	}
@@ -420,8 +421,8 @@ func getNFTokens(data json.RawMessage) interface{} {
 		return err
 	}
 
-	tkns, owners, creationHashes, metadata, err := db.SelectNFTokens(chain.Conn,
-		params.Order, *params.Page, params.Limit)
+	tkns, owners, creationHashes, metadata, err := nftokens.SelectDataAll(
+		chain.Conn, params.Order, *params.Page, params.Limit)
 	if err != nil {
 		panic(err)
 	}
@@ -537,7 +538,7 @@ func attemptApplyFAT1Tx(chain *engine.Chain, e factom.Entry) (txErr, err error) 
 		}
 		for nfID := range nfTkns {
 			var ownerID int64
-			ownerID, err = db.SelectNFTokenOwnerID(chain.Conn, nfID)
+			ownerID, err = nftokens.SelectOwnerID(chain.Conn, nfID)
 			if err != nil {
 				return
 			}
@@ -561,7 +562,8 @@ func attemptApplyFAT1Tx(chain *engine.Chain, e factom.Entry) (txErr, err error) 
 			}
 			for nfTkn := range nfTkns {
 				var ownerID int64
-				ownerID, err = db.SelectNFTokenOwnerID(chain.Conn, nfTkn)
+				ownerID, err = nftokens.SelectOwnerID(
+					chain.Conn, nfTkn)
 				if err != nil {
 					return
 				}
