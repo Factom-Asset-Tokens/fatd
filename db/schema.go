@@ -30,25 +30,11 @@ import (
 	"github.com/Factom-Asset-Tokens/fatd/db/addresses"
 	"github.com/Factom-Asset-Tokens/fatd/db/eblocks"
 	"github.com/Factom-Asset-Tokens/fatd/db/entries"
+	"github.com/Factom-Asset-Tokens/fatd/db/metadata"
 	"github.com/Factom-Asset-Tokens/fatd/db/nftokens"
 )
 
 const (
-	createTableMetadata = `CREATE TABLE "metadata" (
-        "id"                    INTEGER PRIMARY KEY,
-        "sync_height"           INTEGER NOT NULL,
-        "sync_db_key_mr"        BLOB NOT NULL,
-        "network_id"            BLOB NOT NULL,
-        "id_key_entry"          BLOB,
-        "id_key_height"         INTEGER,
-
-        "init_entry_id"         INTEGER,
-        "num_issued"            INTEGER,
-
-        FOREIGN KEY("init_entry_id") REFERENCES "entries"
-);
-`
-
 	// For the sake of simplicity, all chain DBs use the exact same schema,
 	// regardless of whether they actually make use of the NFTokens tables.
 	chainDBSchema = eblocks.CreateTable +
@@ -57,7 +43,7 @@ const (
 		addresses.CreateTableTransactions +
 		nftokens.CreateTable +
 		nftokens.CreateTableTransactions +
-		createTableMetadata
+		metadata.CreateTable
 )
 
 // validateOrApplySchema compares schema with the database connected to by

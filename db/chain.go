@@ -35,6 +35,9 @@ import (
 
 	"github.com/Factom-Asset-Tokens/factom"
 	"github.com/Factom-Asset-Tokens/fatd/db/addresses"
+	"github.com/Factom-Asset-Tokens/fatd/db/eblocks"
+	"github.com/Factom-Asset-Tokens/fatd/db/entries"
+	"github.com/Factom-Asset-Tokens/fatd/db/metadata"
 	"github.com/Factom-Asset-Tokens/fatd/fat"
 	_log "github.com/Factom-Asset-Tokens/fatd/log"
 )
@@ -119,7 +122,8 @@ func OpenNew(dbPath string,
 	chain.SyncDBKeyMR = dbKeyMR
 	chain.NetworkID = networkID
 
-	if err = chain.insertMetadata(); err != nil {
+	if err = metadata.Insert(chain.Conn, chain.SyncHeight, chain.SyncDBKeyMR,
+		chain.NetworkID, chain.Identity); err != nil {
 		return
 	}
 
@@ -261,4 +265,60 @@ func (chain *Chain) LatestEntryTimestamp() time.Time {
 	entries := chain.Head.Entries
 	lastID := len(entries) - 1
 	return entries[lastID].Timestamp
+}
+
+func (chain *Chain) SetSync(height uint32, dbKeyMR *factom.Bytes32) error {
+	if height <= chain.SyncHeight {
+		return nil
+	}
+	if err := metadata.SetSync(chain.Conn, height, dbKeyMR); err != nil {
+		return err
+	}
+	chain.SyncHeight = height
+	chain.SyncDBKeyMR = dbKeyMR
+	return nil
+}
+
+func (chain *Chain) addNumIssued(add uint64) error {
+	if err := metadata.AddNumIssued(chain.Conn, add); err != nil {
+		return err
+	}
+	chain.NumIssued += add
+	return nil
+}
+
+func (chain *Chain) loadMetadata() error {
+	defer chain.setApplyFunc()
+	// Load NameIDs
+	first, err := entries.SelectByID(chain.Conn, 1)
+	if err != nil {
+		return err
+	}
+	if !first.IsPopulated() {
+		return fmt.Errorf("no first entry")
+	}
+
+	nameIDs := first.ExtIDs
+	if !fat.ValidTokenNameIDs(nameIDs) {
+		return fmt.Errorf("invalid token chain Name IDs")
+	}
+	chain.TokenID, chain.IssuerChainID = fat.TokenIssuer(nameIDs)
+
+	// Load Chain Head
+	eb, dbKeyMR, err := eblocks.SelectLatest(chain.Conn)
+	if err != nil {
+		return err
+	}
+	if !eb.IsPopulated() {
+		// A database must always have at least one EBlock.
+		return fmt.Errorf("no eblock in database")
+	}
+	chain.Head = eb
+	chain.DBKeyMR = &dbKeyMR
+	chain.ID = eb.ChainID
+
+	chain.SyncHeight, chain.NumIssued, chain.SyncDBKeyMR,
+		chain.NetworkID, chain.Identity,
+		chain.Issuance, err = metadata.Select(chain.Conn)
+	return err
 }

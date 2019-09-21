@@ -30,6 +30,7 @@ import (
 	"github.com/Factom-Asset-Tokens/fatd/db/addresses"
 	"github.com/Factom-Asset-Tokens/fatd/db/eblocks"
 	"github.com/Factom-Asset-Tokens/fatd/db/entries"
+	"github.com/Factom-Asset-Tokens/fatd/db/metadata"
 	"github.com/Factom-Asset-Tokens/fatd/db/nftokens"
 	"github.com/Factom-Asset-Tokens/fatd/fat"
 	"github.com/Factom-Asset-Tokens/fatd/fat/fat0"
@@ -100,7 +101,7 @@ func (chain *Chain) applyIssuance(ei int64, e factom.Entry) (issueErr, err error
 	if issueErr = issuance.Validate(chain.ID1); issueErr != nil {
 		return
 	}
-	if err = chain.setInitEntryID(ei); err != nil {
+	if err = metadata.SetInitEntryID(chain.Conn, ei); err != nil {
 		return
 	}
 	chain.Issuance = issuance
@@ -197,7 +198,7 @@ func (chain *Chain) ApplyFAT0Tx(ei int64, e factom.Entry) (tx *fat0.Transaction,
 			txErr = fmt.Errorf("coinbase exceeds max supply")
 			return
 		}
-		if err = chain.numIssuedAdd(addIssued); err != nil {
+		if err = chain.addNumIssued(addIssued); err != nil {
 			return
 		}
 		if _, err = addresses.InsertTransactionRelation(
@@ -249,7 +250,7 @@ func (chain *Chain) ApplyFAT1Tx(ei int64, e factom.Entry) (tx *fat1.Transaction,
 			txErr = fmt.Errorf("coinbase exceeds max supply")
 			return
 		}
-		if err = chain.numIssuedAdd(addIssued); err != nil {
+		if err = chain.addNumIssued(addIssued); err != nil {
 			return
 		}
 		var adrTxID int64
