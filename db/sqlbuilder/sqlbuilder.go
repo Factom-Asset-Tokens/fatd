@@ -109,8 +109,6 @@ func (s *SQLBuilder) Paginate(page, limit uint) {
 // OrderBy append fmt.Sprintf(` ORDER BY %q %s`, col, order). No binds are
 // added.
 func (s *SQLBuilder) OrderBy(col, ascDesc string) {
-	s.WriteString(col)
-	s.WriteString(`"`)
 	ascDesc = strings.ToUpper(ascDesc)
 	switch ascDesc {
 	case "ASC", "DESC":
