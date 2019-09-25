@@ -38,7 +38,7 @@ import (
 
 func init() {
 	log.SetFlags(log.Lshortfile)
-	fflag.DBPath = "./test-fatd.db"
+	fflag.DBPath = "./test-fatd.db/"
 	fflag.LogDebug = true
 }
 
@@ -90,7 +90,7 @@ func main() {
 	}
 
 	// We don't need the actual dbKeyMR
-	chain, err := db.OpenNew(dblock.KeyMR, first, MainnetID(), identity)
+	chain, err := db.OpenNew(fflag.DBPath, dblock.KeyMR, first, MainnetID(), identity)
 	if err != nil {
 		log.Println(err)
 		return
