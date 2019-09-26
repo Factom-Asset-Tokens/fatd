@@ -11,10 +11,7 @@ require (
 	github.com/konsorten/go-windows-terminal-sequences v1.0.2 // indirect
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/nightlyone/lockfile v0.0.0-20180618180623-0ad87eef1443
-	github.com/pegnet/pegnet/modules/factoidaddress v0.2.1
-	github.com/pegnet/pegnet/modules/grader v0.2.1
-	github.com/pegnet/pegnet/modules/lxr30 v0.2.1
-	github.com/pegnet/pegnet/modules/opr v0.2.1
+	github.com/pegnet/pegnet v0.1.0-rc4.0.20190924093136-5a53cdfd85af
 	github.com/posener/complete v1.2.1
 	github.com/rs/cors v1.7.0
 	github.com/sirupsen/logrus v1.4.2
@@ -28,11 +25,3 @@ require (
 replace github.com/spf13/pflag v1.0.3 => github.com/AdamSLevy/pflag v1.0.4
 
 replace crawshaw.io/sqlite => github.com/AdamSLevy/sqlite v0.1.3-0.20190925021041-5f14912819e9
-
-replace github.com/pegnet/pegnet/modules/grader v0.2.1 => ../../pegnet/pegnet/modules/grader
-
-replace github.com/pegnet/pegnet/modules/opr v0.2.1 => ../../pegnet/pegnet/modules/opr
-
-replace github.com/pegnet/pegnet/modules/lxr30 v0.2.1 => ../../pegnet/pegnet/modules/lxr30
-
-replace github.com/pegnet/pegnet/modules/factoidaddress v0.2.1 => ../../pegnet/pegnet/modules/factoidaddress
