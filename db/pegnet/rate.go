@@ -20,56 +20,42 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 // IN THE SOFTWARE.
 
-package fat
+// Package nftokens provides functions and SQL framents for working with the
+// "nf_tokens" table, which stores fat.NFToken with owner, creation id, and
+// metadata.
+
+package pegnet
 
 import (
 	"fmt"
-	"strconv"
+
+	"crawshaw.io/sqlite"
+	"github.com/Factom-Asset-Tokens/factom"
 )
 
-type Type uint64
+const CreateTableRate = `CREATE TABLE "pn_rate" (
+        "eb_seq" INTEGER NOT NULL,
+        "token" TEXT,
+        "value" INTEGER,
+        
+        UNIQUE("eb_seq", "token")
 
-const (
-	TypeFAT0 Type = iota
-	TypeFAT1
-	TypeFAT2
-)
+        FOREIGN KEY("eb_seq") REFERENCES "eblocks"
+);
+`
 
-func (t *Type) Set(s string) error {
-	format := s[0:len(`FAT-`)]
-	if format != `FAT-` {
-		return fmt.Errorf("%T: invalid format", t)
+func InsertRate(conn *sqlite.Conn, eb factom.EBlock, token string, value uint64) error {
+	stmt := conn.Prep(`INSERT INTO "pn_rate"
+                ("eb_seq", "token", "value") VALUES (?, ?, ?);`)
+	stmt.BindInt64(1, int64(eb.Sequence))
+	stmt.BindText(2, token)
+	stmt.BindInt64(3, int64(value))
+	if _, err := stmt.Step(); err != nil {
+		if sqlite.ErrCode(err) == sqlite.SQLITE_CONSTRAINT_UNIQUE {
+			return fmt.Errorf("Rate{%d-%s} already exists", eb.Sequence, token)
+		}
+		return err
 	}
-	num := s[len(format):]
-	var err error
-	if *(*uint64)(t), err = strconv.ParseUint(num, 10, 64); err != nil {
-		return fmt.Errorf("%T: %v", t, err)
-	}
+
 	return nil
-}
-
-func (t *Type) UnmarshalJSON(data []byte) error {
-	if data[0] != '"' || data[len(data)-1] != '"' {
-		return fmt.Errorf("%T: expected JSON string", t)
-	}
-	data = data[1 : len(data)-1]
-	return t.Set(string(data))
-}
-
-func (t Type) MarshalJSON() ([]byte, error) {
-	return []byte(fmt.Sprintf("%#v", t.String())), nil
-}
-
-func (t Type) String() string {
-	return fmt.Sprintf("FAT-%v", uint64(t))
-}
-
-func (t Type) IsValid() bool {
-	switch t {
-	case TypeFAT0:
-		fallthrough
-	case TypeFAT1:
-		return true
-	}
-	return false
 }

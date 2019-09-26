@@ -31,6 +31,9 @@ import (
 // ValidTokenNameIDs returns true if the nameIDs match the pattern for a valid
 // token chain.
 func ValidTokenNameIDs(nameIDs []factom.Bytes) bool {
+	if IsPegNetOPR(nameIDs) {
+		return true
+	}
 	if len(nameIDs) == 4 && len(nameIDs[1]) > 0 &&
 		string(nameIDs[0]) == "token" && string(nameIDs[2]) == "issuer" &&
 		factom.ValidIdentityChainID(nameIDs[3]) &&
@@ -38,6 +41,11 @@ func ValidTokenNameIDs(nameIDs []factom.Bytes) bool {
 		return true
 	}
 	return false
+}
+
+func IsPegNetOPR(nameIDs []factom.Bytes) bool {
+	return len(nameIDs) == 3 && string(nameIDs[0]) == "PegNet" &&
+		len(nameIDs[1]) > 0 && string(nameIDs[2]) == "OraclePriceRecords"
 }
 
 // NameIDs returns valid NameIDs
@@ -55,6 +63,11 @@ func ChainID(tokenID string, issuerChainID *factom.Bytes32) factom.Bytes32 {
 
 func TokenIssuer(nameIDs []factom.Bytes) (string, *factom.Bytes32) {
 	var identityChainID factom.Bytes32
+
+	if IsPegNetOPR(nameIDs) {
+		return "", &identityChainID
+	}
+
 	copy(identityChainID[:], nameIDs[3])
 	return string(nameIDs[1]), &identityChainID
 }

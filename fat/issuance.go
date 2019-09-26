@@ -89,6 +89,9 @@ func (i Issuance) MarshalJSON() ([]byte, error) {
 
 // NewIssuance returns an Issuance initialized with the given entry.
 func NewIssuance(entry factom.Entry) Issuance {
+	if IsPegNetOPR(entry.ExtIDs) {
+		return Issuance{Type: TypeFAT2, Supply: 1, Entry: Entry{Entry: entry}}
+	}
 	return Issuance{Entry: Entry{Entry: entry}}
 }
 

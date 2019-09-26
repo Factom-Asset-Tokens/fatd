@@ -32,6 +32,7 @@ import (
 	"github.com/Factom-Asset-Tokens/fatd/db/entries"
 	"github.com/Factom-Asset-Tokens/fatd/db/metadata"
 	"github.com/Factom-Asset-Tokens/fatd/db/nftokens"
+	"github.com/Factom-Asset-Tokens/fatd/db/pegnet"
 )
 
 const (
@@ -43,7 +44,9 @@ const (
 		addresses.CreateTableTransactions +
 		nftokens.CreateTable +
 		nftokens.CreateTableTransactions +
-		metadata.CreateTable
+		metadata.CreateTable +
+		pegnet.CreateTableGrade +
+		pegnet.CreateTableRate
 )
 
 // validateOrApplySchema compares schema with the database connected to by

@@ -27,8 +27,8 @@ import (
 	"math"
 	"sync"
 
-	"github.com/Factom-Asset-Tokens/fatd/db"
 	"github.com/Factom-Asset-Tokens/factom"
+	"github.com/Factom-Asset-Tokens/fatd/db"
 	"github.com/Factom-Asset-Tokens/fatd/flag"
 )
 
@@ -132,6 +132,9 @@ func loadChains() (syncHeight uint32, err error) {
 			Chains.Close()
 		}
 	}()
+
+	oprChain := factom.NewBytes32FromString("a642a8674f46696cc47fdb6b65f9c87b2a19c5ea8123b3d2f0c13b6f33a9d5ef")
+	flag.Whitelist = append(flag.Whitelist, *oprChain)
 
 	// Set whitelisted chains to Tracked.
 	for _, chainID := range flag.Whitelist {

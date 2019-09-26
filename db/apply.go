@@ -32,12 +32,16 @@ import (
 	"github.com/Factom-Asset-Tokens/fatd/db/entries"
 	"github.com/Factom-Asset-Tokens/fatd/db/metadata"
 	"github.com/Factom-Asset-Tokens/fatd/db/nftokens"
+	"github.com/Factom-Asset-Tokens/fatd/db/pegnet"
 	"github.com/Factom-Asset-Tokens/fatd/fat"
 	"github.com/Factom-Asset-Tokens/fatd/fat/fat0"
 	"github.com/Factom-Asset-Tokens/fatd/fat/fat1"
+	"github.com/pegnet/pegnet/modules/grader"
 )
 
-type applyFunc func(*Chain, int64, factom.Entry) (txErr, err error)
+// pointer to chain, the entry itself, the eblock, and the position of entry in eblock's entrylist
+// if the entry was applied on its own, position and total are -1
+type applyFunc func(*Chain, int64, factom.Entry, factom.EBlock, int) (txErr, err error)
 
 func (chain *Chain) Apply(dbKeyMR *factom.Bytes32, eb factom.EBlock) (err error) {
 	// Ensure entire EBlock is applied atomically.
@@ -57,20 +61,20 @@ func (chain *Chain) Apply(dbKeyMR *factom.Bytes32, eb factom.EBlock) (err error)
 	}
 
 	// Insert each entry and attempt to apply it...
-	for _, e := range eb.Entries {
-		if _, err = chain.ApplyEntry(e); err != nil {
+	for i, e := range eb.Entries {
+		if _, err = chain.ApplyEntry(e, eb, i); err != nil {
 			return
 		}
 	}
 	return
 }
 
-func (chain *Chain) ApplyEntry(e factom.Entry) (txErr, err error) {
+func (chain *Chain) ApplyEntry(e factom.Entry, eb factom.EBlock, pos int) (txErr, err error) {
 	ei, err := entries.Insert(chain.Conn, e, chain.Head.Sequence)
 	if err != nil {
 		return
 	}
-	return chain.apply(chain, ei, e)
+	return chain.apply(chain, ei, e, eb, pos)
 }
 
 var alwaysRollbackErr = fmt.Errorf("always rollback")
@@ -110,8 +114,10 @@ func (chain *Chain) applyIssuance(ei int64, e factom.Entry) (issueErr, err error
 }
 
 func (chain *Chain) setApplyFunc() {
-	if !chain.Issuance.IsPopulated() {
-		chain.apply = func(chain *Chain, ei int64, e factom.Entry) (
+	if !chain.Identity.IsPopulated() {
+		chain.Type = fat.TypeFAT2
+	} else if !chain.Issuance.IsPopulated() {
+		chain.apply = func(chain *Chain, ei int64, e factom.Entry, eb factom.EBlock, pos int) (
 			txErr, err error) {
 			txErr, err = chain.applyIssuance(ei, e)
 			return
@@ -121,15 +127,21 @@ func (chain *Chain) setApplyFunc() {
 	// Adapt to match ApplyFunc.
 	switch chain.Type {
 	case fat0.Type:
-		chain.apply = func(chain *Chain, ei int64, e factom.Entry) (
+		chain.apply = func(chain *Chain, ei int64, e factom.Entry, eb factom.EBlock, pos int) (
 			txErr, err error) {
 			_, txErr, err = chain.ApplyFAT0Tx(ei, e)
 			return
 		}
 	case fat1.Type:
-		chain.apply = func(chain *Chain, ei int64, e factom.Entry) (
+		chain.apply = func(chain *Chain, ei int64, e factom.Entry, eb factom.EBlock, pos int) (
 			txErr, err error) {
 			_, txErr, err = chain.ApplyFAT1Tx(ei, e)
+			return
+		}
+	case fat.TypeFAT2:
+		chain.apply = func(chain *Chain, ei int64, e factom.Entry, eb factom.EBlock, pos int) (
+			txErr, err error) {
+			err = chain.ApplyFAT2OPR(ei, e, eb, pos)
 			return
 		}
 	default:
@@ -231,6 +243,67 @@ func (chain *Chain) ApplyFAT0Tx(ei int64, e factom.Entry) (tx *fat0.Transaction,
 		}
 	}
 
+	return
+}
+
+var tmp grader.BlockGrader
+
+func (chain *Chain) ApplyFAT2OPR(ei int64, e factom.Entry, eb factom.EBlock, pos int) (err error) {
+	if !eb.IsPopulated() || pos < 0 { // 'processing' entry
+		return
+	}
+
+	// beginning of every EBlock
+	if pos == 0 {
+		grader.InitLX()
+		ver := uint8(1)
+		if eb.Height >= 210330 {
+			ver = uint8(2)
+		}
+
+		prev, err := pegnet.GetGrade(chain.Conn, eb.Sequence-1)
+		if err != nil {
+			return err
+		}
+
+		tmp, err = grader.NewGrader(ver, int32(eb.Height), prev)
+		if err != nil {
+			return err
+		}
+	}
+
+	// Every Entry
+	var extids [][]byte
+	for _, x := range e.ExtIDs {
+		extids = append(extids, []byte(x))
+	}
+
+	tmp.AddOPR(e.Hash[:], extids, []byte(e.Content))
+
+	//fmt.Println(pos, len(eb.Entries))
+
+	// After every EBlock
+	if pos == len(eb.Entries)-1 {
+		graded := tmp.Grade()
+		winners := graded.WinnersShortHashes()
+		//fmt.Println("winners", winners)
+		err := pegnet.InsertGrade(chain.Conn, eb, winners)
+		if err != nil {
+			return err
+		}
+
+		oprs := graded.Winners()
+		if len(oprs) > 0 {
+			for _, t := range oprs[0].OPR.GetOrderedAssetsUint() {
+				err = pegnet.InsertRate(chain.Conn, eb, t.Name, t.Value)
+				if err != nil {
+					return err
+				}
+			}
+		}
+		tmp = nil
+		graded = nil
+	}
 	return
 }
 

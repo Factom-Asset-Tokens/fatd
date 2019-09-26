@@ -26,6 +26,9 @@ import (
 	"os"
 	"os/signal"
 
+	"net/http"
+	_ "net/http/pprof"
+
 	"github.com/Factom-Asset-Tokens/fatd/engine"
 	"github.com/Factom-Asset-Tokens/fatd/flag"
 	"github.com/Factom-Asset-Tokens/fatd/log"
@@ -51,6 +54,9 @@ func _main() (ret int) {
 	log := log.New("pkg", "main")
 	log.Info("Fatd Version: ", flag.Revision)
 	defer log.Info("Factom Asset Token Daemon stopped.")
+	go func() {
+		log.Println(http.ListenAndServe("localhost:6060", nil))
+	}()
 
 	// Engine
 	stopEngine := make(chan struct{})
