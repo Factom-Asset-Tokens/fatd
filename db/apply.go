@@ -415,8 +415,8 @@ func (chain *Chain) ApplyFAT2TxBatch(entryID int64, e factom.Entry) (txBatch *fa
 				if err != nil {
 					return
 				}
-				if _, err = addresses.InsertTransactionRelation(
-					chain.Conn, outputAdrID, ei, true); err != nil {
+				if _, err = pegnet.InsertTransactionRelation(
+					chain.Conn, outputAdrID, entryID, int64(txIndex), true); err != nil {
 					return
 				}
 			}
