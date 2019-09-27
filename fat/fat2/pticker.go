@@ -113,3 +113,11 @@ func (t PTicker) MarshalJSON() ([]byte, error) {
 	// will be used in the JSON exactly as marshalled
 	return []byte(fmt.Sprintf("\"%s\"", pTickerString)), nil
 }
+
+// String returns the string representation of this PTicker
+func (t PTicker) String() string {
+	if t <= PTickerInvalid || PTickerMax <= t {
+		return fmt.Errorf("invalid token type").Error()
+	}
+	return validPTickerStrings[int(t)]
+}
