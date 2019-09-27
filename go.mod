@@ -11,7 +11,6 @@ require (
 	github.com/konsorten/go-windows-terminal-sequences v1.0.2 // indirect
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/nightlyone/lockfile v0.0.0-20180618180623-0ad87eef1443
-	github.com/pegnet/pegnet v0.1.0-rc4.0.20190925012557-c3b9697cfceb // indirect
 	github.com/posener/complete v1.2.1
 	github.com/rs/cors v1.7.0
 	github.com/sirupsen/logrus v1.4.2
@@ -20,6 +19,7 @@ require (
 	github.com/spf13/viper v1.4.0
 	github.com/stretchr/testify v1.4.0
 	golang.org/x/sys v0.0.0-20190911201528-7ad0cfa0b7b5 // indirect
+	golang.org/x/text v0.3.2 // indirect
 )
 
 replace github.com/spf13/pflag v1.0.3 => github.com/AdamSLevy/pflag v1.0.4
