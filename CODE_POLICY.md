@@ -85,6 +85,49 @@ or `develop`) to your feature.
 
 ## Golang
 
+### Formatting
+
+#### Gofmt
+
+Use the official gofmt tool. It is highly recommended to run gofmt on every
+save, as this will always catch any syntax errors and ensure consistent
+formatting. Virtually every IDE and code editor has a plugin that runs gofmt on
+save.
+
+Do not commit code that has not been run through the formatter.
+
+#### Line length
+
+Please limit line length to 79 characters max to avoid the need for horizontal
+scrolling. This also applies to comments. Indented comments must still limit
+the total line length. Most everything in golang can be broken up across
+multiple lines to properly limit line length.
+
+The line length max for many modern editors are set to 80 characters max now.
+But the default in vim is 79 for historical reasons, and so this will be
+perpetuated in this project as well.
+
+The one exception to the max line length are string literals. In order to allow
+string literals to be easily searched for in the codebase, these should not be
+broken up across lines. However always insert a newline before the string
+literal declaration if this allows the line length rule to be respected.
+
+#### Comments
+
+Comments must respect line length rules (see above). Comments should be used to
+document exported APIs, and explain non-obvious or complex code.
+
+Comments must be complete english sentences. They should be concise and
+precise. In general, they should explain the intent or high level behavior of
+code, and only explain non-obvious implementation details or design decisions.
+
+Comments must be kept up to date with the code they describe. When you change
+code, you must review the comments for discrepancies.
+
+When comments describe behavior you must not change the behavior, as this
+represents an API level change. Such changes must be discussed and well
+understood so that any code depending on the behavior can be updated.
+
 ### Imports and modules
 
 Importing external code should be done with care. Imports should be evaluated
