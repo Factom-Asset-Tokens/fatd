@@ -24,6 +24,7 @@ package db
 
 import (
 	"fmt"
+	"github.com/Factom-Asset-Tokens/fatd/db/pegnet"
 
 	"crawshaw.io/sqlite"
 	"crawshaw.io/sqlite/sqlitex"
@@ -43,7 +44,9 @@ const (
 		addresses.CreateTableTransactions +
 		nftokens.CreateTable +
 		nftokens.CreateTableTransactions +
-		metadata.CreateTable
+		metadata.CreateTable +
+		pegnet.CreateTableAddresses +
+		pegnet.CreateTableTransactions
 )
 
 // validateOrApplySchema compares schema with the database connected to by

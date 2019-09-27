@@ -20,8 +20,8 @@ type TransactionBatch struct {
 
 // NewTransactionBatch returns a TransactionBatch initialized with the given
 // entry.
-func NewTransactionBatch(entry factom.Entry) TransactionBatch {
-	return TransactionBatch{Entry: fat.Entry{Entry: entry}}
+func NewTransactionBatch(entry factom.Entry) *TransactionBatch {
+	return &TransactionBatch{Entry: fat.Entry{Entry: entry}}
 }
 
 type transactionBatch TransactionBatch

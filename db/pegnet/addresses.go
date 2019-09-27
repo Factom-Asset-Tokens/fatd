@@ -10,7 +10,7 @@ import (
 	"github.com/Factom-Asset-Tokens/fatd/fat/fat2"
 )
 
-// CreateTable is a SQL string that creates the "pn_addresses" table.
+// CreateTableAddresses is a SQL string that creates the "pn_addresses" table.
 const CreateTableAddresses = `CREATE TABLE "pn_addresses" (
         "id"            INTEGER PRIMARY KEY,
         "address"       BLOB NOT NULL UNIQUE,
