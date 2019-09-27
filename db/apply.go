@@ -24,6 +24,8 @@ package db
 
 import (
 	"fmt"
+	"github.com/Factom-Asset-Tokens/fatd/db/pegnet"
+	"github.com/Factom-Asset-Tokens/fatd/fat/fat2"
 
 	"crawshaw.io/sqlite/sqlitex"
 	"github.com/Factom-Asset-Tokens/factom"
@@ -130,6 +132,12 @@ func (chain *Chain) setApplyFunc() {
 		chain.apply = func(chain *Chain, ei int64, e factom.Entry) (
 			txErr, err error) {
 			_, txErr, err = chain.ApplyFAT1Tx(ei, e)
+			return
+		}
+	case fat2.Type:
+		chain.apply = func(chain *Chain, ei int64, e factom.Entry) (
+			txErr, err error) {
+			_, txErr, err = chain.ApplyFAT2TxBatch(ei, e)
 			return
 		}
 	default:
@@ -334,6 +342,83 @@ func (chain *Chain) ApplyFAT1Tx(ei int64, e factom.Entry) (tx *fat1.Transaction,
 			if err = nftokens.InsertTransactionRelation(
 				chain.Conn, nfID, adrTxID); err != nil {
 				return
+			}
+		}
+	}
+
+	return
+}
+
+func (chain *Chain) SaveFAT2TxBatch(txBatch fat2.TransactionBatch) func(txErr, err *error) {
+	rollback := sqlitex.Save(chain.Conn)
+	chainCopy := *chain
+	return func(txErr, err *error) {
+		e := txBatch.FactomEntry()
+		if *err != nil || *txErr != nil {
+			rollback(&alwaysRollbackErr)
+			// Reset chain on error
+			*chain = chainCopy
+			if *err != nil {
+				return
+			}
+			chain.Log.Debugf("Entry{%v}: invalid %v TransactionBatch: %v",
+				e.Hash, chain.Type, *txErr)
+			return
+		}
+		rollback(err)
+		chain.Log.Debugf("Valid %v TransactionBatch: %v %+v",
+			chain.Type, e.Hash, txBatch)
+	}
+}
+
+func (chain *Chain) ApplyFAT2TxBatch(entryID int64, e factom.Entry) (txBatch *fat2.TransactionBatch,
+	txErr, err error) {
+	txBatch = fat2.NewTransactionBatch(e)
+	defer chain.SaveFAT2TxBatch(*txBatch)(&txErr, &err)
+
+	// Duplicate the logic from chain.applyTx() here to account for multiple
+	// transactions in a single batch entry
+	for _, tx := range txBatch.Transactions {
+		if txErr = tx.Validate(); txErr != nil {
+			return
+		}
+	}
+	valid, err := entries.CheckUniquelyValid(chain.Conn, entryID, e.Hash)
+	if err != nil {
+		return
+	}
+	if !valid {
+		txErr = fmt.Errorf("replay: hash previously marked valid")
+		return
+	}
+	if err = entries.SetValid(chain.Conn, entryID); err != nil {
+		return
+	}
+
+	if txBatch.HasConversions() {
+		// TODO: handle putting the batch into holding for a block
+	} else {
+		for txIndex, tx := range txBatch.Transactions {
+			var inputAdrID int64
+			inputAdrID, txErr, err = pegnet.Sub(chain.Conn, &tx.Input.Address, tx.Input.Type, tx.Input.Amount)
+			if err != nil || txErr != nil {
+				return
+			}
+			if _, err = pegnet.InsertTransactionRelation(
+				chain.Conn, inputAdrID, entryID, int64(txIndex), false); err != nil {
+				return
+			}
+
+			for _, transfer := range tx.Transfers {
+				var outputAdrID int64
+				outputAdrID, err = pegnet.Add(chain.Conn, &transfer.Address, tx.Input.Type, transfer.Amount)
+				if err != nil {
+					return
+				}
+				if _, err = addresses.InsertTransactionRelation(
+					chain.Conn, outputAdrID, ei, true); err != nil {
+					return
+				}
 			}
 		}
 	}
