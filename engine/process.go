@@ -148,7 +148,7 @@ func ProcessPending(es ...factom.Entry) error {
 		// the current time for now. This is the time we first saw the pending
 		// entry.
 		e.Timestamp = time.Now()
-		if _, err := chain.Pending.Chain.ApplyEntry(e); err != nil {
+		if _, err := chain.Pending.Chain.ApplyEntry(e, factom.EBlock{}, -1); err != nil {
 			return err
 		}
 		chain.Pending.Entries[*e.Hash] = e // Cache the entry in memory.
