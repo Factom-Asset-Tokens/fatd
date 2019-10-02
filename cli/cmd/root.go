@@ -126,11 +126,11 @@ var apiFlags = func() *flag.FlagSet {
 	flags.ParseErrorsWhitelist.UnknownFlags = true
 
 	flags.StringVarP(&FATClient.FatdServer, "fatd", "d",
-		"localhost:8078", "scheme://host:port for fatd")
+		"http://localhost:8078", "scheme://host:port for fatd")
 	flags.StringVarP(&FactomClient.FactomdServer, "factomd", "s",
-		"localhost:8088", "scheme://host:port for factomd")
+		factom.FactomdDefault, "scheme://host:port for factomd")
 	flags.StringVarP(&FactomClient.WalletdServer, "walletd", "w",
-		"localhost:8089", "scheme://host:port for factom-walletd")
+		factom.WalletdDefault, "scheme://host:port for factom-walletd")
 
 	flags.StringVar(&FATClient.User, "fatduser", "",
 		"Basic HTTP Auth User for fatd")
