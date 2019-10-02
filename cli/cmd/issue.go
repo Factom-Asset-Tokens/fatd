@@ -367,14 +367,12 @@ func printCurl(entry factom.Entry, es factom.EsAddress) error {
 	}
 
 	vrbLog.Println("Curl commands:")
-	commitHex, _ := factom.Bytes(commit).MarshalJSON()
-	fmt.Printf(`curl -X POST --data-binary '{"jsonrpc": "2.0", "id": 0, "method": "%v", "params":{"message":%v}}' -H 'content-type:text/plain;' %v/v2`,
-		commitMethod, string(commitHex), FactomClient.FactomdServer)
+	fmt.Printf(`curl -X POST --data-binary '{"jsonrpc":"2.0","id":0,"method":%q,"params":{"message":%q}}' -H 'content-type:text/plain;' %v`,
+		commitMethod, factom.Bytes(commit), FactomClient.FactomdServer)
 	fmt.Println()
 
-	revealHex, _ := factom.Bytes(reveal).MarshalJSON()
-	fmt.Printf(`curl -X POST --data-binary '{"jsonrpc": "2.0", "id": 0, "method": "%v", "params":{"entry":%v}}' -H 'content-type:text/plain;' %v/v2`,
-		revealMethod, string(revealHex), FactomClient.FactomdServer)
+	fmt.Printf(`curl -X POST --data-binary '{"jsonrpc":"2.0","id": 0,"method":%q,"params":{"entry":%q}}' -H 'content-type:text/plain;' %v`,
+		revealMethod, factom.Bytes(reveal), FactomClient.FactomdServer)
 	fmt.Println()
 	return nil
 }

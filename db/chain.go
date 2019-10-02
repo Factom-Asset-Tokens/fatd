@@ -115,7 +115,8 @@ func OpenNew(dbPath string,
 	chain.Log = _log.New("chain", strings.TrimRight(fname, dbFileExtension))
 	chain.DBFile = fname
 	chain.ID = eb.ChainID
-	chain.TokenID, chain.IssuerChainID = fat.TokenIssuer(nameIDs)
+	chain.IssuerChainID = new(factom.Bytes32)
+	chain.TokenID, *chain.IssuerChainID = fat.TokenIssuer(nameIDs)
 	chain.DBKeyMR = dbKeyMR
 	chain.Identity = identity
 	chain.SyncHeight = eb.Height
@@ -254,13 +255,6 @@ func (chain *Chain) Close() {
 	}
 }
 
-// Get() returns a threadsafe connection to the database, and a function to
-// release the connection back to the pool.
-func (chain *Chain) Get() (*sqlite.Conn, func()) {
-	conn := chain.Pool.Get(nil)
-	return conn, func() { chain.Pool.Put(conn) }
-}
-
 func (chain *Chain) LatestEntryTimestamp() time.Time {
 	entries := chain.Head.Entries
 	lastID := len(entries) - 1
@@ -302,7 +296,8 @@ func (chain *Chain) loadMetadata() error {
 	if !fat.ValidTokenNameIDs(nameIDs) {
 		return fmt.Errorf("invalid token chain Name IDs")
 	}
-	chain.TokenID, chain.IssuerChainID = fat.TokenIssuer(nameIDs)
+	chain.IssuerChainID = new(factom.Bytes32)
+	chain.TokenID, *chain.IssuerChainID = fat.TokenIssuer(nameIDs)
 
 	// Load Chain Head
 	eb, dbKeyMR, err := eblocks.SelectLatest(chain.Conn)

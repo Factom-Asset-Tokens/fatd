@@ -40,9 +40,10 @@ func init() {
 	sqlitechangeset.AlwaysUseBlob = true
 }
 
-// ValidateChain validates all Entry Hashes and EBlock KeyMRs, as well as the
-// continuity of all stored EBlocks and Entries. It does not validate the
-// validity of the saved DBlock KeyMRs.
+// Validate all Entry Hashes and EBlock KeyMRs, as well as the continuity of
+// all stored EBlocks and Entries.
+//
+// This does not validate the validity of the saved DBlock KeyMRs.
 func (chain Chain) Validate() (err error) {
 	chain.Log.Debug("Validating database...")
 	// Validate ChainID...
@@ -56,7 +57,7 @@ func (chain Chain) Validate() (err error) {
 	if !first.IsPopulated() {
 		return fmt.Errorf("no entries")
 	}
-	if *chain.ID != factom.ChainID(first.ExtIDs) {
+	if *chain.ID != factom.ComputeChainID(first.ExtIDs) {
 		return fmt.Errorf("invalid NameIDs")
 	}
 
@@ -98,7 +99,7 @@ func (chain Chain) Validate() (err error) {
 
 	var eID int = 1     // Entry ID
 	var sequence uint32 // EBlock Sequence
-	var prevKeyMR, prevFullHash factom.Bytes32
+	var prevKeyMR, prevFullHash *factom.Bytes32
 	for {
 		eb, err := eblocks.Select(eBlockStmt)
 		if err != nil {
@@ -109,56 +110,34 @@ func (chain Chain) Validate() (err error) {
 			break
 		}
 
-		if *eb.ChainID != *chain.ID {
-			return fmt.Errorf("invalid EBlock{%v, %v}: invalid ChainID",
-				eb.Sequence, eb.KeyMR)
-		}
-
 		if sequence != eb.Sequence {
 			return fmt.Errorf("invalid EBlock{%v, %v}: invalid Sequence",
 				eb.Sequence, eb.KeyMR)
 		}
 		sequence++
 
-		if *eb.PrevKeyMR != prevKeyMR {
+		if (prevKeyMR != nil && *eb.PrevKeyMR != *prevKeyMR) ||
+			(prevKeyMR == nil && !eb.PrevKeyMR.IsZero()) {
 			return fmt.Errorf("invalid EBlock{%v, %v}: broken PrevKeyMR link",
 				eb.Sequence, eb.KeyMR)
 		}
+		prevKeyMR = eb.KeyMR
 
-		if *eb.PrevFullHash != prevFullHash {
+		if (prevFullHash != nil && *eb.PrevFullHash != *prevFullHash) ||
+			(prevFullHash == nil && !eb.PrevFullHash.IsZero()) {
 			return fmt.Errorf("invalid EBlock{%v, %v}: broken FullHash link",
 				eb.Sequence, eb.KeyMR)
 		}
-
-		keyMR, err := eb.ComputeKeyMR()
-		if err != nil {
-			return err
-		}
-		if keyMR != *eb.KeyMR {
-			return fmt.Errorf("invalid EBlock%+v: invalid KeyMR: %v",
-				eb, keyMR)
-		}
-
-		prevFullHash, err = eb.ComputeFullHash()
-		if err != nil {
-			return err
-		}
-		prevKeyMR = keyMR
+		prevFullHash = eb.FullHash
 
 		for i, ebe := range eb.Entries {
 			e, err := entries.Select(entryStmt)
-
-			if *e.Hash != *ebe.Hash {
-				return fmt.Errorf("invalid Entry{%v}: broken EBlock link",
-					e.Hash)
-			}
-
-			hash, err := e.ComputeHash()
 			if err != nil {
 				return err
 			}
-			if hash != *e.Hash {
-				return fmt.Errorf("invalid Entry{%v}: invalid Hash",
+
+			if *e.Hash != *ebe.Hash {
+				return fmt.Errorf("invalid Entry{%v}: broken EBlock link",
 					e.Hash)
 			}
 

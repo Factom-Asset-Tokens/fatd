@@ -30,7 +30,7 @@ import (
 	"strings"
 	"time"
 
-	jrpc "github.com/AdamSLevy/jsonrpc2/v11"
+	"github.com/AdamSLevy/jsonrpc2/v12"
 	"github.com/Factom-Asset-Tokens/factom"
 	"github.com/Factom-Asset-Tokens/fatd/fat"
 	"github.com/Factom-Asset-Tokens/fatd/srv"
@@ -65,7 +65,7 @@ func initClients() {
 		// Use --debugwalletd explicitly to debug wallet API calls.
 	}
 
-	for _, client := range []*jrpc.Client{
+	for _, client := range []*jsonrpc2.Client{
 		&FATClient.Client,
 		&FactomClient.Factomd,
 		&FactomClient.Walletd,
@@ -435,7 +435,7 @@ func validateChainIDFlags(cmd *cobra.Command, _ []string) error {
 }
 func initChainID() {
 	NameIDs = fat.NameIDs(paramsToken.TokenID, paramsToken.IssuerChainID)
-	*paramsToken.ChainID = factom.ChainID(NameIDs)
+	*paramsToken.ChainID = factom.ComputeChainID(NameIDs)
 	vrbLog.Println("Token Chain ID:", paramsToken.ChainID)
 }
 

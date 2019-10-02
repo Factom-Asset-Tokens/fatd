@@ -93,14 +93,14 @@ var (
 		"apitlscert":  "",
 		"apitlskey":   "",
 
-		"s":               "http://localhost:8088",
+		"s":               "http://localhost:8088/v2",
 		"factomdtimeout":  20 * time.Second,
 		"factomduser":     "",
 		"factomdpassword": "",
 		//"factomdcert":     "",
 		//"factomdtls":      false,
 
-		"w":              "http://localhost:8089",
+		"w":              "http://localhost:8089/v2",
 		"wallettimeout":  10 * time.Second,
 		"walletuser":     "",
 		"walletpassword": "",
@@ -194,7 +194,7 @@ var (
 		"-blacklist":       complete.PredictAnything,
 		"-ignorenewchains": complete.PredictNothing,
 
-		"-networkid": complete.PredictSet("main", "test", "local", "0x"),
+		"-networkid": complete.PredictSet("mainnet", "testnet", "localnet", "0x"),
 
 		"-skipdbvalidation": complete.PredictNothing,
 	}
@@ -341,9 +341,10 @@ func Validate() {
 	log.Debugf("-factomscanretries %v ", FactomScanRetries)
 	debugPrintln()
 
-	log.Debugf("-s              %#v", FactomClient.FactomdServer)
+	log.Debugf("-networkid      %v", NetworkID)
+	log.Debugf("-s              %q", FactomClient.FactomdServer)
 	log.Debugf("-factomdtimeout %v ", FactomClient.Factomd.Timeout)
-	log.Debugf("-factomduser    %#v", FactomClient.Factomd.User)
+	log.Debugf("-factomduser    %q", FactomClient.Factomd.User)
 	log.Debugf("-factomdpass    %v ", factomdPassword)
 	debugPrintln()
 

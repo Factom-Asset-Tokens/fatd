@@ -25,6 +25,7 @@ package engine
 import (
 	"fmt"
 	"os"
+	"runtime"
 	"sync"
 	"time"
 
@@ -55,9 +56,11 @@ func Start(stop <-chan struct{}) (done <-chan struct{}) {
 
 	// Try to create the main and pending database directories, in case
 	// they don't already exist.
-	if err := createDir(flag.DBPath); err != nil {
-		log.Error(err)
-		return
+	if err := os.Mkdir(flag.DBPath, 0755); err != nil {
+		if !os.IsExist(err) {
+			log.Error(fmt.Errorf("os.Mkdir(%#v): %v", flag.DBPath, err))
+			return nil
+		}
 	}
 
 	// Try to create a lockfile
@@ -72,6 +75,7 @@ func Start(stop <-chan struct{}) (done <-chan struct{}) {
 		log.Errorf("Database in use by other process. %v", err)
 		return
 	}
+	// Always clean up the lockfile if Start fails.
 	defer func() {
 		if done == nil {
 			if err := lockFile.Unlock(); err != nil {
@@ -86,14 +90,14 @@ func Start(stop <-chan struct{}) (done <-chan struct{}) {
 		return
 	}
 	var dblock factom.DBlock
-	dblock.Header.Height = factomHeight
+	dblock.Height = factomHeight
 	if err := dblock.Get(c); err != nil {
 		log.Errorf("dblock.Get(): %v", err)
 		return
 	}
-	if dblock.Header.NetworkID != flag.NetworkID {
+	if dblock.NetworkID != flag.NetworkID {
 		log.Errorf("invalid Factom Blockchain NetworkID: %v, expected: %v",
-			dblock.Header.NetworkID, flag.NetworkID)
+			dblock.NetworkID, flag.NetworkID)
 		return
 	}
 
@@ -107,6 +111,7 @@ func Start(stop <-chan struct{}) (done <-chan struct{}) {
 		log.Error(err)
 		return
 	}
+	// Always close all chain databases if Start fails.
 	defer func() {
 		if done == nil {
 			Chains.Close()
@@ -157,9 +162,8 @@ func Start(stop <-chan struct{}) (done <-chan struct{}) {
 	return _done
 }
 
-const numWorkers = 8
-
 func engine(stop <-chan struct{}, done chan struct{}) {
+	// Always close all chains and remove lockfile on exit.
 	defer func() {
 		Chains.Close()
 		if err := lockFile.Unlock(); err != nil {
@@ -168,31 +172,56 @@ func engine(stop <-chan struct{}, done chan struct{}) {
 		close(done)
 	}()
 
-	// Launch workers
+	// eblocks is used to send new EBlocks to the workers for processing.
 	eblocks := make(chan factom.EBlock)
+
+	// eblocksWG is used to signal that all EBlocks for the current DBlock
+	// are done being processed. This is reused each DBlock.
+	eblocksWG := &sync.WaitGroup{}
+
+	// stopWorkers may be called multiple times by any worker or this
+	// goroutine, but eblocks will only ever be closed once.
 	var once sync.Once
 	stopWorkers := func() { once.Do(func() { close(eblocks) }) }
+
+	// Always stop all workers on exit.
 	defer stopWorkers()
 
+	// dblock is declared here and reused so that the workers below can
+	// form a closure around it.
 	var dblock factom.DBlock
-	wg := &sync.WaitGroup{}
-	launchWorkers(numWorkers, func() {
-		for eb := range eblocks { // Read until close(eblocks)
-			if err := Process(dblock.KeyMR, eb); err != nil {
-				log.Errorf("ChainID(%v): %v", eb.ChainID, err)
-				stopWorkers() // Tell workers and engine() to exit.
+
+	// Launch workers to process new EBlocks.
+	numWorkers := runtime.NumCPU()
+	for i := 0; i < numWorkers; i++ {
+		go func() {
+			for eb := range eblocks {
+				if err := Process(dblock.KeyMR, eb); err != nil {
+					log.Errorf("ChainID(%v): %v", eb.ChainID, err)
+					// Tell workers and engine() to exit.
+					stopWorkers()
+				}
+				eblocksWG.Done()
 			}
-			wg.Done()
-		}
-	})
+		}()
+	}
 
 	if !flag.IgnoreNewChains() && syncHeight < factomHeight {
 		log.Infof("Searching for new FAT chains from block %v to %v...",
 			syncHeight+1, factomHeight)
 	}
+
+	// synced tracks whether we have completed our first sync.
 	var synced bool
+
+	// retries tracks the number of times we have had to retry querying for
+	// the latest factom height.
 	var retries int64
+
+	// scanTicker kicks off a new scan.
 	scanTicker := time.NewTicker(scanInterval)
+
+	// Factom Blockchain Scan Loop
 	for {
 		if !synced && syncHeight == factomHeight {
 			synced = true
@@ -200,38 +229,47 @@ func engine(stop <-chan struct{}, done chan struct{}) {
 			log.Infof("Synced.")
 		}
 
-		// Process all new DBlocks sequentially...
+		// Process all new DBlocks sequentially.
 		for h := syncHeight + 1; h <= factomHeight; h++ {
 			// Get DBlock.
 			dblock = factom.DBlock{}
-			dblock.Header.Height = h
+			dblock.Height = h
 			if err := dblock.Get(c); err != nil {
 				log.Errorf("%#v.Get(c): %v", dblock, err)
 				return
 			}
 
 			// Queue all EBlocks for processing.
-			wg.Add(len(dblock.EBlocks))
+			eblocksWG.Add(len(dblock.EBlocks))
 			for _, eb := range dblock.EBlocks {
 				eblocks <- eb
 			}
-			wg.Wait() // Wait for all EBlocks to be processed.
+			// Wait for all EBlocks to be processed.
+			eblocksWG.Wait()
 
-			// Check for process errors...
+			// Check if any of the workers closed the eblocks
+			// channel to indicate a Process() error.
 			select {
 			case <-eblocks:
 				// One or more of the workers had an error and
 				// closed the eblocks channel.
-				// We cannot consider this DBlock completed, so
-				// we do not update sync height for all chains.
+				// Since we cannot consider this DBlock
+				// completed, we do not update sync height for
+				// any chains.
 				return
 			default:
 			}
 
-			// DBlock completed.
+			// DBlock completed so update the sync height for all
+			// chains.
 			setSyncHeight(h)
 			if err := Chains.setSync(h, dblock.KeyMR); err != nil {
 				return
+			}
+
+			if flag.LogDebug && h%100 == 0 {
+				log.Debugf("Synced to block Height: %v KeyMR: %v",
+					h, dblock.KeyMR)
 			}
 
 			// Check that we haven't been told to stop.
@@ -240,42 +278,45 @@ func engine(stop <-chan struct{}, done chan struct{}) {
 				return
 			default:
 			}
-
-			if flag.LogDebug && h%100 == 0 {
-				log.Debugf("Synced to block Height: %v KeyMR: %v",
-					h, dblock.KeyMR)
-			}
 		}
 
+		// If we aren't yet synced, we want to immediately re-check the
+		// Factom Height as the Blockchain may have advanced in the
+		// time since we started the sync.
 		if synced {
-			var pe factom.PendingEntries
-			if flag.DisablePending {
-				goto WAIT
-			}
-			// Get and apply any pending entries
-			if err := pe.Get(c); err != nil {
-				log.Error(err)
-				return
-			}
-			for i, j := 0, 0; i < len(pe); i = j {
-				e := pe[i]
-				if e.ChainID == nil {
-					// No more revealed entries
-					break
-				}
-				// Grab remaining entries with this chain ID.
-				for j = i + 1; j < len(pe); j++ {
-					chainID := pe[j].ChainID
-					if chainID == nil || *chainID != *e.ChainID {
-						break
-					}
-				}
-				if err := ProcessPending(pe[i:j]...); err != nil {
+			if !flag.DisablePending {
+				// Get and apply any pending entries.
+				var pe factom.PendingEntries
+				if err := pe.Get(c); err != nil {
 					log.Error(err)
 					return
 				}
+
+				for i, j := 0, 0; i < len(pe); i = j {
+					e := pe[i]
+					// Unrevealed entries have no ChainID
+					// and are at the end of the slice.
+					if e.ChainID == nil {
+						// No more revealed entries.
+						break
+					}
+					// Grab any subsequent entries with
+					// this ChainID.
+					for j = i + 1; j < len(pe); j++ {
+						chainID := pe[j].ChainID
+						if chainID == nil || *chainID != *e.ChainID {
+							break
+						}
+					}
+					// Process all pending entries for this
+					// chain.
+					if err := ProcessPending(pe[i:j]...); err != nil {
+						log.Error(err)
+						return
+					}
+				}
 			}
-		WAIT:
+
 			// Wait until the next scan tick or we're told to stop.
 			select {
 			case <-scanTicker.C:
@@ -284,6 +325,7 @@ func engine(stop <-chan struct{}, done chan struct{}) {
 			}
 		}
 
+		// Check the Factom blockchain height but log and retry if this request fails.
 		if err := updateFactomHeight(); err != nil {
 			log.Error(err)
 			if flag.FactomScanRetries > -1 &&
@@ -316,6 +358,7 @@ func setSyncHeight(sync uint32) {
 	defer heightMtx.Unlock()
 	syncHeight = sync
 }
+
 func updateFactomHeight() error {
 	// Get the current Factom Blockchain height.
 	var heights factom.Heights
@@ -326,20 +369,5 @@ func updateFactomHeight() error {
 	heightMtx.Lock()
 	defer heightMtx.Unlock()
 	factomHeight = heights.Entry
-	return nil
-}
-
-func launchWorkers(num int, job func()) {
-	for i := 0; i < num; i++ {
-		go job()
-	}
-}
-
-func createDir(path string) error {
-	if err := os.Mkdir(path, 0755); err != nil {
-		if !os.IsExist(err) {
-			return fmt.Errorf("os.Mkdir(%#v): %v", path, err)
-		}
-	}
 	return nil
 }

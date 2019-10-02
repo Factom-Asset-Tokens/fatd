@@ -27,8 +27,8 @@ import (
 	"math"
 	"sync"
 
-	"github.com/Factom-Asset-Tokens/fatd/db"
 	"github.com/Factom-Asset-Tokens/factom"
+	"github.com/Factom-Asset-Tokens/fatd/db"
 	"github.com/Factom-Asset-Tokens/fatd/flag"
 )
 
@@ -108,8 +108,13 @@ func (cm ChainMap) Close() {
 	cm.Lock()
 	for _, chain := range cm.m {
 		if chain.IsTracked() {
-			if chain.Pending.Chain.Conn != nil {
-				chain.Pending.Close()
+			if chain.Pending.Session != nil {
+				chain.Pending.Session.Delete()
+				chain.Pending.Session = nil
+			}
+			if chain.Pending.OfficialSnapshot != nil {
+				chain.Pending.OfficialSnapshot.Free()
+				chain.Pending.OfficialSnapshot = nil
 			}
 			chain.Close()
 		}

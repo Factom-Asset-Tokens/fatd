@@ -48,13 +48,18 @@ func NameIDs(tokenID string, issuerChainID *factom.Bytes32) []factom.Bytes {
 	}
 }
 
-// ChainID returns the chain ID for a given token ID and issuer Chain ID.
-func ChainID(tokenID string, issuerChainID *factom.Bytes32) factom.Bytes32 {
-	return factom.ChainID(NameIDs(tokenID, issuerChainID))
+// ComputeChainID returns the ChainID for a given tokenID and issuerChainID.
+func ComputeChainID(tokenID string, issuerChainID *factom.Bytes32) factom.Bytes32 {
+	return factom.ComputeChainID(NameIDs(tokenID, issuerChainID))
 }
 
-func TokenIssuer(nameIDs []factom.Bytes) (string, *factom.Bytes32) {
+// TokenIssuer returns the tokenID and identityChainID for a given set of
+// nameIDs.
+//
+// The caller must ensure that ValidTokenNameIDs(nameIDs) returns true or else
+// TokenIssuer will return garbage data or may panic.
+func TokenIssuer(nameIDs []factom.Bytes) (string, factom.Bytes32) {
 	var identityChainID factom.Bytes32
 	copy(identityChainID[:], nameIDs[3])
-	return string(nameIDs[1]), &identityChainID
+	return string(nameIDs[1]), identityChainID
 }

@@ -77,7 +77,7 @@ func (p ParamsToken) ValidChainID() *factom.Bytes32 {
 	if p.ChainID != nil {
 		return p.ChainID
 	}
-	chainID := fat.ChainID(p.TokenID, p.IssuerChainID)
+	chainID := fat.ComputeChainID(p.TokenID, p.IssuerChainID)
 	p.ChainID = &chainID
 	return p.ChainID
 }
@@ -278,9 +278,12 @@ func (p *ParamsSendTransaction) IsValid() error {
 		Timestamp: time.Now(),
 		ChainID:   p.ChainID,
 	}
-	if _, err := p.entry.ComputeHash(); err != nil {
+	data, err := p.entry.MarshalBinary()
+	if err != nil {
 		return jrpc.InvalidParams(err)
 	}
+	hash := factom.ComputeEntryHash(data)
+	p.entry.Hash = &hash
 
 	return nil
 }

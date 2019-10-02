@@ -260,12 +260,9 @@ func getBalances(data json.RawMessage) interface{} {
 	balances := make(ResultGetBalances, len(issuedIDs))
 	for _, chainID := range issuedIDs {
 		chain := engine.Chains.Get(chainID)
-		if params.HasIncludePending() {
-			chain.ApplyPending()
-		}
-		conn, put := chain.Get()
+		put := chain.Get(params.HasIncludePending())
 		defer put()
-		_, balance, err := addresses.SelectIDBalance(conn, params.Address)
+		_, balance, err := addresses.SelectIDBalance(chain.Conn, params.Address)
 		if err != nil {
 			panic(err)
 		}
@@ -470,7 +467,7 @@ func sendTransaction(data json.RawMessage) interface{} {
 		return err
 	}
 
-	var txID *factom.Bytes32
+	var txID factom.Bytes32
 	if !params.DryRun {
 		balance, err := flag.ECAdr.GetBalance(c)
 		if err != nil {
@@ -495,7 +492,7 @@ func sendTransaction(data json.RawMessage) interface{} {
 		ChainID *factom.Bytes32 `json:"chainid"`
 		TxID    *factom.Bytes32 `json:"txid,omitempty"`
 		Hash    *factom.Bytes32 `json:"entryhash"`
-	}{ChainID: chain.ID, TxID: txID, Hash: entry.Hash}
+	}{ChainID: chain.ID, TxID: &txID, Hash: entry.Hash}
 }
 func attemptApplyFAT0Tx(chain *engine.Chain, e factom.Entry) (txErr, err error) {
 	// Validate tx
@@ -666,11 +663,7 @@ func validate(data json.RawMessage, params Params) (*engine.Chain, func(), error
 		if !chain.IsIssued() {
 			return nil, nil, ErrorTokenNotFound
 		}
-		if params.HasIncludePending() {
-			chain.ApplyPending()
-		}
-		conn, put := chain.Get()
-		chain.Conn = conn
+		put := chain.Get(params.HasIncludePending())
 		return &chain, put, nil
 	}
 	return nil, nil, nil
