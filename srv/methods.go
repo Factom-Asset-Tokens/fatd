@@ -467,32 +467,34 @@ func sendTransaction(data json.RawMessage) interface{} {
 		return err
 	}
 
-	var txID factom.Bytes32
+	var txID *factom.Bytes32
 	if !params.DryRun {
 		balance, err := flag.ECAdr.GetBalance(c)
 		if err != nil {
 			panic(err)
 		}
-		cost, err := entry.Cost()
-		if err != nil {
-			rerr := ErrorInvalidTransaction
-			rerr.Data = err.Error()
-			return rerr
-		}
+		cost, _ := entry.Cost()
 		if balance < uint64(cost) {
 			return ErrorNoEC
 		}
-		txID, err = entry.ComposeCreate(c, flag.EsAdr)
-		if err != nil {
+		txID = new(factom.Bytes32)
+		var commit []byte
+		commit, *txID = factom.GenerateCommit(flag.EsAdr,
+			params.Raw, entry.Hash, false)
+		if err := c.Commit(commit); err != nil {
 			panic(err)
 		}
+		if err := c.Reveal(params.Raw); err != nil {
+			panic(err)
+		}
+
 	}
 
 	return struct {
 		ChainID *factom.Bytes32 `json:"chainid"`
 		TxID    *factom.Bytes32 `json:"txid,omitempty"`
 		Hash    *factom.Bytes32 `json:"entryhash"`
-	}{ChainID: chain.ID, TxID: &txID, Hash: entry.Hash}
+	}{ChainID: chain.ID, TxID: txID, Hash: entry.Hash}
 }
 func attemptApplyFAT0Tx(chain *engine.Chain, e factom.Entry) (txErr, err error) {
 	// Validate tx

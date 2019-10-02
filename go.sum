@@ -17,8 +17,8 @@ github.com/BurntSushi/toml v0.3.1 h1:WXkYYl6Yr3qBf1K79EBnL4mak0OimBfB0XUf9Vl28OQ
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
 github.com/Factom-Asset-Tokens/base58 v0.0.0-20181227014902-61655c4dd885 h1:rfy2fwMrOZPqQgjsH7VCreGMSPzcvqQrfjeSs8nf+sY=
 github.com/Factom-Asset-Tokens/base58 v0.0.0-20181227014902-61655c4dd885/go.mod h1:RVXsRSp6VzXw5l1uiGazuf3qo23Qk0h1HzMcQk+X4LE=
-github.com/Factom-Asset-Tokens/factom v0.0.0-20191002000329-c615e30e6f9b h1:pEdccjvzWdb7fAqeZ8aRU1j9zX8O+92UBzhTIBeuSIw=
-github.com/Factom-Asset-Tokens/factom v0.0.0-20191002000329-c615e30e6f9b/go.mod h1:XbZ9AweH09WKgxrfPIEauJ5/2XL/zroNmDAbd3TdKXk=
+github.com/Factom-Asset-Tokens/factom v0.0.0-20191002021226-1bb51d430207 h1:YWqkcnkOGv/AoW+G/qJpOPAhi9i6udc2e4UJMGXweAM=
+github.com/Factom-Asset-Tokens/factom v0.0.0-20191002021226-1bb51d430207/go.mod h1:XbZ9AweH09WKgxrfPIEauJ5/2XL/zroNmDAbd3TdKXk=
 github.com/OneOfOne/xxhash v1.2.2/go.mod h1:HSdplMjZKSmBqAxg5vPj2TmRDmfkzw+cTzAElWljhcU=
 github.com/alecthomas/template v0.0.0-20160405071501-a0175ee3bccc/go.mod h1:LOuyumcjzFXgccqObfd/Ljyb9UuFJ6TxHnclSeseNhc=
 github.com/alecthomas/units v0.0.0-20151022065526-2efee857e7cf/go.mod h1:ybxpYRFXyAe+OPACYpWeL0wqObRcbAqCMya13uyzqw0=

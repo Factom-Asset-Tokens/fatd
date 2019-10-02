@@ -255,12 +255,13 @@ type ParamsSendTransaction struct {
 
 func (p *ParamsSendTransaction) IsValid() error {
 	if p.Raw != nil {
-		if p.ExtIDs != nil || p.Content != nil || p.ParamsToken != (ParamsToken{}) {
+		if p.ExtIDs != nil || p.Content != nil ||
+			p.ParamsToken != (ParamsToken{}) {
 			return jrpc.InvalidParams(
 				`"raw cannot be used with "content" or "extids"`)
 		}
 		if err := p.entry.UnmarshalBinary(p.Raw); err != nil {
-			return jrpc.InvalidParams(err)
+			return jrpc.InvalidParams(err.Error())
 		}
 		p.entry.Timestamp = time.Now()
 		p.ChainID = p.entry.ChainID
@@ -278,12 +279,14 @@ func (p *ParamsSendTransaction) IsValid() error {
 		Timestamp: time.Now(),
 		ChainID:   p.ChainID,
 	}
+
 	data, err := p.entry.MarshalBinary()
 	if err != nil {
 		return jrpc.InvalidParams(err)
 	}
 	hash := factom.ComputeEntryHash(data)
 	p.entry.Hash = &hash
+	p.Raw = data
 
 	return nil
 }

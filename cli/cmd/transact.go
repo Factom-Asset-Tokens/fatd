@@ -226,7 +226,7 @@ func validateTransactFlags(cmd *cobra.Command, args []string) error {
 	var tx interface {
 		Sign(...factom.RCDPrivateKey)
 		MarshalEntry() error
-		Cost() (int8, error)
+		Cost() (uint8, error)
 	}
 	switch cmdType {
 	case fat0.Type:

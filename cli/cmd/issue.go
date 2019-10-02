@@ -268,7 +268,7 @@ func validateECAdrFlag(cmd *cobra.Command, _ []string) error {
 	return nil
 }
 
-func verifyECBalance(ec *factom.ECAddress, cost int8) {
+func verifyECBalance(ec *factom.ECAddress, cost uint8) {
 	vrbLog.Println("Checking EC balance... ")
 	ecBalance, err := ec.GetBalance(FactomClient)
 	if err != nil {
