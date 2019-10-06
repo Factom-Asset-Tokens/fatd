@@ -23,12 +23,12 @@
 package flag
 
 import (
+	"context"
 	"flag"
 	"os"
 	"strings"
 	"time"
 
-	"github.com/Factom-Asset-Tokens/factom"
 	"github.com/posener/complete"
 )
 
@@ -87,28 +87,23 @@ func predictAddress(fa bool, num int, flagName, suffix string) complete.PredictF
 
 func listAddresses(fa bool) []string {
 	parseWalletFlags()
-	var adrs []factom.Address
+	fss, ess, err := FactomClient.GetPrivateAddresses(context.Background())
+	if err != nil {
+		os.Exit(6)
+	}
+	var adrStrs []string
 	if fa {
-		as, _ := FactomClient.GetFAAddresses()
-		adrs = make([]factom.Address, len(as))
-		for i, adr := range as {
-			adrs[i] = adr
+		adrStrs = make([]string, len(fss))
+		for i, fs := range fss {
+			adrStrs[i] = fs.FAAddress().String()
 		}
 	} else {
-		as, _ := FactomClient.GetECAddresses()
-		adrs = make([]factom.Address, len(as))
-		for i, adr := range as {
-			adrs[i] = adr
+		adrStrs = make([]string, len(ess))
+		for i, es := range ess {
+			adrStrs[i] = es.ECAddress().String()
 		}
 	}
-	adrStrs := make([]string, len(adrs))
-	for i, adr := range adrs {
-		adrStrs[i] = adr.String()
-	}
 	return adrStrs
-}
-func String(adr factom.Address) string {
-	return adr.String()
 }
 
 var cliFlags *flag.FlagSet
@@ -126,16 +121,16 @@ func parseWalletFlags() {
 	cliFlags.StringVar(&FactomClient.WalletdServer, "w", "localhost:8089", "")
 	cliFlags.StringVar(&FactomClient.Walletd.User, "walletuser", "", "")
 	cliFlags.StringVar(&FactomClient.Walletd.Password, "walletpassword", "", "")
-	//cliFlags.StringVar(&FactomClient.Walletd.TLSCertFile, "walletcert", "~/.factom/walletAPIpub.cert", "")
-	//cliFlags.BoolVar(&factom.RpcConfig.WalletTLSEnable, "wallettls", false, "")
 
 	// flags.Parse will print warnings if it comes across an unrecognized
 	// flag. We don't want this so we temprorarily redirect everything to
 	// /dev/null before we call flags.Parse().
-	stdout := os.Stdout
-	stderr := os.Stderr
-	os.Stdout, _ = os.Open(os.DevNull)
-	os.Stderr = os.Stdout
+	stdout, stderr := os.Stdout, os.Stderr
+	devNull, err := os.Open(os.DevNull)
+	if err != nil {
+		os.Exit(5)
+	}
+	os.Stdout, os.Stderr = devNull, devNull
 
 	// The current command line being typed is stored in the environment
 	// variable COMP_LINE. We split on spaces and discard the first in the
@@ -143,11 +138,8 @@ func parseWalletFlags() {
 	cliFlags.Parse(strings.Fields(os.Getenv("COMP_LINE"))[1:])
 
 	// Restore stdout and stderr.
-	os.Stdout = stdout
-	os.Stderr = stderr
+	os.Stdout, os.Stderr = stdout, stderr
 
-	// We want need factom-walletd to timeout or the CLI completion will
-	// hang and never return. This is the whole reason we use AdamSLevy's
-	// fork of factom.
-	FactomClient.Walletd.Timeout = 1 * time.Second
+	// We need a short timeout or the CLI completion will hang.
+	FactomClient.Walletd.Timeout = time.Second / 2
 }

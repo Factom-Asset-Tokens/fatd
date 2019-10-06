@@ -23,6 +23,7 @@
 package cmd
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -185,8 +186,8 @@ func getTxs(_ *cobra.Command, _ []string) {
 		for i := range result {
 			result[i].Tx = &json.RawMessage{}
 		}
-		if err := FATClient.Request("get-transactions",
-			paramsGetTxs, &result); err != nil {
+		if err := FATClient.Request(context.Background(),
+			"get-transactions", paramsGetTxs, &result); err != nil {
 			errLog.Fatal(err)
 		}
 		for _, result := range result {
@@ -201,8 +202,8 @@ func getTxs(_ *cobra.Command, _ []string) {
 	for _, txID := range transactionIDs {
 		vrbLog.Printf("Fetching tx details... %v", txID)
 		params.Hash = &txID
-		if err := FATClient.Request("get-transaction",
-			params, &result); err != nil {
+		if err := FATClient.Request(context.Background(),
+			"get-transaction", params, &result); err != nil {
 			errLog.Fatal(err)
 		}
 		printTx(result)

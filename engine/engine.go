@@ -23,6 +23,7 @@
 package engine
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"runtime"
@@ -42,6 +43,14 @@ var (
 	lockFile lockfile.Lockfile
 )
 
+func runIfNotDone(ctx context.Context, f func()) {
+	select {
+	case <-ctx.Done():
+	default:
+		f()
+	}
+}
+
 const (
 	scanInterval = 30 * time.Second
 )
@@ -51,7 +60,7 @@ const (
 // finish processing the current DBlock, cleanup and close state, all
 // goroutines will exit, and done will be closed. If the done channel is closed
 // before the stop channel is closed, an error occurred.
-func Start(stop <-chan struct{}) (done <-chan struct{}) {
+func Start(ctx context.Context) (done <-chan struct{}) {
 	log = _log.New("pkg", "engine")
 
 	// Try to create the main and pending database directories, in case
@@ -85,14 +94,18 @@ func Start(stop <-chan struct{}) (done <-chan struct{}) {
 	}()
 
 	// Verify Factom Blockchain NetworkID...
-	if err := updateFactomHeight(); err != nil {
-		log.Error(err)
+	if err := updateFactomHeight(ctx); err != nil {
+		runIfNotDone(ctx, func() {
+			log.Error(err)
+		})
 		return
 	}
 	var dblock factom.DBlock
 	dblock.Height = factomHeight
-	if err := dblock.Get(c); err != nil {
-		log.Errorf("dblock.Get(): %v", err)
+	if err := dblock.Get(ctx, c); err != nil {
+		runIfNotDone(ctx, func() {
+			log.Errorf("dblock.Get(): %v", err)
+		})
 		return
 	}
 	if dblock.NetworkID != flag.NetworkID {
@@ -106,9 +119,11 @@ func Start(stop <-chan struct{}) (done <-chan struct{}) {
 	if flag.SkipDBValidation {
 		log.Warn("Skipping database validation...")
 	}
-	syncHeight, err = loadChains()
+	syncHeight, err = loadChains(ctx)
 	if err != nil {
-		log.Error(err)
+		runIfNotDone(ctx, func() {
+			log.Error(err)
+		})
 		return
 	}
 	// Always close all chain databases if Start fails.
@@ -158,11 +173,11 @@ func Start(stop <-chan struct{}) (done <-chan struct{}) {
 	}
 
 	_done := make(chan struct{})
-	go engine(stop, _done)
+	go engine(ctx, _done)
 	return _done
 }
 
-func engine(stop <-chan struct{}, done chan struct{}) {
+func engine(ctx context.Context, done chan struct{}) {
 	// Always close all chains and remove lockfile on exit.
 	defer func() {
 		Chains.Close()
@@ -196,8 +211,11 @@ func engine(stop <-chan struct{}, done chan struct{}) {
 	for i := 0; i < numWorkers; i++ {
 		go func() {
 			for eb := range eblocks {
-				if err := Process(dblock.KeyMR, eb); err != nil {
-					log.Errorf("ChainID(%v): %v", eb.ChainID, err)
+				if err := Process(ctx, dblock.KeyMR, eb); err != nil {
+					runIfNotDone(ctx, func() {
+						log.Errorf("ChainID(%v): %v",
+							eb.ChainID, err)
+					})
 					// Tell workers and engine() to exit.
 					stopWorkers()
 				}
@@ -234,8 +252,10 @@ func engine(stop <-chan struct{}, done chan struct{}) {
 			// Get DBlock.
 			dblock = factom.DBlock{}
 			dblock.Height = h
-			if err := dblock.Get(c); err != nil {
-				log.Errorf("%#v.Get(c): %v", dblock, err)
+			if err := dblock.Get(ctx, c); err != nil {
+				runIfNotDone(ctx, func() {
+					log.Errorf("%#v.Get(): %v", dblock, err)
+				})
 				return
 			}
 
@@ -264,6 +284,9 @@ func engine(stop <-chan struct{}, done chan struct{}) {
 			// chains.
 			setSyncHeight(h)
 			if err := Chains.setSync(h, dblock.KeyMR); err != nil {
+				runIfNotDone(ctx, func() {
+					log.Errorf("Chains.setSync(): %v", err)
+				})
 				return
 			}
 
@@ -274,7 +297,7 @@ func engine(stop <-chan struct{}, done chan struct{}) {
 
 			// Check that we haven't been told to stop.
 			select {
-			case <-stop:
+			case <-ctx.Done():
 				return
 			default:
 			}
@@ -287,8 +310,12 @@ func engine(stop <-chan struct{}, done chan struct{}) {
 			if !flag.DisablePending {
 				// Get and apply any pending entries.
 				var pe factom.PendingEntries
-				if err := pe.Get(c); err != nil {
-					log.Error(err)
+				if err := pe.Get(ctx, c); err != nil {
+					runIfNotDone(ctx, func() {
+						log.Errorf(
+							"factom.PendingEntries.Get(): %v",
+							err)
+					})
 					return
 				}
 
@@ -311,7 +338,9 @@ func engine(stop <-chan struct{}, done chan struct{}) {
 					// Process all pending entries for this
 					// chain.
 					if err := ProcessPending(pe[i:j]...); err != nil {
-						log.Error(err)
+						runIfNotDone(ctx, func() {
+							log.Error(err)
+						})
 						return
 					}
 				}
@@ -320,13 +349,13 @@ func engine(stop <-chan struct{}, done chan struct{}) {
 			// Wait until the next scan tick or we're told to stop.
 			select {
 			case <-scanTicker.C:
-			case <-stop:
+			case <-ctx.Done():
 				return
 			}
 		}
 
 		// Check the Factom blockchain height but log and retry if this request fails.
-		if err := updateFactomHeight(); err != nil {
+		if err := updateFactomHeight(ctx); err != nil {
 			log.Error(err)
 			if flag.FactomScanRetries > -1 &&
 				retries >= flag.FactomScanRetries {
@@ -359,12 +388,12 @@ func setSyncHeight(sync uint32) {
 	syncHeight = sync
 }
 
-func updateFactomHeight() error {
+func updateFactomHeight(ctx context.Context) error {
 	// Get the current Factom Blockchain height.
 	var heights factom.Heights
-	err := heights.Get(c)
+	err := heights.Get(ctx, c)
 	if err != nil {
-		return fmt.Errorf("factom.Heights.Get(c): %v", err)
+		return fmt.Errorf("factom.Heights.Get(): %v", err)
 	}
 	heightMtx.Lock()
 	defer heightMtx.Unlock()

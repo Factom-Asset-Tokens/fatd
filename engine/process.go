@@ -24,15 +24,16 @@ package engine
 
 import (
 	"bytes"
+	"context"
 	"time"
 
 	"crawshaw.io/sqlite"
-	jrpc "github.com/AdamSLevy/jsonrpc2/v11"
+	jsonrpc2 "github.com/AdamSLevy/jsonrpc2/v12"
 	"github.com/Factom-Asset-Tokens/factom"
 	"github.com/Factom-Asset-Tokens/fatd/flag"
 )
 
-func Process(dbKeyMR *factom.Bytes32, eb factom.EBlock) error {
+func Process(ctx context.Context, dbKeyMR *factom.Bytes32, eb factom.EBlock) error {
 	chain := Chains.Get(eb.ChainID)
 
 	// Skip ignored chains and if we are ignoring new chain, also skip
@@ -44,7 +45,7 @@ func Process(dbKeyMR *factom.Bytes32, eb factom.EBlock) error {
 	if chain.IsUnknown() {
 		// Attempt to open a new chain.
 		var err error
-		chain, err = OpenNew(c, dbKeyMR, eb)
+		chain, err = OpenNew(ctx, c, dbKeyMR, eb)
 		if err != nil {
 			return err
 		}
@@ -177,10 +178,10 @@ func ProcessPending(es ...factom.Entry) error {
 
 		// There is a chance the Identity is populated now but wasn't
 		// before, so update it now.
-		if err := chain.Identity.Get(c); err != nil {
-			// A jrpc.Error indicates that the identity chain
+		if err := chain.Identity.Get(context.TODO(), c); err != nil {
+			// A jsonrpc2.Error indicates that the identity chain
 			// doesn't yet exist, which we tolerate.
-			if _, ok := err.(jrpc.Error); !ok {
+			if _, ok := err.(jsonrpc2.Error); !ok {
 				return err
 			}
 		}
@@ -198,7 +199,7 @@ func ProcessPending(es ...factom.Entry) error {
 		}
 
 		// Load the Entry data.
-		if err := e.Get(c); err != nil {
+		if err := e.Get(context.TODO(), c); err != nil {
 			return err
 		}
 

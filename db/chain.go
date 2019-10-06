@@ -23,6 +23,7 @@
 package db
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -78,7 +79,7 @@ type Chain struct {
 }
 
 // dbPath must be path ending in os.Separator
-func OpenNew(dbPath string,
+func OpenNew(ctx context.Context, dbPath string,
 	dbKeyMR *factom.Bytes32, eb factom.EBlock, networkID factom.NetworkID,
 	identity factom.Identity) (chain Chain, err error) {
 	fname := eb.ChainID.String() + dbFileExtension
@@ -100,7 +101,7 @@ func OpenNew(dbPath string,
 		return
 	}
 
-	chain.Conn, chain.Pool, err = OpenConnPool(dbPath + fname)
+	chain.Conn, chain.Pool, err = OpenConnPool(ctx, dbPath+fname)
 	if err != nil {
 		return
 	}
@@ -142,8 +143,8 @@ func OpenNew(dbPath string,
 	return
 }
 
-func Open(dbPath, fname string) (chain Chain, err error) {
-	chain.Conn, chain.Pool, err = OpenConnPool(dbPath + fname)
+func Open(ctx context.Context, dbPath, fname string) (chain Chain, err error) {
+	chain.Conn, chain.Pool, err = OpenConnPool(ctx, dbPath+fname)
 	if err != nil {
 		return
 	}
@@ -159,7 +160,7 @@ func Open(dbPath, fname string) (chain Chain, err error) {
 	return
 }
 
-func OpenAll(dbPath string) (chains []Chain, err error) {
+func OpenAll(ctx context.Context, dbPath string) (chains []Chain, err error) {
 	log = _log.New("pkg", "db")
 	defer func() {
 		if err != nil {
@@ -184,7 +185,7 @@ func OpenAll(dbPath string) (chains []Chain, err error) {
 			continue
 		}
 		log.Debugf("Loading chain: %v", chainID)
-		chain, err := Open(dbPath, fname)
+		chain, err := Open(ctx, dbPath, fname)
 		if err != nil {
 			return nil, err
 		}
@@ -211,8 +212,9 @@ func fnameToChainID(fname string) (*factom.Bytes32, error) {
 	return chainID, nil
 }
 
-func OpenConnPool(dbURI string) (conn *sqlite.Conn, pool *sqlitex.Pool,
-	err error) {
+func OpenConnPool(ctx context.Context, dbURI string) (
+	conn *sqlite.Conn, pool *sqlitex.Pool, err error) {
+
 	const baseFlags = sqlite.SQLITE_OPEN_WAL |
 		sqlite.SQLITE_OPEN_URI |
 		sqlite.SQLITE_OPEN_NOMUTEX
@@ -228,6 +230,7 @@ func OpenConnPool(dbURI string) (conn *sqlite.Conn, pool *sqlitex.Pool,
 			}
 		}
 	}()
+	conn.SetInterrupt(ctx.Done())
 	if err = validateOrApplySchema(conn, chainDBSchema); err != nil {
 		return
 	}

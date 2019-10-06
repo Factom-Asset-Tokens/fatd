@@ -23,6 +23,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"math"
 
@@ -103,8 +104,8 @@ func getBalance(cmd *cobra.Command, _ []string) {
 		for _, adr := range addresses {
 			params.Address = &adr
 			var balances srv.ResultGetBalances
-			if err := FATClient.Request("get-balances", params,
-				&balances); err != nil {
+			if err := FATClient.Request(context.Background(),
+				"get-balances", params, &balances); err != nil {
 				errLog.Fatal(err)
 			}
 			fmt.Printf("%v:", adr)
@@ -122,7 +123,8 @@ func getBalance(cmd *cobra.Command, _ []string) {
 	vrbLog.Printf("Fetching token chain details... %v", paramsToken.ChainID)
 	params := srv.ParamsToken{ChainID: paramsToken.ChainID}
 	var stats srv.ResultGetStats
-	if err := FATClient.Request("get-stats", params, &stats); err != nil {
+	if err := FATClient.Request(context.Background(),
+		"get-stats", params, &stats); err != nil {
 		errLog.Fatal(err)
 	}
 	switch stats.Issuance.Type {
@@ -134,8 +136,8 @@ func getBalance(cmd *cobra.Command, _ []string) {
 		for _, adr := range addresses {
 			params.Address = &adr
 			var balance uint64
-			if err := FATClient.Request("get-balance", params,
-				&balance); err != nil {
+			if err := FATClient.Request(context.Background(),
+				"get-balance", params, &balance); err != nil {
 				errLog.Fatal(err)
 			}
 			fmt.Println(adr, balance)
@@ -149,8 +151,8 @@ func getBalance(cmd *cobra.Command, _ []string) {
 		for _, adr := range addresses {
 			params.Address = &adr
 			var balance fat1.NFTokens
-			if err := FATClient.Request("get-nf-balance", params,
-				&balance); err != nil {
+			if err := FATClient.Request(context.Background(),
+				"get-nf-balance", params, &balance); err != nil {
 				errLog.Fatal(err)
 			}
 			fmt.Println(adr, balance)

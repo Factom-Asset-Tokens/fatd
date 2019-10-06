@@ -23,6 +23,7 @@
 package engine
 
 import (
+	"context"
 	"fmt"
 	"math"
 	"sync"
@@ -124,8 +125,8 @@ func (cm ChainMap) Close() {
 // loadChains loads all chains from the database that are not blacklisted, and
 // syncs them. Any whitelisted chains that are not previously tracked are
 // synced. The lowest sync height among all chain databases is returned.
-func loadChains() (syncHeight uint32, err error) {
-	dbChains, err := db.OpenAll(flag.DBPath)
+func loadChains(ctx context.Context) (syncHeight uint32, err error) {
+	dbChains, err := db.OpenAll(ctx, flag.DBPath)
 	if err != nil {
 		return
 	}
@@ -199,7 +200,7 @@ func loadChains() (syncHeight uint32, err error) {
 		if chain.IsIgnored() || chain.Chain.Conn != nil {
 			continue
 		}
-		if err = chain.OpenNewByChainID(c, &id); err != nil {
+		if err = chain.OpenNewByChainID(ctx, c, &id); err != nil {
 			return
 		}
 		Chains.trackedIDs = append(Chains.trackedIDs, chain.ID)

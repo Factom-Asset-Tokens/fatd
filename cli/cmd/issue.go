@@ -23,6 +23,7 @@
 package cmd
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -31,7 +32,7 @@ import (
 	"github.com/Factom-Asset-Tokens/fatd/fat"
 	"github.com/Factom-Asset-Tokens/fatd/srv"
 
-	jrpc "github.com/AdamSLevy/jsonrpc2/v11"
+	jsonrpc2 "github.com/AdamSLevy/jsonrpc2/v12"
 	"github.com/posener/complete"
 	"github.com/spf13/cobra"
 	flag "github.com/spf13/pflag"
@@ -153,8 +154,9 @@ var issueCmplCmd = complete.Command{
 }
 
 var (
-	missingChainHeadErr      = jrpc.Error{Code: -32009, Message: "Missing Chain Head"}
-	newChainInProcessListErr = jrpc.Error{Message: "new chain in process list"}
+	missingChainHeadErr = jsonrpc2.Error{
+		Code: -32009, Message: "Missing Chain Head"}
+	newChainInProcessListErr = jsonrpc2.Error{Message: "new chain in process list"}
 
 	first       factom.Entry
 	chainExists bool
@@ -207,8 +209,8 @@ func validateIssueFlags(cmd *cobra.Command, args []string) error {
 	if !force {
 		vrbLog.Println("Checking chain existence...")
 		eb := factom.EBlock{ChainID: paramsToken.ChainID}
-		if err := eb.GetChainHead(FactomClient); err != nil {
-			rpcErr, _ := err.(jrpc.Error)
+		if err := eb.GetChainHead(context.Background(), FactomClient); err != nil {
+			rpcErr, _ := err.(jsonrpc2.Error)
 			if rpcErr != missingChainHeadErr &&
 				rpcErr != newChainInProcessListErr {
 				// If err was anything other than the missingChainHeadErr...
@@ -223,9 +225,10 @@ func validateIssueFlags(cmd *cobra.Command, args []string) error {
 		vrbLog.Println("Checking token chain status...")
 		params := srv.ParamsToken{ChainID: paramsToken.ChainID}
 		var stats srv.ResultGetStats
-		if err := FATClient.Request("get-stats", params, &stats); err != nil {
-			rpcErr, _ := err.(jrpc.Error)
-			if rpcErr != *srv.ErrorTokenNotFound {
+		if err := FATClient.Request(context.Background(),
+			"get-stats", params, &stats); err != nil {
+			rpcErr, _ := err.(jsonrpc2.Error)
+			if rpcErr != srv.ErrorTokenNotFound {
 				errLog.Fatal(err)
 			}
 		} else {
@@ -257,9 +260,9 @@ func validateECAdrFlag(cmd *cobra.Command, _ []string) error {
 	var err error
 	if ecEsAdr.Es == zero {
 		vrbLog.Println("Fetching secret address...", ecEsAdr.EC)
-		ecEsAdr.Es, err = ecEsAdr.EC.GetEsAddress(FactomClient)
+		ecEsAdr.Es, err = ecEsAdr.EC.GetEsAddress(context.Background(), FactomClient)
 		if err != nil {
-			if err, ok := err.(jrpc.Error); ok {
+			if err, ok := err.(jsonrpc2.Error); ok {
 				errLog.Fatal(err.Data, ecEsAdr.EC)
 			}
 			errLog.Fatal(err)
@@ -270,7 +273,7 @@ func validateECAdrFlag(cmd *cobra.Command, _ []string) error {
 
 func verifyECBalance(ec *factom.ECAddress, cost uint8) {
 	vrbLog.Println("Checking EC balance... ")
-	ecBalance, err := ec.GetBalance(FactomClient)
+	ecBalance, err := ec.GetBalance(context.Background(), FactomClient)
 	if err != nil {
 		errLog.Fatal(err)
 	}
@@ -284,11 +287,12 @@ func verifySK1Key(sk1 *factom.SK1Key, idChainID *factom.Bytes32) {
 	vrbLog.Printf("Fetching Identity Chain...")
 	var identity factom.Identity
 	identity.ChainID = idChainID
-	if err := identity.Get(FactomClient); err != nil {
-		rpcErr, _ := err.(jrpc.Error)
+	if err := identity.Get(context.Background(), FactomClient); err != nil {
+		rpcErr, _ := err.(jsonrpc2.Error)
 		if rpcErr == newChainInProcessListErr {
-			errLog.Fatalf("New identity chain %v is in process list. "+
-				"Wait ~10 mins.\n", idChainID)
+			errLog.Fatalf(
+				"New identity chain %v is in process list. Wait ~10 mins.\n",
+				idChainID)
 		}
 		if rpcErr == missingChainHeadErr {
 			errLog.Fatalf("Identity Chain does not exist: %v", idChainID)
@@ -296,9 +300,9 @@ func verifySK1Key(sk1 *factom.SK1Key, idChainID *factom.Bytes32) {
 		errLog.Fatal(err)
 	}
 	vrbLog.Println("Verifying SK1 Key... ")
-	if identity.ID1 != sk1.ID1Key() {
-		errLog.Fatal("--sk1 is not the secret key corresponding to " +
-			"the ID1Key declared in the Identity Chain.")
+	if *identity.ID1 != sk1.ID1Key() {
+		errLog.Fatal(
+			"--sk1 is not the secret key corresponding to the ID1Key declared in the Identity Chain.")
 	}
 }
 
@@ -317,7 +321,7 @@ func issueChain(_ *cobra.Command, _ []string) {
 	}
 
 	vrbLog.Println("Submitting the Chain Creation Entry to the Factom blockchain...")
-	txID, err := first.ComposeCreate(FactomClient, ecEsAdr.Es)
+	txID, err := first.ComposeCreate(context.Background(), FactomClient, ecEsAdr.Es)
 	if err != nil {
 		errLog.Fatal(err)
 	}
@@ -338,7 +342,7 @@ func issueToken(_ *cobra.Command, _ []string) {
 
 	vrbLog.Println(
 		"Submitting the Token Initialization Entry to the Factom blockchain...")
-	txID, err := Issuance.ComposeCreate(FactomClient, ecEsAdr.Es)
+	txID, err := Issuance.ComposeCreate(context.Background(), FactomClient, ecEsAdr.Es)
 	if err != nil {
 		errLog.Fatal(err)
 	}

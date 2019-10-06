@@ -38,7 +38,7 @@ import (
 )
 
 type Transaction interface {
-	Validate(factom.IDKey) error
+	Validate(*factom.ID1Key) error
 	IsCoinbase() bool
 	FactomEntry() factom.Entry
 	UnmarshalEntry() error
@@ -183,6 +183,11 @@ func newTimestampSalt() []byte {
 func (e Entry) FAAddress(rcdSigID int) factom.FAAddress {
 	id := rcdSigID*2 + 1
 	return factom.FAAddress(sha256d(e.ExtIDs[id]))
+}
+
+// ID1Key computes the ID1Key corresponding to the 1st RCD/Sig pair.
+func (e Entry) ID1Key() factom.ID1Key {
+	return factom.ID1Key(e.FAAddress(0))
 }
 
 // sha256d computes two rounds of the sha256 hash.

@@ -153,7 +153,7 @@ func (t *Transaction) MarshalEntry() error {
 	return t.Entry.MarshalEntry(t)
 }
 
-func (t *Transaction) Validate(idKey factom.IDKey) error {
+func (t *Transaction) Validate(idKey *factom.ID1Key) error {
 	if err := t.UnmarshalEntry(); err != nil {
 		return err
 	}
@@ -161,7 +161,7 @@ func (t *Transaction) Validate(idKey factom.IDKey) error {
 		return err
 	}
 	if t.IsCoinbase() {
-		if t.FAAddress(0) != idKey.RCDHash() {
+		if t.ID1Key() != *idKey {
 			return fmt.Errorf("invalid RCD")
 		}
 	} else {

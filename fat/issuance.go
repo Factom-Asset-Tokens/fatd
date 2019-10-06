@@ -104,14 +104,14 @@ func (i *Issuance) MarshalEntry() error {
 
 // Validate performs all validation checks and returns nil if i is a valid
 // Issuance.
-func (i *Issuance) Validate(idKey factom.IDKey) error {
+func (i *Issuance) Validate(idKey *factom.ID1Key) error {
 	if err := i.UnmarshalEntry(); err != nil {
 		return err
 	}
 	if err := i.ValidExtIDs(); err != nil {
 		return err
 	}
-	if i.FAAddress(0) != idKey.Payload() {
+	if i.ID1Key() != *idKey {
 		return fmt.Errorf("invalid RCD")
 	}
 	return nil

@@ -23,6 +23,7 @@
 package cmd
 
 import (
+	"context"
 	"log"
 	"os"
 	"strings"
@@ -55,38 +56,6 @@ func parseAPIFlags() error {
 	return nil
 }
 
-var PredictFAAddresses complete.PredictFunc = func(args complete.Args) []string {
-	if len(args.Last) > 52 {
-		return nil
-	}
-	if err := parseAPIFlags(); err != nil {
-		return nil
-	}
-	adrs, err := FactomClient.GetFAAddresses()
-	if err != nil {
-		logErr(err)
-		return nil
-	}
-	completed := make(map[factom.FAAddress]struct{}, len(args.Completed)-1)
-	for _, arg := range args.Completed[1:] {
-		var adr factom.FAAddress
-		if adr.Set(arg) != nil {
-			continue
-		}
-		completed[adr] = struct{}{}
-	}
-	adrStrs := make([]string, len(adrs)-len(completed))
-	var i int
-	for _, adr := range adrs {
-		if _, ok := completed[adr]; ok {
-			continue
-		}
-		adrStrs[i] = adr.String()
-		i++
-	}
-	return adrStrs
-}
-
 func PredictAppend(predict complete.PredictFunc, suffix string) complete.PredictFunc {
 	return func(args complete.Args) []string {
 		predictions := predict(args)
@@ -97,37 +66,44 @@ func PredictAppend(predict complete.PredictFunc, suffix string) complete.Predict
 	}
 }
 
-var PredictECAddresses complete.PredictFunc = func(args complete.Args) []string {
-	if len(args.Last) > 52 {
-		return nil
-	}
-	if err := parseAPIFlags(); err != nil {
-		return nil
-	}
-	adrs, err := FactomClient.GetECAddresses()
-	if err != nil {
-		logErr(err)
-		return nil
-	}
-	completed := make(map[factom.ECAddress]struct{}, len(args.Completed)-1)
-	for _, arg := range args.Completed[1:] {
-		var adr factom.ECAddress
-		if adr.Set(arg) != nil {
-			continue
+func PredictAddressesFunc(fa bool) complete.PredictFunc {
+	return func(args complete.Args) []string {
+		// Check if the argument we are completing already exceeds the
+		// length of an address.
+		if len(args.Last) > 52 {
+			return nil
 		}
-		completed[adr] = struct{}{}
-	}
-	adrStrs := make([]string, len(adrs)-len(completed))
-	var i int
-	for _, adr := range adrs {
-		if _, ok := completed[adr]; ok {
-			continue
+
+		if err := parseAPIFlags(); err != nil {
+			return nil
 		}
-		adrStrs[i] = adr.String()
-		i++
+
+		fss, ess, err := FactomClient.GetPrivateAddresses(context.Background())
+		if err != nil {
+			logErr(err)
+			return nil
+		}
+
+		// Return only the public addresses that we need.
+		var adrStrs []string
+		if fa {
+			adrStrs = make([]string, len(fss))
+			for i, fs := range fss {
+				adrStrs[i] = fs.FAAddress().String()
+			}
+		} else {
+			adrStrs = make([]string, len(ess))
+			for i, es := range ess {
+				adrStrs[i] = es.ECAddress().String()
+			}
+		}
+		return adrStrs
 	}
-	return adrStrs
+
 }
+
+var PredictFAAddresses = PredictAddressesFunc(true)
+var PredictECAddresses = PredictAddressesFunc(false)
 
 var PredictChainIDs complete.PredictFunc = func(args complete.Args) []string {
 	if len(args.Last) > 64 {
@@ -137,7 +113,8 @@ var PredictChainIDs complete.PredictFunc = func(args complete.Args) []string {
 		return nil
 	}
 	var chains []srv.ParamsToken
-	if err := FATClient.Request("get-daemon-tokens", nil, &chains); err != nil {
+	if err := FATClient.Request(context.Background(),
+		"get-daemon-tokens", nil, &chains); err != nil {
 		logErr(err)
 		return nil
 	}

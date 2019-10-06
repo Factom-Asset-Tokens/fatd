@@ -26,7 +26,7 @@ import (
 	"strings"
 	"time"
 
-	jrpc "github.com/AdamSLevy/jsonrpc2/v11"
+	jsonrpc2 "github.com/AdamSLevy/jsonrpc2/v12"
 	"github.com/Factom-Asset-Tokens/factom"
 	"github.com/Factom-Asset-Tokens/fatd/fat"
 	"github.com/Factom-Asset-Tokens/fatd/fat/fat1"
@@ -51,23 +51,23 @@ type ParamsToken struct {
 func (p ParamsToken) IsValid() error {
 	if p.ChainID != nil {
 		if len(p.TokenID) > 0 || p.IssuerChainID != nil {
-			return jrpc.InvalidParams(
+			return jsonrpc2.ErrorInvalidParams(
 				`cannot use "chainid" with "tokenid" or "issuerid"`)
 		}
 		return nil
 	}
 	if len(p.TokenID) > 0 || p.IssuerChainID != nil {
 		if len(p.TokenID) == 0 {
-			return jrpc.InvalidParams(
+			return jsonrpc2.ErrorInvalidParams(
 				`"tokenid" is required with "issuerid"`)
 		}
 		if p.IssuerChainID == nil {
-			return jrpc.InvalidParams(
+			return jsonrpc2.ErrorInvalidParams(
 				`"issuerid" is required with "tokenid"`)
 		}
 		return nil
 	}
-	return jrpc.InvalidParams(
+	return jsonrpc2.ErrorInvalidParams(
 		`required: either "chainid" or both "tokenid" and "issuerid"`)
 }
 
@@ -93,7 +93,7 @@ func (p *ParamsPagination) IsValid() error {
 		p.Page = new(uint)
 		*p.Page = 1
 	} else if *p.Page == 0 {
-		return jrpc.InvalidParams(
+		return jsonrpc2.ErrorInvalidParams(
 			`"order" value must be either "asc" or "desc"`)
 	}
 	if p.Limit == 0 {
@@ -105,7 +105,7 @@ func (p *ParamsPagination) IsValid() error {
 	case "", "asc", "desc":
 		// ok
 	default:
-		return jrpc.InvalidParams(
+		return jsonrpc2.ErrorInvalidParams(
 			`"order" value must be either "asc" or "desc"`)
 	}
 
@@ -124,7 +124,7 @@ func (p ParamsGetTransaction) IsValid() error {
 		return err
 	}
 	if p.Hash == nil {
-		return jrpc.InvalidParams(`required: "entryhash"`)
+		return jsonrpc2.ErrorInvalidParams(`required: "entryhash"`)
 	}
 	return nil
 }
@@ -151,13 +151,13 @@ func (p *ParamsGetTransactions) IsValid() error {
 	switch p.ToFrom {
 	case "to", "from":
 		if len(p.Addresses) == 0 {
-			return jrpc.InvalidParams(
+			return jsonrpc2.ErrorInvalidParams(
 				`"addresses" may not be empty when "tofrom" is set`)
 		}
 	case "":
 		// empty is ok
 	default:
-		return jrpc.InvalidParams(
+		return jsonrpc2.ErrorInvalidParams(
 			`"tofrom" value must be either "to" or "from"`)
 	}
 	return nil
@@ -173,7 +173,7 @@ func (p ParamsGetNFToken) IsValid() error {
 		return err
 	}
 	if p.NFTokenID == nil {
-		return jrpc.InvalidParams(`required: "nftokenid"`)
+		return jsonrpc2.ErrorInvalidParams(`required: "nftokenid"`)
 	}
 	return nil
 }
@@ -188,7 +188,7 @@ func (p ParamsGetBalance) IsValid() error {
 		return err
 	}
 	if p.Address == nil {
-		return jrpc.InvalidParams(`required: "address"`)
+		return jsonrpc2.ErrorInvalidParams(`required: "address"`)
 	}
 	return nil
 }
@@ -202,7 +202,7 @@ func (p ParamsGetBalances) HasIncludePending() bool { return p.IncludePending }
 
 func (p ParamsGetBalances) IsValid() error {
 	if p.Address == nil {
-		return jrpc.InvalidParams(`required: "address"`)
+		return jsonrpc2.ErrorInvalidParams(`required: "address"`)
 	}
 	return nil
 }
@@ -224,7 +224,7 @@ func (p *ParamsGetNFBalance) IsValid() error {
 		return err
 	}
 	if p.Address == nil {
-		return jrpc.InvalidParams(`required: "address"`)
+		return jsonrpc2.ErrorInvalidParams(`required: "address"`)
 	}
 	return nil
 }
@@ -257,11 +257,11 @@ func (p *ParamsSendTransaction) IsValid() error {
 	if p.Raw != nil {
 		if p.ExtIDs != nil || p.Content != nil ||
 			p.ParamsToken != (ParamsToken{}) {
-			return jrpc.InvalidParams(
+			return jsonrpc2.ErrorInvalidParams(
 				`"raw cannot be used with "content" or "extids"`)
 		}
 		if err := p.entry.UnmarshalBinary(p.Raw); err != nil {
-			return jrpc.InvalidParams(err.Error())
+			return jsonrpc2.ErrorInvalidParams(err)
 		}
 		p.entry.Timestamp = time.Now()
 		p.ChainID = p.entry.ChainID
@@ -271,7 +271,8 @@ func (p *ParamsSendTransaction) IsValid() error {
 		return err
 	}
 	if len(p.Content) == 0 || len(p.ExtIDs) == 0 {
-		return jrpc.InvalidParams(`required: "raw" or "content" and "extids"`)
+		return jsonrpc2.ErrorInvalidParams(
+			`required: "raw" or "content" and "extids"`)
 	}
 	p.entry = factom.Entry{
 		ExtIDs:    p.ExtIDs,
@@ -282,7 +283,7 @@ func (p *ParamsSendTransaction) IsValid() error {
 
 	data, err := p.entry.MarshalBinary()
 	if err != nil {
-		return jrpc.InvalidParams(err)
+		return jsonrpc2.ErrorInvalidParams(err)
 	}
 	hash := factom.ComputeEntryHash(data)
 	p.entry.Hash = &hash

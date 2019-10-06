@@ -23,6 +23,7 @@
 package cmd
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"math"
@@ -33,7 +34,7 @@ import (
 	"github.com/Factom-Asset-Tokens/fatd/fat/fat1"
 	"github.com/Factom-Asset-Tokens/fatd/srv"
 
-	jrpc "github.com/AdamSLevy/jsonrpc2/v11"
+	jsonrpc2 "github.com/AdamSLevy/jsonrpc2/v12"
 	"github.com/posener/complete"
 	"github.com/spf13/cobra"
 )
@@ -200,9 +201,9 @@ func validateTransactFlags(cmd *cobra.Command, args []string) error {
 			if !ok {
 				var err error
 				vrbLog.Println("Fetching secret address...", fa)
-				fs, err = fa.GetFsAddress(FactomClient)
+				fs, err = fa.GetFsAddress(context.Background(), FactomClient)
 				if err != nil {
-					if err, ok := err.(jrpc.Error); ok {
+					if err, ok := err.(jsonrpc2.Error); ok {
 						errLog.Fatal(err.Data, fa)
 					}
 					errLog.Fatal(err)
@@ -252,7 +253,8 @@ func validateTransactFlags(cmd *cobra.Command, args []string) error {
 		vrbLog.Println("Checking token chain status...")
 		params := srv.ParamsToken{ChainID: paramsToken.ChainID}
 		var stats srv.ResultGetStats
-		if err := FATClient.Request("get-stats", params, &stats); err != nil {
+		if err := FATClient.Request(context.Background(),
+			"get-stats", params, &stats); err != nil {
 			errLog.Fatal(err)
 		}
 		// Verify we are using the right command for this token type.
@@ -267,7 +269,8 @@ func validateTransactFlags(cmd *cobra.Command, args []string) error {
 				vrbLog.Println("Checking FAT Token balance...", adr)
 				paramsGetBalance.Address = &adr
 				var balance uint64
-				if err := FATClient.Request("get-balance",
+				if err := FATClient.Request(context.Background(),
+					"get-balance",
 					paramsGetBalance, &balance); err != nil {
 					errLog.Fatal(err)
 				}
@@ -292,8 +295,8 @@ func validateTransactFlags(cmd *cobra.Command, args []string) error {
 				vrbLog.Println("Checking FAT NF Token ownership...", adr)
 				params.Address = &adr
 				var balance fat1.NFTokens
-				if err := FATClient.Request("get-nf-balance",
-					params, &balance); err != nil {
+				if err := FATClient.Request(context.Background(),
+					"get-nf-balance", params, &balance); err != nil {
 					errLog.Fatal(err)
 				}
 				if err := balance.ContainsAll(fat1Tx.Inputs[adr]); err != nil {
@@ -328,12 +331,13 @@ func validateTransactFlags(cmd *cobra.Command, args []string) error {
 				params := srv.ParamsGetNFToken{ParamsToken: params}
 				for tknID := range fat1Tx.Inputs.AllNFTokens() {
 					params.NFTokenID = &tknID
-					err := FATClient.Request("get-nf-token", params, nil)
+					err := FATClient.Request(context.Background(),
+						"get-nf-token", params, nil)
 					if err == nil {
 						errLog.Fatalf("invalid coinbase transaction: NFTokenID (%v) already exists",
 							tknID)
 					}
-					rpcErr, _ := err.(jrpc.Error)
+					rpcErr, _ := err.(jsonrpc2.Error)
 					if rpcErr.Code != srv.ErrorTokenNotFound.Code {
 						errLog.Fatal(err)
 					}
@@ -363,7 +367,7 @@ func validateTransactFlags(cmd *cobra.Command, args []string) error {
 
 	vrbLog.Printf("Submitting the %v Transaction Entry to the Factom blockchain...",
 		cmdType)
-	txID, err := entry.ComposeCreate(FactomClient, ecEsAdr.Es)
+	txID, err := entry.ComposeCreate(context.Background(), FactomClient, ecEsAdr.Es)
 	if err != nil {
 		errLog.Fatal(err)
 	}

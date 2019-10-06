@@ -23,6 +23,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -400,7 +401,8 @@ func printVersions() {
 	fmt.Printf("fat-cli:  %v\n", Revision)
 	vrbLog.Println("Fetching fatd properties...")
 	var properties srv.ResultGetDaemonProperties
-	if err := FATClient.Request("get-daemon-properties", nil, &properties); err != nil {
+	if err := FATClient.Request(context.Background(),
+		"get-daemon-properties", nil, &properties); err != nil {
 		errLog.Fatal(err)
 	}
 	fmt.Printf("fatd:     %v\n", properties.FatdVersion)

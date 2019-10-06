@@ -23,9 +23,11 @@
 package srv
 
 import (
+	"context"
 	"net/http"
+	"time"
 
-	jrpc "github.com/AdamSLevy/jsonrpc2/v11"
+	jsonrpc2 "github.com/AdamSLevy/jsonrpc2/v12"
 	"github.com/Factom-Asset-Tokens/fatd/flag"
 	_log "github.com/Factom-Asset-Tokens/fatd/log"
 	"github.com/goji/httpauth"
@@ -45,12 +47,12 @@ var (
 // closed and any goroutines will exit. The done channel is closed when the
 // server exits for any reason. If the done channel is closed before the stop
 // channel is closed, an error occurred. Errors are logged.
-func Start(stop <-chan struct{}) (done <-chan struct{}) {
+func Start(ctx context.Context) (done <-chan struct{}) {
 	log = _log.New("pkg", "srv")
 
 	// Set up JSON RPC 2.0 handler with correct headers.
-	jrpc.DebugMethodFunc = true
-	jrpcHandler := jrpc.HTTPRequestHandler(jrpcMethods)
+	jsonrpc2.DebugMethodFunc = true
+	jrpcHandler := jsonrpc2.HTTPRequestHandler(jsonrpc2Methods)
 
 	var handler http.Handler = http.HandlerFunc(
 		func(w http.ResponseWriter, r *http.Request) {
@@ -101,8 +103,11 @@ func Start(stop <-chan struct{}) (done <-chan struct{}) {
 	// Listen for stop signal.
 	go func() {
 		select {
-		case <-stop:
-			if err := srv.Shutdown(nil); err != nil {
+		case <-ctx.Done():
+			ctx, cancel := context.WithTimeout(
+				context.Background(), 5*time.Second)
+			defer cancel()
+			if err := srv.Shutdown(ctx); err != nil {
 				log.Errorf("srv.Shutdown(): %v", err)
 			}
 		case <-_done:

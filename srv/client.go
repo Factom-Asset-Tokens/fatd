@@ -23,6 +23,7 @@
 package srv
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -52,10 +53,11 @@ func NewClient() *Client {
 }
 
 // Request makes a request to fatd's v1 API.
-func (c *Client) Request(method string, params, result interface{}) error {
-	url := c.FatdServer + "/v1"
+func (c *Client) Request(ctx context.Context,
+	method string, params, result interface{}) error {
+
 	if c.DebugRequest {
-		fmt.Println("fatd:", url)
+		fmt.Println("fatd:", c.FatdServer)
 	}
-	return c.Client.Request(url, method, params, result)
+	return c.Client.Request(ctx, c.FatdServer, method, params, result)
 }

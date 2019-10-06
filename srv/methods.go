@@ -24,10 +24,12 @@ package srv
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
-	jrpc "github.com/AdamSLevy/jsonrpc2/v11"
+	jsonrpc2 "github.com/AdamSLevy/jsonrpc2/v12"
 
 	"github.com/Factom-Asset-Tokens/factom"
 	"github.com/Factom-Asset-Tokens/fatd/db/addresses"
@@ -42,7 +44,7 @@ import (
 
 var c = flag.FactomClient
 
-var jrpcMethods = jrpc.MethodMap{
+var jsonrpc2Methods = jsonrpc2.MethodMap{
 	"get-issuance":           getIssuance(false),
 	"get-issuance-entry":     getIssuance(true),
 	"get-transaction":        getTransaction(false),
@@ -70,10 +72,10 @@ type ResultGetIssuance struct {
 	Issuance  fat.Issuance    `json:"issuance"`
 }
 
-func getIssuance(entry bool) jrpc.MethodFunc {
-	return func(data json.RawMessage) interface{} {
+func getIssuance(entry bool) jsonrpc2.MethodFunc {
+	return func(ctx context.Context, data json.RawMessage) interface{} {
 		params := ParamsToken{}
-		chain, put, err := validate(data, &params)
+		chain, put, err := validate(ctx, data, &params)
 		if err != nil {
 			return err
 		}
@@ -102,10 +104,10 @@ type ResultGetTransaction struct {
 	Pending   bool            `json:"pending,omitempty"`
 }
 
-func getTransaction(getEntry bool) jrpc.MethodFunc {
-	return func(data json.RawMessage) interface{} {
+func getTransaction(getEntry bool) jsonrpc2.MethodFunc {
+	return func(ctx context.Context, data json.RawMessage) interface{} {
 		params := ParamsGetTransaction{}
-		chain, put, err := validate(data, &params)
+		chain, put, err := validate(ctx, data, &params)
 		if err != nil {
 			return err
 		}
@@ -146,10 +148,10 @@ func getTransaction(getEntry bool) jrpc.MethodFunc {
 	}
 }
 
-func getTransactions(getEntry bool) jrpc.MethodFunc {
-	return func(data json.RawMessage) interface{} {
+func getTransactions(getEntry bool) jsonrpc2.MethodFunc {
+	return func(ctx context.Context, data json.RawMessage) interface{} {
 		params := ParamsGetTransactions{}
-		chain, put, err := validate(data, &params)
+		chain, put, err := validate(ctx, data, &params)
 		if err != nil {
 			return err
 		}
@@ -210,9 +212,9 @@ func getTransactions(getEntry bool) jrpc.MethodFunc {
 	}
 }
 
-func getBalance(data json.RawMessage) interface{} {
+func getBalance(ctx context.Context, data json.RawMessage) interface{} {
 	params := ParamsGetBalance{}
-	chain, put, err := validate(data, &params)
+	chain, put, err := validate(ctx, data, &params)
 	if err != nil {
 		return err
 	}
@@ -234,6 +236,7 @@ func (r ResultGetBalances) MarshalJSON() ([]byte, error) {
 	}
 	return json.Marshal(strMap)
 }
+
 func (r *ResultGetBalances) UnmarshalJSON(data []byte) error {
 	var strMap map[string]uint64
 	if err := json.Unmarshal(data, &strMap); err != nil {
@@ -250,9 +253,9 @@ func (r *ResultGetBalances) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-func getBalances(data json.RawMessage) interface{} {
+func getBalances(ctx context.Context, data json.RawMessage) interface{} {
 	params := ParamsGetBalances{}
-	if _, _, err := validate(data, &params); err != nil {
+	if _, _, err := validate(ctx, data, &params); err != nil {
 		return err
 	}
 
@@ -273,9 +276,9 @@ func getBalances(data json.RawMessage) interface{} {
 	return balances
 }
 
-func getNFBalance(data json.RawMessage) interface{} {
+func getNFBalance(ctx context.Context, data json.RawMessage) interface{} {
 	params := ParamsGetNFBalance{}
-	chain, put, err := validate(data, &params)
+	chain, put, err := validate(ctx, data, &params)
 	if err != nil {
 		return err
 	}
@@ -316,9 +319,9 @@ type ResultGetStats struct {
 
 var coinbaseRCDHash = fat.Coinbase()
 
-func getStats(data json.RawMessage) interface{} {
+func getStats(ctx context.Context, data json.RawMessage) interface{} {
 	params := ParamsToken{}
-	chain, put, err := validate(data, &params)
+	chain, put, err := validate(ctx, data, &params)
 	if err != nil {
 		return err
 	}
@@ -365,9 +368,9 @@ type ResultGetNFToken struct {
 	CreationTx *factom.Bytes32   `json:"creationtx"`
 }
 
-func getNFToken(data json.RawMessage) interface{} {
+func getNFToken(ctx context.Context, data json.RawMessage) interface{} {
 	params := ParamsGetNFToken{}
-	chain, put, err := validate(data, &params)
+	chain, put, err := validate(ctx, data, &params)
 	if err != nil {
 		return err
 	}
@@ -404,9 +407,9 @@ func getNFToken(data json.RawMessage) interface{} {
 	return res
 }
 
-func getNFTokens(data json.RawMessage) interface{} {
+func getNFTokens(ctx context.Context, data json.RawMessage) interface{} {
 	params := ParamsGetAllNFTokens{}
-	chain, put, err := validate(data, &params)
+	chain, put, err := validate(ctx, data, &params)
 	if err != nil {
 		return err
 	}
@@ -439,9 +442,9 @@ func getNFTokens(data json.RawMessage) interface{} {
 	return res
 }
 
-func sendTransaction(data json.RawMessage) interface{} {
+func sendTransaction(ctx context.Context, data json.RawMessage) interface{} {
 	params := ParamsSendTransaction{}
-	chain, put, err := validate(data, &params)
+	chain, put, err := validate(ctx, data, &params)
 	if err != nil {
 		return err
 	}
@@ -469,7 +472,7 @@ func sendTransaction(data json.RawMessage) interface{} {
 
 	var txID *factom.Bytes32
 	if !params.DryRun {
-		balance, err := flag.ECAdr.GetBalance(c)
+		balance, err := flag.ECAdr.GetBalance(ctx, c)
 		if err != nil {
 			panic(err)
 		}
@@ -479,12 +482,12 @@ func sendTransaction(data json.RawMessage) interface{} {
 		}
 		txID = new(factom.Bytes32)
 		var commit []byte
-		commit, *txID = factom.GenerateCommit(flag.EsAdr,
-			params.Raw, entry.Hash, false)
-		if err := c.Commit(commit); err != nil {
+		commit, *txID = factom.GenerateCommit(
+			flag.EsAdr, params.Raw, entry.Hash, false)
+		if err := c.Commit(ctx, commit); err != nil {
 			panic(err)
 		}
-		if err := c.Reveal(params.Raw); err != nil {
+		if err := c.Reveal(ctx, params.Raw); err != nil {
 			panic(err)
 		}
 
@@ -596,8 +599,8 @@ func applyTx(chain *engine.Chain, tx fat.Transaction) (txErr, err error) {
 	return
 }
 
-func getDaemonTokens(data json.RawMessage) interface{} {
-	if _, _, err := validate(data, nil); err != nil {
+func getDaemonTokens(ctx context.Context, data json.RawMessage) interface{} {
+	if _, _, err := validate(ctx, data, nil); err != nil {
 		return err
 	}
 
@@ -619,8 +622,8 @@ type ResultGetDaemonProperties struct {
 	NetworkID   factom.NetworkID `json:"factomnetworkid"`
 }
 
-func getDaemonProperties(data json.RawMessage) interface{} {
-	if _, _, err := validate(data, nil); err != nil {
+func getDaemonProperties(ctx context.Context, data json.RawMessage) interface{} {
+	if _, _, err := validate(ctx, data, nil); err != nil {
 		return err
 	}
 	return ResultGetDaemonProperties{
@@ -635,15 +638,17 @@ type ResultGetSyncStatus struct {
 	Current uint32 `json:"factomheight"`
 }
 
-func getSyncStatus(data json.RawMessage) interface{} {
+func getSyncStatus(ctx context.Context, data json.RawMessage) interface{} {
 	sync, current := engine.GetSyncStatus()
 	return ResultGetSyncStatus{Sync: sync, Current: current}
 }
 
-func validate(data json.RawMessage, params Params) (*engine.Chain, func(), error) {
+func validate(ctx context.Context,
+	data json.RawMessage, params Params) (*engine.Chain, func(), error) {
 	if params == nil {
 		if len(data) > 0 {
-			return nil, nil, jrpc.InvalidParams(`no "params" accepted`)
+			return nil, nil, jsonrpc2.ErrorInvalidParams(
+				`no "params" accepted`)
 		}
 		return nil, nil, nil
 	}
@@ -651,7 +656,7 @@ func validate(data json.RawMessage, params Params) (*engine.Chain, func(), error
 		return nil, nil, params.IsValid()
 	}
 	if err := unmarshalStrict(data, params); err != nil {
-		return nil, nil, jrpc.InvalidParams(err.Error())
+		return nil, nil, jsonrpc2.ErrorInvalidParams(err)
 	}
 	if err := params.IsValid(); err != nil {
 		return nil, nil, err
@@ -666,7 +671,9 @@ func validate(data json.RawMessage, params Params) (*engine.Chain, func(), error
 			return nil, nil, ErrorTokenNotFound
 		}
 		put := chain.Get(params.HasIncludePending())
-		return &chain, put, nil
+		ctx, cancel := context.WithTimeout(ctx, time.Second)
+		chain.Conn.SetInterrupt(ctx.Done())
+		return &chain, func() { cancel(); put() }, nil
 	}
 	return nil, nil, nil
 }

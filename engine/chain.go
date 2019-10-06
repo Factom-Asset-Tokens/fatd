@@ -23,11 +23,12 @@
 package engine
 
 import (
+	"context"
 	"fmt"
 
 	"crawshaw.io/sqlite"
 
-	jrpc "github.com/AdamSLevy/jsonrpc2/v11"
+	jsonrpc2 "github.com/AdamSLevy/jsonrpc2/v12"
 
 	"github.com/Factom-Asset-Tokens/factom"
 	"github.com/Factom-Asset-Tokens/fatd/db"
@@ -56,15 +57,15 @@ func (chain Chain) String() string {
 		chain.Identity, chain.Issuance)
 }
 
-func OpenNew(c *factom.Client,
+func OpenNew(ctx context.Context, c *factom.Client,
 	dbKeyMR *factom.Bytes32, eb factom.EBlock) (chain Chain, err error) {
-	if err := eb.Get(c); err != nil {
-		return chain, fmt.Errorf("%#v.Get(c): %v", eb, err)
+	if err := eb.Get(context.TODO(), c); err != nil {
+		return chain, fmt.Errorf("%#v.Get(): %v", eb, err)
 	}
 	// Load first entry of new chain.
 	first := &eb.Entries[0]
-	if err := first.Get(c); err != nil {
-		return chain, fmt.Errorf("%#v.Get(c): %v", first, err)
+	if err := first.Get(context.TODO(), c); err != nil {
+		return chain, fmt.Errorf("%#v.Get(): %v", first, err)
 	}
 	if !eb.IsFirst() {
 		return
@@ -79,19 +80,20 @@ func OpenNew(c *factom.Client,
 	var identity factom.Identity
 	identity.ChainID = new(factom.Bytes32)
 	_, *identity.ChainID = fat.TokenIssuer(nameIDs)
-	if err = identity.Get(c); err != nil {
-		// A jrpc.Error indicates that the identity chain
+	if err = identity.Get(context.TODO(), c); err != nil {
+		// A jsonrpc2.Error indicates that the identity chain
 		// doesn't yet exist, which we tolerate.
-		if _, ok := err.(jrpc.Error); !ok {
+		if _, ok := err.(jsonrpc2.Error); !ok {
 			return
 		}
 	}
 
-	if err := eb.GetEntries(c); err != nil {
-		return chain, fmt.Errorf("%#v.GetEntries(c): %v", eb, err)
+	if err := eb.GetEntries(context.TODO(), c); err != nil {
+		return chain, fmt.Errorf("%#v.GetEntries(): %v", eb, err)
 	}
 
-	chain.Chain, err = db.OpenNew(flag.DBPath, dbKeyMR, eb, flag.NetworkID, identity)
+	chain.Chain, err = db.OpenNew(ctx,
+		flag.DBPath, dbKeyMR, eb, flag.NetworkID, identity)
 	if err != nil {
 		return chain, fmt.Errorf("db.OpenNew(): %v", err)
 	}
@@ -103,8 +105,9 @@ func OpenNew(c *factom.Client,
 	return
 }
 
-func (chain *Chain) OpenNewByChainID(c *factom.Client, chainID *factom.Bytes32) error {
-	eblocks, err := factom.EBlock{ChainID: chainID}.GetPrevAll(c)
+func (chain *Chain) OpenNewByChainID(ctx context.Context,
+	c *factom.Client, chainID *factom.Bytes32) error {
+	eblocks, err := factom.EBlock{ChainID: chainID}.GetPrevAll(context.TODO(), c)
 	if err != nil {
 		return fmt.Errorf("factom.EBlock{}.GetPrevAll(): %v", err)
 	}
@@ -113,12 +116,12 @@ func (chain *Chain) OpenNewByChainID(c *factom.Client, chainID *factom.Bytes32) 
 	// Get DBlock Timestamp and KeyMR
 	var dblock factom.DBlock
 	dblock.Height = first.Height
-	if err := dblock.Get(c); err != nil {
+	if err := dblock.Get(context.TODO(), c); err != nil {
 		return fmt.Errorf("factom.DBlock{}.Get(): %v", err)
 	}
 	first.SetTimestamp(dblock.Timestamp)
 
-	*chain, err = OpenNew(c, dblock.KeyMR, first)
+	*chain, err = OpenNew(ctx, c, dblock.KeyMR, first)
 	if err != nil {
 		return err
 	}
@@ -131,7 +134,8 @@ func (chain *Chain) OpenNewByChainID(c *factom.Client, chainID *factom.Bytes32) 
 }
 
 func (chain *Chain) Sync(c *factom.Client) error {
-	eblocks, err := factom.EBlock{ChainID: chain.ID}.GetPrevUpTo(c, *chain.Head.KeyMR)
+	eblocks, err := factom.EBlock{ChainID: chain.ID}.
+		GetPrevUpTo(context.TODO(), c, *chain.Head.KeyMR)
 	if err != nil {
 		return fmt.Errorf("factom.EBlock{}.GetPrevUpTo(): %v", err)
 	}
@@ -145,7 +149,7 @@ func (chain *Chain) SyncEBlocks(c *factom.Client, ebs []factom.EBlock) error {
 		// Get DBlock Timestamp and KeyMR
 		var dblock factom.DBlock
 		dblock.Height = eb.Height
-		if err := dblock.Get(c); err != nil {
+		if err := dblock.Get(context.TODO(), c); err != nil {
 			return fmt.Errorf("factom.DBlock{}.Get(): %v", err)
 		}
 		eb.SetTimestamp(dblock.Timestamp)
@@ -160,15 +164,15 @@ func (chain *Chain) SyncEBlocks(c *factom.Client, ebs []factom.EBlock) error {
 func (chain *Chain) Apply(c *factom.Client,
 	dbKeyMR *factom.Bytes32, eb factom.EBlock) error {
 	// Get Identity each time in case it wasn't populated before.
-	if err := chain.Identity.Get(c); err != nil {
-		// A jrpc.Error indicates that the identity chain doesn't yet
+	if err := chain.Identity.Get(context.TODO(), c); err != nil {
+		// A jsonrpc2.Error indicates that the identity chain doesn't yet
 		// exist, which we tolerate.
-		if _, ok := err.(jrpc.Error); !ok {
+		if _, ok := err.(jsonrpc2.Error); !ok {
 			return err
 		}
 	}
 	// Get all entry data.
-	if err := eb.GetEntries(c); err != nil {
+	if err := eb.GetEntries(context.TODO(), c); err != nil {
 		return err
 	}
 	if err := chain.Chain.Apply(dbKeyMR, eb); err != nil {

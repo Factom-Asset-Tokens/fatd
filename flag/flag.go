@@ -23,6 +23,7 @@
 package flag
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"os"
@@ -368,7 +369,7 @@ func Validate() {
 	DBPath += fmt.Sprintf("%c", filepath.Separator)
 
 	if factom.Bytes32(EsAdr).IsZero() {
-		EsAdr, _ = ECAdr.GetEsAddress(FactomClient)
+		EsAdr, _ = ECAdr.GetEsAddress(context.TODO(), FactomClient)
 	} else {
 		ECAdr = EsAdr.ECAddress()
 	}
