@@ -42,7 +42,7 @@ func (t *Type) Set(s string) error {
 	num := s[len(format):]
 	var err error
 	if *(*uint64)(t), err = strconv.ParseUint(num, 10, 64); err != nil {
-		return fmt.Errorf("%T: %v", t, err)
+		return fmt.Errorf("%T: %w", t, err)
 	}
 	return nil
 }

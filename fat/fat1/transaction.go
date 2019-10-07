@@ -58,10 +58,10 @@ func (t *Transaction) UnmarshalJSON(data []byte) error {
 		fat.Entry
 	}{}
 	if err := json.Unmarshal(data, &tRaw); err != nil {
-		return fmt.Errorf("%T: %v", t, err)
+		return fmt.Errorf("%T: %w", t, err)
 	}
 	if err := t.Inputs.UnmarshalJSON(tRaw.Inputs); err != nil {
-		return fmt.Errorf("%T.Inputs: %v", t, err)
+		return fmt.Errorf("%T.Inputs: %w", t, err)
 	}
 	var expectedJSONLen int
 	if len(tRaw.TokenMetadata) > 0 {
@@ -70,11 +70,11 @@ func (t *Transaction) UnmarshalJSON(data []byte) error {
 				`invalid field for non-coinbase transaction: "tokenmetadata"`)
 		}
 		if err := t.TokenMetadata.UnmarshalJSON(tRaw.TokenMetadata); err != nil {
-			return fmt.Errorf("%T.TokenMetadata: %v", t, err)
+			return fmt.Errorf("%T.TokenMetadata: %w", t, err)
 
 		}
 		if err := t.TokenMetadata.IsSubsetOf(t.Inputs[fat.Coinbase()]); err != nil {
-			return fmt.Errorf("%T.TokenMetadata: %v", t, err)
+			return fmt.Errorf("%T.TokenMetadata: %w", t, err)
 		}
 
 		expectedJSONLen = len(`,"tokenmetadata":`) +
@@ -87,12 +87,12 @@ func (t *Transaction) UnmarshalJSON(data []byte) error {
 	}
 
 	if err := t.Outputs.UnmarshalJSON(tRaw.Outputs); err != nil {
-		return fmt.Errorf("%T.Outputs: %v", t, err)
+		return fmt.Errorf("%T.Outputs: %w", t, err)
 	}
 	t.Metadata = tRaw.Metadata
 
 	if err := t.ValidData(); err != nil {
-		return fmt.Errorf("%T: %v", t, err)
+		return fmt.Errorf("%T: %w", t, err)
 	}
 
 	expectedJSONLen += len(`{"inputs":,"outputs":}`) +
@@ -124,10 +124,10 @@ func (t Transaction) String() string {
 
 func (t Transaction) ValidData() error {
 	if err := t.Inputs.NoAddressIntersection(t.Outputs); err != nil {
-		return fmt.Errorf("Inputs and Outputs intersect: %v", err)
+		return fmt.Errorf("Inputs and Outputs intersect: %w", err)
 	}
 	if err := t.Inputs.NFTokenIDsConserved(t.Outputs); err != nil {
-		return fmt.Errorf("Inputs and Outputs mismatch: %v", err)
+		return fmt.Errorf("Inputs and Outputs mismatch: %w", err)
 	}
 	// Coinbase transactions must only have one input.
 	if t.IsCoinbase() && len(t.Inputs) != 1 {

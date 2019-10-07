@@ -44,8 +44,7 @@ func _main() (ret int) {
 	}
 	flag.Validate()
 
-	// Set up interrupts channel. We don't want to be interrupted during
-	// initialization. If the signal is sent we will handle it later.
+	// Listen for an Interrupt and cancel everything if it occurs.
 	ctx, cancel := context.WithCancel(context.Background())
 	sigint := make(chan os.Signal, 1)
 	signal.Notify(sigint, os.Interrupt)
@@ -82,8 +81,14 @@ func _main() (ret int) {
 
 	log.Info("Factom Asset Token Daemon started.")
 
-	// Stop handling signals once we return.
-	defer func() { signal.Reset(); close(sigint) }()
+	defer func() {
+		// Stop handling all signals so a force quit can occur with a
+		// second sigint.
+		signal.Reset()
+
+		// Cause our sigint listener goroutine to call cancel().
+		close(sigint)
+	}()
 
 	select {
 	case <-ctx.Done():

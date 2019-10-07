@@ -55,10 +55,10 @@ type issuance Issuance
 func (i *Issuance) UnmarshalJSON(data []byte) error {
 	data = jsonlen.Compact(data)
 	if err := json.Unmarshal(data, (*issuance)(i)); err != nil {
-		return fmt.Errorf("%T: %v", i, err)
+		return fmt.Errorf("%T: %w", i, err)
 	}
 	if err := i.ValidData(); err != nil {
-		return fmt.Errorf("%T: %v", i, err)
+		return fmt.Errorf("%T: %w", i, err)
 	}
 	if i.expectedJSONLength() != len(data) {
 		return fmt.Errorf("%T: unexpected JSON length", i)

@@ -68,7 +68,7 @@ func (m *AddressAmountMap) UnmarshalJSON(data []byte) error {
 	var adr factom.FAAddress
 	for adrStr, amount := range adrStrAmountMap {
 		if err := adr.Set(adrStr); err != nil {
-			return fmt.Errorf("%T: %v", m, err)
+			return fmt.Errorf("%T: %w", m, err)
 		}
 		if amount == 0 {
 			return fmt.Errorf("%T: invalid amount (0): %v", m, adr)

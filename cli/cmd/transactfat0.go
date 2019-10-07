@@ -129,7 +129,7 @@ func (m AddressAmountMap) set(data string) error {
 		if err := fa.Set(adrStr); err != nil {
 			// Not FA, try FsAddress...
 			if err := fs.Set(adrStr); err != nil {
-				return fmt.Errorf("invalid address: %v", err)
+				return fmt.Errorf("invalid address: %w", err)
 			}
 			fa = fs.FAAddress()
 			if fa != fat.Coinbase() {
@@ -145,7 +145,7 @@ func (m AddressAmountMap) set(data string) error {
 	// Parse amount
 	amount, err := parsePositiveInt(amountStr)
 	if err != nil {
-		return fmt.Errorf("invalid amount: %v", err)
+		return fmt.Errorf("invalid amount: %w", err)
 	}
 	m[fa] = amount
 	addressValueStrMap[fa] = amountStr

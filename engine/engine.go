@@ -67,7 +67,7 @@ func Start(ctx context.Context) (done <-chan struct{}) {
 	// they don't already exist.
 	if err := os.Mkdir(flag.DBPath, 0755); err != nil {
 		if !os.IsExist(err) {
-			log.Error(fmt.Errorf("os.Mkdir(%#v): %v", flag.DBPath, err))
+			log.Errorf("os.Mkdir(%q): %v", flag.DBPath, err)
 			return nil
 		}
 	}
@@ -77,11 +77,11 @@ func Start(ctx context.Context) (done <-chan struct{}) {
 	var err error
 	lockFile, err = lockfile.New(lockFilePath)
 	if err != nil {
-		log.Error(err)
+		log.Errorf("lockfile.New(%q): %v", lockFilePath, err)
 		return
 	}
 	if err = lockFile.TryLock(); err != nil {
-		log.Errorf("Database in use by other process. %v", err)
+		log.Errorf("lockFile.TryLock(): %v", err)
 		return
 	}
 	// Always clean up the lockfile if Start fails.
@@ -337,7 +337,7 @@ func engine(ctx context.Context, done chan struct{}) {
 					}
 					// Process all pending entries for this
 					// chain.
-					if err := ProcessPending(pe[i:j]...); err != nil {
+					if err := ProcessPending(ctx, pe[i:j]...); err != nil {
 						runIfNotDone(ctx, func() {
 							log.Error(err)
 						})

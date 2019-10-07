@@ -107,6 +107,7 @@ func (cm ChainMap) setSync(height uint32, dbKeyMR *factom.Bytes32) error {
 func (cm ChainMap) Close() {
 	defer cm.Unlock()
 	cm.Lock()
+	log.Debug("Closing all chains...")
 	for _, chain := range cm.m {
 		if chain.IsTracked() {
 			if chain.Pending.Session != nil {
@@ -172,7 +173,7 @@ func loadChains(ctx context.Context) (syncHeight uint32, err error) {
 			return
 		}
 
-		if err = chain.Sync(c); err != nil {
+		if err = chain.Sync(ctx, c); err != nil {
 			dbChains = dbChains[i:] // Close remaining chains.
 			return
 		}

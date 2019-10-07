@@ -123,10 +123,10 @@ func (idRange NFTokenIDRange) Slice() []NFTokenID {
 
 func (idRange *NFTokenIDRange) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, (*nfTokenIDRange)(idRange)); err != nil {
-		return fmt.Errorf("%T: %v", idRange, err)
+		return fmt.Errorf("%T: %w", idRange, err)
 	}
 	if err := idRange.Valid(); err != nil {
-		return fmt.Errorf("%T: %v", idRange, err)
+		return fmt.Errorf("%T: %w", idRange, err)
 	}
 	if len(jsonlen.Compact(data)) != idRange.jsonLen() {
 		return fmt.Errorf("%T: unexpected JSON length", idRange)

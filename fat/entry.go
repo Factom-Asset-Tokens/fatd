@@ -102,7 +102,7 @@ func (e Entry) ValidExtIDs(numRCDSigPairs int) error {
 func (e Entry) validTimestamp() error {
 	sec, err := strconv.ParseInt(string(e.ExtIDs[0]), 10, 64)
 	if err != nil {
-		return fmt.Errorf("timestamp salt: %v", err)
+		return fmt.Errorf("timestamp salt: %w", err)
 	}
 	ts := time.Unix(sec, 0)
 	diff := e.Timestamp.Sub(ts)

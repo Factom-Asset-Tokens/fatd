@@ -29,7 +29,6 @@ import (
 	"os"
 	"strings"
 	"time"
-	//"strings"
 
 	"crawshaw.io/sqlite"
 	"crawshaw.io/sqlite/sqlitex"
@@ -56,17 +55,18 @@ const (
 )
 
 type Chain struct {
-	ID            *factom.Bytes32
-	TokenID       string
-	IssuerChainID *factom.Bytes32
-	Head          factom.EBlock
-	DBKeyMR       *factom.Bytes32
-	factom.Identity
-	NetworkID factom.NetworkID
-
+	// General Factom Blockchain Data
+	ID          *factom.Bytes32
+	Head        factom.EBlock
+	HeadDBKeyMR *factom.Bytes32
+	NetworkID   factom.NetworkID
 	SyncHeight  uint32
 	SyncDBKeyMR *factom.Bytes32
 
+	// FAT Specific Data
+	TokenID       string
+	IssuerChainID *factom.Bytes32
+	factom.Identity
 	fat.Issuance
 	NumIssued uint64
 
@@ -94,7 +94,7 @@ func OpenNew(ctx context.Context, dbPath string,
 	// Ensure that the database file doesn't already exist.
 	_, err = os.Stat(path)
 	if err == nil {
-		err = fmt.Errorf("already exists: %v", path)
+		err = fmt.Errorf("already exists: %w", path)
 		return
 	}
 	if !os.IsNotExist(err) { // Any other error is unexpected.
@@ -109,7 +109,7 @@ func OpenNew(ctx context.Context, dbPath string,
 		if err != nil {
 			chain.Close()
 			if err := os.Remove(path); err != nil {
-				chain.Log.Errorf("os.Remove(): %v", err)
+				chain.Log.Errorf("os.Remove(): %w", err)
 			}
 		}
 	}()
@@ -118,7 +118,7 @@ func OpenNew(ctx context.Context, dbPath string,
 	chain.ID = eb.ChainID
 	chain.IssuerChainID = new(factom.Bytes32)
 	chain.TokenID, *chain.IssuerChainID = fat.TokenIssuer(nameIDs)
-	chain.DBKeyMR = dbKeyMR
+	chain.HeadDBKeyMR = dbKeyMR
 	chain.Identity = identity
 	chain.SyncHeight = eb.Height
 	chain.SyncDBKeyMR = dbKeyMR
@@ -175,7 +175,7 @@ func OpenAll(ctx context.Context, dbPath string) (chains []Chain, err error) {
 	// file names.
 	files, err := ioutil.ReadDir(dbPath)
 	if err != nil {
-		return nil, fmt.Errorf("ioutil.ReadDir(%q): %v", dbPath, err)
+		return nil, fmt.Errorf("ioutil.ReadDir(%q): %w", dbPath, err)
 	}
 	chains = make([]Chain, 0, len(files))
 	for _, f := range files {
@@ -220,7 +220,7 @@ func OpenConnPool(ctx context.Context, dbURI string) (
 		sqlite.SQLITE_OPEN_NOMUTEX
 	flags := baseFlags | sqlite.SQLITE_OPEN_READWRITE | sqlite.SQLITE_OPEN_CREATE
 	if conn, err = sqlite.OpenConn(dbURI, flags); err != nil {
-		err = fmt.Errorf("sqlite.OpenConn(%q, %x): %v", dbURI, flags, err)
+		err = fmt.Errorf("sqlite.OpenConn(%q, %x): %w", dbURI, flags, err)
 		return
 	}
 	defer func() {
@@ -240,7 +240,7 @@ func OpenConnPool(ctx context.Context, dbURI string) (
 
 	flags = baseFlags | sqlite.SQLITE_OPEN_READONLY
 	if pool, err = sqlitex.Open(dbURI, flags, PoolSize); err != nil {
-		err = fmt.Errorf("sqlitex.Open(%q, %x, %v): %v",
+		err = fmt.Errorf("sqlitex.Open(%q, %x, %v): %w",
 			dbURI, flags, PoolSize, err)
 		return
 	}
@@ -249,12 +249,15 @@ func OpenConnPool(ctx context.Context, dbURI string) (
 
 // Close all database connections. Log any errors.
 func (chain *Chain) Close() {
+	chain.Log.Debug("Closing...")
+	chain.Conn.SetInterrupt(nil)
+	sqlitex.ExecScript(chain.Conn, `PRAGMA database.wal_checkpoint;`)
 	if err := chain.Pool.Close(); err != nil {
-		chain.Log.Errorf("chain.Pool.Close(): %v", err)
+		chain.Log.Errorf("chain.Pool.Close(): %w", err)
 	}
 	// Close this last so that the wal and shm files are removed.
 	if err := chain.Conn.Close(); err != nil {
-		chain.Log.Errorf("chain.Conn.Close(): %v", err)
+		chain.Log.Errorf("chain.Conn.Close(): %w", err)
 	}
 }
 
@@ -312,7 +315,7 @@ func (chain *Chain) loadMetadata() error {
 		return fmt.Errorf("no eblock in database")
 	}
 	chain.Head = eb
-	chain.DBKeyMR = &dbKeyMR
+	chain.HeadDBKeyMR = &dbKeyMR
 	chain.ID = eb.ChainID
 
 	chain.SyncHeight, chain.NumIssued, chain.SyncDBKeyMR,

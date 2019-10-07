@@ -157,7 +157,7 @@ func Select(conn *sqlite.Conn) (syncHeight uint32, numIssued uint64,
 	idKeyEntryData := make(factom.Bytes, stmt.ColumnLen(3))
 	stmt.ColumnBytes(3, idKeyEntryData)
 	if err = identity.UnmarshalBinary(idKeyEntryData); err != nil {
-		err = fmt.Errorf("identity.UnmarshalBinary(): %v", err)
+		err = fmt.Errorf("identity.UnmarshalBinary(): %w", err)
 		return
 	}
 	identity.Height = uint32(stmt.ColumnInt64(4))

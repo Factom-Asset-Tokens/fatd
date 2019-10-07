@@ -223,7 +223,7 @@ func (tkns NFTokens) String() string {
 func (tkns *NFTokens) UnmarshalJSON(data []byte) error {
 	var tknsJSONAry []json.RawMessage
 	if err := json.Unmarshal(data, &tknsJSONAry); err != nil {
-		return fmt.Errorf("%T: %v", tkns, err)
+		return fmt.Errorf("%T: %w", tkns, err)
 	}
 	if len(tknsJSONAry) == 0 {
 		return fmt.Errorf("%T: empty", tkns)
@@ -234,18 +234,18 @@ func (tkns *NFTokens) UnmarshalJSON(data []byte) error {
 		if data[0] == '{' {
 			var idRange NFTokenIDRange
 			if err := idRange.UnmarshalJSON(data); err != nil {
-				return fmt.Errorf("%T: %v", tkns, err)
+				return fmt.Errorf("%T: %w", tkns, err)
 			}
 			ids = idRange
 		} else {
 			var id NFTokenID
 			if err := json.Unmarshal(data, &id); err != nil {
-				return fmt.Errorf("%T: %v", tkns, err)
+				return fmt.Errorf("%T: %w", tkns, err)
 			}
 			ids = id
 		}
 		if err := ids.Set(*tkns); err != nil {
-			return fmt.Errorf("%T: %v", tkns, err)
+			return fmt.Errorf("%T: %w", tkns, err)
 		}
 	}
 	return nil

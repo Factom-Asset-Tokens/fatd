@@ -54,7 +54,7 @@ func (m AddressNFTokensMap) MarshalJSON() ([]byte, error) {
 func (m *AddressNFTokensMap) UnmarshalJSON(data []byte) error {
 	var adrStrDataMap map[string]json.RawMessage
 	if err := json.Unmarshal(data, &adrStrDataMap); err != nil {
-		return fmt.Errorf("%T: %v", m, err)
+		return fmt.Errorf("%T: %w", m, err)
 	}
 	if len(adrStrDataMap) == 0 {
 		return fmt.Errorf("%T: empty", m)
@@ -67,10 +67,10 @@ func (m *AddressNFTokensMap) UnmarshalJSON(data []byte) error {
 	var numTkns int
 	for adrStr, data := range adrStrDataMap {
 		if err := adr.Set(adrStr); err != nil {
-			return fmt.Errorf("%T: %#v: %v", m, adrStr, err)
+			return fmt.Errorf("%T: %#v: %w", m, adrStr, err)
 		}
 		if err := tkns.UnmarshalJSON(data); err != nil {
-			return fmt.Errorf("%T: %v: %v", m, err, adr)
+			return fmt.Errorf("%T: %v: %w", m, err, adr)
 		}
 		numTkns += len(tkns)
 		if numTkns > maxCapacity {
@@ -78,7 +78,7 @@ func (m *AddressNFTokensMap) UnmarshalJSON(data []byte) error {
 				m, numTkns-len(tkns), tkns, len(tkns), ErrorCapacity)
 		}
 		if err := m.NoNFTokensIntersection(tkns); err != nil {
-			return fmt.Errorf("%T: %v and %v", m, err, adr)
+			return fmt.Errorf("%T: %w and %v", m, err, adr)
 		}
 		(*m)[adr] = tkns
 		expectedJSONLen += len(jsonlen.Compact(data))
@@ -92,7 +92,7 @@ func (m *AddressNFTokensMap) UnmarshalJSON(data []byte) error {
 func (m AddressNFTokensMap) NoNFTokensIntersection(newTkns NFTokens) error {
 	for adr, existingTkns := range m {
 		if err := existingTkns.NoIntersection(newTkns); err != nil {
-			return fmt.Errorf("%v: %v", err, adr)
+			return fmt.Errorf("%w: %v", err, adr)
 		}
 	}
 	return nil
@@ -159,7 +159,7 @@ func (m AddressNFTokensMap) NoInternalNFTokensIntersection() error {
 			delete(m, rcdHash)
 			otherRCDHash := m.Owner(tknID)
 			m[rcdHash] = tkns
-			return fmt.Errorf("%v: %v and %v", err, rcdHash, otherRCDHash)
+			return fmt.Errorf("%w: %v and %v", err, rcdHash, otherRCDHash)
 
 		}
 	}

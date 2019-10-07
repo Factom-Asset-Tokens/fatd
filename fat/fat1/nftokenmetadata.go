@@ -42,7 +42,7 @@ func (m *NFTokenIDMetadataMap) UnmarshalJSON(data []byte) error {
 		Metadata json.RawMessage `json:"metadata"`
 	}
 	if err := json.Unmarshal(data, &tknMs); err != nil {
-		return fmt.Errorf("%T: %v", m, err)
+		return fmt.Errorf("%T: %w", m, err)
 	}
 	*m = make(NFTokenIDMetadataMap, len(tknMs))
 	var expectedJSONLen int
@@ -55,7 +55,7 @@ func (m *NFTokenIDMetadataMap) UnmarshalJSON(data []byte) error {
 		}
 		var tkns NFTokens
 		if err := tkns.UnmarshalJSON(tknM.Tokens); err != nil {
-			return fmt.Errorf("%T: %v", m, err)
+			return fmt.Errorf("%T: %w", m, err)
 		}
 		metadata := jsonlen.Compact(tknM.Metadata)
 		expectedJSONLen += len(metadata) + len(jsonlen.Compact(tknM.Tokens))

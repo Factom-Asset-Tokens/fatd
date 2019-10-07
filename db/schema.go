@@ -56,7 +56,7 @@ func validateOrApplySchema(conn *sqlite.Conn, schema string) error {
 	}
 	if len(fullSchema) == 0 {
 		if err := sqlitex.ExecScript(conn, schema); err != nil {
-			return fmt.Errorf("failed to apply schema: %v", err)
+			return fmt.Errorf("failed to apply schema: %w", err)
 		}
 		return nil
 	}

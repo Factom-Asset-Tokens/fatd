@@ -48,13 +48,13 @@ func Insert(conn *sqlite.Conn, eb factom.EBlock, dbKeyMR *factom.Bytes32) error 
 	// Ensure that this is the next EBlock.
 	prevKeyMR, err := SelectKeyMR(conn, eb.Sequence-1)
 	if *eb.PrevKeyMR != prevKeyMR {
-		return fmt.Errorf("invalid EBlock{}.PrevKeyMR")
+		return fmt.Errorf("invalid EBlock.PrevKeyMR")
 	}
 
 	var data []byte
 	data, err = eb.MarshalBinary()
 	if err != nil {
-		panic(fmt.Errorf("factom.EBlock{}.MarshalBinary(): %v", err))
+		panic(fmt.Errorf("factom.EBlock.MarshalBinary(): %w", err))
 	}
 	stmt := conn.Prep(`INSERT INTO "eblocks"
                 ("seq", "key_mr", "db_height", "db_key_mr", "timestamp", "data")
@@ -98,7 +98,8 @@ func Select(stmt *sqlite.Stmt) (factom.EBlock, error) {
 	data := make([]byte, stmt.ColumnLen(1))
 	stmt.ColumnBytes(1, data)
 	if err := eb.UnmarshalBinary(data); err != nil {
-		panic(fmt.Errorf("factom.EBlock{}.UnmarshalBinary(%x): %v", data, err))
+		panic(fmt.Errorf("factom.EBlock.UnmarshalBinary(%v): %w",
+			factom.Bytes(data), err))
 	}
 
 	return eb, nil

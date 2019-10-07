@@ -57,7 +57,7 @@ func Process(ctx context.Context, dbKeyMR *factom.Bytes32, eb factom.EBlock) err
 		}
 
 		// Fully sync the chain, so that it is up to date immediately.
-		if err := chain.Sync(c); err != nil {
+		if err := chain.Sync(ctx, c); err != nil {
 			return err
 		}
 
@@ -127,7 +127,7 @@ func Process(ctx context.Context, dbKeyMR *factom.Bytes32, eb factom.EBlock) err
 	prevStatus := chain.ChainStatus
 
 	// Apply this EBlock to the chain.
-	if err := chain.Apply(c, dbKeyMR, eb); err != nil {
+	if err := chain.Apply(ctx, c, dbKeyMR, eb); err != nil {
 		return err
 	}
 
@@ -141,7 +141,7 @@ func (chain Chain) conflictFn(
 	return sqlite.SQLITE_CHANGESET_ABORT
 }
 
-func ProcessPending(es ...factom.Entry) error {
+func ProcessPending(ctx context.Context, es ...factom.Entry) error {
 	chain := Chains.Get(es[0].ChainID)
 
 	// We can only apply pending entries to tracked chains.
@@ -178,7 +178,7 @@ func ProcessPending(es ...factom.Entry) error {
 
 		// There is a chance the Identity is populated now but wasn't
 		// before, so update it now.
-		if err := chain.Identity.Get(context.TODO(), c); err != nil {
+		if err := chain.Identity.Get(ctx, c); err != nil {
 			// A jsonrpc2.Error indicates that the identity chain
 			// doesn't yet exist, which we tolerate.
 			if _, ok := err.(jsonrpc2.Error); !ok {
@@ -199,7 +199,7 @@ func ProcessPending(es ...factom.Entry) error {
 		}
 
 		// Load the Entry data.
-		if err := e.Get(context.TODO(), c); err != nil {
+		if err := e.Get(ctx, c); err != nil {
 			return err
 		}
 

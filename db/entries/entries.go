@@ -59,7 +59,7 @@ CREATE INDEX "idx_entries_hash" ON "entries"("hash");
 func Insert(conn *sqlite.Conn, e factom.Entry, ebSeq uint32) (int64, error) {
 	data, err := e.MarshalBinary()
 	if err != nil {
-		panic(fmt.Errorf("factom.Entry{}.MarshalBinary(): %v", err))
+		panic(fmt.Errorf("factom.Entry.MarshalBinary(): %w", err))
 	}
 
 	stmt := conn.Prep(`INSERT INTO "entries"
@@ -115,8 +115,8 @@ func Select(stmt *sqlite.Stmt) (factom.Entry, error) {
 	data := make([]byte, stmt.ColumnLen(1))
 	stmt.ColumnBytes(1, data)
 	if err := e.UnmarshalBinary(data); err != nil {
-		panic(fmt.Errorf("factom.Entry{}.UnmarshalBinary(%x): %v",
-			data, err))
+		panic(fmt.Errorf("factom.Entry.UnmarshalBinary(%v): %w",
+			factom.Bytes(data), err))
 	}
 
 	e.Timestamp = time.Unix(stmt.ColumnInt64(2), 0)

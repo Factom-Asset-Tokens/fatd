@@ -129,7 +129,7 @@ func (m AddressNFTokensMap) set(data string) error {
 		if err := fa.Set(adrStr); err != nil {
 			// Not FA, try FsAddress...
 			if err := fs.Set(adrStr); err != nil {
-				return fmt.Errorf("invalid address: %v", err)
+				return fmt.Errorf("invalid address: %w", err)
 			}
 			fa = fs.FAAddress()
 			if fa != fat.Coinbase() {
@@ -209,7 +209,7 @@ func (tkns NFTokens) set(data string) error {
 		}
 		// Set all NFTokenIDs to the NFTokens map.
 		if err := fat1.NFTokens(tkns).Set(tknIDs); err != nil {
-			return fmt.Errorf("invalid NFTokens: %v", err)
+			return fmt.Errorf("invalid NFTokens: %w", err)
 		}
 	}
 	return nil
@@ -221,7 +221,7 @@ func (tkns NFTokens) String() string {
 func parseNFTokenID(tknIDStr string) (fat1.NFTokenID, error) {
 	tknID, err := parsePositiveInt(tknIDStr)
 	if err != nil {
-		return 0, fmt.Errorf("invalid NFTokenID: %v", err)
+		return 0, fmt.Errorf("invalid NFTokenID: %w", err)
 	}
 	return fat1.NFTokenID(tknID), nil
 }

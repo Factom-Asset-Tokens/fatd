@@ -57,18 +57,18 @@ func (t *Transaction) UnmarshalJSON(data []byte) error {
 		fat.Entry
 	}{}
 	if err := json.Unmarshal(data, &tRaw); err != nil {
-		return fmt.Errorf("%T: %v", t, err)
+		return fmt.Errorf("%T: %w", t, err)
 	}
 	if err := t.Inputs.UnmarshalJSON(tRaw.Inputs); err != nil {
-		return fmt.Errorf("%T.Inputs: %v", t, err)
+		return fmt.Errorf("%T.Inputs: %w", t, err)
 	}
 	if err := t.Outputs.UnmarshalJSON(tRaw.Outputs); err != nil {
-		return fmt.Errorf("%T.Outputs: %v", t, err)
+		return fmt.Errorf("%T.Outputs: %w", t, err)
 	}
 	t.Metadata = tRaw.Metadata
 
 	if err := t.ValidData(); err != nil {
-		return fmt.Errorf("%T: %v", t, err)
+		return fmt.Errorf("%T: %w", t, err)
 	}
 
 	expectedJSONLen := len(`{"inputs":,"outputs":}`) +

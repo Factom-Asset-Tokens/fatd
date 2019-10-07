@@ -59,13 +59,13 @@ func (chain Chain) String() string {
 
 func OpenNew(ctx context.Context, c *factom.Client,
 	dbKeyMR *factom.Bytes32, eb factom.EBlock) (chain Chain, err error) {
-	if err := eb.Get(context.TODO(), c); err != nil {
-		return chain, fmt.Errorf("%#v.Get(): %v", eb, err)
+	if err := eb.Get(ctx, c); err != nil {
+		return chain, fmt.Errorf("%#v.Get(): %w", eb, err)
 	}
 	// Load first entry of new chain.
 	first := &eb.Entries[0]
-	if err := first.Get(context.TODO(), c); err != nil {
-		return chain, fmt.Errorf("%#v.Get(): %v", first, err)
+	if err := first.Get(ctx, c); err != nil {
+		return chain, fmt.Errorf("%#v.Get(): %w", first, err)
 	}
 	if !eb.IsFirst() {
 		return
@@ -80,7 +80,7 @@ func OpenNew(ctx context.Context, c *factom.Client,
 	var identity factom.Identity
 	identity.ChainID = new(factom.Bytes32)
 	_, *identity.ChainID = fat.TokenIssuer(nameIDs)
-	if err = identity.Get(context.TODO(), c); err != nil {
+	if err = identity.Get(ctx, c); err != nil {
 		// A jsonrpc2.Error indicates that the identity chain
 		// doesn't yet exist, which we tolerate.
 		if _, ok := err.(jsonrpc2.Error); !ok {
@@ -88,14 +88,14 @@ func OpenNew(ctx context.Context, c *factom.Client,
 		}
 	}
 
-	if err := eb.GetEntries(context.TODO(), c); err != nil {
-		return chain, fmt.Errorf("%#v.GetEntries(): %v", eb, err)
+	if err := eb.GetEntries(ctx, c); err != nil {
+		return chain, fmt.Errorf("%#v.GetEntries(): %w", eb, err)
 	}
 
 	chain.Chain, err = db.OpenNew(ctx,
 		flag.DBPath, dbKeyMR, eb, flag.NetworkID, identity)
 	if err != nil {
-		return chain, fmt.Errorf("db.OpenNew(): %v", err)
+		return chain, fmt.Errorf("db.OpenNew(): %w", err)
 	}
 	if chain.Issuance.IsPopulated() {
 		chain.ChainStatus = ChainStatusIssued
@@ -107,17 +107,17 @@ func OpenNew(ctx context.Context, c *factom.Client,
 
 func (chain *Chain) OpenNewByChainID(ctx context.Context,
 	c *factom.Client, chainID *factom.Bytes32) error {
-	eblocks, err := factom.EBlock{ChainID: chainID}.GetPrevAll(context.TODO(), c)
+	eblocks, err := factom.EBlock{ChainID: chainID}.GetPrevAll(ctx, c)
 	if err != nil {
-		return fmt.Errorf("factom.EBlock{}.GetPrevAll(): %v", err)
+		return fmt.Errorf("factom.EBlock.GetPrevAll(): %w", err)
 	}
 
 	first := eblocks[len(eblocks)-1]
 	// Get DBlock Timestamp and KeyMR
 	var dblock factom.DBlock
 	dblock.Height = first.Height
-	if err := dblock.Get(context.TODO(), c); err != nil {
-		return fmt.Errorf("factom.DBlock{}.Get(): %v", err)
+	if err := dblock.Get(ctx, c); err != nil {
+		return fmt.Errorf("factom.DBlock.Get(): %w", err)
 	}
 	first.SetTimestamp(dblock.Timestamp)
 
@@ -130,41 +130,41 @@ func (chain *Chain) OpenNewByChainID(ctx context.Context,
 	}
 
 	// We already applied the first EBlock. Sync the remaining.
-	return chain.SyncEBlocks(c, eblocks[:len(eblocks)-1])
+	return chain.SyncEBlocks(ctx, c, eblocks[:len(eblocks)-1])
 }
 
-func (chain *Chain) Sync(c *factom.Client) error {
+func (chain *Chain) Sync(ctx context.Context, c *factom.Client) error {
 	eblocks, err := factom.EBlock{ChainID: chain.ID}.
-		GetPrevUpTo(context.TODO(), c, *chain.Head.KeyMR)
+		GetPrevUpTo(ctx, c, *chain.Head.KeyMR)
 	if err != nil {
-		return fmt.Errorf("factom.EBlock{}.GetPrevUpTo(): %v", err)
+		return fmt.Errorf("factom.EBlock.GetPrevUpTo(): %w", err)
 	}
-	return chain.SyncEBlocks(c, eblocks)
+	return chain.SyncEBlocks(ctx, c, eblocks)
 }
 
-func (chain *Chain) SyncEBlocks(c *factom.Client, ebs []factom.EBlock) error {
+func (chain *Chain) SyncEBlocks(ctx context.Context, c *factom.Client, ebs []factom.EBlock) error {
 	for i := range ebs {
 		eb := ebs[len(ebs)-1-i] // Earliest EBlock first.
 
 		// Get DBlock Timestamp and KeyMR
 		var dblock factom.DBlock
 		dblock.Height = eb.Height
-		if err := dblock.Get(context.TODO(), c); err != nil {
-			return fmt.Errorf("factom.DBlock{}.Get(): %v", err)
+		if err := dblock.Get(ctx, c); err != nil {
+			return fmt.Errorf("factom.DBlock.Get(): %w", err)
 		}
 		eb.SetTimestamp(dblock.Timestamp)
 
-		if err := chain.Apply(c, dblock.KeyMR, eb); err != nil {
+		if err := chain.Apply(ctx, c, dblock.KeyMR, eb); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (chain *Chain) Apply(c *factom.Client,
+func (chain *Chain) Apply(ctx context.Context, c *factom.Client,
 	dbKeyMR *factom.Bytes32, eb factom.EBlock) error {
 	// Get Identity each time in case it wasn't populated before.
-	if err := chain.Identity.Get(context.TODO(), c); err != nil {
+	if err := chain.Identity.Get(ctx, c); err != nil {
 		// A jsonrpc2.Error indicates that the identity chain doesn't yet
 		// exist, which we tolerate.
 		if _, ok := err.(jsonrpc2.Error); !ok {
@@ -172,7 +172,7 @@ func (chain *Chain) Apply(c *factom.Client,
 		}
 	}
 	// Get all entry data.
-	if err := eb.GetEntries(context.TODO(), c); err != nil {
+	if err := eb.GetEntries(ctx, c); err != nil {
 		return err
 	}
 	if err := chain.Chain.Apply(dbKeyMR, eb); err != nil {

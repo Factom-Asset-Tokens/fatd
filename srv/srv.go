@@ -96,7 +96,7 @@ func Start(ctx context.Context) (done <-chan struct{}) {
 			err = srv.ListenAndServe()
 		}
 		if err != http.ErrServerClosed {
-			log.Errorf("srv.ListenAndServe(): %v", err)
+			log.Errorf("srv.ListenAndServe(): %w", err)
 		}
 		close(_done)
 	}()
@@ -108,7 +108,7 @@ func Start(ctx context.Context) (done <-chan struct{}) {
 				context.Background(), 5*time.Second)
 			defer cancel()
 			if err := srv.Shutdown(ctx); err != nil {
-				log.Errorf("srv.Shutdown(): %v", err)
+				log.Errorf("srv.Shutdown(): %w", err)
 			}
 		case <-_done:
 		}
