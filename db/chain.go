@@ -249,7 +249,6 @@ func OpenConnPool(ctx context.Context, dbURI string) (
 
 // Close all database connections. Log any errors.
 func (chain *Chain) Close() {
-	chain.Log.Debug("Closing...")
 	chain.Conn.SetInterrupt(nil)
 	sqlitex.ExecScript(chain.Conn, `PRAGMA database.wal_checkpoint;`)
 	if err := chain.Pool.Close(); err != nil {
