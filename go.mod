@@ -23,6 +23,6 @@ require (
 
 replace github.com/spf13/pflag v1.0.3 => github.com/AdamSLevy/pflag v1.0.4
 
-replace crawshaw.io/sqlite => github.com/AdamSLevy/sqlite v0.1.3-0.20191006235146-265abd16c79e
+replace crawshaw.io/sqlite => github.com/AdamSLevy/sqlite v0.1.3-0.20191007030329-a2a45e244691
 
 //replace github.com/Factom-Asset-Tokens/factom => ../factom
