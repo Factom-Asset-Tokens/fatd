@@ -23,8 +23,10 @@
 package engine
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"sync"
 
 	"crawshaw.io/sqlite"
 
@@ -40,12 +42,15 @@ type Chain struct {
 	ChainStatus
 	db.Chain
 
+	*sync.RWMutex
+
 	Pending Pending
 }
 
 type Pending struct {
 	Session          *sqlite.Session
 	OfficialSnapshot *sqlite.Snapshot
+	EndSnapshotRead  func()
 	OfficialChain    db.Chain
 	Entries          map[factom.Bytes32]factom.Entry
 }
@@ -76,6 +81,8 @@ func OpenNew(ctx context.Context, c *factom.Client,
 	if !fat.ValidTokenNameIDs(nameIDs) {
 		return
 	}
+
+	chain.RWMutex = new(sync.RWMutex)
 
 	var identity factom.Identity
 	identity.ChainID = new(factom.Bytes32)
@@ -181,6 +188,32 @@ func (chain *Chain) Apply(ctx context.Context, c *factom.Client,
 	// Update ChainStatus
 	if !chain.IsIssued() && chain.Issuance.IsPopulated() {
 		chain.ChainStatus = ChainStatusIssued
+	}
+	return nil
+}
+
+func (chain *Chain) revertPending() error {
+	defer func() {
+		// Always clean up our session and snapshots.
+		chain.Pending.EndSnapshotRead()
+		chain.Pending.Session.Delete()
+		chain.Pending.Session = nil
+		chain.Pending.OfficialSnapshot.Free()
+		chain.Pending.OfficialSnapshot = nil
+	}()
+	// Revert all of the pending transactions by applying the inverse of
+	// the changeset tracked by the session.
+	var changeset bytes.Buffer
+	if err := chain.Pending.Session.Changeset(&changeset); err != nil {
+		return fmt.Errorf("chain.Pending.Session.Changeset(): %w", err)
+	}
+	inverse := bytes.NewBuffer(make([]byte, 0, changeset.Len()))
+	if err := sqlite.ChangesetInvert(inverse, &changeset); err != nil {
+		return fmt.Errorf("sqlite.ChangesetInvert(): %w", err)
+	}
+	if err := chain.Conn.ChangesetApply(inverse, nil, chain.conflictFn); err != nil {
+		return fmt.Errorf("chain.Conn.ChangesetApply(): %w", err)
+
 	}
 	return nil
 }

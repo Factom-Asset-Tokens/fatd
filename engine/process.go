@@ -23,7 +23,6 @@
 package engine
 
 import (
-	"bytes"
 	"context"
 	"time"
 
@@ -71,6 +70,9 @@ func Process(ctx context.Context, dbKeyMR *factom.Bytes32, eb factom.EBlock) err
 		return nil
 	}
 
+	chain.Lock()
+	defer chain.Unlock()
+
 	// Rollback any pending entries on the chain.
 	if chain.Pending.OfficialSnapshot != nil {
 		// Load any cached entries that are pending and remove them
@@ -90,36 +92,18 @@ func Process(ctx context.Context, dbKeyMR *factom.Bytes32, eb factom.EBlock) err
 
 			// Delete the entry from the pending cache, rather than
 			// nil the entire map, because this allows the cache
-			// for various chains to grow according to how active
-			// they are. But this is not optimal for chains with
-			// only very occasional bursts of pending entries.
+			// map size for various chains to grow according to how
+			// active they are. But this is not optimal for chains
+			// with only very occasional bursts of pending entries.
 			//
 			// A mechanism to eventually free rarely used pending
 			// entry maps would be a good improvement later.
 			delete(chain.Pending.Entries, *e.Hash)
 		}
 
-		// Revert all of the pending transactions by applying the
-		// inverse of the changeset tracked by the session.
-		changeset := &bytes.Buffer{}
-		if err := chain.Pending.Session.Changeset(changeset); err != nil {
+		if err := chain.revertPending(); err != nil {
 			return err
 		}
-		inverse := bytes.NewBuffer(make([]byte, 0, changeset.Cap()))
-		if err := sqlite.ChangesetInvert(inverse, changeset); err != nil {
-			return err
-		}
-		if err := chain.Conn.ChangesetApply(
-			inverse, nil, chain.conflictFn); err != nil {
-			return err
-		}
-
-		// Clean up.
-		chain.Pending.Session.Delete()
-		chain.Pending.Session = nil
-
-		chain.Pending.OfficialSnapshot.Free()
-		chain.Pending.OfficialSnapshot = nil
 	}
 
 	// prevStatus saves the initial ChainStatus so we can detect if the
@@ -149,6 +133,9 @@ func ProcessPending(ctx context.Context, es ...factom.Entry) error {
 		return nil
 	}
 
+	chain.Lock()
+	defer chain.Unlock()
+
 	// Initialize Pending if there is no snapshot yet.
 	if chain.Pending.OfficialSnapshot == nil {
 		// Create the cache if it does not exist.
@@ -161,6 +148,16 @@ func ProcessPending(ctx context.Context, es ...factom.Entry) error {
 		s, err := chain.Conn.CreateSnapshot("")
 		if err != nil {
 			return err
+		}
+		readConn := chain.Pool.Get(ctx)
+		endRead, err := readConn.StartSnapshotRead(s)
+		if err != nil {
+			return err
+		}
+		chain.Pending.EndSnapshotRead = func() {
+			readConn.SetInterrupt(nil)
+			endRead()
+			chain.Pool.Put(readConn)
 		}
 		chain.Pending.OfficialSnapshot = s
 		chain.Pending.OfficialChain = chain.Chain
@@ -229,15 +226,16 @@ func ProcessPending(ctx context.Context, es ...factom.Entry) error {
 // release the connection back to the pool. If pending is true, the chain will
 // reflect the state with pending entries applied. Otherwise the chain will
 // reflect the official state after the most recent EBlock.
-func (chain *Chain) Get(pending bool) func() {
+func (chain *Chain) Get(ctx context.Context, pending bool) func() {
+	chain.RLock()
 	// Pull a Conn off the Pool and set it as the main Conn.
-	conn := chain.Pool.Get(nil)
+	conn := chain.Pool.Get(ctx)
 	chain.Conn = conn
 
 	// If pending or if there is no pending state, then use the chain as
 	// is, and just return a function that returns the conn to the pool.
 	if pending || chain.Pending.OfficialSnapshot == nil {
-		return func() { chain.Pool.Put(conn) }
+		return func() { chain.Pool.Put(conn); chain.RUnlock() }
 	}
 
 	// Use the official chain state with the conn from the Pool.
@@ -253,5 +251,5 @@ func (chain *Chain) Get(pending bool) func() {
 
 	// Return a function that ends the read transaction and returns the
 	// conn to the Pool.
-	return func() { endRead(); chain.Pool.Put(conn) }
+	return func() { conn.SetInterrupt(nil); endRead(); chain.Pool.Put(conn); chain.RUnlock() }
 }

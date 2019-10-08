@@ -109,13 +109,12 @@ func (cm ChainMap) Close() {
 	cm.Lock()
 	for _, chain := range cm.m {
 		if chain.IsTracked() {
-			if chain.Pending.Session != nil {
-				chain.Pending.Session.Delete()
-				chain.Pending.Session = nil
-			}
+			// Rollback any pending entries on the chain.
 			if chain.Pending.OfficialSnapshot != nil {
-				chain.Pending.OfficialSnapshot.Free()
-				chain.Pending.OfficialSnapshot = nil
+				// Always clean up.
+				if err := chain.revertPending(); err != nil {
+					log.Error(err)
+				}
 			}
 			chain.Close()
 		}
@@ -162,6 +161,7 @@ func loadChains(ctx context.Context) (syncHeight uint32, err error) {
 		}
 
 		chain.Chain = dbChain
+		chain.RWMutex = new(sync.RWMutex)
 
 		syncHeight = min(syncHeight, chain.SyncHeight)
 
@@ -172,15 +172,16 @@ func loadChains(ctx context.Context) (syncHeight uint32, err error) {
 			return
 		}
 
-		if err = chain.Sync(ctx, c); err != nil {
-			dbChains = dbChains[i:] // Close remaining chains.
-			return
-		}
 		if !flag.SkipDBValidation {
 			if err = chain.Validate(); err != nil {
 				dbChains = dbChains[i:] // Close remaining chains.
 				return
 			}
+		}
+
+		if err = chain.Sync(ctx, c); err != nil {
+			dbChains = dbChains[i:] // Close remaining chains.
+			return
 		}
 
 		chain.ChainStatus = ChainStatusTracked
