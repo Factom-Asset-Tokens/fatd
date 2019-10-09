@@ -14,7 +14,7 @@ const CreateTableTransactions = `CREATE TABLE "nf_token_transactions" (
         "adr_tx_id"     INTEGER NOT NULL,
         "nf_tkn_id"     INTEGER NOT NULL,
 
-        UNIQUE("adr_tx_id", "nf_tkn_id"),
+        PRIMARY KEY("adr_tx_id", "nf_tkn_id"),
 
         FOREIGN KEY("nf_tkn_id") REFERENCES "nf_tokens",
         FOREIGN KEY("adr_tx_id") REFERENCES "address_transactions"

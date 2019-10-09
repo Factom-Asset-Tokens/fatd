@@ -26,7 +26,6 @@ import (
 	"context"
 	"time"
 
-	"crawshaw.io/sqlite"
 	jsonrpc2 "github.com/AdamSLevy/jsonrpc2/v12"
 	"github.com/Factom-Asset-Tokens/factom"
 	"github.com/Factom-Asset-Tokens/fatd/flag"
@@ -101,7 +100,12 @@ func Process(ctx context.Context, dbKeyMR *factom.Bytes32, eb factom.EBlock) err
 			delete(chain.Pending.Entries, *e.Hash)
 		}
 
-		if err := chain.revertPending(); err != nil {
+		err := chain.revertPending()
+		// We must save the Chain back to the map at this point to
+		// avoid a double free panic in the event of any further
+		// errors.
+		Chains.set(chain.ID, chain, chain.ChainStatus)
+		if err != nil {
 			return err
 		}
 	}
@@ -118,11 +122,6 @@ func Process(ctx context.Context, dbKeyMR *factom.Bytes32, eb factom.EBlock) err
 	// Save the chain back into the map.
 	Chains.set(chain.ID, chain, prevStatus)
 	return nil
-}
-func (chain Chain) conflictFn(
-	cType sqlite.ConflictType, _ sqlite.ChangesetIter) sqlite.ConflictAction {
-	chain.Log.Errorf("ChangesetApply Conflict: %v", cType)
-	return sqlite.SQLITE_CHANGESET_ABORT
 }
 
 func ProcessPending(ctx context.Context, es ...factom.Entry) error {
@@ -160,7 +159,7 @@ func ProcessPending(ctx context.Context, es ...factom.Entry) error {
 			return err
 		}
 		chain.Pending.EndSnapshotRead = func() {
-			// We must clear the interrupt to prevent endRead from
+			// We must clear the interrupt to prevent from
 			// panicking.
 			readConn.SetInterrupt(nil)
 			endRead()

@@ -192,7 +192,15 @@ func (chain *Chain) Apply(ctx context.Context, c *factom.Client,
 	return nil
 }
 
+func (chain *Chain) conflictFn(
+	cType sqlite.ConflictType, _ sqlite.ChangesetIter) sqlite.ConflictAction {
+	chain.Log.Errorf("ChangesetApply Conflict: %v", cType)
+	return sqlite.SQLITE_CHANGESET_ABORT
+}
 func (chain *Chain) revertPending() error {
+	// We must clear the interrupt to prevent from panicking or being
+	// interrupted while reverting.
+	oldDone := chain.SetInterrupt(nil)
 	defer func() {
 		// Always clean up our session and snapshots.
 		chain.Pending.EndSnapshotRead()
@@ -200,6 +208,7 @@ func (chain *Chain) revertPending() error {
 		chain.Pending.Session = nil
 		chain.Pending.OfficialSnapshot.Free()
 		chain.Pending.OfficialSnapshot = nil
+		chain.SetInterrupt(oldDone)
 	}()
 	// Revert all of the pending transactions by applying the inverse of
 	// the changeset tracked by the session.

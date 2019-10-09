@@ -68,6 +68,7 @@ func (chain Chain) Validate() (err error) {
 	if err != nil {
 		return err
 	}
+	sess.Attach("eblocks")
 	sess.Attach("entries")
 	sess.Attach("addresses")
 	sess.Attach("nf_tokens")
