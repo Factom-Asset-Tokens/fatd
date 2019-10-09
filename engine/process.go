@@ -149,6 +149,11 @@ func ProcessPending(ctx context.Context, es ...factom.Entry) error {
 		if err != nil {
 			return err
 		}
+
+		// SQLite does not guanratee that snapshots will remain
+		// readable over time due to automatic WAL checkpoints. Thus we
+		// must keep a read transaction open on the snapshot to prevent
+		// the WAL autocheckpoints from going past the snapshot.
 		readConn := chain.Pool.Get(ctx)
 		endRead, err := readConn.StartSnapshotRead(s)
 		if err != nil {
