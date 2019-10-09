@@ -160,6 +160,8 @@ func ProcessPending(ctx context.Context, es ...factom.Entry) error {
 			return err
 		}
 		chain.Pending.EndSnapshotRead = func() {
+			// We must clear the interrupt to prevent endRead from
+			// panicking.
 			readConn.SetInterrupt(nil)
 			endRead()
 			chain.Pool.Put(readConn)
@@ -256,5 +258,12 @@ func (chain *Chain) Get(ctx context.Context, pending bool) func() {
 
 	// Return a function that ends the read transaction and returns the
 	// conn to the Pool.
-	return func() { conn.SetInterrupt(nil); endRead(); chain.Pool.Put(conn); chain.RUnlock() }
+	return func() {
+		// We must clear the interrupt to prevent endRead from
+		// panicking.
+		conn.SetInterrupt(nil)
+		endRead()
+		chain.Pool.Put(conn)
+		chain.RUnlock()
+	}
 }
