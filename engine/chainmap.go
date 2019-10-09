@@ -132,9 +132,10 @@ func loadChains(ctx context.Context) (syncHeight uint32, err error) {
 	defer func() {
 		if err != nil {
 			for _, chain := range dbChains {
-				chain.Close()
+				if chain.Conn != nil {
+					chain.Close()
+				}
 			}
-			Chains.Close()
 		}
 	}()
 
@@ -153,10 +154,12 @@ func loadChains(ctx context.Context) (syncHeight uint32, err error) {
 	for i, dbChain := range dbChains {
 		chain := Chains.m[*dbChain.ID]
 
-		// Skip blacklisted chains or if there was a whitelist, any
-		// non-tracked chain.
+		// Close and skip any blacklisted chains or, if there was a
+		// whitelist, any non-tracked chain.
 		if chain.IsIgnored() || flag.HasWhitelist() && !chain.IsTracked() {
 			dbChain.Close()
+			// Prevent double close in defer on error.
+			dbChains[i].Conn = nil
 			continue
 		}
 
@@ -166,7 +169,6 @@ func loadChains(ctx context.Context) (syncHeight uint32, err error) {
 		syncHeight = min(syncHeight, chain.SyncHeight)
 
 		if chain.NetworkID != flag.NetworkID {
-			dbChains = dbChains[i:] // Close remaining chains.
 			err = fmt.Errorf("invalid NetworkID: %v for Chain{%v}",
 				chain.NetworkID, chain.ID)
 			return
@@ -174,13 +176,11 @@ func loadChains(ctx context.Context) (syncHeight uint32, err error) {
 
 		if !flag.SkipDBValidation {
 			if err = chain.Validate(); err != nil {
-				dbChains = dbChains[i:] // Close remaining chains.
 				return
 			}
 		}
 
 		if err = chain.Sync(ctx, c); err != nil {
-			dbChains = dbChains[i:] // Close remaining chains.
 			return
 		}
 
@@ -193,8 +193,6 @@ func loadChains(ctx context.Context) (syncHeight uint32, err error) {
 
 		Chains.m[*chain.ID] = chain
 	}
-
-	dbChains = nil // Prevent closing any chains from this list.
 
 	// Open any whitelisted chains that do not already have databases.
 	for id, chain := range Chains.m {
@@ -209,6 +207,10 @@ func loadChains(ctx context.Context) (syncHeight uint32, err error) {
 			Chains.issuedIDs = append(Chains.issuedIDs, chain.ID)
 		}
 		Chains.m[*chain.ID] = chain
+
+		// Ensure that this new chain gets closed in the defer if an
+		// error occurs.
+		dbChains = append(dbChains, chain.Chain)
 	}
 
 	return
