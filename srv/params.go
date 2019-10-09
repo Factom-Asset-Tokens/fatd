@@ -256,7 +256,7 @@ type ParamsSendTransaction struct {
 func (p *ParamsSendTransaction) IsValid() error {
 	if p.Raw != nil {
 		if p.ExtIDs != nil || p.Content != nil ||
-			p.ParamsToken != (ParamsToken{}) {
+			p.ParamsToken.IsValid() == nil {
 			return jsonrpc2.ErrorInvalidParams(
 				`"raw cannot be used with "content" or "extids"`)
 		}
@@ -278,7 +278,7 @@ func (p *ParamsSendTransaction) IsValid() error {
 		ExtIDs:    p.ExtIDs,
 		Content:   p.Content,
 		Timestamp: time.Now(),
-		ChainID:   p.ChainID,
+		ChainID:   p.ValidChainID(),
 	}
 
 	data, err := p.entry.MarshalBinary()
