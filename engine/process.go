@@ -74,6 +74,7 @@ func Process(ctx context.Context, dbKeyMR *factom.Bytes32, eb factom.EBlock) err
 
 	// Rollback any pending entries on the chain.
 	if chain.Pending.OfficialSnapshot != nil {
+		chain.Log.Debug("Cleaning up pending state...")
 		// Load any cached entries that are pending and remove them
 		// from the cache.
 		for i := range eb.Entries {
@@ -137,6 +138,7 @@ func ProcessPending(ctx context.Context, es ...factom.Entry) error {
 
 	// Initialize Pending if there is no snapshot yet.
 	if chain.Pending.OfficialSnapshot == nil {
+		chain.Log.Debug("Initializing pending...")
 		// Create the cache if it does not exist.
 		if chain.Pending.Entries == nil {
 			chain.Pending.Entries = make(map[factom.Bytes32]factom.Entry)

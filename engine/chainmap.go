@@ -196,10 +196,12 @@ func loadChains(ctx context.Context) (syncHeight uint32, err error) {
 
 	// Open any whitelisted chains that do not already have databases.
 	for id, chain := range Chains.m {
-		if chain.IsIgnored() || chain.Chain.Conn != nil {
+		if !chain.IsTracked() || chain.Chain.Conn != nil {
 			continue
 		}
-		if err = chain.OpenNewByChainID(ctx, c, &id); err != nil {
+		var chain Chain
+		chain, err = OpenNewByChainID(ctx, c, &id)
+		if err != nil {
 			return
 		}
 		Chains.trackedIDs = append(Chains.trackedIDs, chain.ID)

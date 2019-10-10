@@ -109,35 +109,45 @@ func OpenNew(ctx context.Context, c *factom.Client,
 	} else {
 		chain.ChainStatus = ChainStatusTracked
 	}
+	chain.RWMutex = new(sync.RWMutex)
 	return
 }
 
-func (chain *Chain) OpenNewByChainID(ctx context.Context,
-	c *factom.Client, chainID *factom.Bytes32) error {
+func OpenNewByChainID(ctx context.Context,
+	c *factom.Client, chainID *factom.Bytes32) (chain Chain, err error) {
 	eblocks, err := factom.EBlock{ChainID: chainID}.GetPrevAll(ctx, c)
 	if err != nil {
-		return fmt.Errorf("factom.EBlock.GetPrevAll(): %w", err)
+		err = fmt.Errorf("factom.EBlock.GetPrevAll(): %w", err)
+		return
 	}
 
 	first := eblocks[len(eblocks)-1]
 	// Get DBlock Timestamp and KeyMR
 	var dblock factom.DBlock
 	dblock.Height = first.Height
-	if err := dblock.Get(ctx, c); err != nil {
-		return fmt.Errorf("factom.DBlock.Get(): %w", err)
+	if err = dblock.Get(ctx, c); err != nil {
+		err = fmt.Errorf("factom.DBlock.Get(): %w", err)
+		return
 	}
 	first.SetTimestamp(dblock.Timestamp)
 
-	*chain, err = OpenNew(ctx, c, dblock.KeyMR, first)
+	chain, err = OpenNew(ctx, c, dblock.KeyMR, first)
 	if err != nil {
-		return err
+		return
 	}
+	defer func() {
+		if err != nil {
+			chain.Close()
+		}
+	}()
 	if chain.IsUnknown() {
-		return fmt.Errorf("not a valid FAT chain: %v", chainID)
+		err = fmt.Errorf("not a valid FAT chain: %v", chainID)
+		return
 	}
 
 	// We already applied the first EBlock. Sync the remaining.
-	return chain.SyncEBlocks(ctx, c, eblocks[:len(eblocks)-1])
+	err = chain.SyncEBlocks(ctx, c, eblocks[:len(eblocks)-1])
+	return
 }
 
 func (chain *Chain) Sync(ctx context.Context, c *factom.Client) error {
