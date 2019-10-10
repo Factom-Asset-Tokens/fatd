@@ -43,37 +43,37 @@ SRC = $(DEPSRC) $(filter-out %_test.go,$(wildcard *.go */*.go */*/*.go))
 
 FATDSRC=$(filter-out cli/%,$(SRC)) $(GENSRC)
 fatd: $(FATDSRC)
-	go build -ldflags=$(FATD_LDFLAGS) ./
+	go build -trimpath -ldflags=$(FATD_LDFLAGS) ./
 
 CLISRC=$(filter-out main.go engine/% state/% flag/%,$(SRC)) $(GENSRC)
 fat-cli: $(CLISRC)
-	go build -ldflags=$(CLI_LDFLAGS) -o fat-cli ./cli
+	go build -trimpath -ldflags=$(CLI_LDFLAGS) -o fat-cli ./cli
 
 
 fatd.race: $(FATDSRC)
-	go build -race -ldflags=$(FATD_LDFLAGS) -o fatd.race ./
+	go build -trimpath -race -ldflags=$(FATD_LDFLAGS) -o fatd.race ./
 
 fat-cli.race: $(CLISRC)
-	go build -race -ldflags=$(CLI_LDFLAGS) -o fat-cli.race ./cli
+	go build -trimpath -race -ldflags=$(CLI_LDFLAGS) -o fat-cli.race ./cli
 
 
 fatd.mac: $(FATDSRC)
-	env GOOS=darwin GOARCH=amd64 go build -ldflags=$(FATD_LDFLAGS) -o fatd.mac ./
+	env GOOS=darwin GOARCH=amd64 go build -trimpath -ldflags=$(FATD_LDFLAGS) -o fatd.mac ./
 
 fatd.exe: $(FATDSRC)
-	env GOOS=windows GOARCH=amd64 go build -ldflags=$(FATD_LDFLAGS) -o fatd.exe ./
+	env GOOS=windows GOARCH=amd64 go build -trimpath -ldflags=$(FATD_LDFLAGS) -o fatd.exe ./
 
 fatd-linux: $(FATDSRC)
-	env GOOS=linux GOARCH=amd64 go build -ldflags=$(FATD_LDFLAGS) ./
+	env GOOS=linux GOARCH=amd64 go build -trimpath -ldflags=$(FATD_LDFLAGS) ./
 
 fat-cli.mac: $(CLISRC)
-	env GOOS=darwin GOARCH=amd64 go build -ldflags=$(CLI_LDFLAGS) -o fat-cli.mac ./
+	env GOOS=darwin GOARCH=amd64 go build -trimpath -ldflags=$(CLI_LDFLAGS) -o fat-cli.mac ./
 
 fat-cli.exe: $(CLISRC)
-	env GOOS=windows GOARCH=amd64 go build -ldflags=$(CLI_LDFLAGS) -o fat-cli.exe ./
+	env GOOS=windows GOARCH=amd64 go build -trimpath -ldflags=$(CLI_LDFLAGS) -o fat-cli.exe ./
 
 fat-cli-linux: $(CLISRC)
-	env GOOS=linux GOARCH=amd64 go build -ldflags=$(CLI_LDFLAGS) -o fat-cli ./cli
+	env GOOS=linux GOARCH=amd64 go build -trimpath -ldflags=$(CLI_LDFLAGS) -o fat-cli ./cli
 
 .PHONY: clean clean-gen purge-db unpurge-db
 
