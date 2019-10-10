@@ -123,7 +123,9 @@ Entry Credits
 		"Token standard to use").DefValue = ""
 	flags.VarPF(&sk1, "sk1", "", "Secret Identity Key 1 to sign entry").DefValue = ""
 	flags.Int64Var(&Issuance.Supply, "supply", 0,
-		"Max Token supply, use -1 for unlimited")
+		"Max Token supply in base units, use -1 for unlimited")
+	flags.UintVar(&Issuance.Precision, "precision", 0,
+		"Number of whole unit decimal places, \ni.e. 3 means 1.0 is 1000 base units")
 	flags.StringVar(&Issuance.Symbol, "symbol", "", "Optional abbreviated token symbol")
 	flags.VarPF((*RawMessage)(&Issuance.Metadata), "metadata", "m",
 		"JSON metadata to include in tx")

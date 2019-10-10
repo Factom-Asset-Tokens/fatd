@@ -115,11 +115,26 @@ func getBalance(cmd *cobra.Command, _ []string) {
 			}
 			fmt.Println()
 			for chainID, balance := range balances {
-				fmt.Printf("\t%v: %v\n", chainID, balance)
+				vrbLog.Printf("Fetching token chain details... %v", chainID)
+				params := srv.ParamsToken{ChainID: &chainID}
+				var stats srv.ResultGetStats
+				if err := FATClient.Request(context.Background(),
+					"get-stats", params, &stats); err != nil {
+					errLog.Fatal(err)
+				}
+				var bal interface{}
+				if stats.Issuance.Precision > 1 {
+					bal = float64(balance) / math.Pow10(
+						int(stats.Issuance.Precision))
+				} else {
+					bal = balance
+				}
+				fmt.Printf("\t%v: %v\n", chainID, bal)
 			}
 		}
 		return
 	}
+
 	vrbLog.Printf("Fetching token chain details... %v", paramsToken.ChainID)
 	params := srv.ParamsToken{ChainID: paramsToken.ChainID}
 	var stats srv.ResultGetStats
@@ -140,7 +155,12 @@ func getBalance(cmd *cobra.Command, _ []string) {
 				"get-balance", params, &balance); err != nil {
 				errLog.Fatal(err)
 			}
-			fmt.Println(adr, balance)
+			if stats.Issuance.Precision > 1 {
+				fmt.Println(adr, float64(balance)/math.Pow10(
+					int(stats.Issuance.Precision)))
+			} else {
+				fmt.Println(adr, balance)
+			}
 		}
 	case fat1.Type:
 		var params srv.ParamsGetNFBalance

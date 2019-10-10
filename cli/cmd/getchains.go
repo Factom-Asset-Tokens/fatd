@@ -134,6 +134,7 @@ Issuance Entry Hash: %v
 Token ID: %v
 Type: %v
 Symbol: %q
+Precision: %q
 Supply:            %v
 Ciculating Supply: %v
 Burned:            %v

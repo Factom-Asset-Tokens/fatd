@@ -41,10 +41,13 @@ func Coinbase() factom.FAAddress {
 	return coinbase
 }
 
+const MaxPrecision = 18
+
 // Issuance represents the Issuance of a token.
 type Issuance struct {
-	Type   Type  `json:"type"`
-	Supply int64 `json:"supply"`
+	Type      Type  `json:"type"`
+	Supply    int64 `json:"supply"`
+	Precision uint  `json:"precision,omitempty"`
 
 	Symbol string `json:"symbol,omitempty"`
 	Entry
@@ -69,15 +72,14 @@ func (i Issuance) expectedJSONLength() int {
 	l := len(`{}`)
 	l += len(`"type":""`) + len(i.Type.String())
 	l += len(`,"supply":`) + jsonlen.Int64(i.Supply)
-	l += jsonStrLen("symbol", i.Symbol)
+	if i.Precision != 0 {
+		l += len(`,"precision":`) + jsonlen.Uint64(uint64(i.Precision))
+	}
+	if len(i.Symbol) > 0 {
+		l += len(`,"symbol":""`) + len(i.Symbol)
+	}
 	l += i.MetadataJSONLen()
 	return l
-}
-func jsonStrLen(name, value string) int {
-	if len(value) == 0 {
-		return 0
-	}
-	return len(`,"":""`) + len(name) + len(value)
 }
 
 func (i Issuance) MarshalJSON() ([]byte, error) {
@@ -125,6 +127,20 @@ func (i Issuance) ValidData() error {
 	}
 	if i.Supply == 0 || i.Supply < -1 {
 		return fmt.Errorf(`invalid "supply": must be positive or -1`)
+	}
+	switch i.Type {
+	case TypeFAT0:
+		if i.Precision > MaxPrecision {
+			return fmt.Errorf(
+				`invalid "precision": must be less than 18`)
+		}
+	case TypeFAT1:
+		if i.Precision != 0 {
+			return fmt.Errorf(
+				`invalid "precision": not allowed for %v`, i.Type)
+		}
+	default:
+		panic(i.Type.String())
 	}
 	return nil
 }

@@ -60,7 +60,11 @@ func (t Type) MarshalJSON() ([]byte, error) {
 }
 
 func (t Type) String() string {
-	return fmt.Sprintf("FAT-%v", uint64(t))
+	fmtStr := "FAT-%v"
+	if !t.IsValid() {
+		fmtStr = "invalid fat.Type: %v"
+	}
+	return fmt.Sprintf(fmtStr, uint64(t))
 }
 
 func (t Type) IsValid() bool {
