@@ -264,6 +264,7 @@ func engine(ctx context.Context, done chan struct{}) {
 			for _, eb := range dblock.EBlocks {
 				eblocks <- eb
 			}
+
 			// Wait for all EBlocks to be processed.
 			eblocksWG.Wait()
 
