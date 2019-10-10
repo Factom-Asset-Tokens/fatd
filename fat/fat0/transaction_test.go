@@ -294,21 +294,21 @@ func validCoinbaseTxEntryContentMap() map[string]interface{} {
 
 // inputs/outputs
 func inputs() map[string]uint64 {
-	inputs := map[string]uint64{}
+	var inputs map[string]uint64
 	for i := range inputAddresses {
 		inputs[inputAddresses[i].FAAddress().String()] = inputAmounts[i]
 	}
 	return inputs
 }
 func outputs() map[string]uint64 {
-	outputs := map[string]uint64{}
+	var outputs map[string]uint64
 	for i := range outputAddresses {
 		outputs[outputAddresses[i].FAAddress().String()] = outputAmounts[i]
 	}
 	return outputs
 }
 func coinbaseInputs() map[string]uint64 {
-	inputs := map[string]uint64{}
+	var inputs map[string]uint64
 	for i := range coinbaseInputAddresses {
 		inputs[coinbaseInputAddresses[i].FAAddress().String()] =
 			coinbaseInputAmounts[i]
@@ -316,7 +316,7 @@ func coinbaseInputs() map[string]uint64 {
 	return inputs
 }
 func coinbaseOutputs() map[string]uint64 {
-	outputs := map[string]uint64{}
+	var outputs map[string]uint64
 	for i := range coinbaseOutputAddresses {
 		outputs[coinbaseOutputAddresses[i].FAAddress().String()] =
 			coinbaseOutputAmounts[i]
@@ -402,7 +402,7 @@ func outputAddressAmountMap() AddressAmountMap {
 func addressAmountMap(aas map[string]uint64) AddressAmountMap {
 	m := make(AddressAmountMap)
 	for addressStr, amount := range aas {
-		a := factom.FAAddress{}
+		var a factom.FAAddress
 		if err := json.Unmarshal(
 			[]byte(fmt.Sprintf("%#v", addressStr)), &a); err != nil {
 			panic(err)

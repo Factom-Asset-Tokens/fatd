@@ -153,7 +153,7 @@ func TestAddressNFTokensMapUnmarshal(t *testing.T) {
 	for _, test := range AddressNFTokensMapUnmarshalTests {
 		t.Run(test.Name, func(t *testing.T) {
 			assert := assert.New(t)
-			adrNFTkns := AddressNFTokensMap{}
+			var adrNFTkns AddressNFTokensMap
 			err := adrNFTkns.UnmarshalJSON([]byte(test.JSON))
 			if len(test.Error) > 0 {
 				assert.Contains(err.Error(), test.Error)

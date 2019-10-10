@@ -196,8 +196,8 @@ func getTxs(_ *cobra.Command, _ []string) {
 		return
 	}
 	params := srv.ParamsGetTransaction{ParamsToken: paramsGetTxs.ParamsToken}
-	result := srv.ResultGetTransaction{}
-	tx := json.RawMessage{}
+	var result srv.ResultGetTransaction
+	var tx json.RawMessage
 	result.Tx = &tx
 	for _, txID := range transactionIDs {
 		vrbLog.Printf("Fetching tx details... %v", txID)

@@ -51,6 +51,8 @@ func (m AddressNFTokensMap) MarshalJSON() ([]byte, error) {
 	return json.Marshal(adrStrTknsMap)
 }
 
+var adrStrLen = len(factom.FAAddress{}.String())
+
 func (m *AddressNFTokensMap) UnmarshalJSON(data []byte) error {
 	var adrStrDataMap map[string]json.RawMessage
 	if err := json.Unmarshal(data, &adrStrDataMap); err != nil {
@@ -59,7 +61,7 @@ func (m *AddressNFTokensMap) UnmarshalJSON(data []byte) error {
 	if len(adrStrDataMap) == 0 {
 		return fmt.Errorf("%T: empty", m)
 	}
-	adrJSONLen := len(`"":,`) + len(factom.FAAddress{}.String())
+	adrJSONLen := len(`"":,`) + adrStrLen
 	expectedJSONLen := len(`{}`) - len(`,`) + len(adrStrDataMap)*adrJSONLen
 	*m = make(AddressNFTokensMap, len(adrStrDataMap))
 	var adr factom.FAAddress

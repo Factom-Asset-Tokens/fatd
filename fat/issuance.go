@@ -31,10 +31,7 @@ import (
 )
 
 var (
-	coinbase = func() factom.FAAddress {
-		priv := factom.FsAddress{}
-		return priv.FAAddress()
-	}()
+	coinbase = factom.FsAddress{}.FAAddress()
 )
 
 func Coinbase() factom.FAAddress {

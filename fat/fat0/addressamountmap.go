@@ -51,6 +51,8 @@ func (m AddressAmountMap) MarshalJSON() ([]byte, error) {
 	return json.Marshal(adrStrAmountMap)
 }
 
+var adrStrLen = len(factom.FAAddress{}.String())
+
 // UnmarshalJSON unmarshals a list of addresses and amounts used in the inputs
 // or outputs of a transaction. Duplicate addresses or addresses with a 0
 // amount cause an error.
@@ -62,7 +64,7 @@ func (m *AddressAmountMap) UnmarshalJSON(data []byte) error {
 	if len(adrStrAmountMap) == 0 {
 		return fmt.Errorf("%T: empty", m)
 	}
-	adrJSONLen := len(`"":,`) + len(factom.FAAddress{}.String())
+	adrJSONLen := len(`"":,`) + adrStrLen
 	expectedJSONLen := len(`{}`) - len(`,`) + len(adrStrAmountMap)*adrJSONLen
 	*m = make(AddressAmountMap, len(adrStrAmountMap))
 	var adr factom.FAAddress

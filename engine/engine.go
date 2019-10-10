@@ -192,7 +192,7 @@ func engine(ctx context.Context, done chan struct{}) {
 
 	// eblocksWG is used to signal that all EBlocks for the current DBlock
 	// are done being processed. This is reused each DBlock.
-	eblocksWG := &sync.WaitGroup{}
+	var eblocksWG sync.WaitGroup
 
 	// stopWorkers may be called multiple times by any worker or this
 	// goroutine, but eblocks will only ever be closed once.

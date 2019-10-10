@@ -108,7 +108,7 @@ func getBalance(cmd *cobra.Command, _ []string) {
 				"get-balances", params, &balances); err != nil {
 				errLog.Fatal(err)
 			}
-			fmt.Printf("%v:", adr)
+			fmt.Printf("%v ", adr)
 			if len(balances) == 0 {
 				fmt.Println(" none")
 				continue
@@ -129,7 +129,7 @@ func getBalance(cmd *cobra.Command, _ []string) {
 				} else {
 					bal = balance
 				}
-				fmt.Printf("\t%v: %v\n", chainID, bal)
+				fmt.Printf("\t%v  %v\n", chainID, bal)
 			}
 		}
 		return
@@ -144,7 +144,7 @@ func getBalance(cmd *cobra.Command, _ []string) {
 	}
 	switch stats.Issuance.Type {
 	case fat0.Type:
-		params := srv.ParamsGetBalance{}
+		var params srv.ParamsGetBalance
 		params.ChainID = paramsToken.ChainID
 		params.IncludePending = paramsToken.IncludePending
 		vrbLog.Println("Fetching balances...")

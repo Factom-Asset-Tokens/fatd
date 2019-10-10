@@ -320,7 +320,7 @@ func validCoinbaseTxEntryContentMap() map[string]interface{} {
 
 // inputs/outputs
 func inputs() map[string]NFTokens {
-	inputs := map[string]NFTokens{}
+	var inputs map[string]NFTokens
 	for i := range inputAddresses {
 		tkns := newNFTokens()
 		tkns.Append(inputNFTokens[i])
@@ -329,7 +329,7 @@ func inputs() map[string]NFTokens {
 	return inputs
 }
 func outputs() map[string]NFTokens {
-	outputs := map[string]NFTokens{}
+	var outputs map[string]NFTokens
 	for i := range outputAddresses {
 		tkns := newNFTokens()
 		tkns.Append(outputNFTokens[i])
@@ -338,7 +338,7 @@ func outputs() map[string]NFTokens {
 	return outputs
 }
 func coinbaseInputs() map[string]NFTokens {
-	inputs := map[string]NFTokens{}
+	var inputs map[string]NFTokens
 	for i := range coinbaseInputAddresses {
 		tkns := newNFTokens()
 		tkns.Append(coinbaseInputNFTokens[i])
@@ -347,7 +347,7 @@ func coinbaseInputs() map[string]NFTokens {
 	return inputs
 }
 func coinbaseOutputs() map[string]NFTokens {
-	outputs := map[string]NFTokens{}
+	var outputs map[string]NFTokens
 	for i := range coinbaseOutputAddresses {
 		tkns := newNFTokens()
 		tkns.Append(coinbaseOutputNFTokens[i])
@@ -425,7 +425,7 @@ func outputAddressNFTokensMap() AddressNFTokensMap {
 func addressNFTokensMap(aas map[string]NFTokens) AddressNFTokensMap {
 	m := make(AddressNFTokensMap)
 	for adrStr, amount := range aas {
-		a := factom.FAAddress{}
+		var a factom.FAAddress
 		if err := a.Set(adrStr); err != nil {
 			panic(err.Error() + " " + adrStr)
 		}

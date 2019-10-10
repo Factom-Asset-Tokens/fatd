@@ -74,7 +74,7 @@ type ResultGetIssuance struct {
 
 func getIssuance(entry bool) jsonrpc2.MethodFunc {
 	return func(ctx context.Context, data json.RawMessage) interface{} {
-		params := ParamsToken{}
+		var params ParamsToken
 		chain, put, err := validate(ctx, data, &params)
 		if err != nil {
 			return err
@@ -106,7 +106,7 @@ type ResultGetTransaction struct {
 
 func getTransaction(getEntry bool) jsonrpc2.MethodFunc {
 	return func(ctx context.Context, data json.RawMessage) interface{} {
-		params := ParamsGetTransaction{}
+		var params ParamsGetTransaction
 		chain, put, err := validate(ctx, data, &params)
 		if err != nil {
 			return err
@@ -150,7 +150,7 @@ func getTransaction(getEntry bool) jsonrpc2.MethodFunc {
 
 func getTransactions(getEntry bool) jsonrpc2.MethodFunc {
 	return func(ctx context.Context, data json.RawMessage) interface{} {
-		params := ParamsGetTransactions{}
+		var params ParamsGetTransactions
 		chain, put, err := validate(ctx, data, &params)
 		if err != nil {
 			return err
@@ -213,7 +213,7 @@ func getTransactions(getEntry bool) jsonrpc2.MethodFunc {
 }
 
 func getBalance(ctx context.Context, data json.RawMessage) interface{} {
-	params := ParamsGetBalance{}
+	var params ParamsGetBalance
 	chain, put, err := validate(ctx, data, &params)
 	if err != nil {
 		return err
@@ -254,7 +254,7 @@ func (r *ResultGetBalances) UnmarshalJSON(data []byte) error {
 }
 
 func getBalances(ctx context.Context, data json.RawMessage) interface{} {
-	params := ParamsGetBalances{}
+	var params ParamsGetBalances
 	if _, _, err := validate(ctx, data, &params); err != nil {
 		return err
 	}
@@ -277,7 +277,7 @@ func getBalances(ctx context.Context, data json.RawMessage) interface{} {
 }
 
 func getNFBalance(ctx context.Context, data json.RawMessage) interface{} {
-	params := ParamsGetNFBalance{}
+	var params ParamsGetNFBalance
 	chain, put, err := validate(ctx, data, &params)
 	if err != nil {
 		return err
@@ -320,7 +320,7 @@ type ResultGetStats struct {
 var coinbaseRCDHash = fat.Coinbase()
 
 func getStats(ctx context.Context, data json.RawMessage) interface{} {
-	params := ParamsToken{}
+	var params ParamsToken
 	chain, put, err := validate(ctx, data, &params)
 	if err != nil {
 		return err
@@ -369,7 +369,7 @@ type ResultGetNFToken struct {
 }
 
 func getNFToken(ctx context.Context, data json.RawMessage) interface{} {
-	params := ParamsGetNFToken{}
+	var params ParamsGetNFToken
 	chain, put, err := validate(ctx, data, &params)
 	if err != nil {
 		return err
@@ -408,7 +408,7 @@ func getNFToken(ctx context.Context, data json.RawMessage) interface{} {
 }
 
 func getNFTokens(ctx context.Context, data json.RawMessage) interface{} {
-	params := ParamsGetAllNFTokens{}
+	var params ParamsGetAllNFTokens
 	chain, put, err := validate(ctx, data, &params)
 	if err != nil {
 		return err
@@ -443,7 +443,7 @@ func getNFTokens(ctx context.Context, data json.RawMessage) interface{} {
 }
 
 func sendTransaction(ctx context.Context, data json.RawMessage) interface{} {
-	params := ParamsSendTransaction{}
+	var params ParamsSendTransaction
 	chain, put, err := validate(ctx, data, &params)
 	if err != nil {
 		return err
