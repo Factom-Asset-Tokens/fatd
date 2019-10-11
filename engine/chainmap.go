@@ -38,7 +38,7 @@ var (
 		factom.Bytes32{31: 0x0a}: Chain{ChainStatus: ChainStatusIgnored},
 		factom.Bytes32{31: 0x0c}: Chain{ChainStatus: ChainStatusIgnored},
 		factom.Bytes32{31: 0x0f}: Chain{ChainStatus: ChainStatusIgnored},
-	}, RWMutex: &sync.RWMutex{}}
+	}, RWMutex: new(sync.RWMutex)}
 )
 
 type ChainMap struct {
@@ -49,8 +49,8 @@ type ChainMap struct {
 }
 
 func (cm *ChainMap) set(id *factom.Bytes32, chain Chain, prevStatus ChainStatus) {
-	defer cm.Unlock()
 	cm.Lock()
+	defer cm.Unlock()
 	cm.m[*id] = chain
 	if chain.ChainStatus != prevStatus {
 		switch chain.ChainStatus {
@@ -65,32 +65,31 @@ func (cm *ChainMap) set(id *factom.Bytes32, chain Chain, prevStatus ChainStatus)
 	}
 }
 
-func (cm ChainMap) ignore(id *factom.Bytes32) {
+func (cm *ChainMap) ignore(id *factom.Bytes32) {
 	cm.set(id, Chain{ChainStatus: ChainStatusIgnored}, ChainStatusIgnored)
 }
 
-func (cm ChainMap) Get(id *factom.Bytes32) Chain {
-	defer cm.RUnlock()
+func (cm *ChainMap) Get(id *factom.Bytes32) Chain {
 	cm.RLock()
-	chain := cm.m[*id]
-	return chain
+	defer cm.RUnlock()
+	return cm.m[*id]
 }
 
-func (cm ChainMap) GetIssued() []*factom.Bytes32 {
-	defer cm.RUnlock()
+func (cm *ChainMap) GetIssued() []*factom.Bytes32 {
 	cm.RLock()
+	defer cm.RUnlock()
 	return cm.issuedIDs
 }
 
-func (cm ChainMap) GetTracked() []*factom.Bytes32 {
-	defer cm.RUnlock()
+func (cm *ChainMap) GetTracked() []*factom.Bytes32 {
 	cm.RLock()
+	defer cm.RUnlock()
 	return cm.trackedIDs
 }
 
-func (cm ChainMap) setSync(height uint32, dbKeyMR *factom.Bytes32) error {
-	defer cm.Unlock()
+func (cm *ChainMap) setSync(height uint32, dbKeyMR *factom.Bytes32) error {
 	cm.Lock()
+	defer cm.Unlock()
 	for _, chain := range cm.m {
 		if !chain.IsTracked() {
 			continue
@@ -104,9 +103,9 @@ func (cm ChainMap) setSync(height uint32, dbKeyMR *factom.Bytes32) error {
 	return nil
 }
 
-func (cm ChainMap) Close() {
-	defer cm.Unlock()
+func (cm *ChainMap) Close() {
 	cm.Lock()
+	defer cm.Unlock()
 	for _, chain := range cm.m {
 		if chain.IsTracked() {
 			// Rollback any pending entries on the chain.
@@ -138,7 +137,8 @@ func loadChains(ctx context.Context) (syncHeight uint32, err error) {
 			}
 		}
 	}()
-
+	Chains.Lock()
+	defer Chains.Unlock()
 	// Set whitelisted chains to Tracked.
 	for _, chainID := range flag.Whitelist {
 		Chains.m[chainID] = Chain{ChainStatus: ChainStatusTracked}
@@ -196,9 +196,10 @@ func loadChains(ctx context.Context) (syncHeight uint32, err error) {
 
 	// Open any whitelisted chains that do not already have databases.
 	for id, chain := range Chains.m {
-		if !chain.IsTracked() || chain.Chain.Conn != nil {
+		if !(chain.IsTracked() && chain.Chain.Conn == nil) {
 			continue
 		}
+		id := id
 		var chain Chain
 		chain, err = OpenNewByChainID(ctx, c, &id)
 		if err != nil {

@@ -87,12 +87,12 @@ func (chain *Chain) applyIssuance(ei int64, e factom.Entry) (issueErr, err error
 			if err != nil {
 				return
 			}
-			chain.Log.Debugf("Entry{%v}: invalid Issuance: %v",
-				e.Hash, issueErr)
+			//chain.Log.Debugf("Entry{%v}: invalid Issuance: %v",
+			//	e.Hash, issueErr)
 			return
 		}
 		rollback(&err) // commit
-		chain.Log.Debugf("Valid Issuance Entry: %v %+v", e.Hash, issuance)
+		//chain.Log.Debugf("Valid Issuance Entry: %v %+v", e.Hash, issuance)
 	}()
 	// The Identity must exist prior to issuance.
 	if !chain.Identity.IsPopulated() || e.Timestamp.Before(chain.Identity.Timestamp) {
@@ -141,7 +141,7 @@ func (chain *Chain) Save(tx fat.Transaction) func(txErr, err *error) {
 	rollback := sqlitex.Save(chain.Conn)
 	chainCopy := *chain
 	return func(txErr, err *error) {
-		e := tx.FactomEntry()
+		//e := tx.FactomEntry()
 		if *err != nil || *txErr != nil {
 			rollback(&alwaysRollbackErr)
 			// Reset chain on error
@@ -149,17 +149,17 @@ func (chain *Chain) Save(tx fat.Transaction) func(txErr, err *error) {
 			if *err != nil {
 				return
 			}
-			chain.Log.Debugf("Entry{%v}: invalid %v Transaction: %v",
-				e.Hash, chain.Type, *txErr)
+			//chain.Log.Debugf("Entry{%v}: invalid %v Transaction: %v",
+			//	e.Hash, chain.Type, *txErr)
 			return
 		}
 		rollback(err)
-		var cbStr string
-		if tx.IsCoinbase() {
-			cbStr = "Coinbase "
-		}
-		chain.Log.Debugf("Valid %v %vTransaction: %v %+v",
-			chain.Type, cbStr, e.Hash, tx)
+		//var cbStr string
+		//if tx.IsCoinbase() {
+		//	cbStr = "Coinbase "
+		//}
+		//chain.Log.Debugf("Valid %v %vTransaction: %v %+v",
+		//	chain.Type, cbStr, e.Hash, tx)
 	}
 }
 

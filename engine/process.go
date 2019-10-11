@@ -23,11 +23,16 @@
 package engine
 
 import (
+	"bytes"
 	"context"
+	"fmt"
 	"time"
 
+	"crawshaw.io/sqlite"
 	jsonrpc2 "github.com/AdamSLevy/jsonrpc2/v12"
 	"github.com/Factom-Asset-Tokens/factom"
+	"github.com/Factom-Asset-Tokens/fatd/db"
+	"github.com/Factom-Asset-Tokens/fatd/fat"
 	"github.com/Factom-Asset-Tokens/fatd/flag"
 )
 
@@ -41,6 +46,26 @@ func Process(ctx context.Context, dbKeyMR *factom.Bytes32, eb factom.EBlock) err
 		return nil
 	}
 	if chain.IsUnknown() {
+		if err := eb.Get(ctx, c); err != nil {
+			return fmt.Errorf("%#v.Get(): %w", eb, err)
+		}
+		if !eb.IsFirst() {
+			Chains.ignore(eb.ChainID)
+			return nil
+		}
+
+		// Load first entry of new chain.
+		first := &eb.Entries[0]
+		if err := first.Get(ctx, c); err != nil {
+			return fmt.Errorf("%#v.Get(): %w", first, err)
+		}
+		// Ignore chains with NameIDs that don't match the fat pattern.
+		nameIDs := first.ExtIDs
+		if !fat.ValidTokenNameIDs(nameIDs) {
+			Chains.ignore(eb.ChainID)
+			return nil
+		}
+
 		// Attempt to open a new chain.
 		var err error
 		chain, err = OpenNew(ctx, c, dbKeyMR, eb)
@@ -48,11 +73,7 @@ func Process(ctx context.Context, dbKeyMR *factom.Bytes32, eb factom.EBlock) err
 			return err
 		}
 
-		// Ignore if the chain was not opened.
-		if chain.IsUnknown() {
-			Chains.ignore(eb.ChainID)
-			return nil
-		}
+		log.Infof("Tracking new FAT chain: %v", chain.ID)
 
 		// Fully sync the chain, so that it is up to date immediately.
 		if err := chain.Sync(ctx, c); err != nil {
@@ -73,7 +94,7 @@ func Process(ctx context.Context, dbKeyMR *factom.Bytes32, eb factom.EBlock) err
 	defer chain.Unlock()
 
 	// Rollback any pending entries on the chain.
-	if chain.Pending.OfficialSnapshot != nil {
+	if chain.Pending.Entries != nil {
 		chain.Log.Debug("Cleaning up pending state...")
 		// Load any cached entries that are pending and remove them
 		// from the cache.
@@ -89,16 +110,6 @@ func Process(ctx context.Context, dbKeyMR *factom.Bytes32, eb factom.EBlock) err
 			// Use official Timestamp established by EBlock.
 			cachedE.Timestamp = e.Timestamp
 			*e = cachedE
-
-			// Delete the entry from the pending cache, rather than
-			// nil the entire map, because this allows the cache
-			// map size for various chains to grow according to how
-			// active they are. But this is not optimal for chains
-			// with only very occasional bursts of pending entries.
-			//
-			// A mechanism to eventually free rarely used pending
-			// entry maps would be a good improvement later.
-			delete(chain.Pending.Entries, *e.Hash)
 		}
 
 		err := chain.revertPending()
@@ -136,60 +147,13 @@ func ProcessPending(ctx context.Context, es ...factom.Entry) error {
 	chain.Lock()
 	defer chain.Unlock()
 
-	// Initialize Pending if there is no snapshot yet.
-	if chain.Pending.OfficialSnapshot == nil {
-		chain.Log.Debug("Initializing pending...")
-		// Create the cache if it does not exist.
-		if chain.Pending.Entries == nil {
-			chain.Pending.Entries = make(map[factom.Bytes32]factom.Entry)
-		}
-
-		// Take a snapshot of the official state and copy the current
-		// official Chain.
-		s, err := chain.Conn.CreateSnapshot("")
-		if err != nil {
+	// Initialize Pending if Entries is not yet populated.
+	if chain.Pending.Entries == nil {
+		if err := chain.initPending(ctx); err != nil {
 			return err
 		}
-
-		// SQLite does not guanratee that snapshots will remain
-		// readable over time due to automatic WAL checkpoints. Thus we
-		// must keep a read transaction open on the snapshot to prevent
-		// the WAL autocheckpoints from going past the snapshot.
-		readConn := chain.Pool.Get(ctx)
-		endRead, err := readConn.StartSnapshotRead(s)
-		if err != nil {
-			return err
-		}
-		chain.Pending.EndSnapshotRead = func() {
-			// We must clear the interrupt to prevent from
-			// panicking.
-			readConn.SetInterrupt(nil)
-			endRead()
-			chain.Pool.Put(readConn)
-		}
-		chain.Pending.OfficialSnapshot = s
-		chain.Pending.OfficialChain = chain.Chain
-
-		// Start a new session so we can track all changes and later
-		// rollback all pending entries.
-		session, err := chain.Conn.CreateSession("")
-		if err != nil {
-			return err
-		}
-		if err := session.Attach(""); err != nil {
-			return err
-		}
-		chain.Pending.Session = session
-
-		// There is a chance the Identity is populated now but wasn't
-		// before, so update it now.
-		if err := chain.Identity.Get(ctx, c); err != nil {
-			// A jsonrpc2.Error indicates that the identity chain
-			// doesn't yet exist, which we tolerate.
-			if _, ok := err.(jsonrpc2.Error); !ok {
-				return err
-			}
-		}
+		// Ensure the chain is saved back into the map.
+		Chains.set(chain.ID, chain, chain.ChainStatus)
 	}
 
 	// startLenEntries tracks the initial size of our cache so we can
@@ -225,8 +189,128 @@ func ProcessPending(ctx context.Context, es ...factom.Entry) error {
 		return nil
 	}
 
+	chain.Log.Debugf("Applied %v new pending entries.",
+		len(chain.Pending.Entries)-startLenEntries)
+
 	// Save the chain back into the map.
 	Chains.set(chain.ID, chain, chain.ChainStatus)
+	return nil
+}
+func (chain *Chain) initPending(ctx context.Context) (err error) {
+	chain.Log.Debug("Initializing pending...")
+
+	chain.Pending.Entries = make(map[factom.Bytes32]factom.Entry)
+	chain.Pending.OfficialChain = chain.Chain
+
+	defer func() {
+		if err != nil {
+			chain.Pending.Entries = nil
+			chain.Pending.OfficialChain = db.Chain{}
+		}
+	}()
+
+	// Take a snapshot of the official state and copy the current
+	// official Chain.
+	s, err := chain.Conn.CreateSnapshot("")
+	if err != nil {
+		return
+	}
+	chain.Pending.OfficialSnapshot = s
+	defer func() {
+		if err != nil {
+			chain.Pending.OfficialSnapshot.Free()
+			chain.Pending.OfficialSnapshot = nil
+		}
+	}()
+
+	readConn := chain.Pool.Get(ctx)
+	defer func() {
+		if err != nil {
+			chain.Pool.Put(readConn)
+		}
+	}()
+
+	// SQLite does not guanratee that snapshots will remain
+	// readable over time due to automatic WAL checkpoints. Thus we
+	// must keep a read transaction open on the snapshot to prevent
+	// the WAL autocheckpoints from going past the snapshot.
+	endRead, err := readConn.StartSnapshotRead(s)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err != nil {
+			endRead()
+		}
+	}()
+
+	// Start a new session so we can track all changes and later
+	// rollback all pending entries.
+	session, err := chain.Conn.CreateSession("")
+	if err != nil {
+		return err
+	}
+	chain.Pending.Session = session
+	chain.Pending.EndSnapshotRead = func() {
+		// We must clear the interrupt to prevent from
+		// panicking.
+		readConn.SetInterrupt(nil)
+		endRead()
+		chain.Pool.Put(readConn)
+	}
+	defer func() {
+		if err != nil {
+			session.Delete()
+			chain.Pending.Session = nil
+			chain.Pending.EndSnapshotRead = nil
+		}
+	}()
+
+	if err := chain.Pending.Session.Attach(""); err != nil {
+		return err
+	}
+
+	// There is a chance the Identity is populated now but wasn't
+	// before, so update it now.
+	if err := chain.Identity.Get(ctx, c); err != nil {
+		// A jsonrpc2.Error indicates that the identity chain
+		// doesn't yet exist, which we tolerate.
+		if _, ok := err.(jsonrpc2.Error); !ok {
+			return err
+		}
+	}
+	return nil
+}
+func (chain *Chain) revertPending() error {
+	chain.Pending.Entries = nil
+	// We must clear the interrupt to prevent from panicking or being
+	// interrupted while reverting.
+	oldDone := chain.Conn.SetInterrupt(nil)
+	defer func() {
+		// Always clean up our session and snapshots.
+		chain.Pending.EndSnapshotRead()
+		chain.Pending.EndSnapshotRead = nil
+
+		chain.Pending.Session.Delete()
+		chain.Pending.Session = nil
+		chain.Pending.OfficialSnapshot.Free()
+		chain.Pending.OfficialSnapshot = nil
+		chain.Conn.SetInterrupt(oldDone)
+	}()
+	// Revert all of the pending transactions by applying the inverse of
+	// the changeset tracked by the session.
+	var changeset bytes.Buffer
+	if err := chain.Pending.Session.Changeset(&changeset); err != nil {
+		return fmt.Errorf("chain.Pending.Session.Changeset(): %w", err)
+	}
+	inverse := bytes.NewBuffer(make([]byte, 0, changeset.Len()))
+	if err := sqlite.ChangesetInvert(inverse, &changeset); err != nil {
+		return fmt.Errorf("sqlite.ChangesetInvert(): %w", err)
+	}
+	if err := chain.Conn.ChangesetApply(inverse, nil, chain.conflictFn); err != nil {
+		return fmt.Errorf("chain.Conn.ChangesetApply(): %w", err)
+
+	}
 	return nil
 }
 
@@ -243,7 +327,10 @@ func (chain *Chain) Get(ctx context.Context, pending bool) func() {
 	// If pending or if there is no pending state, then use the chain as
 	// is, and just return a function that returns the conn to the pool.
 	if pending || chain.Pending.OfficialSnapshot == nil {
-		return func() { chain.Pool.Put(conn); chain.RUnlock() }
+		return func() {
+			chain.Pool.Put(conn)
+			chain.RUnlock()
+		}
 	}
 
 	// Use the official chain state with the conn from the Pool.

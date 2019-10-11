@@ -23,7 +23,6 @@
 package engine
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"sync"
@@ -36,6 +35,7 @@ import (
 	"github.com/Factom-Asset-Tokens/fatd/db"
 	"github.com/Factom-Asset-Tokens/fatd/fat"
 	"github.com/Factom-Asset-Tokens/fatd/flag"
+	_log "github.com/Factom-Asset-Tokens/fatd/log"
 )
 
 type Chain struct {
@@ -64,29 +64,12 @@ func (chain Chain) String() string {
 
 func OpenNew(ctx context.Context, c *factom.Client,
 	dbKeyMR *factom.Bytes32, eb factom.EBlock) (chain Chain, err error) {
-	if err := eb.Get(ctx, c); err != nil {
-		return chain, fmt.Errorf("%#v.Get(): %w", eb, err)
-	}
-	// Load first entry of new chain.
-	first := &eb.Entries[0]
-	if err := first.Get(ctx, c); err != nil {
-		return chain, fmt.Errorf("%#v.Get(): %w", first, err)
-	}
-	if !eb.IsFirst() {
-		return
-	}
-
-	// Ignore chains with NameIDs that don't match the fat pattern.
-	nameIDs := first.ExtIDs
-	if !fat.ValidTokenNameIDs(nameIDs) {
-		return
-	}
 
 	chain.RWMutex = new(sync.RWMutex)
 
 	var identity factom.Identity
 	identity.ChainID = new(factom.Bytes32)
-	_, *identity.ChainID = fat.TokenIssuer(nameIDs)
+	_, *identity.ChainID = fat.TokenIssuer(eb.Entries[0].ExtIDs)
 	if err = identity.Get(ctx, c); err != nil {
 		// A jsonrpc2.Error indicates that the identity chain
 		// doesn't yet exist, which we tolerate.
@@ -115,23 +98,43 @@ func OpenNew(ctx context.Context, c *factom.Client,
 
 func OpenNewByChainID(ctx context.Context,
 	c *factom.Client, chainID *factom.Bytes32) (chain Chain, err error) {
+
+	log := _log.New("chain", chainID)
+	log.Infof("Syncing new...")
+
 	eblocks, err := factom.EBlock{ChainID: chainID}.GetPrevAll(ctx, c)
 	if err != nil {
 		err = fmt.Errorf("factom.EBlock.GetPrevAll(): %w", err)
 		return
 	}
 
-	first := eblocks[len(eblocks)-1]
+	firstEB := eblocks[len(eblocks)-1]
 	// Get DBlock Timestamp and KeyMR
 	var dblock factom.DBlock
-	dblock.Height = first.Height
+	dblock.Height = firstEB.Height
 	if err = dblock.Get(ctx, c); err != nil {
 		err = fmt.Errorf("factom.DBlock.Get(): %w", err)
 		return
 	}
-	first.SetTimestamp(dblock.Timestamp)
+	firstEB.SetTimestamp(dblock.Timestamp)
+	if err = firstEB.Get(ctx, c); err != nil {
+		err = fmt.Errorf("%#v.Get(): %w", firstEB, err)
+		return
+	}
+	// Load first entry of new chain.
+	first := &firstEB.Entries[0]
+	if err = first.Get(ctx, c); err != nil {
+		err = fmt.Errorf("%#v.Get(): %w", first, err)
+		return
+	}
 
-	chain, err = OpenNew(ctx, c, dblock.KeyMR, first)
+	nameIDs := first.ExtIDs
+	if !fat.ValidTokenNameIDs(nameIDs) {
+		err = fmt.Errorf("not a valid FAT chain: %v", chainID)
+		return
+	}
+
+	chain, err = OpenNew(ctx, c, dblock.KeyMR, firstEB)
 	if err != nil {
 		return
 	}
@@ -140,10 +143,6 @@ func OpenNewByChainID(ctx context.Context,
 			chain.Close()
 		}
 	}()
-	if chain.IsUnknown() {
-		err = fmt.Errorf("not a valid FAT chain: %v", chainID)
-		return
-	}
 
 	// We already applied the first EBlock. Sync the remaining.
 	err = chain.SyncEBlocks(ctx, c, eblocks[:len(eblocks)-1])
@@ -151,6 +150,7 @@ func OpenNewByChainID(ctx context.Context,
 }
 
 func (chain *Chain) Sync(ctx context.Context, c *factom.Client) error {
+	chain.Log.Infof("Syncing...")
 	eblocks, err := factom.EBlock{ChainID: chain.ID}.
 		GetPrevUpTo(ctx, c, *chain.Head.KeyMR)
 	if err != nil {
@@ -159,7 +159,8 @@ func (chain *Chain) Sync(ctx context.Context, c *factom.Client) error {
 	return chain.SyncEBlocks(ctx, c, eblocks)
 }
 
-func (chain *Chain) SyncEBlocks(ctx context.Context, c *factom.Client, ebs []factom.EBlock) error {
+func (chain *Chain) SyncEBlocks(
+	ctx context.Context, c *factom.Client, ebs []factom.EBlock) error {
 	for i := range ebs {
 		eb := ebs[len(ebs)-1-i] // Earliest EBlock first.
 
@@ -175,6 +176,7 @@ func (chain *Chain) SyncEBlocks(ctx context.Context, c *factom.Client, ebs []fac
 			return err
 		}
 	}
+	chain.Log.Infof("Synced.")
 	return nil
 }
 
@@ -206,33 +208,4 @@ func (chain *Chain) conflictFn(
 	cType sqlite.ConflictType, _ sqlite.ChangesetIter) sqlite.ConflictAction {
 	chain.Log.Errorf("ChangesetApply Conflict: %v", cType)
 	return sqlite.SQLITE_CHANGESET_ABORT
-}
-func (chain *Chain) revertPending() error {
-	// We must clear the interrupt to prevent from panicking or being
-	// interrupted while reverting.
-	oldDone := chain.SetInterrupt(nil)
-	defer func() {
-		// Always clean up our session and snapshots.
-		chain.Pending.EndSnapshotRead()
-		chain.Pending.Session.Delete()
-		chain.Pending.Session = nil
-		chain.Pending.OfficialSnapshot.Free()
-		chain.Pending.OfficialSnapshot = nil
-		chain.SetInterrupt(oldDone)
-	}()
-	// Revert all of the pending transactions by applying the inverse of
-	// the changeset tracked by the session.
-	var changeset bytes.Buffer
-	if err := chain.Pending.Session.Changeset(&changeset); err != nil {
-		return fmt.Errorf("chain.Pending.Session.Changeset(): %w", err)
-	}
-	inverse := bytes.NewBuffer(make([]byte, 0, changeset.Len()))
-	if err := sqlite.ChangesetInvert(inverse, &changeset); err != nil {
-		return fmt.Errorf("sqlite.ChangesetInvert(): %w", err)
-	}
-	if err := chain.Conn.ChangesetApply(inverse, nil, chain.conflictFn); err != nil {
-		return fmt.Errorf("chain.Conn.ChangesetApply(): %w", err)
-
-	}
-	return nil
 }

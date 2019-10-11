@@ -325,7 +325,7 @@ func issueChain(_ *cobra.Command, _ []string) {
 	vrbLog.Println("Submitting the Chain Creation Entry to the Factom blockchain...")
 	txID, err := first.ComposeCreate(context.Background(), FactomClient, ecEsAdr.Es)
 	if err != nil {
-		errLog.Fatal(err)
+		errLog.Fatal(fmt.Errorf("factom.Entry.ComposeCreate(): %w", err))
 	}
 	fmt.Println("Chain Creation Entry Submitted")
 	fmt.Println("Chain ID:    ", first.ChainID)

@@ -82,6 +82,7 @@ type Chain struct {
 func OpenNew(ctx context.Context, dbPath string,
 	dbKeyMR *factom.Bytes32, eb factom.EBlock, networkID factom.NetworkID,
 	identity factom.Identity) (chain Chain, err error) {
+
 	fname := eb.ChainID.String() + dbFileExtension
 	path := dbPath + fname
 
@@ -144,6 +145,8 @@ func OpenNew(ctx context.Context, dbPath string,
 }
 
 func Open(ctx context.Context, dbPath, fname string) (chain Chain, err error) {
+	chain.Log = _log.New("chain", strings.TrimRight(fname, dbFileExtension))
+	chain.Log.Info("Opening...")
 	chain.Conn, chain.Pool, err = OpenConnPool(ctx, dbPath+fname)
 	if err != nil {
 		return
@@ -153,7 +156,6 @@ func Open(ctx context.Context, dbPath, fname string) (chain Chain, err error) {
 			chain.Close()
 		}
 	}()
-	chain.Log = _log.New("chain", strings.TrimRight(fname, dbFileExtension))
 	chain.DBFile = fname
 
 	err = chain.loadMetadata()
@@ -184,7 +186,6 @@ func OpenAll(ctx context.Context, dbPath string) (chains []Chain, err error) {
 		if err != nil {
 			continue
 		}
-		log.Debugf("Loading chain: %v", chainID)
 		chain, err := Open(ctx, dbPath, fname)
 		if err != nil {
 			return nil, err

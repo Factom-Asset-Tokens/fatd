@@ -670,7 +670,7 @@ func validate(ctx context.Context,
 		if !chain.IsIssued() {
 			return nil, nil, ErrorTokenNotFound
 		}
-		ctx, cancel := context.WithTimeout(ctx, time.Second)
+		ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
 		put := chain.Get(ctx, params.HasIncludePending())
 		return &chain, func() { cancel(); put() }, nil
 	}

@@ -243,8 +243,7 @@ func engine(ctx context.Context, done chan struct{}) {
 	for {
 		if !synced && syncHeight == factomHeight {
 			synced = true
-			log.Debugf("Synced to block %v...", syncHeight)
-			log.Infof("Synced.")
+			log.Infof("Synced to block %v.", syncHeight)
 		}
 
 		// Process all new DBlocks sequentially.
@@ -332,13 +331,15 @@ func engine(ctx context.Context, done chan struct{}) {
 					// this ChainID.
 					for j = i + 1; j < len(pe); j++ {
 						chainID := pe[j].ChainID
-						if chainID == nil || *chainID != *e.ChainID {
+						if chainID == nil ||
+							*chainID != *e.ChainID {
 							break
 						}
 					}
 					// Process all pending entries for this
 					// chain.
-					if err := ProcessPending(ctx, pe[i:j]...); err != nil {
+					if err := ProcessPending(
+						ctx, pe[i:j]...); err != nil {
 						runIfNotDone(ctx, func() {
 							log.Error(err)
 						})
@@ -355,7 +356,8 @@ func engine(ctx context.Context, done chan struct{}) {
 			}
 		}
 
-		// Check the Factom blockchain height but log and retry if this request fails.
+		// Check the Factom blockchain height but log and retry if this
+		// request fails.
 		if err := updateFactomHeight(ctx); err != nil {
 			log.Error(err)
 			if flag.FactomScanRetries > -1 &&

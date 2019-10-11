@@ -45,8 +45,8 @@ func init() {
 //
 // This does not validate the validity of the saved DBlock KeyMRs.
 func (chain Chain) Validate() (err error) {
-	chain.Log.Debug("Validating database...")
 	// Validate ChainID...
+	chain.Log.Info("Validating...")
 	read := chain.Pool.Get(nil)
 	defer chain.Pool.Put(read)
 	write := chain.Conn

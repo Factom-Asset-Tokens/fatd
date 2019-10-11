@@ -4,9 +4,9 @@ go 1.13
 
 require (
 	crawshaw.io/sqlite v0.1.3-0.20190520153332-66f853b01dfb
-	github.com/AdamSLevy/jsonrpc2/v12 v12.0.2-0.20191005213732-3b0dfc9c5f77
+	github.com/AdamSLevy/jsonrpc2/v12 v12.0.2-0.20191011020826-f5019a61cce7
 	github.com/AdamSLevy/sqlitechangeset v0.0.0-20190925183646-3ddb70fb709d
-	github.com/Factom-Asset-Tokens/factom v0.0.0-20191006004400-d347b69e7a7b
+	github.com/Factom-Asset-Tokens/factom v0.0.0-20191010221444-510331319e8d
 	github.com/goji/httpauth v0.0.0-20160601135302-2da839ab0f4d
 	github.com/konsorten/go-windows-terminal-sequences v1.0.2 // indirect
 	github.com/mitchellh/go-homedir v1.1.0
