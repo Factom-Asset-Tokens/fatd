@@ -35,8 +35,8 @@ export GOFLAGS
 GOFLAGS = -gcflags=all=-trimpath=${PWD} -asmflags=all=-trimpath=${PWD}
 
 GO_LDFLAGS   = -extldflags=$(LDFLAGS) -X github.com/Factom-Asset-Tokens/fatd
-FATD_LDFLAGS = "$(GO_LDFLAGS)/flag.Revision=$(REVISION)"
-CLI_LDFLAGS  = "$(GO_LDFLAGS)/cli/cmd.Revision=$(REVISION)"
+FATD_LDFLAGS = "$(GO_LDFLAGS)/internal/flag.Revision=$(REVISION)"
+CLI_LDFLAGS  = "$(GO_LDFLAGS)/cli.Revision=$(REVISION)"
 
 DEPSRC = go.mod go.sum
 SRC = $(DEPSRC) $(filter-out %_test.go,$(wildcard *.go */*.go */*/*.go))
