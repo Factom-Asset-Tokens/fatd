@@ -83,14 +83,6 @@ var transactionTests = []struct {
 	Error: "*fat0.Transaction.Outputs: json: cannot unmarshal array into Go value of type map[string]uint64",
 	Tx:    invalidField("outputs"),
 }, {
-	Name:  "invalid JSON (invalid inputs, zero amount)",
-	Error: "*fat0.Transaction.Inputs: *fat0.AddressAmountMap: invalid amount (0): ",
-	Tx: func() *Transaction {
-		in := inputs()
-		in[inputAddresses[0].FAAddress().String()] = 0
-		return setFieldTransaction("inputs", in)
-	}(),
-}, {
 	Name:  "invalid JSON (invalid inputs, duplicate)",
 	Error: "*fat0.Transaction.Inputs: *fat0.AddressAmountMap: unexpected JSON length",
 	Tx:    transaction([]byte(`{"inputs":{"FA3tM2R3T2ZT2gPrTfxjqhnFsdiqQUyKboKxvka3z5c1JF9yQck5":100,"FA3tM2R3T2ZT2gPrTfxjqhnFsdiqQUyKboKxvka3z5c1JF9yQck5":100,"FA3rCRnpU95ieYCwh7YGH99YUWPjdVEjk73mpjqnVpTDt3rUUhX8":10},"metadata":[0],"outputs":{"FA1zT4aFpEvcnPqPCigB3fvGu4Q4mTXY22iiuV69DqE1pNhdF2MC":10,"FA3sjgNF4hrJAiD9tQxAVjWS9Ca1hMqyxtuVSZTBqJiPwD7bnHkn":90,"FA2uyZviB3vs28VkqkfnhoXRD8XdKP1zaq7iukq2gBfCq3hxeuE8":10}}`)),
@@ -142,32 +134,6 @@ var transactionTests = []struct {
 		out[outputAddresses[0].FAAddress().String()]++
 		m["inputs"] = in
 		m["outputs"] = out
-		return transaction(marshal(m))
-	}(),
-}, {
-	Name:      "invalid data (coinbase, coinbase outputs)",
-	Error:     "*fat0.Transaction: duplicate address: ",
-	IssuerKey: issuerKey,
-	Tx: func() *Transaction {
-		m := validCoinbaseTxEntryContentMap()
-		in := coinbaseInputs()
-		out := coinbaseOutputs()
-		in[fat.Coinbase().String()]++
-		out[fat.Coinbase().String()]++
-		m["inputs"] = in
-		m["outputs"] = out
-		return transaction(marshal(m))
-	}(),
-}, {
-	Name:  "invalid data (inputs outputs overlap)",
-	Error: "*fat0.Transaction: duplicate address: ",
-	Tx: func() *Transaction {
-		m := validTxEntryContentMap()
-		in := inputs()
-		in[outputAddresses[0].FAAddress().String()] =
-			in[inputAddresses[0].FAAddress().String()]
-		delete(in, inputAddresses[0].FAAddress().String())
-		m["inputs"] = in
 		return transaction(marshal(m))
 	}(),
 }, {
@@ -233,7 +199,7 @@ var (
 	coinbaseInputAmounts  = []uint64{110}
 	coinbaseOutputAmounts = []uint64{90, 20}
 
-	tokenChainID = fat.ChainID("test", identityChainID)
+	tokenChainID = fat.ComputeChainID("test", identityChainID)
 
 	identityChainID = factom.NewBytes32(validIdentityChainID())
 )
@@ -294,21 +260,21 @@ func validCoinbaseTxEntryContentMap() map[string]interface{} {
 
 // inputs/outputs
 func inputs() map[string]uint64 {
-	var inputs map[string]uint64
+	inputs := make(map[string]uint64)
 	for i := range inputAddresses {
 		inputs[inputAddresses[i].FAAddress().String()] = inputAmounts[i]
 	}
 	return inputs
 }
 func outputs() map[string]uint64 {
-	var outputs map[string]uint64
+	outputs := make(map[string]uint64)
 	for i := range outputAddresses {
 		outputs[outputAddresses[i].FAAddress().String()] = outputAmounts[i]
 	}
 	return outputs
 }
 func coinbaseInputs() map[string]uint64 {
-	var inputs map[string]uint64
+	inputs := make(map[string]uint64)
 	for i := range coinbaseInputAddresses {
 		inputs[coinbaseInputAddresses[i].FAAddress().String()] =
 			coinbaseInputAmounts[i]
@@ -316,7 +282,7 @@ func coinbaseInputs() map[string]uint64 {
 	return inputs
 }
 func coinbaseOutputs() map[string]uint64 {
-	var outputs map[string]uint64
+	outputs := make(map[string]uint64)
 	for i := range coinbaseOutputAddresses {
 		outputs[coinbaseOutputAddresses[i].FAAddress().String()] =
 			coinbaseOutputAmounts[i]

@@ -61,7 +61,7 @@ var (
 
 func TestChainID(t *testing.T) {
 	assert.Equal(t, "b54c4310530dc4dd361101644fa55cb10aec561e7874a7b786ea3b66f2c6fdfb",
-		ChainID("test", identityChainID).String())
+		ComputeChainID("test", identityChainID).String())
 }
 
 var validTokenNameIDsTests = []struct {
@@ -301,7 +301,7 @@ var issuanceMarshalEntryTests = []struct {
 	}(),
 }, {
 	Name:  "invalid data",
-	Error: `json: error calling MarshalJSON for type *fat.Issuance: invalid "type": FAT-1000`,
+	Error: `json: error calling MarshalJSON for type *fat.Issuance: invalid "type": invalid fat.Type: 1000`,
 	Issuance: func() Issuance {
 		i := newIssuance()
 		i.Type = 1000

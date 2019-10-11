@@ -37,15 +37,11 @@ type AddressAmountMap map[factom.FAAddress]uint64
 // MarshalJSON marshals a list of addresses and amounts used in the inputs or
 // outputs of a transaction. Addresses with a 0 amount are omitted.
 func (m AddressAmountMap) MarshalJSON() ([]byte, error) {
-	if m.Sum() == 0 {
+	if len(m) == 0 {
 		return nil, fmt.Errorf("empty")
 	}
 	adrStrAmountMap := make(map[string]uint64, len(m))
 	for adr, amount := range m {
-		// Omit addresses with 0 amounts.
-		if amount == 0 {
-			continue
-		}
 		adrStrAmountMap[adr.String()] = amount
 	}
 	return json.Marshal(adrStrAmountMap)
@@ -65,15 +61,12 @@ func (m *AddressAmountMap) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("%T: empty", m)
 	}
 	adrJSONLen := len(`"":,`) + adrStrLen
-	expectedJSONLen := len(`{}`) - len(`,`) + len(adrStrAmountMap)*adrJSONLen
+	expectedJSONLen := len(`{}`) + len(adrStrAmountMap)*adrJSONLen - len(`,`)
 	*m = make(AddressAmountMap, len(adrStrAmountMap))
 	var adr factom.FAAddress
 	for adrStr, amount := range adrStrAmountMap {
 		if err := adr.Set(adrStr); err != nil {
 			return fmt.Errorf("%T: %w", m, err)
-		}
-		if amount == 0 {
-			return fmt.Errorf("%T: invalid amount (0): %v", m, adr)
 		}
 		(*m)[adr] = amount
 		expectedJSONLen += jsonlen.Uint64(amount)

@@ -147,10 +147,6 @@ func (t Transaction) ValidData() error {
 	if t.IsCoinbase() && len(t.Inputs) != 1 {
 		return fmt.Errorf("invalid coinbase transaction")
 	}
-	// Ensure that no address exists in both the Inputs and Outputs.
-	if err := t.Inputs.NoAddressIntersection(t.Outputs); err != nil {
-		return err
-	}
 	return nil
 }
 
