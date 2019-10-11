@@ -237,7 +237,7 @@ func engine(ctx context.Context, done chan struct{}) {
 	var retries int64
 
 	// scanTicker kicks off a new scan.
-	scanTicker := time.NewTicker(scanInterval)
+	scanTicker := time.NewTicker(flag.FactomScanInterval)
 
 	// Factom Blockchain Scan Loop
 	for {

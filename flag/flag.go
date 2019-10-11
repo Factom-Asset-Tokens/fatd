@@ -43,10 +43,11 @@ const envNamePrefix = "FATD_"
 
 var (
 	envNames = map[string]string{
-		"startscanheight":   "START_SCAN_HEIGHT",
-		"factomscanretries": "FACTOM_SCAN_RETRIES",
-		"debug":             "DEBUG",
-		"disablepending":    "DISABLE_PENDING",
+		"startscanheight":    "START_SCAN_HEIGHT",
+		"factomscanretries":  "FACTOM_SCAN_RETRIES",
+		"factomscaninterval": "FACTOM_SCAN_INTERVAL",
+		"debug":              "DEBUG",
+		"disablepending":     "DISABLE_PENDING",
 
 		"dbpath": "DB_PATH",
 
@@ -81,10 +82,11 @@ var (
 		"skipdbvalidation": "SKIP_DB_VALIDATION",
 	}
 	defaults = map[string]interface{}{
-		"startscanheight":   uint64(0),
-		"factomscanretries": int64(0),
-		"debug":             false,
-		"disablepending":    false,
+		"startscanheight":    uint64(0),
+		"factomscanretries":  int64(0),
+		"factomscaninterval": 15 * time.Second,
+		"debug":              false,
+		"disablepending":     false,
 
 		"dbpath": "./fatd.db",
 
@@ -115,10 +117,11 @@ var (
 		"skipdbvalidation": false,
 	}
 	descriptions = map[string]string{
-		"startscanheight":   "Block height to start scanning for deposits on startup",
-		"factomscanretries": "Number of times to consecutively retry fetching the latest height before exiting, use -1 for unlimited",
-		"debug":             "Log debug messages",
-		"disablepending":    "Do not scan for pending txs, reducing memory usage",
+		"startscanheight":    "Block height to start scanning for deposits on startup",
+		"factomscanretries":  "Number of times to consecutively retry fetching the latest height before exiting, use -1 for unlimited",
+		"factomscaninterval": "Scan interval for new blocks or pending entries",
+		"debug":              "Log debug messages",
+		"disablepending":     "Do not scan for pending txs, reducing memory usage",
 
 		"dbpath": "Path to the folder containing all database files",
 
@@ -152,10 +155,11 @@ var (
 		"skipdbvalidation": "Skip the full validation check of all chain databases",
 	}
 	flags = complete.Flags{
-		"-startscanheight":   complete.PredictAnything,
-		"-factomscanretries": complete.PredictAnything,
-		"-debug":             complete.PredictNothing,
-		"-disablepending":    complete.PredictNothing,
+		"-startscanheight":    complete.PredictAnything,
+		"-factomscanretries":  complete.PredictAnything,
+		"-factomscaninterval": complete.PredictAnything,
+		"-debug":              complete.PredictNothing,
+		"-disablepending":     complete.PredictNothing,
 
 		"-dbpath": complete.PredictFiles("*"),
 
@@ -200,11 +204,12 @@ var (
 		"-skipdbvalidation": complete.PredictNothing,
 	}
 
-	startScanHeight   uint64      // We parse the flag as unsigned.
-	StartScanHeight   int32  = -1 // We work with the signed value.
-	LogDebug          bool
-	DisablePending    bool
-	FactomScanRetries int64 = -1
+	startScanHeight    uint64      // We parse the flag as unsigned.
+	StartScanHeight    int32  = -1 // We work with the signed value.
+	FactomScanInterval time.Duration
+	LogDebug           bool
+	DisablePending     bool
+	FactomScanRetries  int64 = -1
 
 	EsAdr factom.EsAddress
 	ECAdr factom.ECAddress
@@ -236,6 +241,7 @@ var (
 func init() {
 	flagVar(&startScanHeight, "startscanheight")
 	flagVar(&FactomScanRetries, "factomscanretries")
+	flagVar(&FactomScanInterval, "factomscaninterval")
 	flagVar(&LogDebug, "debug")
 	flagVar(&DisablePending, "disablepending")
 
@@ -289,6 +295,7 @@ func Parse() {
 	// specified on the command line.
 	loadFromEnv(&startScanHeight, "startscanheight")
 	loadFromEnv(&FactomScanRetries, "factomscanretries")
+	loadFromEnv(&FactomScanInterval, "factomscaninterval")
 	loadFromEnv(&LogDebug, "debug")
 	loadFromEnv(&DisablePending, "disablepending")
 
@@ -340,6 +347,7 @@ func Validate() {
 	log.Debugf("-apiaddress        %#v", APIAddress)
 	log.Debugf("-startscanheight   %v ", StartScanHeight)
 	log.Debugf("-factomscanretries %v ", FactomScanRetries)
+	log.Debugf("-startscaninterval %v ", FactomScanInterval)
 	debugPrintln()
 
 	log.Debugf("-networkid      %v", NetworkID)
