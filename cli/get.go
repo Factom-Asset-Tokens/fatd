@@ -22,9 +22,32 @@
 
 package main
 
-func main() {
-	if Complete() {
-		return
+import (
+	"github.com/posener/complete"
+	"github.com/spf13/cobra"
+)
+
+// getCmd represents the get command
+var getCmd = func() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "get",
+		Short: "balance|chains|transactions",
+		Long: `
+Get balance, transaction, or issuance data about an existing FAT Chain.
+
+The fatd API is used to lookup information about FAT chains. Thus fat-cli can
+only return data about chains that the instance of fatd is tracking. The fatd
+API must be trusted to ensure the security and validity of returned data.
+`[1:],
 	}
-	Execute()
+	rootCmd.AddCommand(cmd)
+	rootCmplCmd.Sub["get"] = getCmplCmd
+	rootCmplCmd.Sub["help"].Sub["get"] = complete.Command{Sub: complete.Commands{}}
+	generateCmplFlags(cmd, getCmplCmd.Flags)
+	return cmd
+}()
+
+var getCmplCmd = complete.Command{
+	Flags: mergeFlags(apiCmplFlags, tokenCmplFlags),
+	Sub:   complete.Commands{},
 }

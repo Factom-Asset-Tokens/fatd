@@ -20,11 +20,27 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 // IN THE SOFTWARE.
 
-package main
+package db
 
-func main() {
-	if Complete() {
-		return
+import (
+	"context"
+	"testing"
+
+	"github.com/Factom-Asset-Tokens/fatd/internal/flag"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+func TestChainValidate(t *testing.T) {
+	require := require.New(t)
+	flag.LogDebug = true
+	chains, err := OpenAll(context.Background(), "./test-fatd.db/")
+	require.NoError(err, "OpenAll()")
+	require.NotEmptyf(chains, "Test database is empty: %v", flag.DBPath)
+
+	for _, chain := range chains {
+		chain := chain
+		defer chain.Close()
+		assert.NoErrorf(t, chain.Validate(), "Chain{%v}.Validate()", chain.ID)
 	}
-	Execute()
 }

@@ -20,11 +20,25 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 // IN THE SOFTWARE.
 
-package main
+package log
 
-func main() {
-	if Complete() {
-		return
+import (
+	"github.com/Factom-Asset-Tokens/fatd/internal/flag"
+
+	"github.com/sirupsen/logrus"
+)
+
+type Log struct {
+	*logrus.Entry
+}
+
+func New(key string, value interface{}) Log {
+	log := logrus.New()
+	log.Formatter = &logrus.TextFormatter{ForceColors: true,
+		DisableTimestamp:       true,
+		DisableLevelTruncation: true}
+	if flag.LogDebug {
+		log.SetLevel(logrus.DebugLevel)
 	}
-	Execute()
+	return Log{Entry: log.WithField(key, value)}
 }

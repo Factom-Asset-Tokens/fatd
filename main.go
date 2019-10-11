@@ -27,10 +27,10 @@ import (
 	"os"
 	"os/signal"
 
-	"github.com/Factom-Asset-Tokens/fatd/engine"
-	"github.com/Factom-Asset-Tokens/fatd/flag"
-	"github.com/Factom-Asset-Tokens/fatd/log"
-	"github.com/Factom-Asset-Tokens/fatd/srv"
+	"github.com/Factom-Asset-Tokens/fatd/internal/engine"
+	"github.com/Factom-Asset-Tokens/fatd/internal/flag"
+	"github.com/Factom-Asset-Tokens/fatd/internal/log"
+	"github.com/Factom-Asset-Tokens/fatd/internal/srv"
 )
 
 func main() { os.Exit(_main()) }

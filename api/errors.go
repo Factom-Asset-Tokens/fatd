@@ -20,11 +20,20 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 // IN THE SOFTWARE.
 
-package main
+package api
 
-func main() {
-	if Complete() {
-		return
-	}
-	Execute()
-}
+import jsonrpc2 "github.com/AdamSLevy/jsonrpc2/v12"
+
+var (
+	ErrorTokenNotFound = jsonrpc2.NewError(-32800, "Token Not Found",
+		"token may be invalid, or not yet issued or tracked")
+	ErrorTransactionNotFound = jsonrpc2.NewError(-32803, "Transaction Not Found",
+		"no matching tx-id was found")
+	ErrorInvalidTransaction = jsonrpc2.NewError(-32804, "Invalid Transaction", nil)
+	ErrorTokenSyncing       = jsonrpc2.NewError(-32805, "Token Syncing",
+		"token is in the process of syncing")
+	ErrorNoEC = jsonrpc2.NewError(-32806, "No Entry Credits",
+		"not configured with entry credits")
+	ErrorPendingDisabled = jsonrpc2.NewError(-32807, "Pending Transactions Disabled",
+		"fatd is not tracking pending transactions")
+)
