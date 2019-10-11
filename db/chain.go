@@ -95,7 +95,7 @@ func OpenNew(ctx context.Context, dbPath string,
 	// Ensure that the database file doesn't already exist.
 	_, err = os.Stat(path)
 	if err == nil {
-		err = fmt.Errorf("already exists: %w", path)
+		err = fmt.Errorf("already exists: %v", path)
 		return
 	}
 	if !os.IsNotExist(err) { // Any other error is unexpected.

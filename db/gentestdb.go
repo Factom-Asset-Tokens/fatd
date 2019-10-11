@@ -25,6 +25,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"log"
@@ -57,21 +58,21 @@ func main() {
 
 	log.SetPrefix(fmt.Sprintf("ChainID: %v ", chainID.String()))
 
-	eblocks, err := EBlock{ChainID: chainID}.GetPrevAll(c)
+	eblocks, err := EBlock{ChainID: chainID}.GetPrevAll(context.Background(), c)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	first := eblocks[len(eblocks)-1]
 	var dblock DBlock
-	dblock.Header.Height = first.Height
-	if err := dblock.Get(c); err != nil {
+	dblock.Height = first.Height
+	if err := dblock.Get(context.Background(), c); err != nil {
 		log.Fatal(err)
 	}
-	timestamp := dblock.Header.Timestamp
+	timestamp := dblock.Timestamp
 	for i := range first.Entries {
 		e := &first.Entries[i]
-		if err := e.Get(c); err != nil {
+		if err := e.Get(context.Background(), c); err != nil {
 			log.Fatal(err)
 		}
 		e.Timestamp = timestamp.Add(e.Timestamp.Sub(first.Timestamp))
@@ -84,13 +85,14 @@ func main() {
 		log.Fatalf("invalid token chain")
 	}
 	_, identityChainID := fat.TokenIssuer(nameIDs)
-	identity := NewIdentity(identityChainID)
-	if err := identity.Get(c); err != nil {
+	identity := NewIdentity(&identityChainID)
+	if err := identity.Get(context.Background(), c); err != nil {
 		log.Fatal(err)
 	}
 
 	// We don't need the actual dbKeyMR
-	chain, err := db.OpenNew(fflag.DBPath, dblock.KeyMR, first, MainnetID(), identity)
+	chain, err := db.OpenNew(context.Background(),
+		fflag.DBPath, dblock.KeyMR, first, MainnetID(), identity)
 	if err != nil {
 		log.Println(err)
 		return
@@ -100,15 +102,15 @@ func main() {
 	eblocks = eblocks[:len(eblocks)-1] // skip first eblock
 	for i := range eblocks {
 		eb := eblocks[len(eblocks)-i-1]
-		if err := eb.GetEntries(c); err != nil {
+		if err := eb.GetEntries(context.Background(), c); err != nil {
 			log.Fatal(err)
 		}
 		var dblock DBlock
-		dblock.Header.Height = eb.Height
-		if err := dblock.Get(c); err != nil {
+		dblock.Height = eb.Height
+		if err := dblock.Get(context.Background(), c); err != nil {
 			log.Fatal(err)
 		}
-		eb.SetTimestamp(dblock.Header.Timestamp)
+		eb.SetTimestamp(dblock.Timestamp)
 
 		if err := chain.Apply(dblock.KeyMR, eb); err != nil {
 			log.Fatal(err)

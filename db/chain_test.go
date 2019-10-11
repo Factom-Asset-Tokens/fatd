@@ -23,6 +23,7 @@
 package db
 
 import (
+	"context"
 	"testing"
 
 	"github.com/Factom-Asset-Tokens/fatd/flag"
@@ -33,7 +34,7 @@ import (
 func TestChainValidate(t *testing.T) {
 	require := require.New(t)
 	flag.LogDebug = true
-	chains, err := OpenAll("./test-fatd.db/")
+	chains, err := OpenAll(context.Background(), "./test-fatd.db/")
 	require.NoError(err, "OpenAll()")
 	require.NotEmptyf(chains, "Test database is empty: %v", flag.DBPath)
 
