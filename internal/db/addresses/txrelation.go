@@ -12,12 +12,13 @@ const CreateTableTransactions = `CREATE TABLE "address_transactions" (
         "address_id"    INTEGER NOT NULL,
         "to"            BOOL NOT NULL,
 
-        PRIMARY KEY("entry_id", "address_id"),
+        PRIMARY KEY("entry_id", "address_id", "to"),
 
         FOREIGN KEY("entry_id")   REFERENCES "entries",
         FOREIGN KEY("address_id") REFERENCES "addresses"
 );
 CREATE INDEX "idx_address_transactions_address_id" ON "address_transactions"("address_id");
+CREATE INDEX "idx_address_transactions_entry_id" ON "address_transactions"("entry_id");
 `
 
 // InsertTransactionRelation inserts a row into "address_transactions" relating

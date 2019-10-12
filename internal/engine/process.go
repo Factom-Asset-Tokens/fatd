@@ -31,8 +31,8 @@ import (
 	"crawshaw.io/sqlite"
 	jsonrpc2 "github.com/AdamSLevy/jsonrpc2/v12"
 	"github.com/Factom-Asset-Tokens/factom"
-	"github.com/Factom-Asset-Tokens/fatd/internal/db"
 	"github.com/Factom-Asset-Tokens/fatd/fat"
+	"github.com/Factom-Asset-Tokens/fatd/internal/db"
 	"github.com/Factom-Asset-Tokens/fatd/internal/flag"
 )
 
@@ -127,6 +127,7 @@ func Process(ctx context.Context, dbKeyMR *factom.Bytes32, eb factom.EBlock) err
 	prevStatus := chain.ChainStatus
 
 	// Apply this EBlock to the chain.
+	chain.Log.Debugf("Applying EBlock %v...", eb.KeyMR)
 	if err := chain.Apply(ctx, c, dbKeyMR, eb); err != nil {
 		return err
 	}
@@ -209,8 +210,8 @@ func (chain *Chain) initPending(ctx context.Context) (err error) {
 		}
 	}()
 
-	// Take a snapshot of the official state and copy the current
-	// official Chain.
+	// Take a snapshot of the official state and copy the current official
+	// Chain.
 	s, err := chain.Conn.CreateSnapshot("")
 	if err != nil {
 		return
@@ -230,10 +231,10 @@ func (chain *Chain) initPending(ctx context.Context) (err error) {
 		}
 	}()
 
-	// SQLite does not guanratee that snapshots will remain
-	// readable over time due to automatic WAL checkpoints. Thus we
-	// must keep a read transaction open on the snapshot to prevent
-	// the WAL autocheckpoints from going past the snapshot.
+	// SQLite does not guarantee that snapshots will remain readable over
+	// time due to automatic WAL checkpoints. Thus we must keep a read
+	// transaction open on the snapshot to prevent the WAL autocheckpoints
+	// from going past the snapshot.
 	endRead, err := readConn.StartSnapshotRead(s)
 	if err != nil {
 		return err
@@ -244,16 +245,15 @@ func (chain *Chain) initPending(ctx context.Context) (err error) {
 		}
 	}()
 
-	// Start a new session so we can track all changes and later
-	// rollback all pending entries.
+	// Start a new session so we can track all changes and later rollback
+	// all pending entries.
 	session, err := chain.Conn.CreateSession("")
 	if err != nil {
 		return err
 	}
 	chain.Pending.Session = session
 	chain.Pending.EndSnapshotRead = func() {
-		// We must clear the interrupt to prevent from
-		// panicking.
+		// We must clear the interrupt to prevent from panicking.
 		readConn.SetInterrupt(nil)
 		endRead()
 		chain.Pool.Put(readConn)
@@ -270,11 +270,11 @@ func (chain *Chain) initPending(ctx context.Context) (err error) {
 		return err
 	}
 
-	// There is a chance the Identity is populated now but wasn't
-	// before, so update it now.
+	// There is a chance the Identity is populated now but wasn't before,
+	// so update it now.
 	if err := chain.Identity.Get(ctx, c); err != nil {
-		// A jsonrpc2.Error indicates that the identity chain
-		// doesn't yet exist, which we tolerate.
+		// A jsonrpc2.Error indicates that the identity chain doesn't
+		// yet exist, which we tolerate.
 		if _, ok := err.(jsonrpc2.Error); !ok {
 			return err
 		}
@@ -326,7 +326,7 @@ func (chain *Chain) Get(ctx context.Context, pending bool) func() {
 
 	// If pending or if there is no pending state, then use the chain as
 	// is, and just return a function that returns the conn to the pool.
-	if pending || chain.Pending.OfficialSnapshot == nil {
+	if pending || chain.Pending.Entries == nil {
 		return func() {
 			chain.Pool.Put(conn)
 			chain.RUnlock()

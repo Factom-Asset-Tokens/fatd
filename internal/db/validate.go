@@ -30,9 +30,9 @@ import (
 	"crawshaw.io/sqlite/sqlitex"
 	"github.com/AdamSLevy/sqlitechangeset"
 	"github.com/Factom-Asset-Tokens/factom"
+	"github.com/Factom-Asset-Tokens/fatd/fat"
 	"github.com/Factom-Asset-Tokens/fatd/internal/db/eblocks"
 	"github.com/Factom-Asset-Tokens/fatd/internal/db/entries"
-	"github.com/Factom-Asset-Tokens/fatd/fat"
 	"github.com/Factom-Asset-Tokens/fatd/internal/flag"
 )
 

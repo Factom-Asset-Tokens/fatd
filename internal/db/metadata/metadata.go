@@ -30,8 +30,8 @@ import (
 
 	"crawshaw.io/sqlite"
 	"github.com/Factom-Asset-Tokens/factom"
-	"github.com/Factom-Asset-Tokens/fatd/internal/db/entries"
 	"github.com/Factom-Asset-Tokens/fatd/fat"
+	"github.com/Factom-Asset-Tokens/fatd/internal/db/entries"
 )
 
 // CreateTable is a SQL string that creates the "metadata" table.

@@ -34,11 +34,11 @@ import (
 	"crawshaw.io/sqlite/sqlitex"
 
 	"github.com/Factom-Asset-Tokens/factom"
+	"github.com/Factom-Asset-Tokens/fatd/fat"
 	"github.com/Factom-Asset-Tokens/fatd/internal/db/addresses"
 	"github.com/Factom-Asset-Tokens/fatd/internal/db/eblocks"
 	"github.com/Factom-Asset-Tokens/fatd/internal/db/entries"
 	"github.com/Factom-Asset-Tokens/fatd/internal/db/metadata"
-	"github.com/Factom-Asset-Tokens/fatd/fat"
 	_log "github.com/Factom-Asset-Tokens/fatd/internal/log"
 )
 

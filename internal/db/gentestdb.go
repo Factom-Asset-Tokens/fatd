@@ -32,8 +32,8 @@ import (
 	"os"
 
 	. "github.com/Factom-Asset-Tokens/factom"
-	"github.com/Factom-Asset-Tokens/fatd/internal/db"
 	"github.com/Factom-Asset-Tokens/fatd/fat"
+	"github.com/Factom-Asset-Tokens/fatd/internal/db"
 	fflag "github.com/Factom-Asset-Tokens/fatd/internal/flag"
 )
 

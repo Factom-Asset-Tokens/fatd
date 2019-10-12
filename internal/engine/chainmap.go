@@ -109,7 +109,7 @@ func (cm *ChainMap) Close() {
 	for _, chain := range cm.m {
 		if chain.IsTracked() {
 			// Rollback any pending entries on the chain.
-			if chain.Pending.OfficialSnapshot != nil {
+			if chain.Pending.Entries != nil {
 				// Always clean up.
 				if err := chain.revertPending(); err != nil {
 					log.Error(err)

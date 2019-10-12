@@ -341,7 +341,8 @@ func engine(ctx context.Context, done chan struct{}) {
 					if err := ProcessPending(
 						ctx, pe[i:j]...); err != nil {
 						runIfNotDone(ctx, func() {
-							log.Error(err)
+							log.Errorf("ChainID(%v): %v",
+								e.ChainID, err)
 						})
 						return
 					}

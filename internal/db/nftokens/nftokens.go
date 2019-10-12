@@ -32,8 +32,8 @@ import (
 	"crawshaw.io/sqlite"
 	"crawshaw.io/sqlite/sqlitex"
 	"github.com/Factom-Asset-Tokens/factom"
-	"github.com/Factom-Asset-Tokens/fatd/internal/db/sqlbuilder"
 	"github.com/Factom-Asset-Tokens/fatd/fat/fat1"
+	"github.com/Factom-Asset-Tokens/fatd/internal/db/sqlbuilder"
 )
 
 // CreateTable is a SQL string that creates the "nf_tokens" table.
