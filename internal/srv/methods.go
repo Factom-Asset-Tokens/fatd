@@ -223,8 +223,7 @@ func getBalances(ctx context.Context, data json.RawMessage) interface{} {
 	issuedIDs := engine.Chains.GetIssued()
 	balances := make(api.ResultGetBalances, len(issuedIDs))
 	for _, chainID := range issuedIDs {
-		chain := engine.Chains.Get(chainID)
-		put := chain.Get(ctx, params.HasIncludePending())
+		chain, put := engine.Chains.Get(ctx, chainID, params.HasIncludePending())
 		defer put()
 		_, balance, err := addresses.SelectIDBalance(chain.Conn, params.Address)
 		if err != nil {
@@ -548,7 +547,8 @@ func getDaemonTokens(ctx context.Context, data json.RawMessage) interface{} {
 	issuedIDs := engine.Chains.GetIssued()
 	chains := make([]api.ParamsToken, len(issuedIDs))
 	for i, chainID := range issuedIDs {
-		chain := engine.Chains.Get(chainID)
+		chain, put := engine.Chains.Get(ctx, chainID, true)
+		defer put()
 		chainID := chainID
 		chains[i].ChainID = chainID
 		chains[i].TokenID = chain.TokenID
@@ -596,12 +596,13 @@ func validate(ctx context.Context,
 	}
 	chainID := params.ValidChainID()
 	if chainID != nil {
-		chain := engine.Chains.Get(chainID)
+		ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
+		chain, put := engine.Chains.Get(ctx, chainID, params.HasIncludePending())
 		if !chain.IsIssued() {
+			cancel()
+			put()
 			return nil, nil, api.ErrorTokenNotFound
 		}
-		ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
-		put := chain.Get(ctx, params.HasIncludePending())
 		return &chain, func() { cancel(); put() }, nil
 	}
 	return nil, nil, nil

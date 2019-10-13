@@ -25,7 +25,6 @@ package engine
 import (
 	"context"
 	"fmt"
-	"sync"
 
 	"crawshaw.io/sqlite"
 
@@ -42,17 +41,17 @@ type Chain struct {
 	ChainStatus
 	db.Chain
 
-	*sync.RWMutex
-
 	Pending Pending
 }
 
 type Pending struct {
-	Session          *sqlite.Session
 	OfficialSnapshot *sqlite.Snapshot
 	EndSnapshotRead  func()
-	OfficialChain    db.Chain
-	Entries          map[factom.Bytes32]factom.Entry
+
+	Session       *sqlite.Session
+	OfficialChain db.Chain
+
+	Entries map[factom.Bytes32]factom.Entry
 }
 
 func (chain Chain) String() string {
@@ -64,8 +63,6 @@ func (chain Chain) String() string {
 
 func OpenNew(ctx context.Context, c *factom.Client,
 	dbKeyMR *factom.Bytes32, eb factom.EBlock) (chain Chain, err error) {
-
-	chain.RWMutex = new(sync.RWMutex)
 
 	var identity factom.Identity
 	identity.ChainID = new(factom.Bytes32)
@@ -92,7 +89,6 @@ func OpenNew(ctx context.Context, c *factom.Client,
 	} else {
 		chain.ChainStatus = ChainStatusTracked
 	}
-	chain.RWMutex = new(sync.RWMutex)
 	return
 }
 
