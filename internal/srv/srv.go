@@ -52,7 +52,7 @@ func Start(ctx context.Context) (done <-chan struct{}) {
 
 	// Set up JSON RPC 2.0 handler with correct headers.
 	jsonrpc2.DebugMethodFunc = true
-	jrpcHandler := jsonrpc2.HTTPRequestHandler(jsonrpc2Methods)
+	jrpcHandler := jsonrpc2.HTTPRequestHandler(jsonrpc2Methods, log)
 
 	var handler http.Handler = http.HandlerFunc(
 		func(w http.ResponseWriter, r *http.Request) {

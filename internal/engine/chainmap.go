@@ -28,7 +28,6 @@ import (
 	"math"
 	"sync"
 
-	"crawshaw.io/sqlite"
 	"github.com/Factom-Asset-Tokens/factom"
 	"github.com/Factom-Asset-Tokens/fatd/internal/db"
 	"github.com/Factom-Asset-Tokens/fatd/internal/flag"
@@ -176,26 +175,6 @@ func loadChains(ctx context.Context) (syncHeight uint32, err error) {
 
 		if !flag.SkipDBValidation {
 			if err = chain.Validate(); err != nil {
-				return
-			}
-		} else {
-			// Ensure WAL file exists which is required for the
-			// Snapshots used for pending transactions to work.
-			var begin, commit *sqlite.Stmt
-			begin, _, err = chain.Conn.PrepareTransient("BEGIN IMMEDIATE;")
-			if err != nil {
-				panic(err)
-			}
-			defer begin.Finalize()
-			if _, err = begin.Step(); err != nil {
-				return
-			}
-			commit, _, err = chain.Conn.PrepareTransient("COMMIT;")
-			if err != nil {
-				panic(err)
-			}
-			defer commit.Finalize()
-			if _, err = commit.Step(); err != nil {
 				return
 			}
 		}

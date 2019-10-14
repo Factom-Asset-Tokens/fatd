@@ -29,6 +29,7 @@ import (
 	"time"
 
 	"crawshaw.io/sqlite"
+	"crawshaw.io/sqlite/sqlitex"
 	jsonrpc2 "github.com/AdamSLevy/jsonrpc2/v12"
 	"github.com/Factom-Asset-Tokens/factom"
 	"github.com/Factom-Asset-Tokens/fatd/fat"
@@ -92,7 +93,6 @@ func Process(ctx context.Context, dbKeyMR *factom.Bytes32, eb factom.EBlock) err
 
 	// Rollback any pending entries on the chain.
 	if chain.Pending.Entries != nil {
-		chain.Log.Debug("Cleaning up pending state...")
 		// Load any cached entries that are pending and remove them
 		// from the cache.
 		for i := range eb.Entries {
@@ -128,9 +128,14 @@ func Process(ctx context.Context, dbKeyMR *factom.Bytes32, eb factom.EBlock) err
 	if err := chain.Apply(ctx, c, dbKeyMR, eb); err != nil {
 		return err
 	}
+	if err := sqlitex.ExecScript(chain.Conn,
+		`PRAGMA main.wal_checkpoint;`); err != nil {
+		chain.Log.Error(err)
+	}
 
 	// Save the chain back into the map.
 	Chains.set(chain.ID, chain, prevStatus)
+
 	return nil
 }
 
@@ -194,33 +199,10 @@ func ProcessPending(ctx context.Context, es ...factom.Entry) error {
 func (chain *Chain) initPending(ctx context.Context) (err error) {
 	chain.Log.Debug("Initializing pending...")
 
-	chain.Pending.Entries = make(map[factom.Bytes32]factom.Entry)
-	chain.Pending.OfficialChain = chain.Chain
-
-	defer func() {
-		if err != nil {
-			chain.Pending.Entries = nil
-			chain.Pending.OfficialChain = db.Chain{}
-		}
-	}()
-
-	readConn := chain.Pool.Get(ctx)
-	defer func() {
-		if err != nil {
-			chain.Pool.Put(readConn)
-		}
-	}()
-	// Take a snapshot of the official state and copy the current official
-	// Chain.
-	s, endRead, err := readConn.CreateSnapshot("")
+	s, err := chain.Pool.GetSnapshot(ctx)
 	if err != nil {
 		return
 	}
-	defer func() {
-		if err != nil {
-			endRead()
-		}
-	}()
 
 	// Start a new session so we can track all changes and later rollback
 	// all pending entries.
@@ -247,31 +229,28 @@ func (chain *Chain) initPending(ctx context.Context) (err error) {
 		}
 	}
 
+	chain.Pending.Entries = make(map[factom.Bytes32]factom.Entry)
+	chain.Pending.OfficialChain = chain.Chain
 	chain.Pending.Session = session
 	chain.Pending.OfficialSnapshot = s
-	chain.Pending.EndSnapshotRead = func() {
-		// We must clear the interrupt to prevent from panicking.
-		readConn.SetInterrupt(nil)
-		endRead()
-		chain.Pool.Put(readConn)
-	}
 
 	return nil
 }
 func (chain *Chain) revertPending() error {
-	chain.Pending.Entries = nil
+	chain.Log.Debug("Cleaning up pending state...")
 	// We must clear the interrupt to prevent from panicking or being
 	// interrupted while reverting.
 	oldDone := chain.Conn.SetInterrupt(nil)
 	defer func() {
+		chain.Pending.Entries = nil
 		// Always clean up our session and snapshots.
-		chain.Pending.EndSnapshotRead()
-		chain.Pending.EndSnapshotRead = nil
 		chain.Pending.OfficialSnapshot = nil
+		chain.Pending.OfficialChain = db.Chain{}
 
 		chain.Pending.Session.Delete()
 		chain.Pending.Session = nil
 		chain.Conn.SetInterrupt(oldDone)
+
 	}()
 	// Revert all of the pending transactions by applying the inverse of
 	// the changeset tracked by the session.
@@ -297,12 +276,13 @@ func (chain *Chain) revertPending() error {
 func (cm *ChainMap) Get(ctx context.Context,
 	id *factom.Bytes32, pending bool) (Chain, func()) {
 
-	cm.RLock()
-	defer cm.RUnlock()
-	chain := cm.m[*id]
+	chain := cm.get(id)
 
 	// Pull a Conn off the Pool and set it as the main Conn.
 	conn := chain.Pool.Get(ctx)
+	if conn == nil {
+		return Chain{}, nil
+	}
 	chain.Conn = conn
 
 	// If pending or if there is no pending state, then use the chain as
@@ -319,6 +299,7 @@ func (cm *ChainMap) Get(ctx context.Context,
 	// state.
 	endRead, err := conn.StartSnapshotRead(chain.Pending.OfficialSnapshot)
 	if err != nil {
+		chain.Pool.Put(conn)
 		panic(err)
 	}
 

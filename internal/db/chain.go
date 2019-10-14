@@ -239,25 +239,67 @@ func OpenConnPool(ctx context.Context, dbURI string) (
 		return
 	}
 
+	// Snapshots are unreliable if auto checkpointing is enabled. So we
+	// manually checkpoint in the engine every new EBlock and in Close.
+	if err = sqlitex.ExecScript(conn,
+		`PRAGMA wal_autocheckpoint = 0;`); err != nil {
+		return
+	}
+
+	// Ensure WAL file is created and ready for snapshots by ensuring at
+	// least one transaction exists in the WAL.
+	var uv int
+	if err = sqlitex.Exec(conn, `PRAGMA user_version;`,
+		func(stmt *sqlite.Stmt) error {
+			uv = stmt.ColumnInt(0)
+			return nil
+		}); err != nil {
+		return
+	}
+	if err = sqlitex.ExecScript(conn,
+		fmt.Sprintf(`PRAGMA user_version = %v;`, uv)); err != nil {
+		return
+	}
+
+	// Open pool
 	flags = baseFlags | sqlite.SQLITE_OPEN_READONLY
 	if pool, err = sqlitex.Open(dbURI, flags, PoolSize); err != nil {
 		err = fmt.Errorf("sqlitex.Open(%q, %x, %v): %w",
 			dbURI, flags, PoolSize, err)
 		return
 	}
+	defer func() {
+		if err != nil {
+			if err := pool.Close(); err != nil {
+				log.Error(err)
+			}
+		}
+	}()
+
+	// Prime pool for snapshot reads.
+	for i := 0; i < PoolSize; i++ {
+		c := pool.Get(nil)
+		defer pool.Put(c)
+		if err = sqlitex.ExecScript(c, "PRAGMA application_id;"); err != nil {
+			return
+		}
+	}
 	return
 }
 
 // Close all database connections. Log any errors.
 func (chain *Chain) Close() {
-	chain.Conn.SetInterrupt(nil)
-	sqlitex.ExecScript(chain.Conn, `PRAGMA database.wal_checkpoint;`)
 	if err := chain.Pool.Close(); err != nil {
-		chain.Log.Errorf("chain.Pool.Close(): %w", err)
+		chain.Log.Errorf("chain.Pool.Close(): %v", err)
+	}
+	chain.Conn.SetInterrupt(nil)
+	if err := sqlitex.ExecScript(chain.Conn,
+		`PRAGMA wal_checkpoint;`); err != nil {
+		chain.Log.Error(err)
 	}
 	// Close this last so that the wal and shm files are removed.
 	if err := chain.Conn.Close(); err != nil {
-		chain.Log.Errorf("chain.Conn.Close(): %w", err)
+		chain.Log.Errorf("chain.Conn.Close(): %v", err)
 	}
 }
 

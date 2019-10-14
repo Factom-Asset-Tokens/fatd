@@ -46,7 +46,6 @@ type Chain struct {
 
 type Pending struct {
 	OfficialSnapshot *sqlite.Snapshot
-	EndSnapshotRead  func()
 
 	Session       *sqlite.Session
 	OfficialChain db.Chain
