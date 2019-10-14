@@ -88,7 +88,14 @@ var (
 		"debug":              false,
 		"disablepending":     false,
 
-		"dbpath": "./fatd.db",
+		"dbpath": func() string {
+			dbDir := "/fatd.db"
+			home, err := os.UserHomeDir()
+			if err != nil {
+				return "." + dbDir
+			}
+			return home + dbDir
+		}(),
 
 		"apiaddress":  ":8078",
 		"apiusername": "",

@@ -96,7 +96,7 @@ func Start(ctx context.Context) (done <-chan struct{}) {
 			err = srv.ListenAndServe()
 		}
 		if err != http.ErrServerClosed {
-			log.Errorf("srv.ListenAndServe(): %w", err)
+			log.Errorf("srv.ListenAndServe(): %v", err)
 		}
 		close(_done)
 	}()

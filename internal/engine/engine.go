@@ -27,6 +27,7 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"strings"
 	"sync"
 	"time"
 
@@ -63,8 +64,16 @@ const (
 func Start(ctx context.Context) (done <-chan struct{}) {
 	log = _log.New("pkg", "engine")
 
-	// Try to create the main and pending database directories, in case
-	// they don't already exist.
+	// Try to create the database directory.
+	if err := os.Mkdir(flag.DBPath, 0755); err != nil {
+		if !os.IsExist(err) {
+			log.Errorf("os.Mkdir(%q): %v", flag.DBPath, err)
+			return nil
+		}
+	}
+	// Add NetworkID subdirectory.
+	flag.DBPath += fmt.Sprintf("%s%c",
+		strings.ReplaceAll(flag.NetworkID.String(), " ", ""), os.PathSeparator)
 	if err := os.Mkdir(flag.DBPath, 0755); err != nil {
 		if !os.IsExist(err) {
 			log.Errorf("os.Mkdir(%q): %v", flag.DBPath, err)
