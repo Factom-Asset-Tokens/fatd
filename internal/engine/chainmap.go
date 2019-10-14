@@ -95,8 +95,7 @@ func (cm *ChainMap) setSync(height uint32, dbKeyMR *factom.Bytes32) error {
 			continue
 		}
 		if err := chain.SetSync(height, dbKeyMR); err != nil {
-			chain.Log.Errorf("chain.SetSync(): %v", err)
-			return err
+			return fmt.Errorf("chain{%v}.SetSync(): %w", chain.ID, err)
 		}
 		cm.m[*chain.ID] = chain
 	}

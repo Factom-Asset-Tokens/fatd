@@ -184,6 +184,8 @@ func engine(ctx context.Context, done chan struct{}) {
 		if err := lockFile.Unlock(); err != nil {
 			log.Errorf("lockFile.Unlock(): %v", err)
 		}
+		log.Infof("Synced to block height %v.", syncHeight)
+
 		close(done)
 	}()
 
@@ -288,11 +290,6 @@ func engine(ctx context.Context, done chan struct{}) {
 					log.Errorf("Chains.setSync(): %v", err)
 				})
 				return
-			}
-
-			if flag.LogDebug && h%100 == 0 {
-				log.Debugf("Synced to block Height: %v KeyMR: %v",
-					h, dblock.KeyMR)
 			}
 
 			// Check that we haven't been told to stop.
