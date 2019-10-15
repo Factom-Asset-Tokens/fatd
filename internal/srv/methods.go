@@ -223,7 +223,7 @@ func getBalances(ctx context.Context, data json.RawMessage) interface{} {
 	issuedIDs := engine.Chains.GetIssued()
 	balances := make(api.ResultGetBalances, len(issuedIDs))
 	for _, chainID := range issuedIDs {
-		chain, put, err := engine.Chains.Get(ctx, chainID, params.HasIncludePending())
+		chain, put, err := engine.Chains.Get(ctx, chainID, params.GetIncludePending())
 		if err != nil {
 			// ctx is done
 			return err
@@ -603,13 +603,13 @@ func validate(ctx context.Context,
 	if err := params.IsValid(); err != nil {
 		return nil, nil, err
 	}
-	if params.HasIncludePending() && flag.DisablePending {
+	if params.GetIncludePending() && flag.DisablePending {
 		return nil, nil, api.ErrorPendingDisabled
 	}
 	chainID := params.ValidChainID()
 	if chainID != nil {
 		ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
-		chain, put, err := engine.Chains.Get(ctx, chainID, params.HasIncludePending())
+		chain, put, err := engine.Chains.Get(ctx, chainID, params.GetIncludePending())
 		if err != nil {
 			// ctx is done
 			return nil, nil, err

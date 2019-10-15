@@ -44,14 +44,6 @@ var (
 	lockFile lockfile.Lockfile
 )
 
-func runIfNotDone(ctx context.Context, f func()) {
-	select {
-	case <-ctx.Done():
-	default:
-		f()
-	}
-}
-
 const (
 	scanInterval = 30 * time.Second
 )
@@ -104,17 +96,17 @@ func Start(ctx context.Context) (done <-chan struct{}) {
 
 	// Verify Factom Blockchain NetworkID...
 	if err := updateFactomHeight(ctx); err != nil {
-		runIfNotDone(ctx, func() {
+		if ctx.Err() == nil {
 			log.Error(err)
-		})
+		}
 		return
 	}
 	var dblock factom.DBlock
 	dblock.Height = factomHeight
 	if err := dblock.Get(ctx, c); err != nil {
-		runIfNotDone(ctx, func() {
+		if ctx.Err() == nil {
 			log.Errorf("dblock.Get(): %v", err)
-		})
+		}
 		return
 	}
 	if dblock.NetworkID != flag.NetworkID {
@@ -129,10 +121,11 @@ func Start(ctx context.Context) (done <-chan struct{}) {
 		log.Warn("Skipping database validation...")
 	}
 	syncHeight, err = loadChains(ctx)
+	if ctx.Err() != nil {
+		return
+	}
 	if err != nil {
-		runIfNotDone(ctx, func() {
-			log.Error(err)
-		})
+		log.Error(err)
 		return
 	}
 	// Always close all chain databases if Start fails.
@@ -208,7 +201,15 @@ func engine(ctx context.Context, done chan struct{}) {
 	// stopWorkers may be called multiple times by any worker or this
 	// goroutine, but eblocks will only ever be closed once.
 	var once sync.Once
-	stopWorkers := func() { once.Do(func() { close(eblocks) }) }
+	stopWorkers := func() {
+		once.Do(func() {
+			close(eblocks)
+			// Drain remaining Eblocks and mark them done.
+			for range eblocks {
+				eblocksWG.Done()
+			}
+		})
+	}
 
 	// Always stop all workers on exit.
 	defer stopWorkers()
@@ -221,14 +222,14 @@ func engine(ctx context.Context, done chan struct{}) {
 	numWorkers := runtime.NumCPU()
 	for i := 0; i < numWorkers; i++ {
 		go func() {
+			defer stopWorkers()
 			for eb := range eblocks {
 				if err := Process(ctx, dblock.KeyMR, eb); err != nil {
-					runIfNotDone(ctx, func() {
+					if ctx.Err() == nil {
 						log.Errorf("ChainID(%v): %v",
 							eb.ChainID, err)
-					})
-					// Tell workers and engine() to exit.
-					stopWorkers()
+					}
+					return
 				}
 				eblocksWG.Done()
 			}
@@ -263,19 +264,18 @@ func engine(ctx context.Context, done chan struct{}) {
 			dblock = factom.DBlock{}
 			dblock.Height = h
 			if err := dblock.Get(ctx, c); err != nil {
-				runIfNotDone(ctx, func() {
+				if ctx.Err() == nil {
 					log.Errorf("%#v.Get(): %v", dblock, err)
-				})
+				}
 				return
 			}
 
-			// Queue all EBlocks for processing.
+			// Queue all EBlocks for processing and wait for all to
+			// be processed.
 			eblocksWG.Add(len(dblock.EBlocks))
 			for _, eb := range dblock.EBlocks {
 				eblocks <- eb
 			}
-
-			// Wait for all EBlocks to be processed.
 			eblocksWG.Wait()
 
 			// Check if any of the workers closed the eblocks
@@ -295,9 +295,9 @@ func engine(ctx context.Context, done chan struct{}) {
 			// chains.
 			setSyncHeight(h)
 			if err := Chains.setSync(h, dblock.KeyMR); err != nil {
-				runIfNotDone(ctx, func() {
+				if ctx.Err() == nil {
 					log.Errorf("Chains.setSync(): %v", err)
-				})
+				}
 				return
 			}
 
@@ -317,11 +317,11 @@ func engine(ctx context.Context, done chan struct{}) {
 				// Get and apply any pending entries.
 				var pe factom.PendingEntries
 				if err := pe.Get(ctx, c); err != nil {
-					runIfNotDone(ctx, func() {
+					if ctx.Err() == nil {
 						log.Errorf(
 							"factom.PendingEntries.Get(): %v",
 							err)
-					})
+					}
 					return
 				}
 
@@ -346,10 +346,10 @@ func engine(ctx context.Context, done chan struct{}) {
 					// chain.
 					if err := ProcessPending(
 						ctx, pe[i:j]...); err != nil {
-						runIfNotDone(ctx, func() {
+						if ctx.Err() == nil {
 							log.Errorf("ChainID(%v): %v",
 								e.ChainID, err)
-						})
+						}
 						return
 					}
 				}
