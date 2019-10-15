@@ -4,7 +4,7 @@ go 1.13
 
 require (
 	crawshaw.io/sqlite v0.1.3-0.20190520153332-66f853b01dfb
-	github.com/AdamSLevy/jsonrpc2/v12 v12.0.2-0.20191014220836-0f65c00570d0
+	github.com/AdamSLevy/jsonrpc2/v12 v12.0.2-0.20191015223217-9181d6ac9347
 	github.com/AdamSLevy/sqlitechangeset v0.0.0-20190925183646-3ddb70fb709d
 	github.com/Factom-Asset-Tokens/factom v0.0.0-20191010221444-510331319e8d
 	github.com/goji/httpauth v0.0.0-20160601135302-2da839ab0f4d

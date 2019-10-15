@@ -274,23 +274,24 @@ func (chain *Chain) revertPending() error {
 // reflect the state with pending entries applied. Otherwise the chain will
 // reflect the official state after the most recent EBlock.
 func (cm *ChainMap) Get(ctx context.Context,
-	id *factom.Bytes32, pending bool) (Chain, func()) {
+	id *factom.Bytes32, pending bool) (Chain, func(), error) {
 
 	chain := cm.get(id)
+	if !chain.IsTracked() {
+		return chain, nil, nil
+	}
 
 	// Pull a Conn off the Pool and set it as the main Conn.
 	conn := chain.Pool.Get(ctx)
 	if conn == nil {
-		return Chain{}, nil
+		return Chain{}, nil, ctx.Err()
 	}
 	chain.Conn = conn
 
 	// If pending or if there is no pending state, then use the chain as
 	// is, and just return a function that returns the conn to the pool.
 	if pending || chain.Pending.Entries == nil {
-		return chain, func() {
-			chain.Pool.Put(conn)
-		}
+		return chain, func() { chain.Pool.Put(conn) }, nil
 	}
 	// There are pending entries, but we have been asked for the official
 	// state.
@@ -315,5 +316,5 @@ func (cm *ChainMap) Get(ctx context.Context,
 		conn.SetInterrupt(nil)
 		endRead()
 		chain.Pool.Put(conn)
-	}
+	}, nil
 }

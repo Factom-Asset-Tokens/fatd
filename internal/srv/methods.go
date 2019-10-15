@@ -223,9 +223,10 @@ func getBalances(ctx context.Context, data json.RawMessage) interface{} {
 	issuedIDs := engine.Chains.GetIssued()
 	balances := make(api.ResultGetBalances, len(issuedIDs))
 	for _, chainID := range issuedIDs {
-		chain, put := engine.Chains.Get(ctx, chainID, params.HasIncludePending())
-		if put == nil {
-			return context.Canceled
+		chain, put, err := engine.Chains.Get(ctx, chainID, params.HasIncludePending())
+		if err != nil {
+			// ctx is done
+			return err
 		}
 		defer put()
 		_, balance, err := addresses.SelectIDBalance(chain.Conn, params.Address)
@@ -550,9 +551,14 @@ func getDaemonTokens(ctx context.Context, data json.RawMessage) interface{} {
 	issuedIDs := engine.Chains.GetIssued()
 	chains := make([]api.ParamsToken, len(issuedIDs))
 	for i, chainID := range issuedIDs {
-		chain, put := engine.Chains.Get(ctx, chainID, true)
-		if put == nil {
-			return context.Canceled
+		// Use pending = true because a chain that has a pending
+		// issuance entry will not show up in this list, and no other
+		// pending entries will effect the data of interest. Using the
+		// pending state is more efficient.
+		chain, put, err := engine.Chains.Get(ctx, chainID, true)
+		if err != nil {
+			// ctx is done
+			return err
 		}
 		defer put()
 		chainID := chainID
@@ -603,9 +609,14 @@ func validate(ctx context.Context,
 	chainID := params.ValidChainID()
 	if chainID != nil {
 		ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
-		chain, put := engine.Chains.Get(ctx, chainID, params.HasIncludePending())
+		chain, put, err := engine.Chains.Get(ctx, chainID, params.HasIncludePending())
+		if err != nil {
+			// ctx is done
+			return nil, nil, err
+		}
 		if put == nil {
-			return nil, nil, context.Canceled
+			cancel()
+			return nil, nil, api.ErrorTokenNotFound
 		}
 		if !chain.IsIssued() {
 			cancel()
