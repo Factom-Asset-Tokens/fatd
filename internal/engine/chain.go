@@ -62,7 +62,6 @@ func (chain Chain) String() string {
 
 func OpenNew(ctx context.Context, c *factom.Client,
 	dbKeyMR *factom.Bytes32, eb factom.EBlock) (chain Chain, err error) {
-
 	var identity factom.Identity
 	identity.ChainID = new(factom.Bytes32)
 	_, *identity.ChainID = fat.TokenIssuer(eb.Entries[0].ExtIDs)

@@ -204,10 +204,12 @@ func engine(ctx context.Context, done chan struct{}) {
 	stopWorkers := func() {
 		once.Do(func() {
 			close(eblocks)
-			// Drain remaining Eblocks and mark them done.
+			// Drain remaining Eblocks and mark them all done.
+			var n int
 			for range eblocks {
-				eblocksWG.Done()
+				n++
 			}
+			eblocksWG.Add(-n)
 		})
 	}
 
@@ -222,7 +224,7 @@ func engine(ctx context.Context, done chan struct{}) {
 	numWorkers := runtime.NumCPU()
 	for i := 0; i < numWorkers; i++ {
 		go func() {
-			defer stopWorkers()
+			defer stopWorkers() // If one worker returns, they all return.
 			for eb := range eblocks {
 				if err := Process(ctx, dblock.KeyMR, eb); err != nil {
 					if ctx.Err() == nil {
@@ -309,60 +311,62 @@ func engine(ctx context.Context, done chan struct{}) {
 			}
 		}
 
+		var pe factom.PendingEntries
+
 		// If we aren't yet synced, we want to immediately re-check the
 		// Factom Height as the Blockchain may have advanced in the
 		// time since we started the sync.
-		if synced {
-			if !flag.DisablePending {
-				// Get and apply any pending entries.
-				var pe factom.PendingEntries
-				if err := pe.Get(ctx, c); err != nil {
-					if ctx.Err() == nil {
-						log.Errorf(
-							"factom.PendingEntries.Get(): %v",
-							err)
-					}
-					return
-				}
+		if !synced {
+			goto scan
+		}
 
-				for i, j := 0, 0; i < len(pe); i = j {
-					e := pe[i]
-					// Unrevealed entries have no ChainID
-					// and are at the end of the slice.
-					if e.ChainID == nil {
-						// No more revealed entries.
-						break
-					}
-					// Grab any subsequent entries with
-					// this ChainID.
-					for j = i + 1; j < len(pe); j++ {
-						chainID := pe[j].ChainID
-						if chainID == nil ||
-							*chainID != *e.ChainID {
-							break
-						}
-					}
-					// Process all pending entries for this
-					// chain.
-					if err := ProcessPending(
-						ctx, pe[i:j]...); err != nil {
-						if ctx.Err() == nil {
-							log.Errorf("ChainID(%v): %v",
-								e.ChainID, err)
-						}
-						return
-					}
+		if flag.DisablePending {
+			goto wait
+		}
+
+		// Get and apply any pending entries.
+		if err := pe.Get(ctx, c); err != nil {
+			if ctx.Err() != nil {
+				return
+			}
+			log.Errorf("factom.PendingEntries.Get(): %v", err)
+		}
+
+		for i, j := 0, 0; i < len(pe); i = j {
+			e := pe[i]
+			// Unrevealed entries have no ChainID
+			// and are at the end of the slice.
+			if e.ChainID == nil {
+				// No more revealed entries.
+				break
+			}
+			// Grab any subsequent entries with
+			// this ChainID.
+			for j = i + 1; j < len(pe); j++ {
+				chainID := pe[j].ChainID
+				if chainID == nil || *chainID != *e.ChainID {
+					break
 				}
 			}
-
-			// Wait until the next scan tick or we're told to stop.
-			select {
-			case <-scanTicker.C:
-			case <-ctx.Done():
+			// Process all pending entries for this
+			// chain.
+			if err := ProcessPending(ctx, pe[i:j]...); err != nil {
+				if ctx.Err() == nil {
+					log.Errorf("ChainID(%v): %v",
+						e.ChainID, err)
+				}
 				return
 			}
 		}
+	wait:
+		// Wait until the next scan tick or we're told to stop.
+		select {
+		case <-scanTicker.C:
+		case <-ctx.Done():
+			return
+		}
 
+	scan:
 		// Check the Factom blockchain height but log and retry if this
 		// request fails.
 		if err := updateFactomHeight(ctx); err != nil {
