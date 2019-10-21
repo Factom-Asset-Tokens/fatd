@@ -145,7 +145,7 @@ var (
 		"factomdpassword": "Password for API connections to factomd",
 		//"factomdcert":     "The TLS certificate that will be provided by the factomd API server",
 		//"factomdtls":      "Set to true to use TLS when accessing the factomd API",
-		"networkid": `Accepts "main", "test", or four bytes in hex`,
+		"networkid": `Accepts "main", "test", "localnet", or four bytes in hex`,
 
 		"w":              "IPAddr:port# of factom-walletd API to use to access wallet",
 		"wallettimeout":  "Timeout for factom-walletd API requests, 0 means never timeout",
