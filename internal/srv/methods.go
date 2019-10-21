@@ -34,8 +34,8 @@ import (
 	"github.com/Factom-Asset-Tokens/factom"
 	"github.com/Factom-Asset-Tokens/fatd/api"
 	"github.com/Factom-Asset-Tokens/fatd/fat"
-	"github.com/Factom-Asset-Tokens/fatd/fat/fat0"
-	"github.com/Factom-Asset-Tokens/fatd/fat/fat1"
+	"github.com/Factom-Asset-Tokens/fatd/fat0"
+	"github.com/Factom-Asset-Tokens/fatd/fat1"
 	"github.com/Factom-Asset-Tokens/fatd/internal/db/addresses"
 	"github.com/Factom-Asset-Tokens/fatd/internal/db/entries"
 	"github.com/Factom-Asset-Tokens/fatd/internal/db/nftokens"
@@ -76,7 +76,7 @@ func getIssuance(entry bool) jsonrpc2.MethodFunc {
 		defer put()
 
 		if entry {
-			return chain.Issuance.Entry.Entry
+			return chain.Issuance.Entry
 		}
 		return api.ResultGetIssuance{
 			ParamsToken: api.ParamsToken{
@@ -84,8 +84,8 @@ func getIssuance(entry bool) jsonrpc2.MethodFunc {
 				TokenID:       chain.TokenID,
 				IssuerChainID: chain.Identity.ChainID,
 			},
-			Hash:      chain.Issuance.Hash,
-			Timestamp: chain.Issuance.Timestamp.Unix(),
+			Hash:      chain.Issuance.Entry.Hash,
+			Timestamp: chain.Issuance.Entry.Timestamp.Unix(),
 			Issuance:  chain.Issuance,
 		}
 	}
@@ -118,16 +118,18 @@ func getTransaction(getEntry bool) jsonrpc2.MethodFunc {
 			Pending:   chain.LatestEntryTimestamp().Before(entry.Timestamp),
 		}
 
-		var tx fat.Transaction
-		switch chain.Type {
+		var tx interface{}
+		switch chain.Issuance.Type {
 		case fat0.Type:
-			tx = fat0.NewTransaction(entry)
+			tx, err = fat0.NewTransaction(entry,
+				(*factom.Bytes32)(chain.Identity.ID1Key))
 		case fat1.Type:
-			tx = fat1.NewTransaction(entry)
+			tx, err = fat1.NewTransaction(entry,
+				(*factom.Bytes32)(chain.Identity.ID1Key))
 		default:
-			panic(fmt.Sprintf("unknown FAT type: %v", chain.Type))
+			panic(fmt.Sprintf("unknown FAT type: %v", chain.Issuance.Type))
 		}
-		if err := tx.UnmarshalEntry(); err != nil {
+		if err != nil {
 			panic(err)
 		}
 		result.Tx = tx
@@ -144,7 +146,7 @@ func getTransactions(getEntry bool) jsonrpc2.MethodFunc {
 		}
 		defer put()
 
-		if params.NFTokenID != nil && chain.Type != fat1.Type {
+		if params.NFTokenID != nil && chain.Issuance.Type != fat1.Type {
 			err := api.ErrorTokenNotFound
 			err.Data = "Token Chain is not FAT-1"
 			return err
@@ -177,21 +179,25 @@ func getTransactions(getEntry bool) jsonrpc2.MethodFunc {
 		txs := make([]api.ResultGetTransaction, len(entries))
 		for i := range txs {
 			entry := entries[i]
-			var tx fat.Transaction
-			switch chain.Type {
+			var tx interface{}
+			switch chain.Issuance.Type {
 			case fat0.Type:
-				tx = fat0.NewTransaction(entry)
+				tx, err = fat0.NewTransaction(entry,
+					(*factom.Bytes32)(chain.Identity.ID1Key))
 			case fat1.Type:
-				tx = fat1.NewTransaction(entry)
+				tx, err = fat1.NewTransaction(entry,
+					(*factom.Bytes32)(chain.Identity.ID1Key))
 			default:
-				panic(fmt.Sprintf("unknown FAT type: %v", chain.Type))
+				panic(fmt.Sprintf("unknown FAT type: %v",
+					chain.Issuance.Type))
 			}
-			if err := tx.UnmarshalEntry(); err != nil {
+			if err != nil {
 				panic(err)
 			}
 			txs[i].Hash = entry.Hash
 			txs[i].Timestamp = entry.Timestamp.Unix()
-			txs[i].Pending = chain.LatestEntryTimestamp().Before(entry.Timestamp)
+			txs[i].Pending = chain.LatestEntryTimestamp().
+				Before(entry.Timestamp)
 			txs[i].Tx = tx
 		}
 		return txs
@@ -248,7 +254,7 @@ func getNFBalance(ctx context.Context, data json.RawMessage) interface{} {
 	}
 	defer put()
 
-	if chain.Type != fat1.Type {
+	if chain.Issuance.Type != fat1.Type {
 		err := api.ErrorTokenNotFound
 		err.Data = "Token Chain is not FAT-1"
 		return err
@@ -298,7 +304,7 @@ func getStats(ctx context.Context, data json.RawMessage) interface{} {
 		CirculatingSupply:        chain.NumIssued - burned,
 		Burned:                   burned,
 		Transactions:             txCount,
-		IssuanceTimestamp:        chain.Issuance.Timestamp.Unix(),
+		IssuanceTimestamp:        chain.Issuance.Entry.Timestamp.Unix(),
 		LastTransactionTimestamp: e.Timestamp.Unix(),
 		NonZeroBalances:          nonZeroBalances,
 	}
@@ -308,7 +314,7 @@ func getStats(ctx context.Context, data json.RawMessage) interface{} {
 	res.ChainID = chain.ID
 	res.TokenID = chain.TokenID
 	res.IssuerChainID = chain.Identity.ChainID
-	res.IssuanceHash = chain.Issuance.Hash
+	res.IssuanceHash = chain.Issuance.Entry.Hash
 	return res
 }
 
@@ -320,7 +326,7 @@ func getNFToken(ctx context.Context, data json.RawMessage) interface{} {
 	}
 	defer put()
 
-	if chain.Type != fat1.Type {
+	if chain.Issuance.Type != fat1.Type {
 		err := api.ErrorTokenNotFound
 		err.Data = "Token Chain is not FAT-1"
 		return err
@@ -359,7 +365,7 @@ func getNFTokens(ctx context.Context, data json.RawMessage) interface{} {
 	}
 	defer put()
 
-	if chain.Type != fat1.Type {
+	if chain.Issuance.Type != fat1.Type {
 		err := api.ErrorTokenNotFound
 		err.Data = "Token Chain is not FAT-1"
 		return err
@@ -399,7 +405,7 @@ func sendTransaction(ctx context.Context, data json.RawMessage) interface{} {
 
 	entry := params.Entry()
 	var txErr error
-	switch chain.Type {
+	switch chain.Issuance.Type {
 	case fat0.Type:
 		txErr, err = attemptApplyFAT0Tx(chain, entry)
 	case fat1.Type:
@@ -445,12 +451,24 @@ func sendTransaction(ctx context.Context, data json.RawMessage) interface{} {
 }
 func attemptApplyFAT0Tx(chain *engine.Chain, e factom.Entry) (txErr, err error) {
 	// Validate tx
-	tx := fat0.NewTransaction(e)
-	txErr, err = applyTx(chain, tx)
+	valid, err := entries.CheckUniquelyValid(chain.Conn, 0, e.Hash)
+	if err != nil {
+		return
+	}
+	if !valid {
+		txErr = fmt.Errorf("replay: hash previously marked valid")
+		return
+	}
+
+	tx, txErr := fat0.NewTransaction(e, (*factom.Bytes32)(chain.Identity.ID1Key))
+	if txErr != nil {
+		return
+	}
 
 	if tx.IsCoinbase() {
 		addIssued := tx.Inputs[fat.Coinbase()]
-		if chain.Supply > 0 && int64(chain.NumIssued+addIssued) > chain.Supply {
+		if chain.Issuance.Supply > 0 &&
+			int64(chain.NumIssued+addIssued) > chain.Issuance.Supply {
 			txErr = fmt.Errorf("coinbase exceeds max supply")
 			return
 		}
@@ -472,13 +490,25 @@ func attemptApplyFAT0Tx(chain *engine.Chain, e factom.Entry) (txErr, err error) 
 }
 func attemptApplyFAT1Tx(chain *engine.Chain, e factom.Entry) (txErr, err error) {
 	// Validate tx
-	tx := fat1.NewTransaction(e)
-	txErr, err = applyTx(chain, tx)
+	valid, err := entries.CheckUniquelyValid(chain.Conn, 0, e.Hash)
+	if err != nil {
+		return
+	}
+	if !valid {
+		txErr = fmt.Errorf("replay: hash previously marked valid")
+		return
+	}
+
+	tx, txErr := fat1.NewTransaction(e, (*factom.Bytes32)(chain.Identity.ID1Key))
+	if txErr != nil {
+		return
+	}
 
 	if tx.IsCoinbase() {
 		nfTkns := tx.Inputs[fat.Coinbase()]
 		addIssued := uint64(len(nfTkns))
-		if chain.Supply > 0 && int64(chain.NumIssued+addIssued) > chain.Supply {
+		if chain.Issuance.Supply > 0 &&
+			int64(chain.NumIssued+addIssued) > chain.Issuance.Supply {
 			txErr = fmt.Errorf("coinbase exceeds max supply")
 			return
 		}
@@ -527,22 +557,6 @@ func attemptApplyFAT1Tx(chain *engine.Chain, e factom.Entry) (txErr, err error) 
 	}
 	return
 }
-func applyTx(chain *engine.Chain, tx fat.Transaction) (txErr, err error) {
-	if txErr = tx.Validate(chain.ID1); txErr != nil {
-		return
-	}
-	e := tx.FactomEntry()
-	valid, err := entries.CheckUniquelyValid(chain.Conn, 0, e.Hash)
-	if err != nil {
-		return
-	}
-	if !valid {
-		txErr = fmt.Errorf("replay: hash previously marked valid")
-		return
-	}
-	return
-}
-
 func getDaemonTokens(ctx context.Context, data json.RawMessage) interface{} {
 	if _, _, err := validate(ctx, data, nil); err != nil {
 		return err

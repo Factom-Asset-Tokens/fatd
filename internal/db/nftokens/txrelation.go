@@ -2,7 +2,7 @@ package nftokens
 
 import (
 	"crawshaw.io/sqlite"
-	"github.com/Factom-Asset-Tokens/fatd/fat/fat1"
+	"github.com/Factom-Asset-Tokens/fatd/fat1"
 )
 
 // CreateTableTransactions is a SQL string that creates the

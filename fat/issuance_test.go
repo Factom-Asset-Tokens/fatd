@@ -20,105 +20,21 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 // IN THE SOFTWARE.
 
-package fat_test
+package fat
 
 import (
-	"encoding/hex"
 	"encoding/json"
 	"testing"
 
 	"github.com/Factom-Asset-Tokens/factom"
-	. "github.com/Factom-Asset-Tokens/fatd/fat"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
-var humanReadableZeroAddress = "FA1zT4aFpEvcnPqPCigB3fvGu4Q4mTXY22iiuV69DqE1pNhdF2MC"
-
-var validIdentityChainIDStr = "88888807e4f3bbb9a2b229645ab6d2f184224190f83e78761674c2362aca4425"
-
-func validIdentityChainID() factom.Bytes {
-	return hexToBytes(validIdentityChainIDStr)
-}
-
-func hexToBytes(hexStr string) factom.Bytes {
-	raw, err := hex.DecodeString(hexStr)
-	if err != nil {
-		panic(err)
-	}
-	return factom.Bytes(raw)
-}
+var coinbaseAddressStr = "FA1zT4aFpEvcnPqPCigB3fvGu4Q4mTXY22iiuV69DqE1pNhdF2MC"
 
 func TestCoinbase(t *testing.T) {
 	a := Coinbase()
-	require := require.New(t)
-	require.Equal(humanReadableZeroAddress, a.String())
-}
-
-var (
-	identityChainID = factom.NewBytes32(validIdentityChainID())
-)
-
-func TestChainID(t *testing.T) {
-	assert.Equal(t, "b54c4310530dc4dd361101644fa55cb10aec561e7874a7b786ea3b66f2c6fdfb",
-		ComputeChainID("test", identityChainID).String())
-}
-
-var validTokenNameIDsTests = []struct {
-	Name    string
-	NameIDs []factom.Bytes
-	Valid   bool
-}{{
-	Name:    "valid",
-	Valid:   true,
-	NameIDs: validTokenNameIDs(),
-}, {
-	Name:    "invalid length (short)",
-	NameIDs: validTokenNameIDs()[0:3],
-}, {
-	Name:    "invalid length (long)",
-	NameIDs: append(validTokenNameIDs(), factom.Bytes{}),
-}, {
-	Name:    "invalid ExtID",
-	NameIDs: invalidTokenNameIDs(0),
-}, {
-	Name:    "invalid ExtID",
-	NameIDs: invalidTokenNameIDs(1),
-}, {
-	Name:    "invalid ExtID",
-	NameIDs: invalidTokenNameIDs(2),
-}, {
-	Name:    "invalid ExtID",
-	NameIDs: invalidTokenNameIDs(3),
-}}
-
-func TestValidTokenNameIDs(t *testing.T) {
-	for _, test := range validTokenNameIDsTests {
-		t.Run(test.Name, func(t *testing.T) {
-			assert := assert.New(t)
-			valid := ValidTokenNameIDs(test.NameIDs)
-			if test.Valid {
-				assert.True(valid)
-			} else {
-				assert.False(valid)
-			}
-		})
-	}
-}
-
-func validTokenNameIDs() []factom.Bytes {
-	return []factom.Bytes{
-		factom.Bytes("token"),
-		factom.Bytes("valid"),
-		factom.Bytes("issuer"),
-		identityChainID[:],
-	}
-}
-
-func invalidTokenNameIDs(i int) []factom.Bytes {
-	n := validTokenNameIDs()
-	n[i] = factom.Bytes{}
-	return n
+	assert.Equal(t, coinbaseAddressStr, a.String())
 }
 
 var issuanceTests = []struct {
@@ -166,7 +82,7 @@ var issuanceTests = []struct {
 	Name:      "invalid JSON (nil)",
 	Error:     `unexpected end of JSON input`,
 	IssuerKey: issuerKey,
-	Issuance:  issuance(nil),
+	Issuance:  issuanceFromRaw(nil),
 }, {
 	Name:      "invalid data (type)",
 	Error:     `*fat.Issuance: *fat.Type: invalid format`,
@@ -222,7 +138,7 @@ func TestIssuance(t *testing.T) {
 			assert := assert.New(t)
 			i := test.Issuance
 			key := test.IssuerKey
-			err := i.Validate(&key)
+			err := i.Validate((*factom.Bytes32)(&key))
 			if len(test.Error) == 0 {
 				assert.NoError(err)
 			} else {
@@ -242,7 +158,7 @@ func validIssuanceEntryContentMap() map[string]interface{} {
 }
 
 func validIssuance() Issuance {
-	return issuance(marshal(validIssuanceEntryContentMap()))
+	return issuanceFromRaw(marshal(validIssuanceEntryContentMap()))
 }
 
 var issuerSecret = func() factom.SK1Key {
@@ -251,13 +167,14 @@ var issuerSecret = func() factom.SK1Key {
 }()
 var issuerKey = issuerSecret.ID1Key()
 
-func issuance(content factom.Bytes) Issuance {
-	e := factom.Entry{
-		ChainID: factom.NewBytes32(nil),
+func issuanceFromRaw(content factom.Bytes) Issuance {
+	e := Entry{factom.Entry{
+		ChainID: new(factom.Bytes32),
 		Content: content,
-	}
-	i := NewIssuance(e)
-	i.Sign(issuerSecret)
+	}}
+	e.Sign(issuerSecret)
+	id1Key := issuerSecret.ID1Key()
+	i, _ := NewIssuance(e.Entry, (*factom.Bytes32)(&id1Key))
 	return i
 }
 
@@ -268,13 +185,13 @@ func invalidIssuance(field string) Issuance {
 func omitFieldIssuance(field string) Issuance {
 	m := validIssuanceEntryContentMap()
 	delete(m, field)
-	return issuance(marshal(m))
+	return issuanceFromRaw(marshal(m))
 }
 
 func setFieldIssuance(field string, value interface{}) Issuance {
 	m := validIssuanceEntryContentMap()
 	m[field] = value
-	return issuance(marshal(m))
+	return issuanceFromRaw(marshal(m))
 }
 
 func marshal(v map[string]interface{}) []byte {
@@ -322,7 +239,7 @@ func TestIssuanceMarshalEntry(t *testing.T) {
 		t.Run(test.Name, func(t *testing.T) {
 			assert := assert.New(t)
 			i := test.Issuance
-			err := i.MarshalEntry()
+			err := i.PopulateEntry(&issuerSecret)
 			if len(test.Error) == 0 {
 				assert.NoError(err)
 			} else {

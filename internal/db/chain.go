@@ -66,14 +66,14 @@ type Chain struct {
 	// FAT Specific Data
 	TokenID       string
 	IssuerChainID *factom.Bytes32
-	factom.Identity
-	fat.Issuance
-	NumIssued uint64
+	Identity      factom.Identity
+	Issuance      fat.Issuance
+	NumIssued     uint64
 
-	DBFile        string
-	*sqlite.Conn  // Read/Write
-	*sqlitex.Pool // Read Only Pool
-	Log           _log.Log
+	DBFile string
+	Conn   *sqlite.Conn  // Read/Write
+	Pool   *sqlitex.Pool // Read Only Pool
+	Log    _log.Log
 
 	apply applyFunc
 }
@@ -87,7 +87,7 @@ func OpenNew(ctx context.Context, dbPath string,
 	path := dbPath + fname
 
 	nameIDs := eb.Entries[0].ExtIDs
-	if !fat.ValidTokenNameIDs(nameIDs) {
+	if !fat.ValidNameIDs(nameIDs) {
 		err = fmt.Errorf("invalid token chain Name IDs")
 		return
 	}
@@ -118,7 +118,7 @@ func OpenNew(ctx context.Context, dbPath string,
 	chain.DBFile = fname
 	chain.ID = eb.ChainID
 	chain.IssuerChainID = new(factom.Bytes32)
-	chain.TokenID, *chain.IssuerChainID = fat.TokenIssuer(nameIDs)
+	chain.TokenID, *chain.IssuerChainID = fat.ParseTokenIssuer(nameIDs)
 	chain.HeadDBKeyMR = dbKeyMR
 	chain.Identity = identity
 	chain.SyncHeight = eb.Height
@@ -206,11 +206,11 @@ func fnameToChainID(fname string) (*factom.Bytes32, error) {
 			dbFileExtension {
 		return nil, invalidFName
 	}
-	chainID := factom.NewBytes32FromString(fname[0:64])
-	if chainID == nil {
+	chainID := factom.NewBytes32(fname[0:64])
+	if chainID.IsZero() {
 		return nil, invalidFName
 	}
-	return chainID, nil
+	return &chainID, nil
 }
 
 func OpenConnPool(ctx context.Context, dbURI string) (
@@ -341,11 +341,11 @@ func (chain *Chain) loadMetadata() error {
 	}
 
 	nameIDs := first.ExtIDs
-	if !fat.ValidTokenNameIDs(nameIDs) {
+	if !fat.ValidNameIDs(nameIDs) {
 		return fmt.Errorf("invalid token chain Name IDs")
 	}
 	chain.IssuerChainID = new(factom.Bytes32)
-	chain.TokenID, *chain.IssuerChainID = fat.TokenIssuer(nameIDs)
+	chain.TokenID, *chain.IssuerChainID = fat.ParseTokenIssuer(nameIDs)
 
 	// Load Chain Head
 	eb, dbKeyMR, err := eblocks.SelectLatest(chain.Conn)
@@ -363,5 +363,9 @@ func (chain *Chain) loadMetadata() error {
 	chain.SyncHeight, chain.NumIssued, chain.SyncDBKeyMR,
 		chain.NetworkID, chain.Identity,
 		chain.Issuance, err = metadata.Select(chain.Conn)
+	if err != nil {
+		return err
+	}
+
 	return err
 }

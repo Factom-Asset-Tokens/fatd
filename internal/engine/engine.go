@@ -331,25 +331,25 @@ func engine(ctx context.Context, done chan struct{}) {
 			}
 			log.Errorf("factom.PendingEntries.Get(): %v", err)
 		}
-
 		for i, j := 0, 0; i < len(pe); i = j {
 			e := pe[i]
-			// Unrevealed entries have no ChainID
-			// and are at the end of the slice.
+
+			// Unrevealed entries have no ChainID and are at the
+			// end of the slice.
 			if e.ChainID == nil {
 				// No more revealed entries.
 				break
 			}
-			// Grab any subsequent entries with
-			// this ChainID.
+
+			// Grab any subsequent entries with this ChainID.
 			for j = i + 1; j < len(pe); j++ {
 				chainID := pe[j].ChainID
 				if chainID == nil || *chainID != *e.ChainID {
 					break
 				}
 			}
-			// Process all pending entries for this
-			// chain.
+
+			// Process all pending entries for this chain.
 			if err := ProcessPending(ctx, pe[i:j]...); err != nil {
 				if ctx.Err() == nil {
 					log.Errorf("ChainID(%v): %v",
@@ -358,6 +358,7 @@ func engine(ctx context.Context, done chan struct{}) {
 				return
 			}
 		}
+
 	wait:
 		// Wait until the next scan tick or we're told to stop.
 		select {

@@ -168,11 +168,13 @@ func Select(conn *sqlite.Conn) (syncHeight uint32, numIssued uint64,
 		return
 	}
 	initEntryID := stmt.ColumnInt64(5)
-	issuance.Entry.Entry, err = entries.SelectByID(conn, initEntryID)
+	e, err := entries.SelectByID(conn, initEntryID)
 	if err != nil {
 		return
 	}
-	if err = issuance.Validate(identity.ID1); err != nil {
+
+	issuance, err = fat.NewIssuance(e, (*factom.Bytes32)(identity.ID1Key))
+	if err != nil {
 		return
 	}
 

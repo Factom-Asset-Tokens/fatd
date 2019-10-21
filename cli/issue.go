@@ -198,15 +198,16 @@ func validateIssueFlags(cmd *cobra.Command, args []string) error {
 	}
 
 	vrbLog.Println("Preparing and signing Token Initialization Entry...")
-	Issuance.ChainID = paramsToken.ChainID
-	if err := Issuance.MarshalEntry(); err != nil {
-		errLog.Fatal(err)
-	}
-	Issuance.Sign(sk1)
-	initCost, err := Issuance.Cost()
+	Issuance.Entry.ChainID = paramsToken.ChainID
+	e, err := Issuance.Sign(sk1)
 	if err != nil {
 		errLog.Fatal(err)
 	}
+	initCost, err := e.Cost()
+	if err != nil {
+		errLog.Fatal(err)
+	}
+	Issuance.Entry = e
 
 	if !force {
 		vrbLog.Println("Checking chain existence...")
@@ -302,7 +303,7 @@ func verifySK1Key(sk1 *factom.SK1Key, idChainID *factom.Bytes32) {
 		errLog.Fatal(err)
 	}
 	vrbLog.Println("Verifying SK1 Key... ")
-	if *identity.ID1 != sk1.ID1Key() {
+	if *identity.ID1Key != sk1.ID1Key() {
 		errLog.Fatal(
 			"--sk1 is not the secret key corresponding to the ID1Key declared in the Identity Chain.")
 	}
@@ -336,7 +337,7 @@ func issueChain(_ *cobra.Command, _ []string) {
 }
 func issueToken(_ *cobra.Command, _ []string) {
 	if curl {
-		if err := printCurl(Issuance.Entry.Entry, ecEsAdr.Es); err != nil {
+		if err := printCurl(Issuance.Entry, ecEsAdr.Es); err != nil {
 			errLog.Fatal(err)
 		}
 		return
@@ -344,12 +345,13 @@ func issueToken(_ *cobra.Command, _ []string) {
 
 	vrbLog.Println(
 		"Submitting the Token Initialization Entry to the Factom blockchain...")
-	txID, err := Issuance.ComposeCreate(context.Background(), FactomClient, ecEsAdr.Es)
+	txID, err := Issuance.Entry.
+		ComposeCreate(context.Background(), FactomClient, ecEsAdr.Es)
 	if err != nil {
 		errLog.Fatal(err)
 	}
 	fmt.Println("Token Initialization Entry Submitted")
-	fmt.Println("Entry Hash:  ", Issuance.Hash)
+	fmt.Println("Entry Hash:  ", Issuance.Entry.Hash)
 	fmt.Println("Factom Tx ID:", txID)
 	return
 }

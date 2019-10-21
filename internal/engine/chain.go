@@ -64,7 +64,7 @@ func OpenNew(ctx context.Context, c *factom.Client,
 	dbKeyMR *factom.Bytes32, eb factom.EBlock) (chain Chain, err error) {
 	var identity factom.Identity
 	identity.ChainID = new(factom.Bytes32)
-	_, *identity.ChainID = fat.TokenIssuer(eb.Entries[0].ExtIDs)
+	_, *identity.ChainID = fat.ParseTokenIssuer(eb.Entries[0].ExtIDs)
 	if err = identity.Get(ctx, c); err != nil {
 		// A jsonrpc2.Error indicates that the identity chain
 		// doesn't yet exist, which we tolerate.
@@ -82,7 +82,7 @@ func OpenNew(ctx context.Context, c *factom.Client,
 	if err != nil {
 		return chain, fmt.Errorf("db.OpenNew(): %w", err)
 	}
-	if chain.Issuance.IsPopulated() {
+	if chain.Issuance.Entry.IsPopulated() {
 		chain.ChainStatus = ChainStatusIssued
 	} else {
 		chain.ChainStatus = ChainStatusTracked
@@ -123,7 +123,7 @@ func OpenNewByChainID(ctx context.Context,
 	}
 
 	nameIDs := first.ExtIDs
-	if !fat.ValidTokenNameIDs(nameIDs) {
+	if !fat.ValidNameIDs(nameIDs) {
 		err = fmt.Errorf("not a valid FAT chain: %v", chainID)
 		return
 	}
@@ -192,7 +192,7 @@ func (chain *Chain) Apply(ctx context.Context, c *factom.Client,
 		return err
 	}
 	// Update ChainStatus
-	if !chain.IsIssued() && chain.Issuance.IsPopulated() {
+	if !chain.IsIssued() && chain.Issuance.Entry.IsPopulated() {
 		chain.ChainStatus = ChainStatusIssued
 	}
 	return nil

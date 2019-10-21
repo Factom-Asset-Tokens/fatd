@@ -28,8 +28,8 @@ import (
 	"crawshaw.io/sqlite/sqlitex"
 	"github.com/Factom-Asset-Tokens/factom"
 	"github.com/Factom-Asset-Tokens/fatd/fat"
-	"github.com/Factom-Asset-Tokens/fatd/fat/fat0"
-	"github.com/Factom-Asset-Tokens/fatd/fat/fat1"
+	"github.com/Factom-Asset-Tokens/fatd/fat0"
+	"github.com/Factom-Asset-Tokens/fatd/fat1"
 	"github.com/Factom-Asset-Tokens/fatd/internal/db/addresses"
 	"github.com/Factom-Asset-Tokens/fatd/internal/db/eblocks"
 	"github.com/Factom-Asset-Tokens/fatd/internal/db/entries"
@@ -76,7 +76,15 @@ func (chain *Chain) ApplyEntry(e factom.Entry) (txErr, err error) {
 var alwaysRollbackErr = fmt.Errorf("always rollback")
 
 func (chain *Chain) applyIssuance(ei int64, e factom.Entry) (issueErr, err error) {
-	issuance := fat.NewIssuance(e)
+	// The Identity must exist prior to issuance.
+	if !chain.Identity.IsPopulated() || e.Timestamp.Before(chain.Identity.Timestamp) {
+		issueErr = fmt.Errorf("Identity not set up prior to this Entry")
+		return
+	}
+	issuance, issueErr := fat.NewIssuance(e, (*factom.Bytes32)(chain.Identity.ID1Key))
+	if issueErr != nil {
+		return
+	}
 	rollback := sqlitex.Save(chain.Conn)
 	chainCopy := *chain
 	defer func() {
@@ -94,13 +102,6 @@ func (chain *Chain) applyIssuance(ei int64, e factom.Entry) (issueErr, err error
 		rollback(&err) // commit
 		//chain.Log.Debugf("Valid Issuance Entry: %v %+v", e.Hash, issuance)
 	}()
-	// The Identity must exist prior to issuance.
-	if !chain.Identity.IsPopulated() || e.Timestamp.Before(chain.Identity.Timestamp) {
-		return
-	}
-	if issueErr = issuance.Validate(chain.ID1); issueErr != nil {
-		return
-	}
 	if err = metadata.SetInitEntryID(chain.Conn, ei); err != nil {
 		return
 	}
@@ -110,7 +111,7 @@ func (chain *Chain) applyIssuance(ei int64, e factom.Entry) (issueErr, err error
 }
 
 func (chain *Chain) setApplyFunc() {
-	if !chain.Issuance.IsPopulated() {
+	if !chain.Issuance.Entry.IsPopulated() {
 		chain.apply = func(chain *Chain, ei int64, e factom.Entry) (
 			txErr, err error) {
 			txErr, err = chain.applyIssuance(ei, e)
@@ -119,7 +120,7 @@ func (chain *Chain) setApplyFunc() {
 		return
 	}
 	// Adapt to match ApplyFunc.
-	switch chain.Type {
+	switch chain.Issuance.Type {
 	case fat0.Type:
 		chain.apply = func(chain *Chain, ei int64, e factom.Entry) (
 			txErr, err error) {
@@ -137,7 +138,7 @@ func (chain *Chain) setApplyFunc() {
 	}
 }
 
-func (chain *Chain) Save(tx fat.Transaction) func(txErr, err *error) {
+func (chain *Chain) Save() func(txErr, err *error) {
 	rollback := sqlitex.Save(chain.Conn)
 	chainCopy := *chain
 	return func(txErr, err *error) {
@@ -149,25 +150,15 @@ func (chain *Chain) Save(tx fat.Transaction) func(txErr, err *error) {
 			if *err != nil {
 				return
 			}
-			//chain.Log.Debugf("Entry{%v}: invalid %v Transaction: %v",
-			//	e.Hash, chain.Type, *txErr)
 			return
 		}
 		rollback(err)
-		//var cbStr string
-		//if tx.IsCoinbase() {
-		//	cbStr = "Coinbase "
-		//}
-		//chain.Log.Debugf("Valid %v %vTransaction: %v %+v",
-		//	chain.Type, cbStr, e.Hash, tx)
 	}
 }
 
-func (chain *Chain) applyTx(ei int64, tx fat.Transaction) (txErr, err error) {
-	if txErr = tx.Validate(chain.ID1); txErr != nil {
-		return
-	}
-	e := tx.FactomEntry()
+func (chain *Chain) ApplyFAT0Tx(ei int64, e factom.Entry) (tx fat0.Transaction,
+	txErr, err error) {
+
 	valid, err := entries.CheckUniquelyValid(chain.Conn, ei, e.Hash)
 	if err != nil {
 		return
@@ -177,24 +168,21 @@ func (chain *Chain) applyTx(ei int64, tx fat.Transaction) (txErr, err error) {
 		return
 	}
 
-	if err = entries.SetValid(chain.Conn, ei); err != nil {
+	tx, txErr = fat0.NewTransaction(e, (*factom.Bytes32)(chain.Identity.ID1Key))
+	if txErr != nil {
 		return
 	}
-	return
-}
 
-func (chain *Chain) ApplyFAT0Tx(ei int64, e factom.Entry) (tx *fat0.Transaction,
-	txErr, err error) {
-	tx = fat0.NewTransaction(e)
-	defer chain.Save(tx)(&txErr, &err)
+	defer chain.Save()(&txErr, &err)
 
-	if txErr, err = chain.applyTx(ei, tx); err != nil || txErr != nil {
+	if err = entries.SetValid(chain.Conn, ei); err != nil {
 		return
 	}
 
 	if tx.IsCoinbase() {
 		addIssued := tx.Inputs[fat.Coinbase()]
-		if chain.Supply > 0 && int64(chain.NumIssued+addIssued) > chain.Supply {
+		if chain.Issuance.Supply > 0 &&
+			int64(chain.NumIssued+addIssued) > chain.Issuance.Supply {
 			txErr = fmt.Errorf("coinbase exceeds max supply")
 			return
 		}
@@ -234,19 +222,34 @@ func (chain *Chain) ApplyFAT0Tx(ei int64, e factom.Entry) (tx *fat0.Transaction,
 	return
 }
 
-func (chain *Chain) ApplyFAT1Tx(ei int64, e factom.Entry) (tx *fat1.Transaction,
+func (chain *Chain) ApplyFAT1Tx(ei int64, e factom.Entry) (tx fat1.Transaction,
 	txErr, err error) {
-	tx = fat1.NewTransaction(e)
-	defer chain.Save(tx)(&txErr, &err)
 
-	if txErr, err = chain.applyTx(ei, tx); err != nil || txErr != nil {
+	valid, err := entries.CheckUniquelyValid(chain.Conn, ei, e.Hash)
+	if err != nil {
+		return
+	}
+	if !valid {
+		txErr = fmt.Errorf("replay: hash previously marked valid")
+		return
+	}
+
+	tx, txErr = fat1.NewTransaction(e, (*factom.Bytes32)(chain.Identity.ID1Key))
+	if txErr != nil {
+		return
+	}
+
+	defer chain.Save()(&txErr, &err)
+
+	if err = entries.SetValid(chain.Conn, ei); err != nil {
 		return
 	}
 
 	if tx.IsCoinbase() {
 		nfTkns := tx.Inputs[fat.Coinbase()]
 		addIssued := uint64(len(nfTkns))
-		if chain.Supply > 0 && int64(chain.NumIssued+addIssued) > chain.Supply {
+		if chain.Issuance.Supply > 0 &&
+			int64(chain.NumIssued+addIssued) > chain.Issuance.Supply {
 			txErr = fmt.Errorf("coinbase exceeds max supply")
 			return
 		}

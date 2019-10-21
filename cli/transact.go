@@ -28,13 +28,12 @@ import (
 	"fmt"
 	"math"
 
+	jsonrpc2 "github.com/AdamSLevy/jsonrpc2/v12"
 	"github.com/Factom-Asset-Tokens/factom"
 	"github.com/Factom-Asset-Tokens/fatd/api"
 	"github.com/Factom-Asset-Tokens/fatd/fat"
-	"github.com/Factom-Asset-Tokens/fatd/fat/fat0"
-	"github.com/Factom-Asset-Tokens/fatd/fat/fat1"
-
-	jsonrpc2 "github.com/AdamSLevy/jsonrpc2/v12"
+	"github.com/Factom-Asset-Tokens/fatd/fat0"
+	"github.com/Factom-Asset-Tokens/fatd/fat1"
 	"github.com/posener/complete"
 	"github.com/spf13/cobra"
 )
@@ -225,29 +224,27 @@ func validateTransactFlags(cmd *cobra.Command, args []string) error {
 
 	vrbLog.Printf("Preparing %v Transaction Entry...", cmdType)
 	var tx interface {
-		Sign(...factom.RCDPrivateKey)
-		MarshalEntry() error
-		Cost() (uint8, error)
+		Sign(...factom.RCDPrivateKey) (factom.Entry, error)
 	}
 	switch cmdType {
 	case fat0.Type:
-		fat0Tx.ChainID = paramsToken.ChainID
+		fat0Tx.Entry.ChainID = paramsToken.ChainID
 		fat0Tx.Metadata = metadata
 		tx = &fat0Tx
 	case fat1.Type:
-		fat1Tx.ChainID = paramsToken.ChainID
+		fat1Tx.Entry.ChainID = paramsToken.ChainID
 		fat1Tx.Metadata = metadata
 		tx = &fat1Tx
 	}
-	if err := tx.MarshalEntry(); err != nil {
-		errLog.Fatal(err)
-	}
-	vrbLog.Println("Transaction Entry Content: ", tx)
-	tx.Sign(signingSet...)
-	cost, err := tx.Cost()
+	entry, err := tx.Sign(signingSet...)
 	if err != nil {
 		errLog.Fatal(err)
 	}
+	cost, err := entry.Cost()
+	if err != nil {
+		errLog.Fatal(err)
+	}
+	vrbLog.Println("Transaction Entry Content: ", string(entry.Content))
 
 	if !force {
 		vrbLog.Println("Checking token chain status...")
@@ -350,14 +347,6 @@ func validateTransactFlags(cmd *cobra.Command, args []string) error {
 		vrbLog.Println()
 	}
 
-	var entry factom.Entry
-	switch cmdType {
-	case fat0.Type:
-		entry = fat0Tx.Entry.Entry
-	case fat1.Type:
-		entry = fat1Tx.Entry.Entry
-	}
-	entry.ChainID = paramsToken.ChainID
 	if curl {
 		if err := printCurl(entry, ecEsAdr.Es); err != nil {
 			errLog.Fatal(err)

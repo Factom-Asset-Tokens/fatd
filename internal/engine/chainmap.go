@@ -184,7 +184,7 @@ func loadChains(ctx context.Context) (syncHeight uint32, err error) {
 
 		chain.ChainStatus = ChainStatusTracked
 		Chains.trackedIDs = append(Chains.trackedIDs, chain.ID)
-		if chain.Issuance.IsPopulated() {
+		if chain.Issuance.Entry.IsPopulated() {
 			chain.ChainStatus = ChainStatusIssued
 			Chains.issuedIDs = append(Chains.issuedIDs, chain.ID)
 		}

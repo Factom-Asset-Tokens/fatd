@@ -27,7 +27,7 @@ import (
 	"fmt"
 
 	"github.com/Factom-Asset-Tokens/factom"
-	"github.com/Factom-Asset-Tokens/fatd/fat/jsonlen"
+	"github.com/Factom-Asset-Tokens/fatd/internal/jsonlen"
 )
 
 // AddressAmountMap relates a factom.FAAddress to its amount for the Inputs and

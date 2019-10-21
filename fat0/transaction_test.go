@@ -20,7 +20,7 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 // IN THE SOFTWARE.
 
-package fat1_test
+package fat0_test
 
 import (
 	"encoding/hex"
@@ -30,7 +30,7 @@ import (
 
 	"github.com/Factom-Asset-Tokens/factom"
 	"github.com/Factom-Asset-Tokens/fatd/fat"
-	. "github.com/Factom-Asset-Tokens/fatd/fat/fat1"
+	. "github.com/Factom-Asset-Tokens/fatd/fat0"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -48,10 +48,9 @@ var transactionTests = []struct {
 	Name: "valid (single outputs)",
 	Tx: func() *Transaction {
 		out := outputs()
-		out[outputAddresses[0].FAAddress().String()].
-			Append(out[outputAddresses[1].FAAddress().String()])
-		out[outputAddresses[0].FAAddress().String()].
-			Append(out[outputAddresses[2].FAAddress().String()])
+		out[outputAddresses[0].FAAddress().String()] +=
+			out[outputAddresses[1].FAAddress().String()] +
+				out[outputAddresses[2].FAAddress().String()]
 		delete(out, outputAddresses[1].FAAddress().String())
 		delete(out, outputAddresses[2].FAAddress().String())
 		return setFieldTransaction("outputs", out)
@@ -68,120 +67,73 @@ var transactionTests = []struct {
 	Error: "unexpected end of JSON input",
 	Tx:    transaction(nil),
 }, {
+	Name:  "invalid JSON",
+	Error: `invalid character '}' after object key`,
+	Tx:    transaction([]byte(`{"asdfie"}`)),
+}, {
 	Name:  "invalid JSON (unknown field)",
-	Error: `*fat1.Transaction: unexpected JSON length`,
+	Error: `*fat0.Transaction: unexpected JSON length`,
 	Tx:    setFieldTransaction("invalid", 5),
 }, {
 	Name:  "invalid JSON (invalid inputs type)",
-	Error: "*fat1.Transaction.Inputs: *fat1.AddressNFTokensMap: json: cannot unmarshal array into Go value of type map[string]json.RawMessage",
+	Error: "*fat0.Transaction.Inputs: json: cannot unmarshal array into Go value of type map[string]uint64",
 	Tx:    invalidField("inputs"),
 }, {
 	Name:  "invalid JSON (invalid outputs type)",
-	Error: "*fat1.Transaction.Outputs: *fat1.AddressNFTokensMap: json: cannot unmarshal array into Go value of type map[string]json.RawMessage",
+	Error: "*fat0.Transaction.Outputs: json: cannot unmarshal array into Go value of type map[string]uint64",
 	Tx:    invalidField("outputs"),
 }, {
-	Name:  "invalid JSON (invalid inputs, duplicate address)",
-	Error: "*fat1.Transaction.Inputs: *fat1.AddressNFTokensMap: unexpected JSON length",
-	Tx:    transaction([]byte(`{"inputs":{"FA2HaNAq1f85f1cxzywDa7etvtYCGZUztERvExzQik3CJrGBM4sx":[0],"FA2HaNAq1f85f1cxzywDa7etvtYCGZUztERvExzQik3CJrGBM4sx":[1],"FA3rCRnpU95ieYCwh7YGH99YUWPjdVEjk73mpjqnVpTDt3rUUhX8":[2]},"metadata":[0],"outputs":{"FA1zT4aFpEvcnPqPCigB3fvGu4Q4mTXY22iiuV69DqE1pNhdF2MC":[1],"FA2PJRLbuVDyAKire9BRnJYkh2NZc2Fjco4FCrPtXued7F26wGBP":[0],"FA2uyZviB3vs28VkqkfnhoXRD8XdKP1zaq7iukq2gBfCq3hxeuE8":[2]}}`)),
-}, {
-	Name:  "invalid JSON (invalid inputs, duplicate ids)",
-	Error: "*fat1.Transaction.Inputs: *fat1.AddressNFTokensMap: duplicate NFTokenID: 0: ",
-	Tx:    transaction([]byte(`{"inputs":{"FA2HaNAq1f85f1cxzywDa7etvtYCGZUztERvExzQik3CJrGBM4sx":[0],"FA3rCRnpU95ieYCwh7YGH99YUWPjdVEjk73mpjqnVpTDt3rUUhX8":[0,1,2]},"metadata":[0],"outputs":{"FA1zT4aFpEvcnPqPCigB3fvGu4Q4mTXY22iiuV69DqE1pNhdF2MC":[1],"FA2PJRLbuVDyAKire9BRnJYkh2NZc2Fjco4FCrPtXued7F26wGBP":[0],"FA2uyZviB3vs28VkqkfnhoXRD8XdKP1zaq7iukq2gBfCq3hxeuE8":[2]}}`)),
+	Name:  "invalid JSON (invalid inputs, duplicate)",
+	Error: "*fat0.Transaction.Inputs: *fat0.AddressAmountMap: unexpected JSON length",
+	Tx:    transaction([]byte(`{"inputs":{"FA3tM2R3T2ZT2gPrTfxjqhnFsdiqQUyKboKxvka3z5c1JF9yQck5":100,"FA3tM2R3T2ZT2gPrTfxjqhnFsdiqQUyKboKxvka3z5c1JF9yQck5":100,"FA3rCRnpU95ieYCwh7YGH99YUWPjdVEjk73mpjqnVpTDt3rUUhX8":10},"metadata":[0],"outputs":{"FA1zT4aFpEvcnPqPCigB3fvGu4Q4mTXY22iiuV69DqE1pNhdF2MC":10,"FA3sjgNF4hrJAiD9tQxAVjWS9Ca1hMqyxtuVSZTBqJiPwD7bnHkn":90,"FA2uyZviB3vs28VkqkfnhoXRD8XdKP1zaq7iukq2gBfCq3hxeuE8":10}}`)),
 }, {
 	Name:  "invalid JSON (two objects)",
 	Error: "invalid character '{' after top-level value",
-	Tx:    transaction([]byte(`{"inputs":{"FA2HaNAq1f85f1cxzywDa7etvtYCGZUztERvExzQik3CJrGBM4sx":100,"FA3rCRnpU95ieYCwh7YGH99YUWPjdVEjk73mpjqnVpTDt3rUUhX8":10},"metadata":[0],"outputs":{"FA1zT4aFpEvcnPqPCigB3fvGu4Q4mTXY22iiuV69DqE1pNhdF2MC":10,"FA2PJRLbuVDyAKire9BRnJYkh2NZc2Fjco4FCrPtXued7F26wGBP":90,"FA2uyZviB3vs28VkqkfnhoXRD8XdKP1zaq7iukq2gBfCq3hxeuE8":10}}{}`)),
+	Tx:    transaction([]byte(`{"inputs":{"FA2HaNAq1f85f1cxzywDa7etvtYCGZUztERvExzQik3CJrGBM4sx":100,"FA3rCRnpU95ieYCwh7YGH99YUWPjdVEjk73mpjqnVpTDt3rUUhX8":10},"metadata":[0],"outputs":{"FA1zT4aFpEvcnPqPCigB3fvGu4Q4mTXY22iiuV69DqE1pNhdF2MC":10,"FA3sjgNF4hrJAiD9tQxAVjWS9Ca1hMqyxtuVSZTBqJiPwD7bnHkn":90,"FA2uyZviB3vs28VkqkfnhoXRD8XdKP1zaq7iukq2gBfCq3hxeuE8":10}}{}`)),
+}, {
+	Name:  "invalid address",
+	Error: "*fat0.Transaction.Inputs: *fat0.AddressAmountMap: invalid prefix",
+	Tx:    transaction([]byte(`{"inputs":{"Fs2HaNAq1f85f1cxzywDa7etvtYCGZUztERvExzQik3CJrGBM4sx":100,"FA3rCRnpU95ieYCwh7YGH99YUWPjdVEjk73mpjqnVpTDt3rUUhX8":10},"metadata":[0],"outputs":{"FA1zT4aFpEvcnPqPCigB3fvGu4Q4mTXY22iiuV69DqE1pNhdF2MC":10,"FA3sjgNF4hrJAiD9tQxAVjWS9Ca1hMqyxtuVSZTBqJiPwD7bnHkn":90,"FA2uyZviB3vs28VkqkfnhoXRD8XdKP1zaq7iukq2gBfCq3hxeuE8":10}}`)),
 }, {
 	Name:  "invalid data (no inputs)",
-	Error: "*fat1.Transaction.Inputs: *fat1.AddressNFTokensMap: empty",
+	Error: "*fat0.Transaction.Inputs: *fat0.AddressAmountMap: empty",
 	Tx:    setFieldTransaction("inputs", json.RawMessage(`{}`)),
 }, {
+	Name:  "invalid data (no inputs)",
+	Error: "*fat0.Transaction.Inputs: *fat0.AddressAmountMap: empty",
+	Tx:    setFieldTransaction("inputs", json.RawMessage(`null`)),
+}, {
 	Name:  "invalid data (no outputs)",
-	Error: "*fat1.Transaction.Outputs: *fat1.AddressNFTokensMap: empty",
+	Error: "*fat0.Transaction.Outputs: *fat0.AddressAmountMap: empty",
 	Tx:    setFieldTransaction("outputs", json.RawMessage(`{}`)),
 }, {
 	Name:  "invalid data (omit inputs)",
-	Error: "*fat1.Transaction.Inputs: *fat1.AddressNFTokensMap: unexpected end of JSON input",
+	Error: "*fat0.Transaction.Inputs: unexpected end of JSON input",
 	Tx:    omitFieldTransaction("inputs"),
 }, {
 	Name:  "invalid data (omit outputs)",
-	Error: "*fat1.Transaction.Outputs: *fat1.AddressNFTokensMap: unexpected end of JSON input",
+	Error: "*fat0.Transaction.Outputs: unexpected end of JSON input",
 	Tx:    omitFieldTransaction("outputs"),
 }, {
-	Name:  "invalid data (Input Output mismatch)",
-	Error: "*fat1.Transaction: Inputs and Outputs mismatch: number of NFTokenIDs differ",
+	Name:  "invalid data (sum mismatch)",
+	Error: "*fat0.Transaction: sum(inputs) != sum(outputs)",
 	Tx: func() *Transaction {
 		out := outputs()
-		NFTokenID(1000).Set(out[outputAddresses[0].FAAddress().String()])
+		out[outputAddresses[0].FAAddress().String()]++
 		return setFieldTransaction("outputs", out)
 	}(),
 }, {
-	Name:  "invalid data (Input Output mismatch)",
-	Error: "*fat1.Transaction: Inputs and Outputs mismatch: missing NFTokenID: 1000",
-	Tx: func() *Transaction {
-		in := inputs()
-		NFTokenID(1001).Set(in[inputAddresses[0].FAAddress().String()])
-		out := outputs()
-		NFTokenID(1000).Set(out[outputAddresses[0].FAAddress().String()])
-		m := validTxEntryContentMap()
-		m["inputs"] = in
-		m["outputs"] = out
-		return transaction(marshal(m))
-	}(),
-}, {
 	Name:      "invalid data (coinbase)",
-	Error:     "*fat1.Transaction: invalid coinbase transaction",
+	Error:     "*fat0.Transaction: invalid coinbase transaction",
 	IssuerKey: issuerKey,
 	Tx: func() *Transaction {
 		m := validCoinbaseTxEntryContentMap()
 		in := coinbaseInputs()
-		in[inputAddresses[0].FAAddress().String()] = newNFTokens(NFTokenID(1000))
+		in[inputAddresses[0].FAAddress().String()] = 1
 		out := coinbaseOutputs()
-		out[outputAddresses[0].FAAddress().String()] = newNFTokens(NFTokenID(1000))
+		out[outputAddresses[0].FAAddress().String()]++
 		m["inputs"] = in
 		m["outputs"] = out
-		return transaction(marshal(m))
-	}(),
-}, {
-	Name:      "invalid data (coinbase, coinbase outputs)",
-	Error:     "*fat1.Transaction: Inputs and Outputs intersect: duplicate address: ",
-	IssuerKey: issuerKey,
-	Tx: func() *Transaction {
-		m := validCoinbaseTxEntryContentMap()
-		in := coinbaseInputs()
-		out := coinbaseOutputs()
-		in[fat.Coinbase().String()] = newNFTokens(NFTokenID(1000))
-		out[fat.Coinbase().String()] = newNFTokens(NFTokenID(1000))
-		m["inputs"] = in
-		m["outputs"] = out
-		delete(m, "tokenmetadata")
-		return transaction(marshal(m))
-	}(),
-}, {
-	Name:      "invalid data (coinbase, tokenmetadata)",
-	Error:     "*fat1.Transaction.TokenMetadata: too many NFTokenIDs",
-	IssuerKey: issuerKey,
-	Tx: func() *Transaction {
-		m := validCoinbaseTxEntryContentMap()
-		in := coinbaseInputs()
-		delete(in[fat.Coinbase().String()], NFTokenID(0))
-		out := coinbaseOutputs()
-		delete(out[coinbaseOutputAddresses[0].FAAddress().String()], NFTokenID(0))
-
-		m["inputs"] = in
-		m["outputs"] = out
-		return transaction(marshal(m))
-	}(),
-}, {
-	Name:  "invalid data (inputs outputs overlap)",
-	Error: "*fat1.Transaction: Inputs and Outputs intersect: duplicate address: ",
-	Tx: func() *Transaction {
-		m := validTxEntryContentMap()
-		in := inputs()
-		in[outputAddresses[0].FAAddress().String()] =
-			in[inputAddresses[0].FAAddress().String()]
-		delete(in, inputAddresses[0].FAAddress().String())
-		m["inputs"] = in
 		return transaction(marshal(m))
 	}(),
 }, {
@@ -226,9 +178,9 @@ func TestTransaction(t *testing.T) {
 				assert.Contains(err.Error(), test.Error)
 				return
 			}
-			require.NoError(t, err, string(test.Tx.Content))
+			require.NoError(t, err)
 			if test.Coinbase {
-				assert.True(tx.IsCoinbase(), string(test.Tx.Content))
+				assert.True(tx.IsCoinbase())
 			}
 		})
 	}
@@ -238,30 +190,19 @@ var (
 	inputAddresses  = twoAddresses()
 	outputAddresses = append(twoAddresses(), factom.FsAddress{})
 
-	inputNFTokens = []NFTokens{newNFTokens(NewNFTokenIDRange(0, 10)),
-		newNFTokens(NFTokenID(11))}
-	outputNFTokens = []NFTokens{newNFTokens(NewNFTokenIDRange(0, 5)),
-		newNFTokens(NewNFTokenIDRange(6, 10)),
-		newNFTokens(NFTokenID(11))}
+	inputAmounts  = []uint64{100, 10}
+	outputAmounts = []uint64{90, 10, 10}
 
-	coinbaseInputAddresses  = []factom.FAAddress{fat.Coinbase()}
+	coinbaseInputAddresses  = []factom.FsAddress{factom.FsAddress{}}
 	coinbaseOutputAddresses = twoAddresses()
 
-	coinbaseInputNFTokens  = []NFTokens{newNFTokens(NewNFTokenIDRange(0, 11))}
-	coinbaseOutputNFTokens = []NFTokens{newNFTokens(NewNFTokenIDRange(0, 5)),
-		newNFTokens(NewNFTokenIDRange(6, 11))}
+	coinbaseInputAmounts  = []uint64{110}
+	coinbaseOutputAmounts = []uint64{90, 20}
+
+	tokenChainID = fat.ComputeChainID("test", identityChainID)
 
 	identityChainID = factom.NewBytes32(validIdentityChainID())
-	tokenChainID    = fat.ChainID("test", identityChainID)
 )
-
-func newNFTokens(ids ...NFTokensSetter) NFTokens {
-	nfTkns, err := NewNFTokens(ids...)
-	if err != nil {
-		panic(err)
-	}
-	return nfTkns
-}
 
 // Transactions
 func omitFieldTransaction(field string) *Transaction {
@@ -311,47 +252,40 @@ func validTxEntryContentMap() map[string]interface{} {
 }
 func validCoinbaseTxEntryContentMap() map[string]interface{} {
 	return map[string]interface{}{
-		"inputs":        coinbaseInputs(),
-		"outputs":       coinbaseOutputs(),
-		"metadata":      []int{0},
-		"tokenmetadata": tokenMetadata(),
+		"inputs":   coinbaseInputs(),
+		"outputs":  coinbaseOutputs(),
+		"metadata": []int{0},
 	}
 }
 
 // inputs/outputs
-func inputs() map[string]NFTokens {
-	var inputs map[string]NFTokens
+func inputs() map[string]uint64 {
+	inputs := make(map[string]uint64)
 	for i := range inputAddresses {
-		tkns := newNFTokens()
-		tkns.Append(inputNFTokens[i])
-		inputs[inputAddresses[i].FAAddress().String()] = tkns
+		inputs[inputAddresses[i].FAAddress().String()] = inputAmounts[i]
 	}
 	return inputs
 }
-func outputs() map[string]NFTokens {
-	var outputs map[string]NFTokens
+func outputs() map[string]uint64 {
+	outputs := make(map[string]uint64)
 	for i := range outputAddresses {
-		tkns := newNFTokens()
-		tkns.Append(outputNFTokens[i])
-		outputs[outputAddresses[i].FAAddress().String()] = tkns
+		outputs[outputAddresses[i].FAAddress().String()] = outputAmounts[i]
 	}
 	return outputs
 }
-func coinbaseInputs() map[string]NFTokens {
-	var inputs map[string]NFTokens
+func coinbaseInputs() map[string]uint64 {
+	inputs := make(map[string]uint64)
 	for i := range coinbaseInputAddresses {
-		tkns := newNFTokens()
-		tkns.Append(coinbaseInputNFTokens[i])
-		inputs[coinbaseInputAddresses[i].String()] = tkns
+		inputs[coinbaseInputAddresses[i].FAAddress().String()] =
+			coinbaseInputAmounts[i]
 	}
 	return inputs
 }
-func coinbaseOutputs() map[string]NFTokens {
-	var outputs map[string]NFTokens
+func coinbaseOutputs() map[string]uint64 {
+	outputs := make(map[string]uint64)
 	for i := range coinbaseOutputAddresses {
-		tkns := newNFTokens()
-		tkns.Append(coinbaseOutputNFTokens[i])
-		outputs[coinbaseOutputAddresses[i].FAAddress().String()] = tkns
+		outputs[coinbaseOutputAddresses[i].FAAddress().String()] =
+			coinbaseOutputAmounts[i]
 	}
 	return outputs
 }
@@ -367,7 +301,7 @@ var transactionMarshalEntryTests = []struct {
 	Name: "valid (omit zero balances)",
 	Tx: func() *Transaction {
 		t := newTransaction()
-		t.Inputs[fat.Coinbase()], _ = NewNFTokens()
+		t.Inputs[fat.Coinbase()] = 0
 		return t
 	}(),
 }, {
@@ -379,15 +313,24 @@ var transactionMarshalEntryTests = []struct {
 	}(),
 }, {
 	Name:  "invalid data",
-	Error: "json: error calling MarshalJSON for type *fat1.Transaction: Inputs and Outputs mismatch: number of NFTokenIDs differ",
+	Error: "json: error calling MarshalJSON for type *fat0.Transaction: sum(inputs) != sum(outputs)",
 	Tx: func() *Transaction {
 		t := newTransaction()
-		t.Inputs[inputAddresses[0].FAAddress()].Set(NFTokenID(12345))
+		t.Inputs[inputAddresses[0].FAAddress()]++
+		return t
+	}(),
+}, {
+	Name:  "invalid data",
+	Error: "json: error calling MarshalJSON for type *fat0.Transaction: json: error calling MarshalJSON for type fat0.AddressAmountMap: empty",
+	Tx: func() *Transaction {
+		t := newTransaction()
+		t.Inputs = make(AddressAmountMap)
+		t.Outputs = make(AddressAmountMap)
 		return t
 	}(),
 }, {
 	Name:  "invalid metadata JSON",
-	Error: "json: error calling MarshalJSON for type *fat1.Transaction: json: error calling MarshalJSON for type json.RawMessage: invalid character 'a' looking for beginning of object key string",
+	Error: "json: error calling MarshalJSON for type *fat0.Transaction: json: error calling MarshalJSON for type json.RawMessage: invalid character 'a' looking for beginning of object key string",
 	Tx: func() *Transaction {
 		t := newTransaction()
 		t.Metadata = json.RawMessage("{asdf")
@@ -402,9 +345,9 @@ func TestTransactionMarshalEntry(t *testing.T) {
 			tx := test.Tx
 			err := tx.MarshalEntry()
 			if len(test.Error) == 0 {
-				assert.NoError(err, string(test.Tx.Content))
+				assert.NoError(err)
 			} else {
-				assert.EqualError(err, test.Error, string(test.Tx.Content))
+				assert.EqualError(err, test.Error)
 			}
 		})
 	}
@@ -412,22 +355,23 @@ func TestTransactionMarshalEntry(t *testing.T) {
 
 func newTransaction() *Transaction {
 	return &Transaction{
-		Inputs:  inputAddressNFTokensMap(),
-		Outputs: outputAddressNFTokensMap(),
+		Inputs:  inputAddressAmountMap(),
+		Outputs: outputAddressAmountMap(),
 	}
 }
-func inputAddressNFTokensMap() AddressNFTokensMap {
-	return addressNFTokensMap(inputs())
+func inputAddressAmountMap() AddressAmountMap {
+	return addressAmountMap(inputs())
 }
-func outputAddressNFTokensMap() AddressNFTokensMap {
-	return addressNFTokensMap(outputs())
+func outputAddressAmountMap() AddressAmountMap {
+	return addressAmountMap(outputs())
 }
-func addressNFTokensMap(aas map[string]NFTokens) AddressNFTokensMap {
-	m := make(AddressNFTokensMap)
-	for adrStr, amount := range aas {
+func addressAmountMap(aas map[string]uint64) AddressAmountMap {
+	m := make(AddressAmountMap)
+	for addressStr, amount := range aas {
 		var a factom.FAAddress
-		if err := a.Set(adrStr); err != nil {
-			panic(err.Error() + " " + adrStr)
+		if err := json.Unmarshal(
+			[]byte(fmt.Sprintf("%#v", addressStr)), &a); err != nil {
+			panic(err)
 		}
 		m[a] = amount
 	}
@@ -450,15 +394,6 @@ func twoAddresses() []factom.FsAddress {
 		adrs[i] = adr
 	}
 	return adrs
-}
-
-func tokenMetadata() NFTokenIDMetadataMap {
-	m := make(NFTokenIDMetadataMap, len(coinbaseInputNFTokens[0]))
-	for i, tkns := range inputNFTokens {
-		m.Set(NFTokenMetadata{Tokens: tkns,
-			Metadata: json.RawMessage(fmt.Sprintf("%v", i))})
-	}
-	return m
 }
 
 func marshal(v map[string]interface{}) []byte {

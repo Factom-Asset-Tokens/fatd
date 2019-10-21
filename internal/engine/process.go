@@ -62,7 +62,7 @@ func Process(ctx context.Context, dbKeyMR *factom.Bytes32, eb factom.EBlock) err
 		}
 		// Ignore chains with NameIDs that don't match the fat pattern.
 		nameIDs := first.ExtIDs
-		if !fat.ValidTokenNameIDs(nameIDs) {
+		if !fat.ValidNameIDs(nameIDs) {
 			Chains.ignore(eb.ChainID)
 			return nil
 		}

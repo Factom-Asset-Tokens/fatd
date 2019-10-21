@@ -28,8 +28,7 @@ import (
 
 	"github.com/Factom-Asset-Tokens/factom"
 	"github.com/Factom-Asset-Tokens/fatd/fat"
-	"github.com/Factom-Asset-Tokens/fatd/fat/fat1"
-
+	"github.com/Factom-Asset-Tokens/fatd/fat1"
 	"github.com/posener/complete"
 	"github.com/spf13/cobra"
 )
