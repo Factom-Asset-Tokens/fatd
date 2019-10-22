@@ -89,10 +89,10 @@ var (
 		"disablepending":     false,
 
 		"dbpath": func() string {
-			if home, err := os.UserHomeDir(); err != nil {
-				return "./fatd.db"
+			if home, err := os.UserHomeDir(); err == nil {
+				return home + "/.fatd"
 			}
-			return home + "/.fatd"
+			return "./fatd.db"
 		}(),
 
 		"apiaddress":  ":8078",
