@@ -31,7 +31,7 @@ import (
 
 type NFTokenIDMetadataMap map[NFTokenID]json.RawMessage
 
-type NFTokenMetadata struct {
+type nfTokenMetadata struct {
 	Tokens   NFTokens        `json:"ids"`
 	Metadata json.RawMessage `json:"metadata,omitempty"`
 }
@@ -84,13 +84,13 @@ func (m NFTokenIDMetadataMap) MarshalJSON() ([]byte, error) {
 			tkns = make(NFTokens)
 			metadataNFTokens[string(metadata)] = tkns
 		}
-		if err := tknID.Set(tkns); err != nil {
+		if err := tkns.set(tknID); err != nil {
 			return nil, err
 		}
 	}
 
 	var i int
-	tknMs := make([]NFTokenMetadata, len(metadataNFTokens))
+	tknMs := make([]nfTokenMetadata, len(metadataNFTokens))
 	for metadata, tkns := range metadataNFTokens {
 		tknMs[i].Tokens = tkns
 		tknMs[i].Metadata = json.RawMessage(metadata)
@@ -100,7 +100,7 @@ func (m NFTokenIDMetadataMap) MarshalJSON() ([]byte, error) {
 	return json.Marshal(tknMs)
 }
 
-func (m NFTokenIDMetadataMap) IsSubsetOf(tkns NFTokens) error {
+func (m NFTokenIDMetadataMap) isSubsetOf(tkns NFTokens) error {
 	if len(m) > len(tkns) {
 		return fmt.Errorf("too many NFTokenIDs")
 	}
@@ -113,7 +113,7 @@ func (m NFTokenIDMetadataMap) IsSubsetOf(tkns NFTokens) error {
 	return nil
 }
 
-func (m NFTokenIDMetadataMap) Set(md NFTokenMetadata) {
+func (m NFTokenIDMetadataMap) set(md nfTokenMetadata) {
 	for tknID := range md.Tokens {
 		m[tknID] = md.Metadata
 	}

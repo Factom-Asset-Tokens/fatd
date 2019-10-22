@@ -147,7 +147,7 @@ func (m AddressNFTokensMap) set(data string) error {
 		return err
 	}
 
-	m[fa] = fat1.NFTokens(tkns)
+	m[fa] = tkns.NFTokens
 	addressValueStrMap[fa] = tknIDsStr
 	return nil
 }
@@ -158,69 +158,11 @@ func (AddressNFTokensMap) Type() string {
 	return "<FA | Fs>:[<id>,<min>-<max>]"
 }
 
-type NFTokens fat1.NFTokens
+type NFTokens struct{ fat1.NFTokens }
 
 func (tkns *NFTokens) Set(adrAmtStr string) error {
-	if *tkns == nil {
-		*tkns = make(NFTokens)
+	if tkns.NFTokens == nil {
+		tkns.NFTokens = make(fat1.NFTokens)
 	}
-	return tkns.set(adrAmtStr)
-}
-func (tkns NFTokens) set(data string) error {
-	if len(data) < 2 || data[0] != '[' || data[len(data)-1] != ']' {
-		return fmt.Errorf("invalid NFTokenIDs format")
-	}
-	data = data[1 : len(data)-1] // Trim '[' and ']'
-
-	// Split NFTokenIDs or NFTokenIDRanges on ','
-	tknIDStrs := strings.Split(data, ",")
-	for _, tknIDStr := range tknIDStrs {
-		var tknIDs fat1.NFTokensSetter
-		tknRangeStrs := strings.Split(tknIDStr, "-")
-		switch len(tknRangeStrs) {
-		case 1:
-			// Parse single NFToken
-			tknID, err := parseNFTokenID(tknIDStr)
-			if err != nil {
-				return err
-			}
-			tknIDs = tknID
-		case 2:
-			minMax := make([]fat1.NFTokenID, 2)
-			for i, tknIDStr := range tknRangeStrs {
-				if len(tknIDStr) == 0 {
-					return fmt.Errorf("invalid NFTokenIDRange format: %v",
-						tknIDStr)
-				}
-				tknID, err := parseNFTokenID(tknIDStr)
-				if err != nil {
-					return err
-				}
-				minMax[i] = tknID
-			}
-			if minMax[0] > minMax[1] {
-				return fmt.Errorf("invalid NFTokenIDRange: %v > %v",
-					minMax[0], minMax[1])
-			}
-			tknIDs = fat1.NewNFTokenIDRange(minMax...)
-		default:
-			return fmt.Errorf("invalid NFTokenIDRange format: %v", tknIDStr)
-		}
-		// Set all NFTokenIDs to the NFTokens map.
-		if err := fat1.NFTokens(tkns).Set(tknIDs); err != nil {
-			return fmt.Errorf("invalid NFTokens: %w", err)
-		}
-	}
-	return nil
-}
-func (tkns NFTokens) String() string {
-	return fmt.Sprintf("%v", fat1.NFTokens(tkns))
-}
-
-func parseNFTokenID(tknIDStr string) (fat1.NFTokenID, error) {
-	tknID, err := parsePositiveInt(tknIDStr)
-	if err != nil {
-		return 0, fmt.Errorf("invalid NFTokenID: %w", err)
-	}
-	return fat1.NFTokenID(tknID), nil
+	return tkns.UnmarshalText([]byte(adrAmtStr))
 }

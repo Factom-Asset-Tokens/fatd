@@ -236,9 +236,11 @@ func SelectByOwner(conn *sqlite.Conn, adr *factom.FAAddress,
 		if !hasRow {
 			break
 		}
-		if err := nfTkns.Set(fat1.NFTokenID(stmt.ColumnInt64(0))); err != nil {
-			panic(err)
+		colVal := stmt.ColumnInt64(0)
+		if colVal < 0 {
+			panic("negative NFTokenID")
 		}
+		nfTkns[fat1.NFTokenID(colVal)] = struct{}{}
 	}
 	return nfTkns, nil
 }

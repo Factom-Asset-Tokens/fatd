@@ -86,7 +86,7 @@ func (m AddressAmountMap) Sum() uint64 {
 	return sum
 }
 
-func (m AddressAmountMap) NoAddressIntersection(n AddressAmountMap) error {
+func (m AddressAmountMap) noAddressIntersection(n AddressAmountMap) error {
 	short, long := m, n
 	if len(short) > len(long) {
 		short, long = long, short

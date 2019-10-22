@@ -26,6 +26,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"strconv"
+	"strings"
 )
 
 const MaxCapacity = 4e5
@@ -38,76 +40,41 @@ var ErrorCapacity = fmt.Errorf("NFTokenID max capacity (%v) exceeded", maxCapaci
 // guarantee uniqueness of NFTokenIDs.
 type NFTokens map[NFTokenID]struct{}
 
-// NFTokensSetter is an interface implemented by types that can set the
-// NFTokenIDs they represent in a given NFTokens.
-type NFTokensSetter interface {
-	// Set the NFTokenIDs in tkns. Return an error if tkns already
-	// contains one of the NFTokenIDs.
-	Set(tkns NFTokens) error
-	// Len returns number of NFTokenIDs that will be set.
-	Len() int
+type nfTokensSetter interface {
+	setInto(tkns NFTokens) error
 }
 
-// NewNFTokens returns an NFTokens initialized with ids. If ids contains any
-// duplicate NFTokenIDs.
-func NewNFTokens(ids ...NFTokensSetter) (NFTokens, error) {
-	var capacity int
-	for _, id := range ids {
-		capacity += id.Len()
-	}
-	tkns := make(NFTokens, capacity)
-	if err := tkns.Set(ids...); err != nil {
-		return nil, err
-	}
-	return tkns, nil
-}
-
-func (tkns NFTokens) Append(newTkns NFTokens) error {
-	if len(tkns)+len(newTkns) > maxCapacity {
+func (tkns NFTokens) setInto(to NFTokens) error {
+	if len(tkns)+len(to) > maxCapacity {
 		return ErrorCapacity
 	}
-	if err := tkns.NoIntersection(newTkns); err != nil {
-		return err
-	}
-	for tknID := range newTkns {
-		tkns[tknID] = struct{}{}
+	for tknID := range tkns {
+		if _, ok := to[tknID]; ok {
+			return errorNFTokenIDIntersection(tknID)
+		}
+		to[tknID] = struct{}{}
 	}
 	return nil
 }
 
-// Set all ids in tkns. Return an error if ids contains any duplicate or
-// previously set NFTokenIDs.
-func (tkns NFTokens) Set(ids ...NFTokensSetter) error {
+func (tkns NFTokens) set(ids ...nfTokensSetter) error {
 	for _, id := range ids {
-		if err := id.Set(tkns); err != nil {
+		if err := id.setInto(tkns); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-type ErrorNFTokenIDIntersection NFTokenID
+type errorNFTokenIDIntersection NFTokenID
 
-func (id ErrorNFTokenIDIntersection) Error() string {
+func (id errorNFTokenIDIntersection) Error() string {
 	return fmt.Sprintf("duplicate NFTokenID: %v", NFTokenID(id))
 }
 
-func (tkns NFTokens) NoIntersection(tknsCmp NFTokens) error {
-	small, large := tkns, tknsCmp
-	if len(small) > len(large) {
-		small, large = large, small
-	}
-	for tknID := range small {
-		if _, ok := large[tknID]; ok {
-			return ErrorNFTokenIDIntersection(tknID)
-		}
-	}
-	return nil
-}
+type errorMissingNFTokenID NFTokenID
 
-type ErrorMissingNFTokenID NFTokenID
-
-func (id ErrorMissingNFTokenID) Error() string {
+func (id errorMissingNFTokenID) Error() string {
 	return fmt.Sprintf("missing NFTokenID: %v", NFTokenID(id))
 }
 
@@ -117,7 +84,7 @@ func (tkns NFTokens) ContainsAll(tknsSub NFTokens) error {
 	}
 	for tknID := range tknsSub {
 		if _, ok := tkns[tknID]; !ok {
-			return ErrorMissingNFTokenID(tknID)
+			return errorMissingNFTokenID(tknID)
 		}
 	}
 	return nil
@@ -137,46 +104,13 @@ func (tkns NFTokens) Slice() []NFTokenID {
 	return tknsAry
 }
 
-// MarshalJSON implements the json.Marshaler interface. MarshalJSON will always
-// produce the most efficient representation of tkns using NFTokenIDRanges
-// over individual NFTokenIDs where appropriate. MarshalJSON will return an
-// error if tkns is empty.
 func (tkns NFTokens) MarshalJSON() ([]byte, error) {
 	if len(tkns) == 0 {
-		return nil, fmt.Errorf("%T: empty", tkns)
+		return []byte(`[]`), nil
 	}
+	tknsAry := tkns.compress(true)
 
-	tknsFullAry := tkns.Slice()
-
-	// Compress the tknsAry by replacing contiguous id ranges with an
-	// NFTokenIDRange.
-	tknsAry := make([]interface{}, len(tkns))
-	idRange := NewNFTokenIDRange(tknsFullAry[0])
-	i := 0
-	for _, id := range append(tknsFullAry[1:], 0) {
-		// If this id is contiguous with idRange, expand the range to
-		// include this id and check the next id.
-		if id == idRange.Max+1 {
-			idRange.Max = id
-			continue
-		}
-		// Otherwise, the id is not contiguous with the range, so
-		// append the idRange and set up a new idRange to start at id.
-
-		// Use the most efficient JSON representation for the idRange.
-		if idRange.IsJSONEfficient() {
-			tknsAry[i] = idRange
-			i++
-		} else {
-			for id := idRange.Min; id <= idRange.Max; id++ {
-				tknsAry[i] = id
-				i++
-			}
-		}
-		idRange = NewNFTokenIDRange(id)
-	}
-
-	return json.Marshal(tknsAry[:i])
+	return json.Marshal(tknsAry)
 }
 
 func (tkns NFTokens) String() string {
@@ -184,13 +118,26 @@ func (tkns NFTokens) String() string {
 		return "[]"
 	}
 
-	tknsFullAry := tkns.Slice()
+	tknsAry := tkns.compress(false)
 
+	str := "["
+	for _, tkn := range tknsAry {
+		str += fmt.Sprintf("%v,", tkn)
+	}
+	return str[:len(str)-1] + "]"
+}
+
+func (tkns NFTokens) compress(forJSON bool) []interface{} {
+	tknsFullAry := tkns.Slice()
 	// Compress the tknsAry by replacing contiguous id ranges with an
-	// NFTokenIDRange.
+	// nfTokenIDRange.
 	tknsAry := make([]interface{}, len(tkns))
-	idRange := NewNFTokenIDRange(tknsFullAry[0])
-	i := 0
+	firstID := tknsFullAry[0]
+	idRange := nfTokenIDRange{Min: firstID, Max: firstID}
+	i := 0 // index into tknsAry
+	// The first id will be placed when the idRange is inserted either as a
+	// single NFTokenID or as a range. The last id does not get included,
+	// so append 0.
 	for _, id := range append(tknsFullAry[1:], 0) {
 		// If this id is contiguous with idRange, expand the range to
 		// include this id and check the next id.
@@ -201,8 +148,10 @@ func (tkns NFTokens) String() string {
 		// Otherwise, the id is not contiguous with the range, so
 		// append the idRange and set up a new idRange to start at id.
 
-		// Use the most efficient JSON representation for the idRange.
-		if idRange.IsStringEfficient() {
+		// Use the most efficient JSON or String representation for the
+		// idRange.
+		if (forJSON && idRange.IsJSONEfficient()) ||
+			(!forJSON && idRange.IsStringEfficient()) {
 			tknsAry[i] = idRange
 			i++
 		} else {
@@ -211,13 +160,9 @@ func (tkns NFTokens) String() string {
 				i++
 			}
 		}
-		idRange = NewNFTokenIDRange(id)
+		idRange = nfTokenIDRange{Min: id, Max: id}
 	}
-	str := "["
-	for _, tkn := range tknsAry[:i] {
-		str += fmt.Sprintf("%v,", tkn)
-	}
-	return str[:len(str)-1] + "]"
+	return tknsAry[:i]
 }
 
 func (tkns *NFTokens) UnmarshalJSON(data []byte) error {
@@ -225,14 +170,13 @@ func (tkns *NFTokens) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &tknsJSONAry); err != nil {
 		return fmt.Errorf("%T: %w", tkns, err)
 	}
-	if len(tknsJSONAry) == 0 {
-		return fmt.Errorf("%T: empty", tkns)
+	if *tkns == nil {
+		*tkns = make(NFTokens, len(tknsJSONAry))
 	}
-	*tkns = make(NFTokens, len(tknsJSONAry))
 	for _, data := range tknsJSONAry {
-		var ids NFTokensSetter
+		var ids nfTokensSetter
 		if data[0] == '{' {
-			var idRange NFTokenIDRange
+			var idRange nfTokenIDRange
 			if err := idRange.UnmarshalJSON(data); err != nil {
 				return fmt.Errorf("%T: %w", tkns, err)
 			}
@@ -244,10 +188,46 @@ func (tkns *NFTokens) UnmarshalJSON(data []byte) error {
 			}
 			ids = id
 		}
-		if err := ids.Set(*tkns); err != nil {
+		if err := tkns.set(ids); err != nil {
 			return fmt.Errorf("%T: %w", tkns, err)
 		}
 	}
 	return nil
 
+}
+
+func (tkns *NFTokens) UnmarshalText(text []byte) error {
+	if len(text) < 2 || text[0] != '[' || text[len(text)-1] != ']' {
+		return fmt.Errorf("invalid format")
+	}
+	text = []byte(strings.Trim(string(text), "[]"))
+
+	texts := strings.Split(string(text), ",")
+
+	if *tkns == nil {
+		*tkns = make(NFTokens, len(texts))
+	}
+
+	for _, text := range texts {
+		var ids nfTokensSetter
+		var idRange nfTokenIDRange
+		err := idRange.UnmarshalText([]byte(text))
+		if err == nil {
+			if err := idRange.Valid(); err != nil {
+				return err
+			}
+			ids = idRange
+		} else {
+
+			tknID, err := strconv.ParseInt(texts[0], 10, 64)
+			if err != nil {
+				return err
+			}
+			ids = NFTokenID(tknID)
+		}
+		if err := tkns.set(ids); err != nil {
+			return err
+		}
+	}
+	return nil
 }

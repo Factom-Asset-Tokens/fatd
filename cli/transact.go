@@ -218,7 +218,11 @@ func validateTransactFlags(cmd *cobra.Command, args []string) error {
 			fat0Tx.Inputs[fat.Coinbase()] = fat0Tx.Outputs.Sum()
 		case fat1.Type:
 			fat1Tx.Inputs = make(fat1.AddressNFTokensMap, 1)
-			fat1Tx.Inputs[fat.Coinbase()] = fat1Tx.Outputs.AllNFTokens()
+			tkns, err := fat1Tx.Outputs.AllNFTokens()
+			if err != nil {
+				errLog.Fatal(err)
+			}
+			fat1Tx.Inputs[fat.Coinbase()] = tkns
 		}
 	}
 
@@ -296,12 +300,10 @@ func validateTransactFlags(cmd *cobra.Command, args []string) error {
 					"get-nf-balance", params, &balance); err != nil {
 					errLog.Fatal(err)
 				}
-				if err := balance.ContainsAll(fat1Tx.Inputs[adr]); err != nil {
-					tknID := fat1.NFTokenID(
-						err.(fat1.ErrorMissingNFTokenID))
-					errLog.Fatalf(
-						"--input %v:%v does not own NFTokenID %v",
-						adr, addressValueStrMap[adr], tknID)
+				if err := balance.ContainsAll(
+					fat1Tx.Inputs[adr]); err != nil {
+					errLog.Fatalf("--input %v:%v balance: %v",
+						adr, addressValueStrMap[adr], err)
 				}
 			}
 		}
@@ -316,7 +318,7 @@ func validateTransactFlags(cmd *cobra.Command, args []string) error {
 			case fat0.Type:
 				issuing = fat0Tx.Inputs.Sum()
 			case fat1.Type:
-				issuing = uint64(len(fat1Tx.Inputs.AllNFTokens()))
+				issuing = fat1Tx.Inputs.Sum()
 			}
 			issued := stats.CirculatingSupply + stats.Burned
 			if stats.Issuance.Supply != -1 &&
@@ -326,7 +328,11 @@ func validateTransactFlags(cmd *cobra.Command, args []string) error {
 			}
 			if cmdType == fat1.Type {
 				params := api.ParamsGetNFToken{ParamsToken: params}
-				for tknID := range fat1Tx.Inputs.AllNFTokens() {
+				tkns, err := fat1Tx.Inputs.AllNFTokens()
+				if err != nil {
+					errLog.Fatal(err)
+				}
+				for tknID := range tkns {
 					params.NFTokenID = &tknID
 					err := FATClient.Request(context.Background(),
 						"get-nf-token", params, nil)

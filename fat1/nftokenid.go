@@ -31,9 +31,8 @@ import (
 // NFTokenID is a Non-Fungible Token ID.
 type NFTokenID uint64
 
-// Set id in nfTkns and return an error if it is already set.
-func (id NFTokenID) Set(tkns NFTokens) error {
-	if len(tkns)+id.Len() > maxCapacity {
+func (id NFTokenID) setInto(tkns NFTokens) error {
+	if len(tkns)+1 > maxCapacity {
 		return fmt.Errorf("%T(len:%v): %T(%v): %v",
 			tkns, len(tkns), id, id, ErrorCapacity)
 	}
@@ -42,11 +41,6 @@ func (id NFTokenID) Set(tkns NFTokens) error {
 	}
 	tkns[id] = struct{}{}
 	return nil
-}
-
-// Len returns 1.
-func (id NFTokenID) Len() int {
-	return 1
 }
 
 func (id NFTokenID) jsonLen() int {

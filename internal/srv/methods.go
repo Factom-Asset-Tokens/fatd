@@ -155,7 +155,7 @@ func getTransactions(getEntry bool) jsonrpc2.MethodFunc {
 		// Lookup Txs
 		var nfTkns fat1.NFTokens
 		if params.NFTokenID != nil {
-			nfTkns, _ = fat1.NewNFTokens(params.NFTokenID)
+			nfTkns = fat1.NFTokens{*params.NFTokenID: struct{}{}}
 		}
 		entries, err := entries.SelectByAddress(chain.Conn, params.StartHash,
 			params.Addresses, nfTkns,

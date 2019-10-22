@@ -38,11 +38,11 @@ const Type = fat.TypeFAT1
 // transaction or a coinbase transaction depending on the Inputs and the
 // RCD/signature pair.
 type Transaction struct {
-	Inputs        AddressNFTokensMap   `json:"inputs"`
-	Outputs       AddressNFTokensMap   `json:"outputs"`
-	TokenMetadata NFTokenIDMetadataMap `json:"tokenmetadata,omitempty"`
+	Inputs  AddressNFTokensMap `json:"inputs"`
+	Outputs AddressNFTokensMap `json:"outputs"`
 
-	Metadata json.RawMessage `json:"metadata,omitempty"`
+	TokenMetadata NFTokenIDMetadataMap `json:"tokenmetadata,omitempty"`
+	Metadata      json.RawMessage      `json:"metadata,omitempty"`
 
 	Entry factom.Entry `json:"-"`
 }
@@ -53,10 +53,7 @@ func NewTransaction(e factom.Entry, idKey *factom.Bytes32) (Transaction, error) 
 		return t, err
 	}
 
-	if err := t.Inputs.NoAddressIntersection(t.Outputs); err != nil {
-		return t, fmt.Errorf("Inputs and Outputs intersect: %w", err)
-	}
-	if err := t.Inputs.NFTokenIDsConserved(t.Outputs); err != nil {
+	if err := t.Inputs.nfTokenIDsConserved(t.Outputs); err != nil {
 		return t, fmt.Errorf("Inputs and Outputs mismatch: %w", err)
 	}
 
@@ -66,7 +63,7 @@ func NewTransaction(e factom.Entry, idKey *factom.Bytes32) (Transaction, error) 
 		if len(t.Inputs) != 1 {
 			return t, fmt.Errorf("invalid coinbase transaction")
 		}
-		if err := t.TokenMetadata.IsSubsetOf(
+		if err := t.TokenMetadata.isSubsetOf(
 			t.Inputs[fat.Coinbase()]); err != nil {
 			return t, fmt.Errorf("%T.TokenMetadata: %w", t, err)
 		}

@@ -25,17 +25,18 @@ package fat1
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
+	"strings"
 
 	"github.com/Factom-Asset-Tokens/fatd/internal/jsonlen"
 )
 
-// NFTokenIDRange represents a contiguous range of NFTokenIDs.
-type NFTokenIDRange struct {
+type nfTokenIDRange struct {
 	Min NFTokenID `json:"min"`
 	Max NFTokenID `json:"max"`
 }
 
-func NewNFTokenIDRange(minMax ...NFTokenID) NFTokenIDRange {
+func newNFTokenIDRange(minMax ...NFTokenID) nfTokenIDRange {
 	var min, max NFTokenID
 	if len(minMax) >= 2 {
 		min, max = minMax[0], minMax[1]
@@ -45,43 +46,53 @@ func NewNFTokenIDRange(minMax ...NFTokenID) NFTokenIDRange {
 	} else if len(minMax) == 1 {
 		min, max = minMax[0], minMax[0]
 	}
-	return NFTokenIDRange{Min: min, Max: max}
+	return nfTokenIDRange{Min: min, Max: max}
 }
 
-func (idRange NFTokenIDRange) IsJSONEfficient() bool {
+func (idRange nfTokenIDRange) IsJSONEfficient() bool {
 	var expandedLen int
 	for id := idRange.Min; id <= idRange.Max; id++ {
 		expandedLen += id.jsonLen() + len(`,`)
 	}
 	return idRange.jsonLen() <= expandedLen
 }
+func (idRange nfTokenIDRange) jsonLen() int {
+	return len(`{"min":`) +
+		idRange.Min.jsonLen() +
+		len(`,"max":`) +
+		idRange.Max.jsonLen() +
+		len(`}`)
+}
 
-func (idRange NFTokenIDRange) IsStringEfficient() bool {
+func (idRange nfTokenIDRange) IsStringEfficient() bool {
 	var expandedLen int
 	for id := idRange.Min; id <= idRange.Max; id++ {
 		expandedLen += id.jsonLen() + len(`,`)
 	}
 	return idRange.strLen() <= expandedLen
 }
+func (idRange nfTokenIDRange) strLen() int {
+	return idRange.Min.jsonLen() + len(`-`) + idRange.Max.jsonLen()
+}
 
-func (idRange NFTokenIDRange) Len() int {
+func (idRange nfTokenIDRange) Len() int {
 	return int(idRange.Max - idRange.Min + 1)
 }
 
-func (idRange NFTokenIDRange) Set(tkns NFTokens) error {
+func (idRange nfTokenIDRange) setInto(tkns NFTokens) error {
 	if len(tkns)+idRange.Len() > maxCapacity {
 		return fmt.Errorf("%T(len:%v): %T(%v): %v",
 			tkns, len(tkns), idRange, idRange, ErrorCapacity)
 	}
 	for id := idRange.Min; id <= idRange.Max; id++ {
-		if err := id.Set(tkns); err != nil {
+		if err := id.setInto(tkns); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (idRange NFTokenIDRange) Valid() error {
+func (idRange nfTokenIDRange) Valid() error {
 	if idRange.Len() > maxCapacity {
 		return ErrorCapacity
 	}
@@ -91,9 +102,7 @@ func (idRange NFTokenIDRange) Valid() error {
 	return nil
 }
 
-type nfTokenIDRange NFTokenIDRange
-
-func (idRange NFTokenIDRange) String() string {
+func (idRange nfTokenIDRange) String() string {
 	if !idRange.IsStringEfficient() {
 		ids := idRange.Slice()
 		return fmt.Sprintf("%v", ids)
@@ -101,7 +110,7 @@ func (idRange NFTokenIDRange) String() string {
 	return fmt.Sprintf("%v-%v", idRange.Min, idRange.Max)
 }
 
-func (idRange NFTokenIDRange) MarshalJSON() ([]byte, error) {
+func (idRange nfTokenIDRange) MarshalJSON() ([]byte, error) {
 	if err := idRange.Valid(); err != nil {
 		return nil, err
 	}
@@ -109,11 +118,22 @@ func (idRange NFTokenIDRange) MarshalJSON() ([]byte, error) {
 		ids := idRange.Slice()
 		return json.Marshal(ids)
 	}
-	return json.Marshal(nfTokenIDRange(idRange))
+	type n nfTokenIDRange
+	return json.Marshal(n(idRange))
+}
+func (idRange nfTokenIDRange) MarshalText() ([]byte, error) {
+	if err := idRange.Valid(); err != nil {
+		return nil, err
+	}
+	if !idRange.IsStringEfficient() {
+		ids := idRange.Slice()
+		return json.Marshal(ids)
+	}
+	return []byte(fmt.Sprintf("%v-%v", idRange.Min, idRange.Max)), nil
 }
 
 // Slice returns a sorted slice of tkns' NFTokenIDs.
-func (idRange NFTokenIDRange) Slice() []NFTokenID {
+func (idRange nfTokenIDRange) Slice() []NFTokenID {
 	ids := make([]NFTokenID, idRange.Len())
 	for i := range ids {
 		ids[i] = NFTokenID(i) + idRange.Min
@@ -121,8 +141,9 @@ func (idRange NFTokenIDRange) Slice() []NFTokenID {
 	return ids
 }
 
-func (idRange *NFTokenIDRange) UnmarshalJSON(data []byte) error {
-	if err := json.Unmarshal(data, (*nfTokenIDRange)(idRange)); err != nil {
+func (idRange *nfTokenIDRange) UnmarshalJSON(data []byte) error {
+	type n nfTokenIDRange
+	if err := json.Unmarshal(data, (*n)(idRange)); err != nil {
 		return fmt.Errorf("%T: %w", idRange, err)
 	}
 	if err := idRange.Valid(); err != nil {
@@ -133,14 +154,20 @@ func (idRange *NFTokenIDRange) UnmarshalJSON(data []byte) error {
 	}
 	return nil
 }
-func (idRange NFTokenIDRange) jsonLen() int {
-	return len(`{"min":`) +
-		idRange.Min.jsonLen() +
-		len(`,"max":`) +
-		idRange.Max.jsonLen() +
-		len(`}`)
-}
 
-func (idRange NFTokenIDRange) strLen() int {
-	return idRange.Min.jsonLen() + len(`-`) + idRange.Max.jsonLen()
+func (idRange *nfTokenIDRange) UnmarshalText(text []byte) error {
+	texts := strings.SplitN(string(text), "-", 2)
+	if len(texts) != 2 {
+		return fmt.Errorf("invalid range format")
+	}
+	min, err := strconv.ParseUint(texts[0], 10, 64)
+	if err != nil {
+		return fmt.Errorf("could not parse min: %w", err)
+	}
+	max, err := strconv.ParseUint(texts[1], 10, 64)
+	if err != nil {
+		return fmt.Errorf("could not parse max: %w", err)
+	}
+	idRange.Min, idRange.Max = NFTokenID(min), NFTokenID(max)
+	return nil
 }
