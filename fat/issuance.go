@@ -63,14 +63,13 @@ func NewIssuance(e factom.Entry, idKey *factom.Bytes32) (Issuance, error) {
 
 	switch i.Type {
 	case TypeFAT0:
-		if i.Precision > MaxPrecision {
-			return i, fmt.Errorf(
-				`invalid "precision": must be less than 18`)
+		if i.Precision != 0 && i.Precision > MaxPrecision {
+			return i, fmt.Errorf(`invalid "precision": out of range [0-18]`)
 		}
 	case TypeFAT1:
 		if i.Precision != 0 {
 			return i, fmt.Errorf(
-				`invalid "precision": not allowed for %v`, i.Type)
+				`invalid "precision": not allowed for FAT-1`)
 		}
 	default:
 		return i, fmt.Errorf(`invalid "type": %v`, i.Type)

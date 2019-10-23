@@ -53,11 +53,7 @@ func (t *Type) UnmarshalText(text []byte) error {
 }
 
 func (t Type) MarshalText() ([]byte, error) {
-	if !t.IsValid() {
-		return nil, fmt.Errorf("invalid fat.Type: %v", int(t))
-	}
-
-	return []byte(fmt.Sprintf("%v%v", format, int(t))), nil
+	return []byte(fmt.Sprintf("%v%v", format, uint(t))), nil
 }
 
 func (t Type) String() string {
