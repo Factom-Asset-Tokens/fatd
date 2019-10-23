@@ -82,7 +82,7 @@ func Validate(e factom.Entry, expected map[factom.Bytes32]struct{}) error {
 		rcdHash := sha256d(rcd)
 		if _, ok := expected[rcdHash]; !ok {
 			return fmt.Errorf(
-				"ExtIDs[%v]: unexpected or duplicate RCD Hash", i)
+				"ExtIDs[%v]: unexpected or duplicate RCD Hash", i+1)
 		}
 		delete(expected, rcdHash)
 
