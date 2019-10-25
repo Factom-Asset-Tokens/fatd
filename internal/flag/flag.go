@@ -350,9 +350,11 @@ func Validate() {
 
 	log.Debugf("-dbpath            %#v", DBPath)
 	log.Debugf("-apiaddress        %#v", APIAddress)
+	debugPrintln()
+
 	log.Debugf("-startscanheight   %v ", StartScanHeight)
 	log.Debugf("-factomscanretries %v ", FactomScanRetries)
-	log.Debugf("-startscaninterval %v ", FactomScanInterval)
+	log.Debugf("-factomscaninterval %v ", FactomScanInterval)
 	debugPrintln()
 
 	log.Debugf("-networkid      %v", NetworkID)
