@@ -142,8 +142,8 @@ func Process(ctx context.Context, dbKeyMR *factom.Bytes32, eb factom.EBlock) err
 func ProcessPending(ctx context.Context, es ...factom.Entry) error {
 	chain := Chains.get(es[0].ChainID)
 
-	// We can only apply pending entries to tracked chains.
-	if !chain.IsTracked() {
+	// We can only apply pending entries to Issued chains.
+	if !chain.IsIssued() {
 		return nil
 	}
 
