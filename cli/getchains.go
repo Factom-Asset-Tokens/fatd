@@ -25,6 +25,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/Factom-Asset-Tokens/factom"
 	"github.com/Factom-Asset-Tokens/fatd/api"
@@ -128,27 +129,28 @@ Token ID: %q
 }
 
 func printStats(chainID *factom.Bytes32, stats api.ResultGetStats) {
-	fmt.Printf(`Chain ID: %v
-Issuer Identity Chain ID: %v
-Issuance Entry Hash: %v
-Token ID: %v
-Type: %v
-Symbol: %q
-Precision: %q
-Supply:            %v
-Ciculating Supply: %v
-Burned:            %v
-Number of Transactions: %v
+	fmt.Printf(`
+Chain ID:        %v
+Issuer Identity: %v
+Issuance Entry:  %v
+Token ID:  %v
+Type:      %v
+Symbol:    %q
+Precision: %v
+Supply:    %v
+Circulating Supply:      %v
+Burned:                  %v
+Number of Transactions:  %v
 Issuance Timestamp: %v
 `,
 		chainID, stats.IssuerChainID, stats.IssuanceHash, stats.TokenID,
-		stats.Issuance.Type, stats.Issuance.Symbol,
+		stats.Issuance.Type, stats.Issuance.Symbol, stats.Issuance.Precision,
 		stats.Issuance.Supply, stats.CirculatingSupply, stats.Burned,
 		stats.Transactions,
-		stats.IssuanceTimestamp)
+		time.Unix(stats.IssuanceTimestamp, 0))
 	if stats.LastTransactionTimestamp > 0 {
-		fmt.Printf("Last Tx Timestamp: %v\n",
-			stats.LastTransactionTimestamp)
+		fmt.Printf("Last Tx Timestamp:  %v\n",
+			time.Unix(stats.LastTransactionTimestamp, 0))
 	}
 	fmt.Println()
 
