@@ -231,6 +231,7 @@ func engine(ctx context.Context, done chan struct{}) {
 						log.Errorf("ChainID(%v): %v",
 							eb.ChainID, err)
 					}
+					eblocksWG.Done()
 					return
 				}
 				eblocksWG.Done()
