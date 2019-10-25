@@ -160,7 +160,7 @@ var (
 		Code: -32009, Message: "Missing Chain Head"}
 	newChainInProcessListErr = jsonrpc2.Error{Message: "new chain in process list"}
 
-	first       factom.Entry
+	first       = factom.Entry{Content: factom.Bytes{}}
 	chainExists bool
 
 	Issuance fat.Issuance
@@ -212,14 +212,18 @@ func validateIssueFlags(cmd *cobra.Command, args []string) error {
 	if !force {
 		vrbLog.Println("Checking chain existence...")
 		eb := factom.EBlock{ChainID: paramsToken.ChainID}
-		if err := eb.GetChainHead(context.Background(), FactomClient); err != nil {
-			rpcErr, _ := err.(jsonrpc2.Error)
-			if rpcErr != missingChainHeadErr &&
-				rpcErr != newChainInProcessListErr {
-				// If err was anything other than the missingChainHeadErr...
+		inProcessList, err := eb.GetChainHead(context.Background(), FactomClient)
+		if err != nil {
+			if err, ok := err.(jsonrpc2.Error); ok {
+				if err != (jsonrpc2.Error{
+					Code: -32009, Message: "Missing Chain Head"}) {
+					errLog.Fatal(err)
+				}
+			} else {
 				errLog.Fatal(err)
 			}
-		} else {
+		}
+		if inProcessList || eb.KeyMR != nil {
 			chainCost = 0
 			chainExists = true
 			vrbLog.Printf("Chain already exists.")
@@ -353,6 +357,7 @@ func issueToken(_ *cobra.Command, _ []string) {
 	fmt.Println("Token Initialization Entry Submitted")
 	fmt.Println("Entry Hash:  ", Issuance.Entry.Hash)
 	fmt.Println("Factom Tx ID:", txID)
+	fmt.Println()
 	return
 }
 

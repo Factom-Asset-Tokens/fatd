@@ -6,7 +6,7 @@ require (
 	crawshaw.io/sqlite v0.1.3-0.20190520153332-66f853b01dfb
 	github.com/AdamSLevy/jsonrpc2/v12 v12.0.2-0.20191015223217-9181d6ac9347
 	github.com/AdamSLevy/sqlitechangeset v0.0.0-20190925183646-3ddb70fb709d
-	github.com/Factom-Asset-Tokens/factom v0.0.0-20191021172540-f9e30125a179
+	github.com/Factom-Asset-Tokens/factom v0.0.0-20191025014600-db7c22b6c31a
 	github.com/goji/httpauth v0.0.0-20160601135302-2da839ab0f4d
 	github.com/konsorten/go-windows-terminal-sequences v1.0.2 // indirect
 	github.com/mitchellh/go-homedir v1.1.0
