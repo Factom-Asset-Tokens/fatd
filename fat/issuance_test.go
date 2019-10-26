@@ -182,6 +182,24 @@ var issuanceTests = []issuanceTest{{
 		return e
 	}(),
 }, {
+	Name:  "invalid (symbol)",
+	Error: `invalid "symbol": exceeds 4 characters`,
+	Entry: func() factom.Entry {
+		e, err := Issuance{
+			Type:      TypeFAT0,
+			Supply:    100000,
+			Precision: 3,
+			Symbol:    "testasdfdfsa",
+			Metadata:  json.RawMessage(`"memo"`),
+
+			Entry: factom.Entry{ChainID: &chainID},
+		}.Sign(issuerSecret)
+		if err != nil {
+			panic(err)
+		}
+		return e
+	}(),
+}, {
 	Name:  "invalid (supply=0)",
 	Error: `invalid "supply": must be positive or -1`,
 	Entry: func() factom.Entry {

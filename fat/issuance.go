@@ -61,6 +61,10 @@ func NewIssuance(e factom.Entry, idKey *factom.Bytes32) (Issuance, error) {
 		return i, fmt.Errorf(`invalid "supply": must be positive or -1`)
 	}
 
+	if len(i.Symbol) > 4 {
+		return i, fmt.Errorf(`invalid "symbol": exceeds 4 characters`)
+	}
+
 	switch i.Type {
 	case TypeFAT0:
 		if i.Precision != 0 && i.Precision > MaxPrecision {
