@@ -366,8 +366,11 @@ func validateTransactFlags(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		errLog.Fatal(err)
 	}
-	fmt.Printf("%v Transaction Entry Created: %v\n", cmdType, entry.Hash)
-	fmt.Printf("Chain ID: %v\n", entry.ChainID)
+	fmt.Println()
+	fmt.Printf("%v Transaction Entry Created\n", cmdType)
+	fmt.Printf("Chain ID:     %v\n", entry.ChainID)
+	fmt.Printf("Entry Hash:   %v\n", entry.Hash)
 	fmt.Printf("Factom Tx ID: %v\n", txID)
+	fmt.Println()
 	return nil
 }
