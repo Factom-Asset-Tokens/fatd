@@ -245,6 +245,7 @@ func (chain *Chain) revertPending() error {
 		chain.Pending.Entries = nil
 		// Always clean up our session and snapshots.
 		chain.Pending.OfficialSnapshot = nil
+		chain.Chain = chain.Pending.OfficialChain
 		chain.Pending.OfficialChain = db.Chain{}
 
 		chain.Pending.Session.Delete()
