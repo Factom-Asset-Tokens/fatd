@@ -1,0 +1,15 @@
+[Unit]
+Description=Run the Factom Asset Tokens Daemon
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+User=fatd
+Group=fatd
+
+Environment=FATD_DB_PATH=/var/lib/fatd
+EnvironmentFile=-/etc/default/fatd
+ExecStart=/usr/bin/fatd $FATD_START_OPTS
+
+[Install]
+WantedBy=default.target
