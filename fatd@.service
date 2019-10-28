@@ -9,6 +9,7 @@ Group=fatd
 
 Environment=FATD_DB_PATH=/var/lib/fatd
 EnvironmentFile=-/etc/default/fatd
+EnvironmentFile=-/etc/default/fatd@%i
 ExecStart=/usr/bin/fatd $FATD_START_OPTS -networkid=%i
 
 [Install]
