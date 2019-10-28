@@ -94,7 +94,7 @@ func OpenNewByChainID(ctx context.Context,
 	c *factom.Client, chainID *factom.Bytes32) (chain Chain, err error) {
 
 	log := _log.New("chain", chainID)
-	log.Infof("Syncing new...")
+	log.Infof("Syncing new chain...")
 
 	eblocks, err := factom.EBlock{ChainID: chainID}.GetPrevAll(ctx, c)
 	if err != nil {
@@ -144,7 +144,7 @@ func OpenNewByChainID(ctx context.Context,
 }
 
 func (chain *Chain) Sync(ctx context.Context, c *factom.Client) error {
-	chain.Log.Infof("Syncing...")
+	chain.Log.Infof("Syncing chain...")
 	eblocks, err := factom.EBlock{ChainID: chain.ID}.
 		GetPrevUpTo(ctx, c, *chain.Head.KeyMR)
 	if err != nil {
@@ -170,7 +170,7 @@ func (chain *Chain) SyncEBlocks(
 			return err
 		}
 	}
-	chain.Log.Infof("Synced.")
+	chain.Log.Infof("Chain synced.")
 	return nil
 }
 
