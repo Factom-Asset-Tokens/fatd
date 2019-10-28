@@ -23,13 +23,14 @@
 package main
 
 import (
+	"context"
 	"os"
 	"os/signal"
 
-	"github.com/Factom-Asset-Tokens/fatd/engine"
-	"github.com/Factom-Asset-Tokens/fatd/flag"
-	"github.com/Factom-Asset-Tokens/fatd/log"
-	"github.com/Factom-Asset-Tokens/fatd/srv"
+	"github.com/Factom-Asset-Tokens/fatd/internal/engine"
+	"github.com/Factom-Asset-Tokens/fatd/internal/flag"
+	"github.com/Factom-Asset-Tokens/fatd/internal/log"
+	"github.com/Factom-Asset-Tokens/fatd/internal/srv"
 )
 
 func main() { os.Exit(_main()) }
@@ -43,46 +44,54 @@ func _main() (ret int) {
 	}
 	flag.Validate()
 
-	// Set up interrupts channel. We don't want to be interrupted during
-	// initialization. If the signal is sent we will handle it later.
+	// Listen for an Interrupt and cancel everything if it occurs.
+	ctx, cancel := context.WithCancel(context.Background())
 	sigint := make(chan os.Signal, 1)
 	signal.Notify(sigint, os.Interrupt)
+	go func() {
+		<-sigint
+		cancel()
+	}()
 
-	log := log.New("main")
+	log := log.New("pkg", "main")
 	log.Info("Fatd Version: ", flag.Revision)
 	defer log.Info("Factom Asset Token Daemon stopped.")
 
 	// Engine
-	stopEngine := make(chan struct{})
-	engineDone := engine.Start(stopEngine)
+	engineDone := engine.Start(ctx)
 	if engineDone == nil {
 		return 1
 	}
 	defer func() {
-		close(stopEngine) // Stop engine.
-		<-engineDone      // Wait for engine to stop.
+		<-engineDone // Wait for engine to stop.
 		log.Info("State engine stopped.")
 	}()
 	log.Info("State engine started.")
 
 	// Server
-	stopSrv := make(chan struct{})
-	srvDone := srv.Start(stopSrv)
+	srvDone := srv.Start(ctx)
 	if srvDone == nil {
 		return 1
 	}
 	defer func() {
-		close(stopSrv) // Stop server.
-		<-srvDone      // Wait for server to stop.
+		<-srvDone // Wait for server to stop.
 		log.Info("JSON RPC API server stopped.")
 	}()
 	log.Info("JSON RPC API server started.")
 
 	log.Info("Factom Asset Token Daemon started.")
 
-	defer signal.Reset() // Stop handling signals once we return.
+	defer func() {
+		// Stop handling all signals so a force quit can occur with a
+		// second sigint.
+		signal.Reset()
+
+		// Cause our sigint listener goroutine to call cancel().
+		close(sigint)
+	}()
+
 	select {
-	case <-sigint:
+	case <-ctx.Done():
 		log.Infof("SIGINT: Shutting down...")
 		return 0
 	case <-engineDone: // Closed if engine exits prematurely.

@@ -22,11 +22,9 @@
 
 package main
 
-import "github.com/Factom-Asset-Tokens/fatd/cli/cmd"
-
 func main() {
-	if cmd.Complete() {
+	if Complete() {
 		return
 	}
-	cmd.Execute()
+	Execute()
 }

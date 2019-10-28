@@ -35,51 +35,45 @@ export GOFLAGS
 GOFLAGS = -gcflags=all=-trimpath=${PWD} -asmflags=all=-trimpath=${PWD}
 
 GO_LDFLAGS   = -extldflags=$(LDFLAGS) -X github.com/Factom-Asset-Tokens/fatd
-FATD_LDFLAGS = "$(GO_LDFLAGS)/flag.Revision=$(REVISION)"
-CLI_LDFLAGS  = "$(GO_LDFLAGS)/cli/cmd.Revision=$(REVISION)"
+FATD_LDFLAGS = "$(GO_LDFLAGS)/internal/flag.Revision=$(REVISION)"
+CLI_LDFLAGS  = "$(GO_LDFLAGS)/cli.Revision=$(REVISION)"
 
 DEPSRC = go.mod go.sum
 SRC = $(DEPSRC) $(filter-out %_test.go,$(wildcard *.go */*.go */*/*.go))
 
-GENSRC=factom/idkey_gen.go factom/idkey_gen_test.go
-
 FATDSRC=$(filter-out cli/%,$(SRC)) $(GENSRC)
 fatd: $(FATDSRC)
-	go build -ldflags=$(FATD_LDFLAGS) ./
+	go build -trimpath -ldflags=$(FATD_LDFLAGS) ./
 
 CLISRC=$(filter-out main.go engine/% state/% flag/%,$(SRC)) $(GENSRC)
 fat-cli: $(CLISRC)
-	go build -ldflags=$(CLI_LDFLAGS) -o fat-cli ./cli
+	go build -trimpath -ldflags=$(CLI_LDFLAGS) -o fat-cli ./cli
 
 
 fatd.race: $(FATDSRC)
-	go build -race -ldflags=$(FATD_LDFLAGS) -o fatd.race ./
+	go build -trimpath -race -ldflags=$(FATD_LDFLAGS) -o fatd.race ./
 
 fat-cli.race: $(CLISRC)
-	go build -race -ldflags=$(CLI_LDFLAGS) -o fat-cli.race ./cli
+	go build -trimpath -race -ldflags=$(CLI_LDFLAGS) -o fat-cli.race ./cli
 
 
 fatd.mac: $(FATDSRC)
-	env GOOS=darwin GOARCH=amd64 go build -ldflags=$(FATD_LDFLAGS) -o fatd.mac ./
+	env GOOS=darwin GOARCH=amd64 go build -trimpath -ldflags=$(FATD_LDFLAGS) -o fatd.mac ./
 
 fatd.exe: $(FATDSRC)
-	env GOOS=windows GOARCH=amd64 go build -ldflags=$(FATD_LDFLAGS) -o fatd.exe ./
+	env GOOS=windows GOARCH=amd64 go build -trimpath -ldflags=$(FATD_LDFLAGS) -o fatd.exe ./
 
 fatd-linux: $(FATDSRC)
-	env GOOS=linux GOARCH=amd64 go build -ldflags=$(FATD_LDFLAGS) ./
+	env GOOS=linux GOARCH=amd64 go build -trimpath -ldflags=$(FATD_LDFLAGS) ./
 
 fat-cli.mac: $(CLISRC)
-	env GOOS=darwin GOARCH=amd64 go build -ldflags=$(CLI_LDFLAGS) -o fat-cli.mac ./
+	env GOOS=darwin GOARCH=amd64 go build -trimpath -ldflags=$(CLI_LDFLAGS) -o fat-cli.mac ./
 
 fat-cli.exe: $(CLISRC)
-	env GOOS=windows GOARCH=amd64 go build -ldflags=$(CLI_LDFLAGS) -o fat-cli.exe ./
+	env GOOS=windows GOARCH=amd64 go build -trimpath -ldflags=$(CLI_LDFLAGS) -o fat-cli.exe ./
 
 fat-cli-linux: $(CLISRC)
-	env GOOS=linux GOARCH=amd64 go build -ldflags=$(CLI_LDFLAGS) -o fat-cli ./cli
-
-$(GENSRC): factom/gen.go  factom/genmain.go $(wildcard factom/*.tmpl)
-	go generate ./factom
-
+	env GOOS=linux GOARCH=amd64 go build -trimpath -ldflags=$(CLI_LDFLAGS) -o fat-cli ./cli
 
 .PHONY: clean clean-gen purge-db unpurge-db
 

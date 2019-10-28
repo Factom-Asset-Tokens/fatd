@@ -25,12 +25,12 @@ package fat
 import (
 	"unicode/utf8"
 
-	"github.com/Factom-Asset-Tokens/fatd/factom"
+	"github.com/Factom-Asset-Tokens/factom"
 )
 
-// ValidTokenNameIDs returns true if the nameIDs match the pattern for a valid
-// token chain.
-func ValidTokenNameIDs(nameIDs []factom.Bytes) bool {
+// ValidNameIDs returns true if the nameIDs match the pattern for a valid token
+// chain.
+func ValidNameIDs(nameIDs []factom.Bytes) bool {
 	if len(nameIDs) == 4 && len(nameIDs[1]) > 0 &&
 		string(nameIDs[0]) == "token" && string(nameIDs[2]) == "issuer" &&
 		factom.ValidIdentityChainID(nameIDs[3]) &&
@@ -41,14 +41,25 @@ func ValidTokenNameIDs(nameIDs []factom.Bytes) bool {
 }
 
 // NameIDs returns valid NameIDs
-func NameIDs(tokenID string, issuerChainID factom.Bytes32) []factom.Bytes {
+func NameIDs(tokenID string, issuerChainID *factom.Bytes32) []factom.Bytes {
 	return []factom.Bytes{
 		[]byte("token"), []byte(tokenID),
 		[]byte("issuer"), issuerChainID[:],
 	}
 }
 
-// ChainID returns the chain ID for a given token ID and issuer Chain ID.
-func ChainID(tokenID string, issuerChainID factom.Bytes32) factom.Bytes32 {
-	return factom.ChainID(NameIDs(tokenID, issuerChainID))
+// ComputeChainID returns the ChainID for a given tokenID and issuerChainID.
+func ComputeChainID(tokenID string, issuerChainID *factom.Bytes32) factom.Bytes32 {
+	return factom.ComputeChainID(NameIDs(tokenID, issuerChainID))
+}
+
+// ParseTokenIssuer returns the tokenID and identityChainID for a given set of
+// nameIDs.
+//
+// The caller must ensure that ValidNameIDs(nameIDs) returns true or else
+// TokenIssuer will return garbage data or may panic.
+func ParseTokenIssuer(nameIDs []factom.Bytes) (string, factom.Bytes32) {
+	var identityChainID factom.Bytes32
+	copy(identityChainID[:], nameIDs[3])
+	return string(nameIDs[1]), identityChainID
 }

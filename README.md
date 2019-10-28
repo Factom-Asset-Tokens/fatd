@@ -1,28 +1,26 @@
 ![](https://png.icons8.com/ios-glyphs/200/5ECCDD/octahedron.png)![](https://png.icons8.com/color/64/3498db/golang.png)
 
+This repo contains the Golang reference implementation of the Factom Asset
+Tokens protocol. This repo provides two executables for interacting with FAT
+chains, as well as several Golang packages for use by external programs.
+
 # fatd - Factom Asset Token Daemon - Alpha
 
-A daemon written in Golang that maintains the current state of Factom Asset
-Tokens (FAT) token chains. The daemon provides a JSON-RPC 2.0 API for accessing
-data about token chains.
+A daemon written in Golang that discovers new Factom Asset Tokens chains and
+maintains their current state. The daemon provides a JSON-RPC 2.0 API for
+accessing data about token chains.
 
 ### fat-cli
 A CLI for creating new FAT chains, as well as exploring and making transactions
-on existing FAT chains. See the output from `fat-cli --help` and see
-[CLI.md](CLI.md) for more information.
+on existing FAT chains. See the output from `fat-cli --help` for more
+information.
 
 ## Development Status
 
-The FAT protocol and this implementation is still in Alpha. That means that we
-are still testing and making changes to the protocol and the implementation.
-The on-chain data protocol is relatively stable but this implementation and the
-database schema is not.
-
-So long as the major version is v0 everything is subject to potential change.
-
-At times new v0 releases may require you to rebuild your fatd.db database from
-scratch, but this will be minimized after the next major release due to an
-improved migration framework and database validation on startup.
+This implementation is now at a v1.0 release, which means that the public APIs,
+both Golang and the JSON-RPC endpoint are version locked. This also means that
+we believe the code to be stable and secure. That being said, the FAT system
+and really the entire blockchain industry is experimental.
 
 Please help us improve the code and the protocol by trying to break things and
 reporting bugs! Thank you!
@@ -32,6 +30,7 @@ reporting bugs! Thank you!
 
 Pre-compiled binaries for Linux, Windows, and Mac x86\_64 systems can be found
 on the [releases page.](https://github.com/Factom-Asset-Tokens/fatd/releases/)
+However, building from source is very easy on most platforms.
 
 ## Install with Docker 🐳
 
@@ -58,22 +57,15 @@ $ docker run -d --name=fatd --network=host -v "fatd_db:/fatd.db" fatd [fatd opti
 
 #### Build Dependencies
 This project uses SQLite3 which uses [CGo](https://blog.golang.org/c-go-cgo) to
-dynamically link to the SQLite3 C shared libraries to the `fatd` Golang binary.
-CGo requires that GCC be available on your system.
+compile and statically link the SQLite3 C libraries to the `fatd` Golang
+binary. CGo requires that GCC be available on your system.
 
 The following dependencies are required to build `fatd` and `fat-cli`.
-- [Golang](https://golang.org/) 1.11.4 or later. The latest official release of
+- [Golang](https://golang.org/) 1.13 or later. The latest official release of
   Golang is always recommended.
-- [goimports](https://godoc.org/golang.org/x/tools/cmd/goimports) is used by
-  the code generation used in the `./factom` package. The code generation step
-is not required as the latest generated code is already checked into the
-repository. Sometimes `make` will try to run this step which will result in an
-error if `goimprots` is not installed.
 - [GNU GCC](https://gcc.gnu.org/) is used by
   [CGo](https://blog.golang.org/c-go-cgo) to link to the SQLite3 shared
 libraries.
-- [SQLite3](https://sqlite.org/index.html) is the database `fatd` uses to save
-  state.
 - [Git](https://git-scm.com/) is used to clone the project and is used by `go
   build` to pull some dependencies.
 - [GNU Bash](https://www.gnu.org/software/bash/) is used by a small script
@@ -131,69 +123,43 @@ when `fatd` or `fat-cli` is updated.
 
 
 
-## Running
+## Getting started
+
+The Daemon needs a connection to `factomd`'s API. This defaults to
+`http://localhost:8088` and can be specified with `-s`.
+
 Start the daemon from the command line:
 ```
-$ ./fatd
-INFO Fatd Version: r155.c812dd1                    pkg=main
+INFO Fatd Version: v0.6.0.r110.g73bdb76            pkg=main
+INFO Loading chain databases from /home/aslevy/.fatd/mainnet/...  pkg=engine
 INFO State engine started.                         pkg=main
+INFO Listening on :8078...                         pkg=srv
 INFO JSON RPC API server started.                  pkg=main
 INFO Factom Asset Token Daemon started.            pkg=main
-INFO Syncing from block 183396 to 183520...        pkg=engine
-INFO Synced.                                       pkg=engine
+INFO Searching for new FAT chains from block 163181 to 215642...  pkg=engine
+INFO Tracking new FAT chain: b54c4310530dc4dd361101644fa55cb10aec561e7874a7b786ea3b66f2c6fdfb  pkg=engine
+INFO Syncing...                                    chain=b54c4310530dc4dd361101644fa55cb10aec561e7874a7b786ea3b66f2c6fdfb
+INFO Synced.                                       chain=b54c4310530dc4dd361101644fa55cb10aec561e7874a7b786ea3b66f2c6fdfb
 ```
 
-### Exiting
-To tell `fatd` to safely exit send a `SIGINT`. From most shells this can be
-done by simply pressing `CTRL`+`c`.
-```
-INFO Synced.                                       pkg=engine
-^CINFO SIGINT: Shutting down now.                    pkg=main
-INFO Factom Asset Token Daemon stopped.            pkg=main
-INFO JSON RPC API server stopped.                  pkg=main
-INFO State engine stopped.                         pkg=main
-$
-```
+At this point `fatd` has synced the first ever created FAT chain on mainnet,
+which is for testing purposes. It is continuing to scan for all valid FAT
+chains so it can track them.
 
+If you know the chain id of a FAT chain you are interested in, you can fast
+sync it by using the `-whitelist` flag.
 
+The daemon can be stopped and restarted and syncing will resume from the latest
+point. By default the database directory is `~/.fatd/`. It can be specified
+with `-dbdir`.
 
-## Startup Flags & Options
+Once the JSON RPC API is started, `fat-cli` can be used to query about synced
+chains, transactions and balances.
 
-Control how fatd runs using additional options at startup. For example:
+For a complete an up-to-date list of flags & options please see `fatd -h` and
+`fat-cli -h`.
 
-```bash
-./fatd -debug -dbpath /home/ubuntu/mycustomfolder
-```
-
-
-
-| Name              | Description                                                  | Validation               | Default                   |
-| ----------------- | ------------------------------------------------------------ | ------------------------ | ------------------------- |
-| `startscanheight` | The Factom block height to begin scanning for new FAT chains and transactions | Positive Integer         | 0                         |
-| `debug`           | Enable debug mode for extra information during runtime. No value needed. | -                        | -                         |
-| `dbpath`          | Specify the path to use as fatd's sqlite database.           | Valid system path        | Current working directory |
-| `ecpub`           | The public Entry Credit address used to pay for submitting transactions | Valid EC address         | -                         |
-| `apiaddress`      | What port string the FAT daemon RPC will be bound to         | String                   | `:8078`                   |
-|                   |                                                              |                          |                           |
-| `s`               | The URL of the Factom API host                               | Valid URL                | `localhost:8088`          |
-| `factomdtimeout`  | The timeout in seconds to time out requests to factomd       | integer                  | 0                         |
-| `factomduser`     | The username of the user for factomd API authentication      | string                   | -                         |
-| `factomdpassword` | The password of the user for factomd API authentication      | string                   | -                         |
-| `factomdcert`     | Path to the factomd connection TLS certificate file          | Valid system path string | -                         |
-| `factomdtls`      | Whether to use TLS on connection to factomd                  | boolean                  | false                     |
-|                   |                                                              |                          |                           |
-| `w`               | The URL of the Factom Wallet Daemon API host                 | Valid URL                | `localhost:8089`          |
-| `wallettimeout`   | The timeout in seconds to time out requests to factomd       | integer                  | 0                         |
-| `walletuser`      | The username of the user for walletd API authentication      | string                   | -                         |
-| `walletpassword`  | The username of the user for walletd API authentication      | string                   | -                         |
-| `walletcert`      | Path to the walletd connection TLS certificate file          | Valid system path string | -                         |
-| `wallettls`       | Whether to use TLS on connection to walletd                  | boolean                  | false                     |
-
-For a complete up to date list of flags & options please see `flag/flag.go`
-
-
-
-## [FAT CLI Documentation](CLI.md)
+### Create a chain, make transactions
 
 Interact with the FAT daemon RPC from the command line
 
@@ -207,15 +173,7 @@ Default `http://localhost:8078/v1`
 
 
 
-
 ## Contributing
 
-All PRs should be rebased on the latest `develop` branch commit.
-
-## Issues
-
-Please attempt to reproduce the issue using the `-debug` flag. For `fatd`,
-please provide the initial output which prints all current settings.
-Intermediate `DEBUG Scanning block 187682 for FAT entries.` lines may be
-omitted, but please provide the first and last of these lines.
+See [CONTRIBUTING.md](./CONTRIBUTING.md)
 

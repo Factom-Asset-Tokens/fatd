@@ -27,7 +27,7 @@ import (
 	"strconv"
 )
 
-type Type uint64
+type Type uint
 
 const (
 	TypeFAT0 Type = iota
@@ -35,32 +35,33 @@ const (
 )
 
 func (t *Type) Set(s string) error {
-	format := s[0:len(`FAT-`)]
-	if format != `FAT-` {
+	return t.UnmarshalText([]byte(s))
+}
+
+const format = `FAT-`
+
+func (t *Type) UnmarshalText(text []byte) error {
+	if string(text[0:len(format)]) != format {
 		return fmt.Errorf("%T: invalid format", t)
 	}
-	num := s[len(format):]
-	var err error
-	if *(*uint64)(t), err = strconv.ParseUint(num, 10, 64); err != nil {
-		return fmt.Errorf("%T: %v", t, err)
+	i, err := strconv.ParseUint(string(text[len(format):]), 10, 64)
+	if err != nil {
+		return fmt.Errorf("%T: %w", t, err)
 	}
+	*t = Type(i)
 	return nil
 }
 
-func (t *Type) UnmarshalJSON(data []byte) error {
-	if data[0] != '"' || data[len(data)-1] != '"' {
-		return fmt.Errorf("%T: expected JSON string", t)
-	}
-	data = data[1 : len(data)-1]
-	return t.Set(string(data))
-}
-
-func (t Type) MarshalJSON() ([]byte, error) {
-	return []byte(fmt.Sprintf("%#v", t.String())), nil
+func (t Type) MarshalText() ([]byte, error) {
+	return []byte(fmt.Sprintf("%v%v", format, uint(t))), nil
 }
 
 func (t Type) String() string {
-	return fmt.Sprintf("FAT-%v", uint64(t))
+	text, err := t.MarshalText()
+	if err != nil {
+		return err.Error()
+	}
+	return string(text)
 }
 
 func (t Type) IsValid() bool {
