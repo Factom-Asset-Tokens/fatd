@@ -29,10 +29,7 @@ distribution: fatd-distribution fat-cli-distribution
 fatd-distribution: fatd.mac fatd.exe fatd-linux
 fat-cli-distribution: fat-cli.mac fat-cli.exe fat-cli-linux
 
-REVISION     = $(shell ./revision)
-
-export GOFLAGS
-GOFLAGS = -gcflags=all=-trimpath=${PWD} -asmflags=all=-trimpath=${PWD}
+REVISION     = $(shell sh -c "./revision")
 
 GO_LDFLAGS   = -extldflags=$(LDFLAGS) -X github.com/Factom-Asset-Tokens/fatd
 FATD_LDFLAGS = "$(GO_LDFLAGS)/internal/flag.Revision=$(REVISION)"
