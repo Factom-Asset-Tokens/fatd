@@ -1,6 +1,7 @@
 package fat103
 
 import (
+	"crypto/sha256"
 	"math/rand"
 	"strconv"
 	"testing"
@@ -30,7 +31,7 @@ func testValidate(t *testing.T, test validateTest) {
 type validateTest struct {
 	Name string
 	factom.Entry
-	Expected []factom.RCDPrivateKey
+	Expected []factom.RCDSigner
 	Error    string
 }
 
@@ -108,7 +109,7 @@ var validateTests = []validateTest{
 		e.ExtIDs[1][0]++
 		return validateTest{
 			Name:     "invalid RCD type",
-			Error:    "ExtIDs[1]: invalid RCD type",
+			Error:    "ExtIDs[1]: unsupported RCD",
 			Entry:    e,
 			Expected: adrs,
 		}
@@ -126,7 +127,7 @@ var validateTests = []validateTest{
 		e.ExtIDs[2][0]++
 		return validateTest{
 			Name:     "invalid signatures",
-			Error:    "ExtIDs[2]: invalid signature",
+			Error:    "ExtIDs[1]: invalid signature",
 			Entry:    e,
 			Expected: adrs,
 		}
@@ -139,7 +140,7 @@ var validateTests = []validateTest{
 		e.ExtIDs[4] = rcdSig[1]
 		return validateTest{
 			Name:     "invalid signatures (transpose)",
-			Error:    "ExtIDs[2]: invalid signature",
+			Error:    "ExtIDs[1]: invalid signature",
 			Entry:    e,
 			Expected: adrs,
 		}
@@ -151,7 +152,7 @@ var validateTests = []validateTest{
 		e.ExtIDs[0] = timeSalt
 		return validateTest{
 			Name:     "invalid signatures (timestamp)",
-			Error:    "ExtIDs[2]: invalid signature",
+			Error:    "ExtIDs[1]: invalid signature",
 			Entry:    e,
 			Expected: adrs,
 		}
@@ -162,7 +163,7 @@ var validateTests = []validateTest{
 		e.ChainID[2] = 0x02
 		return validateTest{
 			Name:     "invalid signatures (chain ID)",
-			Error:    "ExtIDs[2]: invalid signature",
+			Error:    "ExtIDs[1]: invalid signature",
 			Entry:    e,
 			Expected: adrs,
 		}
@@ -170,7 +171,7 @@ var validateTests = []validateTest{
 		e, _ := validEntry(2)
 		return validateTest{
 			Name:     "unexpected RCD",
-			Error:    "ExtIDs[0]: unexpected or duplicate RCD Hash",
+			Error:    "ExtIDs[1]: unexpected or duplicate RCD Hash",
 			Entry:    e,
 			Expected: genAddresses(2),
 		}
@@ -179,14 +180,14 @@ var validateTests = []validateTest{
 		e.ExtIDs = append(e.ExtIDs[:5], e.ExtIDs[1:3]...)
 		return validateTest{
 			Name:     "unexpected RCD (duplicate)",
-			Error:    "ExtIDs[4]: unexpected or duplicate RCD Hash",
+			Error:    "ExtIDs[5]: invalid signature",
 			Entry:    e,
 			Expected: adrs,
 		}
 	}(),
 }
 
-func validEntry(n int) (factom.Entry, []factom.RCDPrivateKey) {
+func validEntry(n int) (factom.Entry, []factom.RCDSigner) {
 	var e factom.Entry
 	e.Content = factom.Bytes("some data to sign")
 	e.ChainID = new(factom.Bytes32)
@@ -197,8 +198,8 @@ func validEntry(n int) (factom.Entry, []factom.RCDPrivateKey) {
 	return e, adrs
 }
 
-func genAddresses(n int) []factom.RCDPrivateKey {
-	adrs := make([]factom.RCDPrivateKey, n)
+func genAddresses(n int) []factom.RCDSigner {
+	adrs := make([]factom.RCDSigner, n)
 	for i := range adrs {
 		adr, err := factom.GenerateFsAddress()
 		if err != nil {
@@ -209,10 +210,15 @@ func genAddresses(n int) []factom.RCDPrivateKey {
 	return adrs
 }
 
-func rcdHashes(adrs []factom.RCDPrivateKey) map[factom.Bytes32]struct{} {
+func rcdHashes(adrs []factom.RCDSigner) map[factom.Bytes32]struct{} {
 	rcdHashes := make(map[factom.Bytes32]struct{}, len(adrs))
 	for _, adr := range adrs {
 		rcdHashes[sha256d(adr.RCD())] = struct{}{}
 	}
 	return rcdHashes
+}
+
+func sha256d(data []byte) [sha256.Size]byte {
+	hash := sha256.Sum256(data)
+	return sha256.Sum256(hash[:])
 }

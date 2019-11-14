@@ -19,8 +19,8 @@ github.com/Factom-Asset-Tokens/base58 v0.0.0-20181227014902-61655c4dd885 h1:rfy2
 github.com/Factom-Asset-Tokens/base58 v0.0.0-20181227014902-61655c4dd885/go.mod h1:RVXsRSp6VzXw5l1uiGazuf3qo23Qk0h1HzMcQk+X4LE=
 github.com/Factom-Asset-Tokens/factom v0.0.0-20191025014600-db7c22b6c31a h1:jDjY4eIs6/A+rR5Mr28dbPXs0xmT+FrB9pze7PYwgkA=
 github.com/Factom-Asset-Tokens/factom v0.0.0-20191025014600-db7c22b6c31a/go.mod h1:HfWlWphJ30PlWXD9FTiAboLc58dQU/2A9HxBGnKyDpg=
-github.com/Factom-Asset-Tokens/factom v0.0.0-20191114223543-dab6c2e7759c h1:SkW+0te8ux9AdCTCdjj0+FIDUadHQqP4RoJmYsQzJuQ=
-github.com/Factom-Asset-Tokens/factom v0.0.0-20191114223543-dab6c2e7759c/go.mod h1:qxDIu3JOgNGtCcmXxxZNunRf/jnv2ZNNmFedKshQJnI=
+github.com/Factom-Asset-Tokens/factom v0.0.0-20191114224337-71de98ff5b3e h1:4zuAaBd65yIHfSu9PMj8koTCDgYMaYcshKOWR9+/eX0=
+github.com/Factom-Asset-Tokens/factom v0.0.0-20191114224337-71de98ff5b3e/go.mod h1:qxDIu3JOgNGtCcmXxxZNunRf/jnv2ZNNmFedKshQJnI=
 github.com/Factom-Asset-Tokens/fatd v1.0.0/go.mod h1:AFNSSid4TqEvsZs2G2xPwPRuMdTaHl0SmcH8ORBK6ZM=
 github.com/OneOfOne/xxhash v1.2.2/go.mod h1:HSdplMjZKSmBqAxg5vPj2TmRDmfkzw+cTzAElWljhcU=
 github.com/alecthomas/template v0.0.0-20160405071501-a0175ee3bccc/go.mod h1:LOuyumcjzFXgccqObfd/Ljyb9UuFJ6TxHnclSeseNhc=
