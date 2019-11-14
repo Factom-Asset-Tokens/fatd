@@ -123,7 +123,7 @@ func (t Transaction) String() string {
 	return string(data)
 }
 
-func (t Transaction) Sign(signingSet ...factom.RCDPrivateKey) (factom.Entry, error) {
+func (t Transaction) Sign(signingSet ...factom.RCDSigner) (factom.Entry, error) {
 	e := t.Entry
 	content, err := json.Marshal(t)
 	if err != nil {

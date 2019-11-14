@@ -89,7 +89,7 @@ func NewIssuance(e factom.Entry, idKey *factom.Bytes32) (Issuance, error) {
 	return i, nil
 }
 
-func (i Issuance) Sign(idKey factom.RCDPrivateKey) (factom.Entry, error) {
+func (i Issuance) Sign(idKey factom.RCDSigner) (factom.Entry, error) {
 	e := i.Entry
 	content, err := json.Marshal(i)
 	if err != nil {

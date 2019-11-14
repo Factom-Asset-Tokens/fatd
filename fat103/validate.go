@@ -23,7 +23,6 @@
 package fat103
 
 import (
-	"crypto/sha256"
 	"crypto/sha512"
 	"fmt"
 	"strconv"
@@ -31,8 +30,6 @@ import (
 
 	"github.com/Factom-Asset-Tokens/factom"
 	"github.com/Factom-Asset-Tokens/fatd/internal/jsonlen"
-
-	"crypto/ed25519"
 )
 
 // Validate validates the structure of the ExtIDs of the factom.Entry to make
@@ -72,43 +69,28 @@ func Validate(e factom.Entry, expected map[factom.Bytes32]struct{}) error {
 
 	rcdSigs := e.ExtIDs[1:]
 	for i := 0; i < len(rcdSigs); i += 2 {
+		// Prepend the RCD Sig ID Salt to the message data.
+		rcdSigID := i / 2
+		rcdSigIDSalt := strconv.FormatUint(uint64(rcdSigID), 10)
+		// Compute the start index of our msg buffer based on the
+		// length of the rcdSigIDSalt.
+		start := maxRcdSigIDSaltStrLen - len(rcdSigIDSalt)
+		copy(msg[start:], rcdSigIDSalt)
+
 		rcd := rcdSigs[i]
-		if len(rcd) != factom.RCDSize {
-			return fmt.Errorf("ExtIDs[%v]: invalid RCD size", i+1)
+		sig := rcdSigs[i+1]
+		msgHash := sha512.Sum512(msg[start:])
+
+		rcdHash, err := factom.ValidateRCD(rcd, sig, msgHash[:])
+		if err != nil {
+			return fmt.Errorf("ExtIDs[%v]: %w", i+1, err)
 		}
-		if rcd[0] != factom.RCDType {
-			return fmt.Errorf("ExtIDs[%v]: invalid RCD type", i+1)
-		}
-		rcdHash := sha256d(rcd)
 		if _, ok := expected[rcdHash]; !ok {
 			return fmt.Errorf(
 				"ExtIDs[%v]: unexpected or duplicate RCD Hash", i+1)
 		}
 		delete(expected, rcdHash)
-
-		sig := rcdSigs[i+1]
-		if len(sig) != factom.SignatureSize {
-			return fmt.Errorf("ExtIDs[%v]: invalid signature size", i+1)
-		}
-
-		rcdSigID := i / 2
-		// Prepend the RCD Sig ID Salt to the message data
-		rcdSigIDSalt := strconv.FormatUint(uint64(rcdSigID), 10)
-		start := maxRcdSigIDSaltStrLen - len(rcdSigIDSalt)
-		copy(msg[start:], rcdSigIDSalt)
-
-		msgHash := sha512.Sum512(msg[start:])
-		pubKey := []byte(rcd[1:]) // Omit RCD Type byte
-		if !ed25519.Verify(pubKey, msgHash[:], sig) {
-			return fmt.Errorf("ExtIDs[%v]: invalid signature", i+1+1)
-		}
 	}
 
 	return nil
-}
-
-// sha256d computes two rounds of the sha256 hash.
-func sha256d(data []byte) factom.Bytes32 {
-	hash := sha256.Sum256(data)
-	return sha256.Sum256(hash[:])
 }
