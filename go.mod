@@ -21,6 +21,7 @@ require (
 
 replace github.com/spf13/pflag v1.0.3 => github.com/AdamSLevy/pflag v1.0.4
 
+// This is required for a number of additional sqlite features.
 replace crawshaw.io/sqlite => github.com/AdamSLevy/sqlite v0.1.3-0.20191014215059-b98bb18889de
 
 //replace github.com/Factom-Asset-Tokens/factom => ../factom
