@@ -26,7 +26,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/Factom-Asset-Tokens/fatd/internal/jsonlen"
+	"github.com/Factom-Asset-Tokens/factom/jsonlen"
 )
 
 type NFTokenIDMetadataMap map[NFTokenID]json.RawMessage

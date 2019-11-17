@@ -27,9 +27,9 @@ import (
 	"fmt"
 
 	"github.com/Factom-Asset-Tokens/factom"
-	"github.com/Factom-Asset-Tokens/fatd/fat"
-	"github.com/Factom-Asset-Tokens/fatd/fat103"
-	"github.com/Factom-Asset-Tokens/fatd/internal/jsonlen"
+	"github.com/Factom-Asset-Tokens/factom/fat"
+	"github.com/Factom-Asset-Tokens/factom/fat103"
+	"github.com/Factom-Asset-Tokens/factom/jsonlen"
 )
 
 const Type = fat.TypeFAT0

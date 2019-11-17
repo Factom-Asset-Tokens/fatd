@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/Factom-Asset-Tokens/factom"
-	"github.com/Factom-Asset-Tokens/fatd/internal/jsonlen"
+	"github.com/Factom-Asset-Tokens/factom/jsonlen"
 )
 
 // Sign the RCD/Sig ID Salt + Timestamp Salt + Chain ID Salt + Content of the

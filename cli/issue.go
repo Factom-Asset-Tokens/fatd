@@ -30,7 +30,7 @@ import (
 
 	"github.com/Factom-Asset-Tokens/factom"
 	"github.com/Factom-Asset-Tokens/fatd/api"
-	"github.com/Factom-Asset-Tokens/fatd/fat"
+	"github.com/Factom-Asset-Tokens/factom/fat"
 
 	jsonrpc2 "github.com/AdamSLevy/jsonrpc2/v12"
 	"github.com/posener/complete"

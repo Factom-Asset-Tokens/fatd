@@ -31,9 +31,9 @@ import (
 	jsonrpc2 "github.com/AdamSLevy/jsonrpc2/v12"
 	"github.com/Factom-Asset-Tokens/factom"
 	"github.com/Factom-Asset-Tokens/fatd/api"
-	"github.com/Factom-Asset-Tokens/fatd/fat"
-	"github.com/Factom-Asset-Tokens/fatd/fat0"
-	"github.com/Factom-Asset-Tokens/fatd/fat1"
+	"github.com/Factom-Asset-Tokens/factom/fat"
+	"github.com/Factom-Asset-Tokens/factom/fat0"
+	"github.com/Factom-Asset-Tokens/factom/fat1"
 	"github.com/posener/complete"
 	"github.com/spf13/cobra"
 )

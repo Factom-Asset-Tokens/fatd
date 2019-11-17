@@ -27,7 +27,7 @@ import (
 	"fmt"
 
 	"github.com/Factom-Asset-Tokens/factom"
-	"github.com/Factom-Asset-Tokens/fatd/internal/jsonlen"
+	"github.com/Factom-Asset-Tokens/factom/jsonlen"
 )
 
 // AddressTokenMap relates the RCDHash of an address to its NFTokenIDs.

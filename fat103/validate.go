@@ -29,7 +29,7 @@ import (
 	"time"
 
 	"github.com/Factom-Asset-Tokens/factom"
-	"github.com/Factom-Asset-Tokens/fatd/internal/jsonlen"
+	"github.com/Factom-Asset-Tokens/factom/jsonlen"
 )
 
 // Validate validates the structure of the ExtIDs of the factom.Entry to make

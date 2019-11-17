@@ -33,9 +33,9 @@ import (
 
 	"github.com/Factom-Asset-Tokens/factom"
 	"github.com/Factom-Asset-Tokens/fatd/api"
-	"github.com/Factom-Asset-Tokens/fatd/fat"
-	"github.com/Factom-Asset-Tokens/fatd/fat0"
-	"github.com/Factom-Asset-Tokens/fatd/fat1"
+	"github.com/Factom-Asset-Tokens/factom/fat"
+	"github.com/Factom-Asset-Tokens/factom/fat0"
+	"github.com/Factom-Asset-Tokens/factom/fat1"
 	"github.com/Factom-Asset-Tokens/fatd/internal/db/addresses"
 	"github.com/Factom-Asset-Tokens/fatd/internal/db/entries"
 	"github.com/Factom-Asset-Tokens/fatd/internal/db/nftokens"
