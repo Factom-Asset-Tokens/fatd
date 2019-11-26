@@ -28,7 +28,7 @@ import (
 
 	"crawshaw.io/sqlite"
 
-	jsonrpc2 "github.com/AdamSLevy/jsonrpc2/v12"
+	jsonrpc2 "github.com/AdamSLevy/jsonrpc2/v13"
 
 	"github.com/Factom-Asset-Tokens/factom"
 	"github.com/Factom-Asset-Tokens/factom/fat"
