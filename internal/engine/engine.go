@@ -73,7 +73,7 @@ func Start(ctx context.Context) (done <-chan struct{}) {
 		}
 	}
 
-	// Try to create a lockfile
+	// Try to create a lockfile for the database directory.
 	lockFilePath := flag.DBPath + "db.lock"
 	var err error
 	lockFile, err = lockfile.New(lockFilePath)

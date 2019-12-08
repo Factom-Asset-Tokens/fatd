@@ -81,7 +81,7 @@ func Sub(conn *sqlite.Conn,
 		return id, fmt.Errorf("insufficient balance: %v", adr), nil
 	}
 	stmt := conn.Prep(
-		`UPDATE addresses SET balance = balance - ? WHERE rowid = ?;`)
+		`UPDATE "addresses" SET "balance" = "balance" - ? WHERE "rowid" = ?;`)
 	stmt.BindInt64(1, int64(sub))
 	stmt.BindInt64(2, id)
 	if _, err := stmt.Step(); err != nil {
