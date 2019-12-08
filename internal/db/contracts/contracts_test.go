@@ -35,9 +35,9 @@ func TestContracts(t *testing.T) {
 	require.NoError(err)
 	require.Equal(int64(2), id, "Insert(): ./testdata/nop.wasm")
 
-	chainIDInvalid, id, err := insertWasmFile(t, conn, "./testdata/invalid.wasm")
+	chainIDInvalid, id, err := insertWasmFile(t, conn, "./testdata/invalid.txt")
 	require.NoError(err)
-	require.Equal(int64(3), id, "Insert(): ./testdata/invalid.wasm")
+	require.Equal(int64(3), id, "Insert(): ./testdata/invalid.txt")
 
 	count, err := SelectCount(conn, false)
 	require.NoError(err)
