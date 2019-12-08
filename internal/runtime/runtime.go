@@ -23,6 +23,7 @@
 package runtime
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/Factom-Asset-Tokens/factom"
@@ -31,12 +32,18 @@ import (
 )
 
 type Context struct {
-	fat0.Transaction
-	factom.EBlock
 	factom.DBlock
+	factom.EBlock
+	fat0.Transaction
+
+	ctx context.Context
 }
 
-func NewVM(mod *wasmer.Module) (*wasmer.Instance, error) {
+type VM struct {
+	wasmer.Instance
+}
+
+func NewVM(mod *wasmer.Module) (*VM, error) {
 	imp, err := imports()
 	if err != nil {
 		return nil, err
@@ -46,5 +53,20 @@ func NewVM(mod *wasmer.Module) (*wasmer.Instance, error) {
 	if err != nil {
 		return nil, fmt.Errorf("wasmer.Module.InstantiateWithImports(): %w", err)
 	}
-	return &inst, nil
+	return &VM{inst}, nil
+}
+
+func (vm *VM) Call(fname string, args ...interface{}) (v wasmer.Value, err error) {
+	f, ok := vm.Exports[fname]
+	if !ok {
+		return wasmer.Value{}, fmt.Errorf("unknown function")
+	}
+
+	defer RecoverOutOfGas(&err)
+
+	v, err = f(args...)
+
+	// check for out of gas error
+
+	return
 }

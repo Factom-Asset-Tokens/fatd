@@ -31,14 +31,16 @@ import (
 	"fmt"
 	"unsafe"
 
-	"github.com/Factom-Asset-Tokens/factom"
 	"github.com/wasmerio/go-ext-wasm/wasmer"
 )
 
 //export get_height
 func get_height(ctx unsafe.Pointer) int32 {
 	instanceCtx := wasmer.IntoInstanceContext(ctx)
-	return int32(instanceCtx.Data().(factom.EBlock).Height)
+	Meter(instanceCtx, 1)
+
+	context := instanceCtx.Data().(Context)
+	return int32(context.DBlock.Height)
 }
 
 //export get_sender
