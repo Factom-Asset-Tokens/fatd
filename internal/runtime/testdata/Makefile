@@ -20,16 +20,16 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-api.wasm: api.c
+api.wasm: src/api.c src/runtime_test.h ../runtime.h ../runtime.syms
 	clang \
+	    -I ../ \
 	    --target=wasm32 \
 	    --no-standard-libraries \
-	    -Wl,--export-all \
 	    -Wl,--no-entry \
-	    -Wl,--allow-undefined-file=./runtime.syms \
+	    -Wl,--allow-undefined-file=../runtime.syms \
 	    -O3 \
 	    -o api.wasm \
-	    api.c
+	    src/api.c
 
 .PHONY: clean
 

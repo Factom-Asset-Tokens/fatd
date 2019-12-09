@@ -20,10 +20,45 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 // IN THE SOFTWARE.
 
-#ifndef RUNTIME_H
-#define RUNTIME_H
+#include <runtime.h>
+#include "./runtime_test.h"
 
-extern int get_height();
-extern int get_sender(char *);
+int verifyBuf(char *buf, int size, char val);
 
-#endif // RUNTIME_H
+EXPORT int run_all() {
+        int32_t height = ext_get_height();
+        if (height != GET_HEIGHT_EXP) {
+                return GET_HEIGHT_ERR;
+        }
+
+        const int adrSize = 32;
+        char adr[adrSize];
+        ext_get_sender(adr);
+        if (0 != verifyBuf(adr, adrSize, GET_SENDER_ERR)) {
+                return GET_SENDER_ERR;
+        }
+
+
+        uint64_t amount = ext_get_amount();
+        if (amount != GET_AMOUNT_EXP) {
+                return GET_AMOUNT_ERR;
+        }
+
+        const int hashSize = 32;
+        char hash[hashSize];
+        ext_get_entry_hash(adr);
+        if (0 != verifyBuf(adr, adrSize, GET_ENTRY_HASH_ERR)) {
+                return GET_ENTRY_HASH_ERR;
+        }
+
+        return 0;
+}
+
+int verifyBuf(char *buf, int size, char val) {
+        for (int i = 0; i < size; i++) {
+                if (buf[i] != i+val) {
+                        return 1;
+                }
+        }
+        return 0;
+}

@@ -1,0 +1,4 @@
+ext_get_height
+ext_get_sender
+ext_get_amount
+ext_get_entry_hash

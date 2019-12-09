@@ -20,28 +20,17 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 // IN THE SOFTWARE.
 
-#include "./runtime.h"
+#ifndef RUNTIME_H
+#define RUNTIME_H
 
-int run_all() {
-        const int expHeight = 1001;
-        int height = get_height();
+#define EXPORT __attribute__((used))
+//#define IMPORT __attribute__((weak))
 
-        if (height != expHeight) {
-                return 1;
-        }
+#include <stdint.h>
 
-        //const int adrSize = 32;
-        //char adr[adrSize];
-        //int ret = get_sender(adr);
-        //if (ret != 0) {
-        //        return 2;
-        //}
+extern uint32_t ext_get_height();
+extern void ext_get_sender(char *);
+extern uint64_t ext_get_amount();
+extern void ext_get_entry_hash(char *);
 
-        //for (int i = 0; i < adrSize; i++) {
-        //        if (adr[i] != i) {
-        //                return 3;
-        //        }
-        //}
-
-        return 0;
-}
+#endif // RUNTIME_H

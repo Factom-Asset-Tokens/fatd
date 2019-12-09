@@ -23,21 +23,10 @@
 package runtime
 
 import (
-	"context"
 	"fmt"
 
-	"github.com/Factom-Asset-Tokens/factom"
-	"github.com/Factom-Asset-Tokens/factom/fat0"
 	"github.com/wasmerio/go-ext-wasm/wasmer"
 )
-
-type Context struct {
-	factom.DBlock
-	factom.EBlock
-	fat0.Transaction
-
-	ctx context.Context
-}
 
 type VM struct {
 	wasmer.Instance

@@ -22,48 +22,116 @@
 
 package runtime
 
-// #include <stdlib.h>
+// #include <stdint.h>
+// #define int64_t long long
 //
 // extern int32_t get_height(void *ctx);
-// extern int32_t get_sender(void *ctx, int32_t adrBuf);
+// extern void get_sender(void *ctx, int32_t adrBuf);
+// extern int64_t get_amount(void *ctx);
+// extern void get_entry_hash(void *ctx, int32_t adrBuf);
 import "C"
 import (
+	"context"
 	"fmt"
 	"unsafe"
 
+	"crawshaw.io/sqlite"
+	"github.com/Factom-Asset-Tokens/factom"
+	"github.com/Factom-Asset-Tokens/fatd/fat0"
 	"github.com/wasmerio/go-ext-wasm/wasmer"
+)
+
+type Context struct {
+	factom.DBlock
+	factom.EBlock
+	fat0.Transaction
+
+	conn sqlite.Conn
+
+	ctx context.Context
+}
+
+const (
+	GetHeightCost    = 1
+	GetSenderCost    = 1
+	GetAmountCost    = 1
+	GetEntryHashCost = 1
 )
 
 //export get_height
 func get_height(ctx unsafe.Pointer) int32 {
 	instanceCtx := wasmer.IntoInstanceContext(ctx)
-	Meter(instanceCtx, 1)
+	Meter(instanceCtx, GetHeightCost)
 
 	context := instanceCtx.Data().(Context)
 	return int32(context.DBlock.Height)
 }
 
 //export get_sender
-func get_sender(ctx unsafe.Pointer, adrBuf int32) int32 {
-	return -1
+func get_sender(ctx unsafe.Pointer, buf int32) {
+	instanceCtx := wasmer.IntoInstanceContext(ctx)
+	Meter(instanceCtx, GetSenderCost)
+
+	context := instanceCtx.Data().(Context)
+
+	var sender factom.FAAddress
+	for sender, _ = range context.Transaction.Inputs {
+	}
+
+	mem := instanceCtx.Memory()
+	copy(mem.Data()[buf:], sender[:])
+}
+
+//export get_amount
+func get_amount(ctx unsafe.Pointer) int64 {
+	instanceCtx := wasmer.IntoInstanceContext(ctx)
+	Meter(instanceCtx, GetAmountCost)
+
+	context := instanceCtx.Data().(Context)
+
+	var amount uint64
+	for _, amount = range context.Transaction.Outputs {
+	}
+	return int64(amount)
+}
+
+//export get_entry_hash
+func get_entry_hash(ctx unsafe.Pointer, buf int32) {
+	instanceCtx := wasmer.IntoInstanceContext(ctx)
+	Meter(instanceCtx, GetEntryHashCost)
+
+	context := instanceCtx.Data().(Context)
+
+	mem := instanceCtx.Memory()
+	copy(mem.Data()[buf:], context.Transaction.Entry.Hash[:])
+}
+
+type hostFunc struct {
+	Func  interface{}
+	cFunc unsafe.Pointer
+}
+
+var hostFuncs = map[string]hostFunc{
+	"ext_get_height":     hostFunc{get_height, C.get_height},
+	"ext_get_sender":     hostFunc{get_sender, C.get_sender},
+	"ext_get_amount":     hostFunc{get_amount, C.get_amount},
+	"ext_get_entry_hash": hostFunc{get_entry_hash, C.get_entry_hash},
 }
 
 func imports() (*wasmer.Imports, error) {
 	i := wasmer.NewImports()
 	i = i.Namespace("env")
-	i, err := i.Append("get_height", get_height, C.get_height)
-	if err != nil {
-		return nil, fmt.Errorf("wasmer.Imports.Append(%q): %w", "get_height", err)
-	}
-	i, err = i.Append("get_sender", get_sender, C.get_sender)
-	if err != nil {
-		return nil, fmt.Errorf("wasmer.Imports.Append(%q): %w", "get_sender", err)
+	for name, f := range hostFuncs {
+		var err error
+		i, err = i.Append(name, f.Func, f.cFunc)
+		if err != nil {
+			return nil, fmt.Errorf("wasmer.Imports.Append(%q): %w",
+				name, err)
+		}
 	}
 	return i, nil
 }
 
-//getSender 	Get the calling tx's input Factoid address 	void 	char * 	extern char * getInput(void);
-//getAmount 	Get the calling tx's output amount 	void 	int
 //getEntryhash 	Get the calling tx's Factom Entryhash 	void 	char *
 //getTimestamp 	Get the unix timestamp of the calling tx 	void 	int
 //getHeight 	Get the Factom blockheight of the calling tx 	void 	int

@@ -1,8 +1,6 @@
 package runtime
 
 import (
-	"fmt"
-
 	"github.com/wasmerio/go-ext-wasm/wasmer"
 )
 
@@ -26,7 +24,6 @@ func Meter(runtimeCtx wasmer.InstanceContext, cost uint64) {
 
 func RecoverOutOfGas(err *error) {
 	if ret := recover(); ret != nil {
-		fmt.Println("recovering!")
 		var ok bool
 		*err, ok = ret.(ErrorExecLimitExceeded)
 		if !ok {
