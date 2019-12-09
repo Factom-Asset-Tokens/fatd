@@ -30,7 +30,7 @@ replace (
 
 	// Uses the LLVM backend and exposes metering. Also fixes a bug with
 	// InstanceContext.Data.
-	github.com/wasmerio/go-ext-wasm => github.com/AdamSLevy/go-ext-wasm v0.0.0-20191206220714-41001227a10c
+	github.com/wasmerio/go-ext-wasm => github.com/AdamSLevy/go-ext-wasm v0.0.0-20191209001357-53442e9be903
 )
 
 //replace github.com/Factom-Asset-Tokens/factom => ../factom
@@ -38,3 +38,5 @@ replace (
 //replace crawshaw.io/sqlite => /home/aslevy/repos/go-modules/AdamSLevy/sqlite
 
 //replace github.com/AdamSLevy/jsonrpc2/v12 => /home/aslevy/repos/go-modules/AdamSLevy/jsonrpc2
+
+//replace github.com/wasmerio/go-ext-wasm => /home/aslevy/repos/go-ext-wasm

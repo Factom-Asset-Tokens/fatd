@@ -6,10 +6,12 @@ import (
 	"github.com/wasmerio/go-ext-wasm/wasmer"
 )
 
-type ErrorOutOfGas struct{}
+const ErrorExecLimitExceededString = "Execution limit exceeded."
 
-func (err ErrorOutOfGas) Error() string {
-	return fmt.Sprintf("out of gas")
+type ErrorExecLimitExceeded struct{}
+
+func (err ErrorExecLimitExceeded) Error() string {
+	return ErrorExecLimitExceededString
 }
 
 func Meter(runtimeCtx wasmer.InstanceContext, cost uint64) {
@@ -18,14 +20,15 @@ func Meter(runtimeCtx wasmer.InstanceContext, cost uint64) {
 
 	limit := runtimeCtx.GetExecLimit()
 	if used > limit {
-		panic(ErrorOutOfGas{})
+		panic(ErrorExecLimitExceeded{})
 	}
 }
 
 func RecoverOutOfGas(err *error) {
 	if ret := recover(); ret != nil {
+		fmt.Println("recovering!")
 		var ok bool
-		*err, ok = ret.(ErrorOutOfGas)
+		*err, ok = ret.(ErrorExecLimitExceeded)
 		if !ok {
 			panic(ret)
 		}

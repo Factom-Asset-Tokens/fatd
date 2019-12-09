@@ -1,8 +1,8 @@
 cloud.google.com/go v0.26.0/go.mod h1:aQUYkXzVsufM+DwF1aE+0xfcU+56JwCaLick0ClmMTw=
 crawshaw.io/iox v0.0.0-20181124134642-c51c3df30797 h1:yDf7ARQc637HoxDho7xjqdvO5ZA2Yb+xzv/fOnnvZzw=
 crawshaw.io/iox v0.0.0-20181124134642-c51c3df30797/go.mod h1:sXBiorCo8c46JlQV3oXPKINnZ8mcqnye1EkVkqsectk=
-github.com/AdamSLevy/go-ext-wasm v0.0.0-20191206220714-41001227a10c h1:CnGdfwvG1HXUVTt9QZ0Hqh7RyNXsWDZKGU+FbFBIv1A=
-github.com/AdamSLevy/go-ext-wasm v0.0.0-20191206220714-41001227a10c/go.mod h1:B0C/D0a2vNos7Y3IxQhMpGOY9PCuCKfLvfry33a1cKA=
+github.com/AdamSLevy/go-ext-wasm v0.0.0-20191209001357-53442e9be903 h1:IHwlNiuf6vJJq50Wye+S1tDcB/rR8+JAZlicfylJhpU=
+github.com/AdamSLevy/go-ext-wasm v0.0.0-20191209001357-53442e9be903/go.mod h1:B0C/D0a2vNos7Y3IxQhMpGOY9PCuCKfLvfry33a1cKA=
 github.com/AdamSLevy/go-merkle v0.0.0-20190611101253-ca33344a884d h1:FWutTJGVqBnL4rLgeNaspUYnmnvkXcmDA3QO3rHBGgU=
 github.com/AdamSLevy/go-merkle v0.0.0-20190611101253-ca33344a884d/go.mod h1:Nw3sh5L40Xs1wno7ndbD/dYWg+vARpBvpX9Zz1YSxbo=
 github.com/AdamSLevy/jsonrpc2/v12 v12.0.1 h1:cVyqoBa4Qgw8bQj3vCBnZHOX/E+uvPM8TbQPobGwY8Q=

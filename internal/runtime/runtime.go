@@ -65,8 +65,19 @@ func (vm *VM) Call(fname string, args ...interface{}) (v wasmer.Value, err error
 	defer RecoverOutOfGas(&err)
 
 	v, err = f(args...)
-
-	// check for out of gas error
-
+	if err != nil {
+		if err.Error() == fmt.Sprintf(
+			"Failed to call the `%s` exported function.", fname) {
+			var errStr string
+			errStr, err = wasmer.GetLastError()
+			if err == nil {
+				if errStr == ErrorExecLimitExceededString {
+					err = ErrorExecLimitExceeded{}
+				} else {
+					err = fmt.Errorf(errStr)
+				}
+			}
+		}
+	}
 	return
 }
