@@ -27,7 +27,7 @@ func TestRuntime(t *testing.T) {
 
 	// Set the limit to the exact amount of gas required to complete the
 	// function call. This must be updated if api.wasm changes.
-	const PointsUsed = 427
+	const PointsUsed = 577
 	vm.SetExecLimit(PointsUsed)
 
 	ctx := testdata.Context()
@@ -36,8 +36,10 @@ func TestRuntime(t *testing.T) {
 	v, err := vm.Call("run_all")
 	require.NoErrorf(err, "points used: %v", int64(vm.GetPointsUsed()))
 	require.Equal(wasmer.TypeI32, v.GetType())
-	assert.Equal(testdata.ErrMap[0], testdata.ErrMap[v.ToI32()])
+	assert.Equalf(testdata.ErrMap[0], testdata.ErrMap[v.ToI32()],
+		"ret: %v", v.ToI32())
 	require.Equal(int64(PointsUsed), int64(vm.GetPointsUsed()))
+	require.Equal(int(runtime.CallCount), runtime.NumHostFuncs)
 
 	vm.SetPointsUsed(0)
 	vm.SetExecLimit(0)
@@ -51,6 +53,6 @@ func TestRuntime(t *testing.T) {
 	vm.SetPointsUsed(0)
 	_, err = vm.Call("run_all")
 	require.EqualError(err, runtime.ErrorExecLimitExceededString)
-	require.Equal(int64(pointsUsed+runtime.GetHeightCost),
+	require.Equal(int64(pointsUsed+runtime.CostGetHeight),
 		int64(vm.GetPointsUsed()))
 }

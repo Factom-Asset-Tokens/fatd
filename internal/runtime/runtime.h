@@ -28,10 +28,15 @@
 
 #include <stdint.h>
 
-extern uint32_t ext_get_height();
 extern void ext_get_sender(char *);
-extern uint64_t ext_get_amount();
 extern void ext_get_entry_hash(char *);
+extern void ext_get_address(char *);
+
+extern uint64_t ext_get_balance(char *);
+
+extern uint32_t ext_get_height();
+extern uint32_t ext_get_precision();
+extern uint64_t ext_get_amount();
 extern uint64_t ext_get_timestamp();
 
 #endif // RUNTIME_H

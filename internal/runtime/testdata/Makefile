@@ -20,6 +20,11 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+.PHONY: clean
+
+test: api_test.wasm
+	go test -v ../
+
 api_test.wasm: src/api_test.c src/runtime_test.h ../runtime.h ../runtime.syms
 	clang \
 	    -I ../ \
@@ -31,7 +36,6 @@ api_test.wasm: src/api_test.c src/runtime_test.h ../runtime.h ../runtime.syms
 	    -o api_test.wasm \
 	    src/api_test.c
 
-.PHONY: clean
 
 clean:
 	rm -f api_test.wasm

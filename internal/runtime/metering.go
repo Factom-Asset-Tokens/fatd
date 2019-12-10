@@ -1,6 +1,8 @@
 package runtime
 
 import (
+	"sync/atomic"
+
 	"github.com/wasmerio/go-ext-wasm/wasmer"
 )
 
@@ -12,7 +14,10 @@ func (err ErrorExecLimitExceeded) Error() string {
 	return ErrorExecLimitExceededString
 }
 
+var CallCount uint64
+
 func Meter(runtimeCtx wasmer.InstanceContext, cost uint64) {
+	atomic.AddUint64(&CallCount, 1)
 	used := runtimeCtx.GetPointsUsed() + cost
 	runtimeCtx.SetPointsUsed(used)
 

@@ -23,41 +23,36 @@
 #include <runtime.h>
 #include "./runtime_test.h"
 
-int verifyBuf(char *buf, int size, char val);
+#define RUN(test) { int ret = (test); if (ret != SUCCESS) { return ret; } }
 
-EXPORT int run_all() {
-        int32_t height = ext_get_height();
-        if (height != GET_HEIGHT_EXP) {
+int test_get_height() {
+        if (ext_get_height() != GET_HEIGHT_EXP) {
                 return GET_HEIGHT_ERR;
         }
-
-        const int adrSize = 32;
-        char adr[adrSize];
-        ext_get_sender(adr);
-        if (0 != verifyBuf(adr, adrSize, GET_SENDER_ERR)) {
-                return GET_SENDER_ERR;
-        }
-
-
-        uint64_t amount = ext_get_amount();
-        if (amount != GET_AMOUNT_EXP) {
-                return GET_AMOUNT_ERR;
-        }
-
-        const int hashSize = 32;
-        char hash[hashSize];
-        ext_get_entry_hash(adr);
-        if (0 != verifyBuf(adr, adrSize, GET_ENTRY_HASH_ERR)) {
-                return GET_ENTRY_HASH_ERR;
-        }
-
-        uint64_t ts = ext_get_timestamp();
-        if (ts != GET_TIMESTAMP_EXP) {
-                return GET_TIMESTAMP_ERR;
-        }
-
         return 0;
 }
+
+int test_get_precision() {
+        if (ext_get_precision() != GET_PRECISION_EXP) {
+                return GET_PRECISION_ERR;
+        }
+        return 0;
+}
+
+int test_get_timestamp() {
+        if (ext_get_timestamp() != GET_TIMESTAMP_EXP) {
+                return GET_TIMESTAMP_ERR;
+        }
+        return 0;
+}
+
+int test_get_amount() {
+        if (ext_get_amount() != GET_AMOUNT_EXP) {
+                return GET_AMOUNT_ERR;
+        }
+        return 0;
+}
+
 
 int verifyBuf(char *buf, int size, char val) {
         for (int i = 0; i < size; i++) {
@@ -66,4 +61,46 @@ int verifyBuf(char *buf, int size, char val) {
                 }
         }
         return 0;
+}
+
+const int SIZE = 32;
+
+int test_get_sender() {
+        char sender[SIZE];
+        ext_get_sender(sender);
+        if (0 != verifyBuf(sender, SIZE, GET_SENDER_ERR)) {
+                return GET_SENDER_ERR;
+        }
+        return 0;
+}
+
+int test_get_address() {
+        char address[SIZE];
+        ext_get_address(address);
+        if (0 != verifyBuf(address, SIZE, GET_ADDRESS_ERR)) {
+                return GET_ADDRESS_ERR;
+        }
+        return 0;
+}
+
+int test_get_entry_hash() {
+        char hash[SIZE];
+        ext_get_entry_hash(hash);
+        if (0 != verifyBuf(hash, SIZE, GET_ENTRY_HASH_ERR)) {
+                return GET_ENTRY_HASH_ERR;
+        }
+        return 0;
+}
+
+EXPORT int run_all() {
+        RUN(test_get_timestamp());
+        RUN(test_get_height());
+        RUN(test_get_precision());
+        RUN(test_get_amount());
+
+        RUN(test_get_sender());
+        RUN(test_get_address());
+        RUN(test_get_entry_hash());
+
+        return SUCCESS;
 }
