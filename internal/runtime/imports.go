@@ -52,6 +52,10 @@ type Context struct {
 	ctx context.Context
 }
 
+func intoContext(ctx interface{}) Context {
+	return ctx.(Context)
+}
+
 const (
 	GetHeightCost    = 1
 	GetSenderCost    = 1
@@ -65,7 +69,7 @@ func get_height(ctx unsafe.Pointer) int32 {
 	instanceCtx := wasmer.IntoInstanceContext(ctx)
 	Meter(instanceCtx, GetHeightCost)
 
-	context := instanceCtx.Data().(Context)
+	context := intoContext(instanceCtx.Data())
 	return int32(context.DBlock.Height)
 }
 
@@ -74,7 +78,7 @@ func get_sender(ctx unsafe.Pointer, buf int32) {
 	instanceCtx := wasmer.IntoInstanceContext(ctx)
 	Meter(instanceCtx, GetSenderCost)
 
-	context := instanceCtx.Data().(Context)
+	context := intoContext(instanceCtx.Data())
 
 	var sender factom.FAAddress
 	for sender, _ = range context.Transaction.Inputs {
@@ -89,7 +93,7 @@ func get_amount(ctx unsafe.Pointer) int64 {
 	instanceCtx := wasmer.IntoInstanceContext(ctx)
 	Meter(instanceCtx, GetAmountCost)
 
-	context := instanceCtx.Data().(Context)
+	context := intoContext(instanceCtx.Data())
 
 	var amount uint64
 	for _, amount = range context.Transaction.Outputs {
@@ -102,7 +106,7 @@ func get_entry_hash(ctx unsafe.Pointer, buf int32) {
 	instanceCtx := wasmer.IntoInstanceContext(ctx)
 	Meter(instanceCtx, GetEntryHashCost)
 
-	context := instanceCtx.Data().(Context)
+	context := intoContext(instanceCtx.Data())
 
 	mem := instanceCtx.Memory()
 	copy(mem.Data()[buf:], context.Transaction.Entry.Hash[:])
@@ -113,7 +117,7 @@ func get_timestamp(ctx unsafe.Pointer) int64 {
 	instanceCtx := wasmer.IntoInstanceContext(ctx)
 	Meter(instanceCtx, GetTimestamp)
 
-	context := instanceCtx.Data().(Context)
+	context := intoContext(instanceCtx.Data())
 
 	return context.Transaction.Entry.Timestamp.Unix()
 }
