@@ -14,10 +14,12 @@ func (err ErrorExecLimitExceeded) Error() string {
 	return ErrorExecLimitExceededString
 }
 
-var CallCount uint64
+var CallCount int64 = -1
 
 func Meter(runtimeCtx wasmer.InstanceContext, cost uint64) {
-	atomic.AddUint64(&CallCount, 1)
+	if CallCount != -1 {
+		atomic.AddInt64(&CallCount, 1)
+	}
 	used := runtimeCtx.GetPointsUsed() + cost
 	runtimeCtx.SetPointsUsed(used)
 

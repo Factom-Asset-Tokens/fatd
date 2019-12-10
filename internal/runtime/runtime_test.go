@@ -30,8 +30,9 @@ func TestRuntime(t *testing.T) {
 	const PointsUsed = 577
 	vm.SetExecLimit(PointsUsed)
 
-	ctx := testdata.Context()
+	runtime.CallCount = 0
 
+	ctx := testdata.Context()
 	vm.SetContextData(ctx)
 	v, err := vm.Call("run_all")
 	require.NoErrorf(err, "points used: %v", int64(vm.GetPointsUsed()))
@@ -40,6 +41,7 @@ func TestRuntime(t *testing.T) {
 		"ret: %v", v.ToI32())
 	require.Equal(int64(PointsUsed), int64(vm.GetPointsUsed()))
 	require.Equal(int(runtime.CallCount), runtime.NumHostFuncs)
+	runtime.CallCount = -1
 
 	vm.SetPointsUsed(0)
 	vm.SetExecLimit(0)
