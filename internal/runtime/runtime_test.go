@@ -16,7 +16,7 @@ func TestRuntime(t *testing.T) {
 	assert := assert.New(t)
 
 	// Load wasm module
-	wasm, err := ioutil.ReadFile("./testdata/api.wasm")
+	wasm, err := ioutil.ReadFile("./testdata/api_test.wasm")
 	require.NoError(err)
 	mod, err := wasmer.CompileWithGasMetering(wasm)
 	require.NoError(err)
@@ -27,7 +27,7 @@ func TestRuntime(t *testing.T) {
 
 	// Set the limit to the exact amount of gas required to complete the
 	// function call. This must be updated if api.wasm changes.
-	const PointsUsed = 388
+	const PointsUsed = 427
 	vm.SetExecLimit(PointsUsed)
 
 	ctx := testdata.Context()

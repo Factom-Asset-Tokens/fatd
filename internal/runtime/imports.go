@@ -29,6 +29,7 @@ package runtime
 // extern void get_sender(void *ctx, int32_t adrBuf);
 // extern int64_t get_amount(void *ctx);
 // extern void get_entry_hash(void *ctx, int32_t adrBuf);
+// extern int64_t get_timestamp(void *ctx);
 import "C"
 import (
 	"context"
@@ -56,6 +57,7 @@ const (
 	GetSenderCost    = 1
 	GetAmountCost    = 1
 	GetEntryHashCost = 1
+	GetTimestamp     = 1
 )
 
 //export get_height
@@ -106,6 +108,16 @@ func get_entry_hash(ctx unsafe.Pointer, buf int32) {
 	copy(mem.Data()[buf:], context.Transaction.Entry.Hash[:])
 }
 
+//export get_timestamp
+func get_timestamp(ctx unsafe.Pointer) int64 {
+	instanceCtx := wasmer.IntoInstanceContext(ctx)
+	Meter(instanceCtx, GetTimestamp)
+
+	context := instanceCtx.Data().(Context)
+
+	return context.Transaction.Entry.Timestamp.Unix()
+}
+
 type hostFunc struct {
 	Func  interface{}
 	cFunc unsafe.Pointer
@@ -116,6 +128,7 @@ var hostFuncs = map[string]hostFunc{
 	"ext_get_sender":     hostFunc{get_sender, C.get_sender},
 	"ext_get_amount":     hostFunc{get_amount, C.get_amount},
 	"ext_get_entry_hash": hostFunc{get_entry_hash, C.get_entry_hash},
+	"ext_get_timestamp":  hostFunc{get_timestamp, C.get_timestamp},
 }
 
 func imports() (*wasmer.Imports, error) {
@@ -132,8 +145,6 @@ func imports() (*wasmer.Imports, error) {
 	return i, nil
 }
 
-//getEntryhash 	Get the calling tx's Factom Entryhash 	void 	char *
-//getTimestamp 	Get the unix timestamp of the calling tx 	void 	int
 //getHeight 	Get the Factom blockheight of the calling tx 	void 	int
 //getAddress 	Get the Factoid address of this contract 	void 	char *
 //

@@ -51,6 +51,11 @@ EXPORT int run_all() {
                 return GET_ENTRY_HASH_ERR;
         }
 
+        uint64_t ts = ext_get_timestamp();
+        if (ts != GET_TIMESTAMP_EXP) {
+                return GET_TIMESTAMP_ERR;
+        }
+
         return 0;
 }
 
