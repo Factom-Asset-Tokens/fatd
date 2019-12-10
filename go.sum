@@ -1,6 +1,9 @@
 cloud.google.com/go v0.26.0/go.mod h1:aQUYkXzVsufM+DwF1aE+0xfcU+56JwCaLick0ClmMTw=
 crawshaw.io/iox v0.0.0-20181124134642-c51c3df30797 h1:yDf7ARQc637HoxDho7xjqdvO5ZA2Yb+xzv/fOnnvZzw=
 crawshaw.io/iox v0.0.0-20181124134642-c51c3df30797/go.mod h1:sXBiorCo8c46JlQV3oXPKINnZ8mcqnye1EkVkqsectk=
+crawshaw.io/sqlite v0.1.3-0.20190520153332-66f853b01dfb/go.mod h1:igAO5JulrQ1DbdZdtVq48mnZUBAPOeFzer7VhDWNtW4=
+crawshaw.io/sqlite v0.2.0 h1:KYWbuV1q+BcvoDSl8n6IT+uVLHP7+0+y9eE1VbVTrvc=
+crawshaw.io/sqlite v0.2.0/go.mod h1:igAO5JulrQ1DbdZdtVq48mnZUBAPOeFzer7VhDWNtW4=
 github.com/AdamSLevy/go-merkle v0.0.0-20190611101253-ca33344a884d h1:FWutTJGVqBnL4rLgeNaspUYnmnvkXcmDA3QO3rHBGgU=
 github.com/AdamSLevy/go-merkle v0.0.0-20190611101253-ca33344a884d/go.mod h1:Nw3sh5L40Xs1wno7ndbD/dYWg+vARpBvpX9Zz1YSxbo=
 github.com/AdamSLevy/jsonrpc2/v12 v12.0.1 h1:cVyqoBa4Qgw8bQj3vCBnZHOX/E+uvPM8TbQPobGwY8Q=
@@ -15,6 +18,8 @@ github.com/AdamSLevy/sqlite v0.1.3-0.20191014215059-b98bb18889de h1:ehn7bnzDZt3Z
 github.com/AdamSLevy/sqlite v0.1.3-0.20191014215059-b98bb18889de/go.mod h1:igAO5JulrQ1DbdZdtVq48mnZUBAPOeFzer7VhDWNtW4=
 github.com/AdamSLevy/sqlitechangeset v0.0.0-20190925183646-3ddb70fb709d h1:yPm4An70OhM4k4WUq7M9sWaVlFas2+hJB+I3Fsgw38A=
 github.com/AdamSLevy/sqlitechangeset v0.0.0-20190925183646-3ddb70fb709d/go.mod h1:kQNmmf+2gf3uGKHt0LS4guxdp4Ay44SXA4+Is8/Gxm8=
+github.com/AdamSLevy/sqlitechangeset v0.0.0-20191210201651-f95453d87aff h1:1y662ty5r75/4WO0VH5yfmslsIOxGnxQa0Jw9wicGu4=
+github.com/AdamSLevy/sqlitechangeset v0.0.0-20191210201651-f95453d87aff/go.mod h1:jXWbZdPzTSS1EiWe9RTwNb6+INJE72secfPsXw6RDRI=
 github.com/BurntSushi/toml v0.3.1 h1:WXkYYl6Yr3qBf1K79EBnL4mak0OimBfB0XUf9Vl28OQ=
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
 github.com/Factom-Asset-Tokens/base58 v0.0.0-20181227014902-61655c4dd885 h1:rfy2fwMrOZPqQgjsH7VCreGMSPzcvqQrfjeSs8nf+sY=
