@@ -4,10 +4,11 @@ ext_get_amount
 ext_get_entry_hash
 ext_get_timestamp
 ext_get_address
+ext_get_coinbase
 ext_get_precision
 ext_get_balance
+ext_get_balance_of
 ext_send
 ext_burn
 ext_revert
-ext_invalidate
 ext_self_destruct

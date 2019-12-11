@@ -321,7 +321,7 @@ func (chain *Chain) SetSync(height uint32, dbKeyMR *factom.Bytes32) error {
 	return nil
 }
 
-func (chain *Chain) addNumIssued(add uint64) error {
+func (chain *Chain) AddNumIssued(add uint64) error {
 	if err := metadata.AddNumIssued(chain.Conn, add); err != nil {
 		return err
 	}

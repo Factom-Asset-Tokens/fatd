@@ -186,7 +186,7 @@ func (chain *Chain) ApplyFAT0Tx(ei int64, e factom.Entry) (tx fat0.Transaction,
 			txErr = fmt.Errorf("coinbase exceeds max supply")
 			return
 		}
-		if err = chain.addNumIssued(addIssued); err != nil {
+		if err = chain.AddNumIssued(addIssued); err != nil {
 			return
 		}
 		if _, err = addresses.InsertTransactionRelation(
@@ -253,7 +253,7 @@ func (chain *Chain) ApplyFAT1Tx(ei int64, e factom.Entry) (tx fat1.Transaction,
 			txErr = fmt.Errorf("coinbase exceeds max supply")
 			return
 		}
-		if err = chain.addNumIssued(addIssued); err != nil {
+		if err = chain.AddNumIssued(addIssued); err != nil {
 			return
 		}
 		var adrTxID int64

@@ -30,133 +30,177 @@ package runtime
 // extern int64_t get_amount(void *ctx);
 // extern int64_t get_timestamp(void *ctx);
 //
-// extern int64_t get_balance(void *ctx, int32_t buf);
+// extern int64_t get_balance(void *ctx);
+// extern int64_t get_balance_of(void *ctx, int32_t adr_buf);
 //
-// extern void get_sender(void *ctx, int32_t buf);
-// extern void get_entry_hash(void *ctx, int32_t buf);
-// extern void get_address(void *ctx, int32_t buf);
+// extern void get_sender(void *ctx, int32_t adr_buf);
+// extern void get_entry_hash(void *ctx, int32_t hash_buf);
+// extern void get_address(void *ctx, int32_t adr_buf);
+// extern void get_coinbase(void *ctx, int32_t adr_buf);
+//
+// extern void send(void *ctx, int64_t amount, int32_t adr_buf);
+// extern void burn(void *ctx, int64_t amount);
+//
+// extern void revert(void *ctx);
+// extern void self_destruct(void *ctx);
 import "C"
-
-//send 	Send FAT-0 tokens from the contracts balance 	char * - The Factoid address string destination, int - The amount of tokens to send in base units 	int - The boolean success value of the operation
-//burn 	Burn the specified amount of tokens from the contracts balance 	int - The amount of tokens to burn 	void
-//
-//revert 	Revert the current contract calls state changes and abort the call. Will still charge the input amount 	void 	void
-//invalidate 	Invalidate the calling transaction and abort state changes. Refunds input amount to caller
-//selfDestruct 	Terminate the current contract, liquidating the FAT-0 balance to a Factoid address 	char * - the liquidation destination Factoid address 	void
 import (
-	"context"
 	"fmt"
 	"unsafe"
 
 	"github.com/Factom-Asset-Tokens/factom"
-	"github.com/Factom-Asset-Tokens/factom/fat0"
-	"github.com/Factom-Asset-Tokens/fatd/internal/db"
+	"github.com/Factom-Asset-Tokens/fatd/fat"
+	"github.com/Factom-Asset-Tokens/fatd/internal/db/addresses"
 	"github.com/wasmerio/go-ext-wasm/wasmer"
 )
 
-type Context struct {
-	db.Chain
-	factom.DBlock
-	fat0.Transaction
-
-	ctx context.Context
+func readAddress(instanceCtx *wasmer.InstanceContext, adr_buf int32) factom.FAAddress {
+	var adr factom.FAAddress
+	if 32 != copy(adr[:], instanceCtx.Memory().Data()[adr_buf:]) {
+		panic(fmt.Errorf("readAddress: invalid copy length"))
+	}
+	return adr
 }
 
-func intoContext(ctx interface{}) Context {
-	return ctx.(Context)
+func writeAddress(instanceCtx *wasmer.InstanceContext,
+	adr *factom.FAAddress, adr_buf int32) {
+	if 32 != copy(instanceCtx.Memory().Data()[adr_buf:], adr[:]) {
+		panic(fmt.Errorf("writeAddress: invalid copy length"))
+	}
 }
-
-const (
-	CostGetHeight    = 1
-	CostGetPrecision = 1
-	CostGetAmount    = 1
-	CostGetTimestamp = 1
-
-	CostGetEntryHash = 1
-	CostGetSender    = 1
-	CostGetAddress   = 1
-)
 
 //export get_height
 func get_height(ctx unsafe.Pointer) int32 {
 	instanceCtx := wasmer.IntoInstanceContext(ctx)
-	Meter(instanceCtx, CostGetHeight)
+	Meter(instanceCtx, "get_height")
 
-	context := intoContext(instanceCtx.Data())
+	context := intoContext(&instanceCtx)
 	return int32(context.DBlock.Height)
 }
 
 //export get_precision
 func get_precision(ctx unsafe.Pointer) int32 {
 	instanceCtx := wasmer.IntoInstanceContext(ctx)
-	Meter(instanceCtx, CostGetPrecision)
+	Meter(instanceCtx, "get_precision")
 
-	context := intoContext(instanceCtx.Data())
+	context := intoContext(&instanceCtx)
 	return int32(context.Chain.Issuance.Precision)
 }
 
 //export get_amount
 func get_amount(ctx unsafe.Pointer) int64 {
 	instanceCtx := wasmer.IntoInstanceContext(ctx)
-	Meter(instanceCtx, CostGetAmount)
+	Meter(instanceCtx, "get_amount")
 
-	context := intoContext(instanceCtx.Data())
+	context := intoContext(&instanceCtx)
+	return int64(context.Amount())
+}
 
-	var amount uint64
-	for _, amount = range context.Transaction.Outputs {
-	}
-	return int64(amount)
+//export get_coinbase
+func get_coinbase(ctx unsafe.Pointer, adr_buf int32) {
+	instanceCtx := wasmer.IntoInstanceContext(ctx)
+	Meter(instanceCtx, "get_coinbase")
+
+	coinbase := fat.Coinbase()
+	writeAddress(&instanceCtx, &coinbase, adr_buf)
 }
 
 //export get_timestamp
 func get_timestamp(ctx unsafe.Pointer) int64 {
 	instanceCtx := wasmer.IntoInstanceContext(ctx)
-	Meter(instanceCtx, CostGetTimestamp)
+	Meter(instanceCtx, "get_timestamp")
 
-	context := intoContext(instanceCtx.Data())
+	context := intoContext(&instanceCtx)
 
 	return context.Transaction.Entry.Timestamp.Unix()
 }
 
 //export get_entry_hash
-func get_entry_hash(ctx unsafe.Pointer, buf int32) {
+func get_entry_hash(ctx unsafe.Pointer, hash_buf int32) {
 	instanceCtx := wasmer.IntoInstanceContext(ctx)
-	Meter(instanceCtx, CostGetEntryHash)
+	Meter(instanceCtx, "get_entry_hash")
 
-	context := intoContext(instanceCtx.Data())
+	context := intoContext(&instanceCtx)
 
-	mem := instanceCtx.Memory()
-	copy(mem.Data()[buf:], context.Transaction.Entry.Hash[:])
+	writeAddress(&instanceCtx, (*factom.FAAddress)(context.Transaction.Entry.Hash),
+		hash_buf)
 }
 
 //export get_sender
-func get_sender(ctx unsafe.Pointer, buf int32) {
+func get_sender(ctx unsafe.Pointer, adr_buf int32) {
 	instanceCtx := wasmer.IntoInstanceContext(ctx)
-	Meter(instanceCtx, CostGetSender)
+	Meter(instanceCtx, "get_sender")
 
-	context := intoContext(instanceCtx.Data())
+	context := intoContext(&instanceCtx)
 
-	var sender factom.FAAddress
-	for sender, _ = range context.Transaction.Inputs {
-	}
-
-	mem := instanceCtx.Memory()
-	copy(mem.Data()[buf:], sender[:])
+	sender := context.Sender()
+	writeAddress(&instanceCtx, &sender, adr_buf)
 }
 
 //export get_address
-func get_address(ctx unsafe.Pointer, buf int32) {
+func get_address(ctx unsafe.Pointer, adr_buf int32) {
 	instanceCtx := wasmer.IntoInstanceContext(ctx)
-	Meter(instanceCtx, CostGetAddress)
+	Meter(instanceCtx, "get_address")
 
-	context := intoContext(instanceCtx.Data())
+	context := intoContext(&instanceCtx)
 
-	var adr factom.FAAddress
-	for adr, _ = range context.Transaction.Outputs {
+	contract := context.ContractAddress()
+
+	writeAddress(&instanceCtx, &contract, adr_buf)
+}
+
+//export get_balance
+func get_balance(ctx unsafe.Pointer) int64 {
+	instanceCtx := wasmer.IntoInstanceContext(ctx)
+	Meter(instanceCtx, "get_balance")
+
+	context := intoContext(&instanceCtx)
+	contract := context.ContractAddress()
+
+	_, bal, err := addresses.SelectIDBalance(context.Chain.Conn, &contract)
+	if err != nil {
+		panic(fmt.Errorf("get_balance: addresses.SelectIDBalance: %w", err))
 	}
 
-	mem := instanceCtx.Memory()
-	copy(mem.Data()[buf:], adr[:])
+	return int64(bal)
+}
+
+//export get_balance_of
+func get_balance_of(ctx unsafe.Pointer, adr_buf int32) int64 {
+	instanceCtx := wasmer.IntoInstanceContext(ctx)
+	Meter(instanceCtx, "get_balance_of")
+
+	context := intoContext(&instanceCtx)
+
+	adr := readAddress(&instanceCtx, adr_buf)
+
+	_, bal, err := addresses.SelectIDBalance(context.Chain.Conn, &adr)
+	if err != nil {
+		panic(fmt.Errorf("get_balance: addresses.SelectIDBalance: %w", err))
+	}
+
+	return int64(bal)
+}
+
+//export send
+func send(ctx unsafe.Pointer, amount int64, adr_buf int32) {
+	instanceCtx := wasmer.IntoInstanceContext(ctx)
+	Meter(instanceCtx, "send")
+
+	adr := readAddress(&instanceCtx, adr_buf)
+
+	context := intoContext(&instanceCtx)
+	context.Send(uint64(amount), &adr)
+}
+
+//export burn
+func burn(ctx unsafe.Pointer, amount int64) {
+	instanceCtx := wasmer.IntoInstanceContext(ctx)
+	Meter(instanceCtx, "burn")
+
+	context := intoContext(&instanceCtx)
+	adr := fat.Coinbase()
+	context.Send(uint64(amount), &adr)
 }
 
 type hostFunc struct {
@@ -172,10 +216,15 @@ var hostFuncs = map[string]hostFunc{
 
 	"ext_get_sender":     hostFunc{get_sender, C.get_sender},
 	"ext_get_address":    hostFunc{get_address, C.get_address},
+	"ext_get_coinbase":   hostFunc{get_coinbase, C.get_coinbase},
 	"ext_get_entry_hash": hostFunc{get_entry_hash, C.get_entry_hash},
-}
 
-var NumHostFuncs = len(hostFuncs)
+	"ext_get_balance":    hostFunc{get_balance, C.get_balance},
+	"ext_get_balance_of": hostFunc{get_balance_of, C.get_balance_of},
+
+	"ext_send": hostFunc{send, C.send},
+	"ext_burn": hostFunc{burn, C.burn},
+}
 
 func imports() (*wasmer.Imports, error) {
 	i := wasmer.NewImports()
@@ -190,5 +239,3 @@ func imports() (*wasmer.Imports, error) {
 	}
 	return i, nil
 }
-
-//
