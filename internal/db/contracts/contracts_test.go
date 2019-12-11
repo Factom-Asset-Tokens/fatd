@@ -11,6 +11,7 @@ import (
 	"crawshaw.io/sqlite/sqlitex"
 	"github.com/Factom-Asset-Tokens/factom"
 	"github.com/Factom-Asset-Tokens/factom/fat107"
+	"github.com/Factom-Asset-Tokens/fatd/internal/db/addresses"
 	"github.com/stretchr/testify/require"
 	"github.com/wasmerio/go-ext-wasm/wasmer"
 )
@@ -119,6 +120,27 @@ func TestContracts(t *testing.T) {
 
 	err = fmt.Errorf("rollback")
 	release(&err)
+
+	require.NoError(sqlitex.ExecScript(conn, addresses.CreateTable),
+		"addresses.CreateTable")
+
+	fs, err := factom.GenerateFsAddress()
+	require.NoError(err)
+	fa := fs.FAAddress()
+	adrID, err := addresses.Add(conn, &fa, 1000)
+	require.NoError(err)
+
+	require.NoError(sqlitex.ExecScript(conn, CreateTableAddressContracts),
+		"CreateTableAddressContracts")
+
+	require.NoError(InsertAddressContract(conn, adrID, &chainIDAdd))
+	chainID, err := SelectAddressContract(conn, adrID)
+	require.NoError(err)
+	require.Equal(chainIDAdd, chainID)
+	require.NoError(DeleteAddressContract(conn, adrID))
+	chainID, err = SelectAddressContract(conn, adrID)
+	require.NoError(err)
+	require.True(chainID.IsZero())
 }
 
 func insertWasmFile(t *testing.T, conn *sqlite.Conn, fileName string) (

@@ -3,7 +3,7 @@ module github.com/Factom-Asset-Tokens/fatd
 go 1.13
 
 require (
-	crawshaw.io/sqlite v0.2.0
+	crawshaw.io/sqlite v0.2.1-0.20191210213818-c9d1693acfe9
 	github.com/AdamSLevy/jsonrpc2/v13 v13.0.1
 	github.com/AdamSLevy/sqlbuilder v0.0.0-20191126201320-5b1948d48973
 	github.com/AdamSLevy/sqlitechangeset v0.0.0-20191210201651-f95453d87aff
@@ -27,7 +27,8 @@ replace (
 
 	// Uses the LLVM backend and exposes metering. Also fixes a bug with
 	// InstanceContext.Data.
-	github.com/wasmerio/go-ext-wasm => github.com/AdamSLevy/go-ext-wasm v0.0.0-20191209001357-53442e9be903
+	//github.com/wasmerio/go-ext-wasm => github.com/AdamSLevy/go-ext-wasm v0.0.0-20191212063545-ec82ca05412e
+	github.com/wasmerio/go-ext-wasm => github.com/AdamSLevy/go-ext-wasm v0.0.0-20191212234502-d66004a8582c
 )
 
 //replace github.com/Factom-Asset-Tokens/factom => ../factom

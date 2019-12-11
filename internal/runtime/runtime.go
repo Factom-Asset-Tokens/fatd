@@ -25,6 +25,7 @@ package runtime
 import (
 	"fmt"
 
+	"crawshaw.io/sqlite/sqlitex"
 	"github.com/wasmerio/go-ext-wasm/wasmer"
 )
 
@@ -45,13 +46,24 @@ func NewVM(mod *wasmer.Module) (*VM, error) {
 	return &VM{inst}, nil
 }
 
-func (vm *VM) Call(fname string, args ...interface{}) (v wasmer.Value, err error) {
+func (vm *VM) Call(ctx *Context,
+	fname string, args ...interface{}) (v wasmer.Value, txErr, err error) {
+
 	f, ok := vm.Exports[fname]
 	if !ok {
-		return wasmer.Value{}, fmt.Errorf("unknown function")
+		txErr = fmt.Errorf("unknown function")
+		return
 	}
 
-	defer RecoverOutOfGas(&err)
+	defer func(release func(*error)) {
+		if err != nil {
+			release(&err)
+			return
+		}
+		release(&txErr)
+	}(sqlitex.Save(ctx.Chain.Conn))
+
+	vm.SetContextData(ctx)
 
 	v, err = f(args...)
 	if err != nil {
@@ -60,12 +72,22 @@ func (vm *VM) Call(fname string, args ...interface{}) (v wasmer.Value, err error
 			var errStr string
 			errStr, err = wasmer.GetLastError()
 			if err == nil {
-				if errStr == ErrorExecLimitExceededString {
-					err = ErrorExecLimitExceeded{}
-				} else {
+				if errStr != ErrorExecLimitExceededString {
 					err = fmt.Errorf(errStr)
+					return
 				}
+				txErr = ErrorExecLimitExceeded{}
 			}
+		}
+	}
+	if ctx.Err != nil {
+		switch ctx.Err.(type) {
+		case ErrorRevert, ErrorExecLimitExceeded:
+			txErr = ctx.Err
+		case ErrorSelfDestruct:
+			txErr = nil
+		default:
+			err = ctx.Err
 		}
 	}
 	return

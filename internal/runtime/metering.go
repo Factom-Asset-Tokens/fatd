@@ -24,17 +24,7 @@ package runtime
 
 import (
 	"fmt"
-
-	"github.com/wasmerio/go-ext-wasm/wasmer"
 )
-
-const ErrorExecLimitExceededString = "Execution limit exceeded."
-
-type ErrorExecLimitExceeded struct{}
-
-func (err ErrorExecLimitExceeded) Error() string {
-	return ErrorExecLimitExceededString
-}
 
 var Called map[string]struct{}
 var Cost = map[string]uint64{
@@ -50,33 +40,30 @@ var Cost = map[string]uint64{
 	"get_balance_of": 1,
 	"send":           1,
 	"burn":           1,
+	"revert":         0,
+	"self_destruct":  0,
 }
 
-func Meter(runtimeCtx wasmer.InstanceContext, fname string) {
+func (ctx *Context) Meter(fname string) error {
+	cost, ok := Cost[fname]
+	if !ok {
+		ctx.ConsumeAllGas()
+		ctx.Err = fmt.Errorf("missing cost for %q", fname)
+		return ctx.Err
+	}
+
+	used := ctx.GetPointsUsed() + cost
+	ctx.SetPointsUsed(used)
+
+	limit := ctx.GetExecLimit()
+	if used > limit {
+		ctx.Err = ErrorExecLimitExceeded{}
+		return ctx.Err
+	}
+
 	if Called != nil {
 		Called[fname] = struct{}{}
 	}
 
-	cost, ok := Cost[fname]
-	if !ok {
-		panic(fmt.Errorf("missing cost for %q", fname))
-	}
-
-	used := runtimeCtx.GetPointsUsed() + cost
-	runtimeCtx.SetPointsUsed(used)
-
-	limit := runtimeCtx.GetExecLimit()
-	if used > limit {
-		panic(ErrorExecLimitExceeded{})
-	}
-}
-
-func RecoverOutOfGas(err *error) {
-	if ret := recover(); ret != nil {
-		var ok bool
-		*err, ok = ret.(ErrorExecLimitExceeded)
-		if !ok {
-			panic(ret)
-		}
-	}
+	return nil
 }

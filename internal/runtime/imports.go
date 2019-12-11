@@ -41,7 +41,7 @@ package runtime
 // extern void send(void *ctx, int64_t amount, int32_t adr_buf);
 // extern void burn(void *ctx, int64_t amount);
 //
-// extern void revert(void *ctx);
+// extern void revert(void *ctx, int32_t msg, int32_t msg_len);
 // extern void self_destruct(void *ctx);
 import "C"
 import (
@@ -54,153 +54,166 @@ import (
 	"github.com/wasmerio/go-ext-wasm/wasmer"
 )
 
-func readAddress(instanceCtx *wasmer.InstanceContext, adr_buf int32) factom.FAAddress {
-	var adr factom.FAAddress
-	if 32 != copy(adr[:], instanceCtx.Memory().Data()[adr_buf:]) {
-		panic(fmt.Errorf("readAddress: invalid copy length"))
-	}
-	return adr
-}
-
-func writeAddress(instanceCtx *wasmer.InstanceContext,
-	adr *factom.FAAddress, adr_buf int32) {
-	if 32 != copy(instanceCtx.Memory().Data()[adr_buf:], adr[:]) {
-		panic(fmt.Errorf("writeAddress: invalid copy length"))
-	}
-}
-
 //export get_height
-func get_height(ctx unsafe.Pointer) int32 {
-	instanceCtx := wasmer.IntoInstanceContext(ctx)
-	Meter(instanceCtx, "get_height")
-
-	context := intoContext(&instanceCtx)
-	return int32(context.DBlock.Height)
+func get_height(ptr unsafe.Pointer) int32 {
+	ctx := intoContext(ptr)
+	if ctx.Meter("get_height") != nil {
+		return 0
+	}
+	return int32(ctx.DBlock.Height)
 }
 
 //export get_precision
-func get_precision(ctx unsafe.Pointer) int32 {
-	instanceCtx := wasmer.IntoInstanceContext(ctx)
-	Meter(instanceCtx, "get_precision")
-
-	context := intoContext(&instanceCtx)
-	return int32(context.Chain.Issuance.Precision)
+func get_precision(ptr unsafe.Pointer) int32 {
+	ctx := intoContext(ptr)
+	if ctx.Meter("get_precision") != nil {
+		return 0
+	}
+	return int32(ctx.Chain.Issuance.Precision)
 }
 
 //export get_amount
-func get_amount(ctx unsafe.Pointer) int64 {
-	instanceCtx := wasmer.IntoInstanceContext(ctx)
-	Meter(instanceCtx, "get_amount")
-
-	context := intoContext(&instanceCtx)
-	return int64(context.Amount())
+func get_amount(ptr unsafe.Pointer) int64 {
+	ctx := intoContext(ptr)
+	if ctx.Meter("get_amount") != nil {
+		return 0
+	}
+	amount, _ := ctx.Amount()
+	return int64(amount)
 }
 
 //export get_coinbase
-func get_coinbase(ctx unsafe.Pointer, adr_buf int32) {
-	instanceCtx := wasmer.IntoInstanceContext(ctx)
-	Meter(instanceCtx, "get_coinbase")
+func get_coinbase(ptr unsafe.Pointer, adr_buf int32) {
+	ctx := intoContext(ptr)
+	if ctx.Meter("get_coinbase") != nil {
+		return
+	}
 
 	coinbase := fat.Coinbase()
-	writeAddress(&instanceCtx, &coinbase, adr_buf)
+	ctx.WriteAddress(&coinbase, adr_buf)
 }
 
 //export get_timestamp
-func get_timestamp(ctx unsafe.Pointer) int64 {
-	instanceCtx := wasmer.IntoInstanceContext(ctx)
-	Meter(instanceCtx, "get_timestamp")
+func get_timestamp(ptr unsafe.Pointer) int64 {
+	ctx := intoContext(ptr)
+	if ctx.Meter("get_timestamp") != nil {
+		return 0
+	}
 
-	context := intoContext(&instanceCtx)
-
-	return context.Transaction.Entry.Timestamp.Unix()
+	return ctx.Transaction.Entry.Timestamp.Unix()
 }
 
 //export get_entry_hash
-func get_entry_hash(ctx unsafe.Pointer, hash_buf int32) {
-	instanceCtx := wasmer.IntoInstanceContext(ctx)
-	Meter(instanceCtx, "get_entry_hash")
+func get_entry_hash(ptr unsafe.Pointer, hash_buf int32) {
+	ctx := intoContext(ptr)
+	if ctx.Meter("get_entry_hash") != nil {
+		return
+	}
 
-	context := intoContext(&instanceCtx)
-
-	writeAddress(&instanceCtx, (*factom.FAAddress)(context.Transaction.Entry.Hash),
+	ctx.WriteAddress(
+		(*factom.FAAddress)(ctx.Transaction.Entry.Hash),
 		hash_buf)
 }
 
 //export get_sender
-func get_sender(ctx unsafe.Pointer, adr_buf int32) {
-	instanceCtx := wasmer.IntoInstanceContext(ctx)
-	Meter(instanceCtx, "get_sender")
+func get_sender(ptr unsafe.Pointer, adr_buf int32) {
+	ctx := intoContext(ptr)
+	if ctx.Meter("get_sender") != nil {
+		return
+	}
 
-	context := intoContext(&instanceCtx)
-
-	sender := context.Sender()
-	writeAddress(&instanceCtx, &sender, adr_buf)
+	sender := ctx.Sender()
+	ctx.WriteAddress(&sender, adr_buf)
 }
 
 //export get_address
-func get_address(ctx unsafe.Pointer, adr_buf int32) {
-	instanceCtx := wasmer.IntoInstanceContext(ctx)
-	Meter(instanceCtx, "get_address")
-
-	context := intoContext(&instanceCtx)
-
-	contract := context.ContractAddress()
-
-	writeAddress(&instanceCtx, &contract, adr_buf)
+func get_address(ptr unsafe.Pointer, adr_buf int32) {
+	ctx := intoContext(ptr)
+	if ctx.Meter("get_address") != nil {
+		return
+	}
+	contract, err := ctx.ContractAddress()
+	if err != nil {
+		return
+	}
+	ctx.WriteAddress(&contract, adr_buf)
 }
 
 //export get_balance
-func get_balance(ctx unsafe.Pointer) int64 {
-	instanceCtx := wasmer.IntoInstanceContext(ctx)
-	Meter(instanceCtx, "get_balance")
+func get_balance(ptr unsafe.Pointer) int64 {
+	ctx := intoContext(ptr)
+	if ctx.Meter("get_balance") != nil {
+		return 0
+	}
 
-	context := intoContext(&instanceCtx)
-	contract := context.ContractAddress()
-
-	_, bal, err := addresses.SelectIDBalance(context.Chain.Conn, &contract)
+	contract, err := ctx.ContractAddress()
 	if err != nil {
-		panic(fmt.Errorf("get_balance: addresses.SelectIDBalance: %w", err))
+		return 0
+	}
+	_, bal, err := addresses.SelectIDBalance(ctx.Chain.Conn, &contract)
+	if err != nil {
+		ctx.Error(fmt.Errorf(
+			"get_balance: addresses.SelectIDBalance: %w", err))
 	}
 
 	return int64(bal)
 }
 
 //export get_balance_of
-func get_balance_of(ctx unsafe.Pointer, adr_buf int32) int64 {
-	instanceCtx := wasmer.IntoInstanceContext(ctx)
-	Meter(instanceCtx, "get_balance_of")
+func get_balance_of(ptr unsafe.Pointer, adr_buf int32) int64 {
+	ctx := intoContext(ptr)
+	if ctx.Meter("get_balance_of") != nil {
+		return 0
+	}
 
-	context := intoContext(&instanceCtx)
-
-	adr := readAddress(&instanceCtx, adr_buf)
-
-	_, bal, err := addresses.SelectIDBalance(context.Chain.Conn, &adr)
+	adr, err := ctx.ReadAddress(adr_buf)
 	if err != nil {
-		panic(fmt.Errorf("get_balance: addresses.SelectIDBalance: %w", err))
+		return 0
+	}
+	_, bal, err := addresses.SelectIDBalance(ctx.Chain.Conn, &adr)
+	if err != nil {
+		ctx.Error(fmt.Errorf(
+			"get_balance_of: addresses.SelectIDBalance: %w", err))
 	}
 
 	return int64(bal)
 }
 
 //export send
-func send(ctx unsafe.Pointer, amount int64, adr_buf int32) {
-	instanceCtx := wasmer.IntoInstanceContext(ctx)
-	Meter(instanceCtx, "send")
-
-	adr := readAddress(&instanceCtx, adr_buf)
-
-	context := intoContext(&instanceCtx)
-	context.Send(uint64(amount), &adr)
+func send(ptr unsafe.Pointer, amount int64, adr_buf int32) {
+	ctx := intoContext(ptr)
+	if ctx.Meter("send") != nil {
+		return
+	}
+	adr, err := ctx.ReadAddress(adr_buf)
+	if err != nil {
+		return
+	}
+	ctx.Send(uint64(amount), &adr)
 }
 
 //export burn
-func burn(ctx unsafe.Pointer, amount int64) {
-	instanceCtx := wasmer.IntoInstanceContext(ctx)
-	Meter(instanceCtx, "burn")
-
-	context := intoContext(&instanceCtx)
+func burn(ptr unsafe.Pointer, amount int64) {
+	ctx := intoContext(ptr)
+	if ctx.Meter("burn") != nil {
+		return
+	}
 	adr := fat.Coinbase()
-	context.Send(uint64(amount), &adr)
+	ctx.Send(uint64(amount), &adr)
+}
+
+//export revert
+func revert(ptr unsafe.Pointer, msg int32, msg_len int32) {
+	ctx := intoContext(ptr)
+	if uint32(msg_len) > 256 {
+		msg_len = 256
+	}
+	ctx.Revert(ctx.ReadString(msg, uint32(msg_len)))
+}
+
+//export self_destruct
+func self_destruct(ptr unsafe.Pointer) {
+	intoContext(ptr).SelfDestruct()
 }
 
 type hostFunc struct {
@@ -224,6 +237,9 @@ var hostFuncs = map[string]hostFunc{
 
 	"ext_send": hostFunc{send, C.send},
 	"ext_burn": hostFunc{burn, C.burn},
+
+	"ext_revert":        hostFunc{revert, C.revert},
+	"ext_self_destruct": hostFunc{self_destruct, C.self_destruct},
 }
 
 func imports() (*wasmer.Imports, error) {

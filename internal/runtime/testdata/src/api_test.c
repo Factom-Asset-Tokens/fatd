@@ -113,7 +113,7 @@ int test_get_balance_of() {
         return SUCCESS;
 }
 
-int test_send() {
+EXPORT int test_send() {
         char adr[SIZE];
         populateBuf(adr, SEND_ERR_BALANCE);
         int bal = ext_get_balance();
@@ -143,6 +143,15 @@ int test_burn() {
         return SUCCESS;
 }
 
+EXPORT void test_revert() {
+        test_send();
+        ext_revert("test_revert", 11);
+}
+
+EXPORT void test_self_destruct() {
+        test_send();
+        ext_self_destruct();
+}
 
 EXPORT int run_all() {
         RUN(test_get_timestamp());

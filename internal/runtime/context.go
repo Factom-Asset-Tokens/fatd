@@ -25,12 +25,14 @@ package runtime
 import (
 	"context"
 	"fmt"
+	"unsafe"
 
 	"github.com/Factom-Asset-Tokens/factom"
 	"github.com/Factom-Asset-Tokens/factom/fat0"
 	"github.com/Factom-Asset-Tokens/fatd/fat"
 	"github.com/Factom-Asset-Tokens/fatd/internal/db"
 	"github.com/Factom-Asset-Tokens/fatd/internal/db/addresses"
+	"github.com/Factom-Asset-Tokens/fatd/internal/db/contracts"
 	"github.com/wasmerio/go-ext-wasm/wasmer"
 )
 
@@ -39,11 +41,17 @@ type Context struct {
 	factom.DBlock
 	fat0.Transaction
 
-	ctx context.Context
+	Err error
+
+	context.Context
+	*wasmer.InstanceContext
 }
 
-func intoContext(ctx *wasmer.InstanceContext) *Context {
-	return ctx.Data().(*Context)
+func intoContext(ptr unsafe.Pointer) *Context {
+	instanceCtx := wasmer.IntoInstanceContext(ptr)
+	ctx := instanceCtx.Data().(*Context)
+	ctx.InstanceContext = &instanceCtx
+	return ctx
 }
 
 func (ctx *Context) Sender() factom.FAAddress {
@@ -53,43 +61,108 @@ func (ctx *Context) Sender() factom.FAAddress {
 	panic("empty Transaction.Inputs!")
 }
 
-func (ctx *Context) ContractAddress() factom.FAAddress {
+func (ctx *Context) ContractAddress() (factom.FAAddress, error) {
 	for contract := range ctx.Transaction.Outputs {
-		return contract
+		return contract, nil
 	}
-	panic("empty Transaction.Outputs!")
+	return factom.FAAddress{}, ctx.Error(fmt.Errorf("empty Transaction.Outputs!"))
 }
 
-func (ctx *Context) Amount() uint64 {
+func (ctx *Context) Amount() (uint64, error) {
 	for _, amount := range ctx.Transaction.Outputs {
-		return amount
+		return amount, nil
 	}
-	panic("empty Transaction.Outputs!")
+	return 0, ctx.Error(fmt.Errorf("empty Transaction.Outputs!"))
 }
 
-func (ctx *Context) Send(amount uint64, adr *factom.FAAddress) {
+func (ctx *Context) Send(amount uint64, adr *factom.FAAddress) error {
 	chain := ctx.Chain
-	contract := ctx.ContractAddress()
+	contract, err := ctx.ContractAddress()
+	if err != nil {
+		return err
+	}
 	if contract == fat.Coinbase() {
 		if chain.Issuance.Supply > 0 &&
 			int64(chain.NumIssued+amount) > chain.Issuance.Supply {
-			panic(fmt.Errorf("coinbase exceeds max supply"))
+			return ctx.Revert("send: max supply exceeded")
 		}
 		if err := chain.AddNumIssued(amount); err != nil {
-			panic(err)
+			return ctx.Error(err)
 		}
 	} else {
 		_, txErr, err := addresses.Sub(chain.Conn, &contract, amount)
 		if err != nil {
-			panic(err)
+			return ctx.Error(fmt.Errorf("addresses.Sub: %w", err))
 		}
 		if txErr != nil {
-			panic(txErr)
+			return ctx.Revert("send: insufficient balance")
 		}
 	}
 
-	_, err := addresses.Add(chain.Conn, adr, amount)
+	_, err = addresses.Add(chain.Conn, adr, amount)
 	if err != nil {
-		panic(err)
+		return ctx.Error(fmt.Errorf("addresses.Add: %w", err))
 	}
+	return nil
+}
+
+func (ctx *Context) SelfDestruct() error {
+	ctx.ConsumeAllGas()
+	adr, err := ctx.ContractAddress()
+	if err != nil {
+		return err
+	}
+	var id int64
+	id, ctx.Err = addresses.SelectID(ctx.Chain.Conn, &adr)
+	if ctx.Err != nil {
+		return ctx.Err
+	}
+	ctx.Err = contracts.DeleteAddressContract(ctx.Chain.Conn, id)
+	if ctx.Err != nil {
+		return ctx.Err
+	}
+	// Marks a successful self destruct. Will not be set as a Tx Err.
+	ctx.Err = ErrorSelfDestruct{}
+	return ctx.Err
+}
+
+func (ctx *Context) Revert(reason string) error {
+	ctx.ConsumeAllGas()
+	ctx.Err = ErrorRevert{reason}
+	return ctx.Err
+}
+
+func (ctx *Context) ConsumeAllGas() {
+	ctx.SetPointsUsed(ctx.GetExecLimit())
+}
+
+func (ctx *Context) Error(err error) error {
+	if err != nil {
+		ctx.ConsumeAllGas()
+	}
+	ctx.Err = err
+	return err
+}
+
+func (ctx *Context) ReadAddress(adr_buf int32) (factom.FAAddress, error) {
+	var adr factom.FAAddress
+	if 32 != copy(adr[:], ctx.Memory().Data()[adr_buf:]) {
+		return adr, ctx.Error(
+			fmt.Errorf("Context.ReadAddress: invalid copy length"))
+	}
+	return adr, nil
+}
+
+func (ctx *Context) ReadString(str_buf int32, size uint32) string {
+	str := make([]byte, size)
+	n := copy(str[:], ctx.Memory().Data()[str_buf:])
+	return string(str[:n])
+}
+
+func (ctx *Context) WriteAddress(adr *factom.FAAddress, adr_buf int32) error {
+	if 32 != copy(ctx.Memory().Data()[adr_buf:], adr[:]) {
+		return ctx.Error(
+			fmt.Errorf("Context.WriteAddress: invalid copy length"))
+	}
+	return nil
 }

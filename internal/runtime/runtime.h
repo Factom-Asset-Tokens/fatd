@@ -83,7 +83,7 @@ extern void ext_burn(uint64_t amount);
 // ext_revert stops all further execution of this transaction and reverts all
 // state changes from this transaction, including any balance transfer, and
 // marks the transaction as invalid.
-extern void ext_revert(void);
+extern void ext_revert(char *msg, uint32_t msg_len);
 
 // ext_self_destruct stops all further execution and destroys the contract
 // returning control of the address back to its private key.

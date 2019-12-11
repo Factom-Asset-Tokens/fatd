@@ -30,10 +30,12 @@ import "C"
 import (
 	"time"
 
+	"crawshaw.io/sqlite/sqlitex"
 	"github.com/Factom-Asset-Tokens/factom"
 	"github.com/Factom-Asset-Tokens/factom/fat0"
 	"github.com/Factom-Asset-Tokens/fatd/internal/db"
 	"github.com/Factom-Asset-Tokens/fatd/internal/db/addresses"
+	"github.com/Factom-Asset-Tokens/fatd/internal/db/contracts"
 	"github.com/Factom-Asset-Tokens/fatd/internal/runtime"
 )
 
@@ -57,6 +59,10 @@ func Context(chain db.Chain) runtime.Context {
 	}
 	address = factom.FAAddress(genBytes32(C.GET_BALANCE_OF_ERR))
 	addresses.Add(chain.Conn, &address, C.GET_BALANCE_OF_EXP)
+
+	if err := sqlitex.ExecScript(chain.Conn, contracts.CreateTable); err != nil {
+		panic(err)
+	}
 
 	return runtime.Context{
 		DBlock:      factom.DBlock{Height: uint32(C.GET_HEIGHT_EXP)},

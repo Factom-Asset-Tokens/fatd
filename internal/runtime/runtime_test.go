@@ -23,11 +23,14 @@
 package runtime_test
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"testing"
 
+	"crawshaw.io/sqlite"
 	"crawshaw.io/sqlite/sqlitex"
 	"github.com/Factom-Asset-Tokens/fatd/internal/db"
 	"github.com/Factom-Asset-Tokens/fatd/internal/runtime"
@@ -37,64 +40,199 @@ import (
 	"github.com/wasmerio/go-ext-wasm/wasmer"
 )
 
-func TestRuntime(t *testing.T) {
-	require := require.New(t)
-	assert := assert.New(t)
+const TotalPoints = 875
 
+var (
+	wasm, modBin []byte
+	chain        db.Chain
+	sess         *sqlite.Session
+	ctx          runtime.Context
+
+	rbErr = fmt.Errorf("rollback")
+)
+
+func TestMain(m *testing.M) {
+	var err error
 	// Load wasm module
-	wasm, err := ioutil.ReadFile("./testdata/api_test.wasm")
-	require.NoError(err)
+	wasm, err = ioutil.ReadFile("./testdata/api_test.wasm")
+	if err != nil {
+		panic(err)
+	}
 	mod, err := wasmer.CompileWithGasMetering(wasm)
-	require.NoError(err)
+	if err != nil {
+		panic(err)
+	}
+	defer mod.Close()
+	modBin, err = mod.Serialize()
+	if err != nil {
+		panic(err)
+	}
 
-	vm, err := runtime.NewVM(&mod)
-	require.NoError(err)
-	defer vm.Close()
-
-	// Set the limit to the exact amount of gas required to complete the
-	// function call. This must be updated if api.wasm changes.
-	const PointsUsed = 878
-	vm.SetExecLimit(PointsUsed)
-
-	chain, err := db.Open(context.Background(), "./testdata/test-fatd.db/",
+	// Open up the chain so we can set up the runtime.Context
+	chain, err = db.Open(context.Background(), "./testdata/test-fatd.db/",
 		"b54c4310530dc4dd361101644fa55cb10aec561e7874a7b786ea3b66f2c6fdfb.sqlite3")
 	if err != nil {
 		panic(err)
 	}
 	defer chain.Close()
-	release := sqlitex.Save(chain.Conn)
-	rbErr := fmt.Errorf("rollback")
-	defer release(&rbErr)
 
-	ctx := testdata.Context(chain)
+	// Rollback all changes made during the tests.
+	defer sqlitex.Save(chain.Conn)(&rbErr)
 
+	// Set up our context.
+	ctx = testdata.Context(chain)
+
+	// Start a session so we can ensure that changes actually occur to the
+	// DB.
+	sess, err = chain.Conn.CreateSession("")
+	if err != nil {
+		panic(err)
+	}
+	defer sess.Delete()
+	if err := sess.Attach(""); err != nil {
+		panic(err)
+	}
+
+	os.Exit(m.Run())
+}
+
+func TestRunAll(t *testing.T) {
+	reqr := require.New(t)
+	asrt := assert.New(t)
+
+	// Changes should have occurred to the database.
+	var buf bytes.Buffer
+	reqr.NoError(sess.Changeset(&buf))
+	reqr.Zero(buf.Len(), "expected no changes")
+
+	// Rollback all changes made during the tests.
+	defer sqlitex.Save(chain.Conn)(&rbErr)
+
+	mod, err := wasmer.CompileWithGasMetering(wasm)
+	reqr.NoError(err)
+	defer mod.Close()
+
+	vm, err := runtime.NewVM(&mod)
+	reqr.NoError(err)
+	defer vm.Close()
+
+	// Set the limit to the exact amount of gas required to complete the
+	// function call. This must be updated if api.wasm changes.
+	vm.SetExecLimit(TotalPoints)
+	vm.SetPointsUsed(0)
+
+	// This allows us to ensure that all host functions get called during
+	// the test.
 	runtime.Called = make(map[string]struct{}, len(runtime.Cost))
+	defer func() { runtime.Called = nil }()
 
-	vm.SetContextData(&ctx)
-	v, err := vm.Call("run_all")
-	require.NoErrorf(err, "points used: %v", int64(vm.GetPointsUsed()))
-	require.Equal(wasmer.TypeI32, v.GetType())
-	assert.Equalf(testdata.ErrMap[0], testdata.ErrMap[v.ToI32()],
+	// This should return successfully.
+	v, txErr, err := vm.Call(&ctx, "run_all")
+	reqr.NoError(err, "err")
+	reqr.NoErrorf(txErr, "txErr: points used: %v",
+		int64(vm.GetPointsUsed()))
+
+	// The return value should be SUCCESS but this tells us what error in
+	// the API test we hit.
+	reqr.Equal(wasmer.TypeI32, v.GetType())
+	asrt.Equalf(testdata.ErrMap[0], testdata.ErrMap[v.ToI32()],
 		"ret: %v", v.ToI32())
-	assert.Equal(int64(PointsUsed), int64(vm.GetPointsUsed()))
-	require.Equal(len(runtime.Called), len(runtime.Cost),
+
+	// We should have used all of the points we set earlier.
+	asrt.Equal(int64(TotalPoints), int64(vm.GetPointsUsed()))
+
+	// All host functions should have been called, except revert and
+	// self_destruct.
+	reqr.Equal(len(runtime.Cost)-2, len(runtime.Called),
 		"Not all host funcs were called")
 
-	runtime.Called = nil
+	// Changes should have occurred to the database.
+	buf.Truncate(0)
+	reqr.NoError(sess.Changeset(&buf))
+	reqr.NotZero(buf.Len(), "expected changes")
+}
 
-	vm.SetPointsUsed(0)
-	vm.SetExecLimit(0)
+func TestOutOfGas(t *testing.T) {
+	defer sqlitex.Save(chain.Conn)(&rbErr)
+	t.Run("zero_limit", func(t *testing.T) {
+		// Rollback all changes made during the tests.
+		defer sqlitex.Save(chain.Conn)(&rbErr)
 
-	_, err = vm.Call("run_all")
-	require.EqualError(err, runtime.ErrorExecLimitExceededString)
+		reqr := require.New(t)
 
-	// By setting the limit to the points used, this should cause the
-	// execution limit to be exceeded within the first host function call.
-	pointsUsed := vm.GetPointsUsed()
-	vm.SetExecLimit(pointsUsed)
-	vm.SetPointsUsed(0)
-	_, err = vm.Call("run_all")
-	require.EqualError(err, runtime.ErrorExecLimitExceededString)
-	require.Equal(int64(pointsUsed+runtime.Cost["get_height"]),
-		int64(vm.GetPointsUsed()))
+		mod, err := wasmer.CompileWithGasMetering(wasm)
+		reqr.NoError(err)
+		defer mod.Close()
+
+		vm, err := runtime.NewVM(&mod)
+		reqr.NoError(err)
+		defer vm.Close()
+		// No execution should occur with a 0 limit.
+		vm.SetExecLimit(0)
+		vm.SetPointsUsed(0)
+		_, txErr, err := vm.Call(&ctx, "run_all")
+		reqr.NoError(err)
+		reqr.EqualError(txErr, runtime.ErrorExecLimitExceededString)
+	})
+
+	t.Run("from_host", func(t *testing.T) {
+		// Rollback all changes made during the tests.
+		defer sqlitex.Save(chain.Conn)(&rbErr)
+
+		reqr := require.New(t)
+
+		mod, err := wasmer.CompileWithGasMetering(wasm)
+		reqr.NoError(err)
+		defer mod.Close()
+
+		vm, err := runtime.NewVM(&mod)
+		reqr.NoError(err)
+		defer vm.Close()
+
+		// This is enough points to make it into the first host
+		// function, but not through it.
+		vm.SetExecLimit(12)
+		vm.SetPointsUsed(0)
+
+		runtime.Cost["get_timestamp"] = 5000
+		defer func() { runtime.Cost["get_timestamp"] = 1 }()
+		_, txErr, err := vm.Call(&ctx, "run_all")
+		reqr.NoError(err)
+		reqr.EqualError(txErr, runtime.ErrorExecLimitExceededString)
+		// The points should be equal to the last pointsUsed plus the cost of
+		// the first called host function.
+		reqr.Equal(int64(12+runtime.Cost["get_timestamp"]),
+			int64(vm.GetPointsUsed()))
+	})
+	t.Run("revert_changes", func(t *testing.T) {
+		// Rollback all changes made during the tests.
+		defer sqlitex.Save(chain.Conn)(&rbErr)
+
+		reqr := require.New(t)
+
+		mod, err := wasmer.CompileWithGasMetering(wasm)
+		reqr.NoError(err)
+		defer mod.Close()
+
+		vm, err := runtime.NewVM(&mod)
+		reqr.NoError(err)
+		defer vm.Close()
+
+		runtime.Called = make(map[string]struct{}, len(runtime.Cost))
+		defer func() { runtime.Called = nil }()
+
+		vm.SetExecLimit(46)
+		vm.SetPointsUsed(0)
+
+		_, txErr, err := vm.Call(&ctx, "test_send")
+		reqr.NoError(err)
+		// Ensure send was successfully called
+		reqr.Contains(runtime.Called, "send")
+		reqr.EqualErrorf(txErr, runtime.ErrorExecLimitExceededString,
+			"txErr: points used: %v", int64(vm.GetPointsUsed()))
+		// Ensure no changes.
+		var buf bytes.Buffer
+		reqr.NoError(sess.Changeset(&buf))
+		reqr.Zero(buf.Len(), "changes not reverted")
+	})
 }
