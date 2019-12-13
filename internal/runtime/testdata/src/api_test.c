@@ -113,43 +113,43 @@ int test_get_balance_of() {
         return SUCCESS;
 }
 
-EXPORT int test_send() {
+EXPORT int test_send(uint64_t amount) {
         char adr[SIZE];
         populateBuf(adr, SEND_ERR_BALANCE);
         int bal = ext_get_balance();
         int bal_of = ext_get_balance_of(adr);
-        ext_send(SEND_AMOUNT, adr);
-        if (ext_get_balance() != (bal-SEND_AMOUNT)) {
+        ext_send(amount, adr);
+        if (ext_get_balance() != (bal-amount)) {
                 return SEND_ERR_BALANCE;
         }
-        if (ext_get_balance_of(adr) != (bal_of+SEND_AMOUNT)) {
+        if (ext_get_balance_of(adr) != (bal_of+amount)) {
                 return SEND_ERR_BALANCE_OF;
         }
         return SUCCESS;
 }
 
-int test_burn() {
+int test_burn(uint64_t amount) {
         char adr[SIZE];
         ext_get_coinbase(adr);
         int bal = ext_get_balance();
         int burned = ext_get_balance_of(adr);
-        ext_burn(BURN_AMOUNT);
-        if (ext_get_balance() != (bal-BURN_AMOUNT)) {
+        ext_burn(amount);
+        if (ext_get_balance() != (bal-amount)) {
                 return BURN_ERR_BALANCE;
         }
-        if (ext_get_balance_of(adr) != (burned+BURN_AMOUNT)) {
+        if (ext_get_balance_of(adr) != (burned+amount)) {
                 return BURN_ERR_BALANCE_OF;
         }
         return SUCCESS;
 }
 
 EXPORT void test_revert() {
-        test_send();
+        test_send(SEND_AMOUNT);
         ext_revert("test_revert", 11);
 }
 
 EXPORT void test_self_destruct() {
-        test_send();
+        test_send(SEND_AMOUNT);
         ext_self_destruct();
 }
 
@@ -166,8 +166,8 @@ EXPORT int run_all() {
         RUN(test_get_balance());
         RUN(test_get_balance_of());
 
-        RUN(test_send());
-        RUN(test_burn());
+        RUN(test_send(SEND_AMOUNT));
+        RUN(test_burn(BURN_AMOUNT));
 
         return SUCCESS;
 }

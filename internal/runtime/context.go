@@ -25,6 +25,7 @@ package runtime
 import (
 	"context"
 	"fmt"
+	"math"
 	"unsafe"
 
 	"github.com/Factom-Asset-Tokens/factom"
@@ -74,23 +75,40 @@ func (ctx *Context) Amount() (uint64, error) {
 	}
 	return 0, ctx.Error(fmt.Errorf("empty Transaction.Outputs!"))
 }
+func (ctx *Context) ContractBalance() (uint64, error) {
+	contract, err := ctx.ContractAddress()
+	if err != nil {
+		return 0, err
+	}
+	if contract == fat.Coinbase() {
+		if ctx.Chain.Issuance.Supply < 0 {
+			return math.MaxUint64, nil
+		}
+		return uint64(ctx.Chain.Issuance.Supply) - ctx.Chain.NumIssued, nil
+	}
+	_, bal, err := addresses.SelectIDBalance(ctx.Chain.Conn, &contract)
+	if err != nil {
+		return 0, ctx.Error(fmt.Errorf(
+			"get_balance: addresses.SelectIDBalance: %w", err))
+	}
+	return bal, nil
+}
 
 func (ctx *Context) Send(amount uint64, adr *factom.FAAddress) error {
-	chain := ctx.Chain
 	contract, err := ctx.ContractAddress()
 	if err != nil {
 		return err
 	}
 	if contract == fat.Coinbase() {
-		if chain.Issuance.Supply > 0 &&
-			int64(chain.NumIssued+amount) > chain.Issuance.Supply {
+		if ctx.Chain.Issuance.Supply > 0 &&
+			int64(ctx.Chain.NumIssued+amount) > ctx.Chain.Issuance.Supply {
 			return ctx.Revert("send: max supply exceeded")
 		}
-		if err := chain.AddNumIssued(amount); err != nil {
+		if err := ctx.Chain.AddNumIssued(amount); err != nil {
 			return ctx.Error(err)
 		}
 	} else {
-		_, txErr, err := addresses.Sub(chain.Conn, &contract, amount)
+		_, txErr, err := addresses.Sub(ctx.Chain.Conn, &contract, amount)
 		if err != nil {
 			return ctx.Error(fmt.Errorf("addresses.Sub: %w", err))
 		}
@@ -99,7 +117,7 @@ func (ctx *Context) Send(amount uint64, adr *factom.FAAddress) error {
 		}
 	}
 
-	_, err = addresses.Add(chain.Conn, adr, amount)
+	_, err = addresses.Add(ctx.Chain.Conn, adr, amount)
 	if err != nil {
 		return ctx.Error(fmt.Errorf("addresses.Add: %w", err))
 	}

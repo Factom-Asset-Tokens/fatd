@@ -58,9 +58,18 @@ func Context(chain db.Chain) runtime.Context {
 		panic(err)
 	}
 	address = factom.FAAddress(genBytes32(C.GET_BALANCE_OF_ERR))
-	addresses.Add(chain.Conn, &address, C.GET_BALANCE_OF_EXP)
+	id, err := addresses.Add(chain.Conn, &address, C.GET_BALANCE_OF_EXP)
+	if err != nil {
+		panic(err)
+	}
 
-	if err := sqlitex.ExecScript(chain.Conn, contracts.CreateTable); err != nil {
+	if err := sqlitex.ExecScript(chain.Conn,
+		contracts.CreateTableAddressContracts); err != nil {
+		panic(err)
+	}
+
+	var chainID factom.Bytes32
+	if err := contracts.InsertAddressContract(chain.Conn, id, &chainID); err != nil {
 		panic(err)
 	}
 

@@ -146,16 +146,7 @@ func get_balance(ptr unsafe.Pointer) int64 {
 		return 0
 	}
 
-	contract, err := ctx.ContractAddress()
-	if err != nil {
-		return 0
-	}
-	_, bal, err := addresses.SelectIDBalance(ctx.Chain.Conn, &contract)
-	if err != nil {
-		ctx.Error(fmt.Errorf(
-			"get_balance: addresses.SelectIDBalance: %w", err))
-	}
-
+	bal, _ := ctx.ContractBalance()
 	return int64(bal)
 }
 
@@ -205,6 +196,9 @@ func burn(ptr unsafe.Pointer, amount int64) {
 //export revert
 func revert(ptr unsafe.Pointer, msg int32, msg_len int32) {
 	ctx := intoContext(ptr)
+	if ctx.Meter("revert") != nil {
+		return
+	}
 	if uint32(msg_len) > 256 {
 		msg_len = 256
 	}
@@ -213,7 +207,11 @@ func revert(ptr unsafe.Pointer, msg int32, msg_len int32) {
 
 //export self_destruct
 func self_destruct(ptr unsafe.Pointer) {
-	intoContext(ptr).SelfDestruct()
+	ctx := intoContext(ptr)
+	if ctx.Meter("self_destruct") != nil {
+		return
+	}
+	ctx.SelfDestruct()
 }
 
 type hostFunc struct {

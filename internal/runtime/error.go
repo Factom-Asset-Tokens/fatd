@@ -17,7 +17,7 @@ type ErrorRevert struct {
 }
 
 func (err ErrorRevert) Error() string {
-	return fmt.Sprintf("revert: %q", err.Reason)
+	return fmt.Sprintf("revert: %v", err.Reason)
 }
 
 type ErrorSelfDestruct struct{}

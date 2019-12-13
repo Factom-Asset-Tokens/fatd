@@ -32,7 +32,11 @@ import (
 
 	"crawshaw.io/sqlite"
 	"crawshaw.io/sqlite/sqlitex"
+	"github.com/Factom-Asset-Tokens/factom/fat"
+	"github.com/Factom-Asset-Tokens/factom/fat0"
 	"github.com/Factom-Asset-Tokens/fatd/internal/db"
+	"github.com/Factom-Asset-Tokens/fatd/internal/db/addresses"
+	"github.com/Factom-Asset-Tokens/fatd/internal/db/contracts"
 	"github.com/Factom-Asset-Tokens/fatd/internal/runtime"
 	"github.com/Factom-Asset-Tokens/fatd/internal/runtime/testdata"
 	"github.com/stretchr/testify/assert"
@@ -40,7 +44,7 @@ import (
 	"github.com/wasmerio/go-ext-wasm/wasmer"
 )
 
-const TotalPoints = 875
+const TotalPoints = 876
 
 var (
 	wasm, modBin []byte
@@ -97,7 +101,8 @@ func TestMain(m *testing.M) {
 }
 
 func TestRunAll(t *testing.T) {
-	reqr := require.New(t)
+	reqr, vm, cleanUp := setupTest(t, true)
+	defer cleanUp()
 	asrt := assert.New(t)
 
 	// Changes should have occurred to the database.
@@ -105,26 +110,10 @@ func TestRunAll(t *testing.T) {
 	reqr.NoError(sess.Changeset(&buf))
 	reqr.Zero(buf.Len(), "expected no changes")
 
-	// Rollback all changes made during the tests.
-	defer sqlitex.Save(chain.Conn)(&rbErr)
-
-	mod, err := wasmer.CompileWithGasMetering(wasm)
-	reqr.NoError(err)
-	defer mod.Close()
-
-	vm, err := runtime.NewVM(&mod)
-	reqr.NoError(err)
-	defer vm.Close()
-
 	// Set the limit to the exact amount of gas required to complete the
 	// function call. This must be updated if api.wasm changes.
 	vm.SetExecLimit(TotalPoints)
 	vm.SetPointsUsed(0)
-
-	// This allows us to ensure that all host functions get called during
-	// the test.
-	runtime.Called = make(map[string]struct{}, len(runtime.Cost))
-	defer func() { runtime.Called = nil }()
 
 	// This should return successfully.
 	v, txErr, err := vm.Call(&ctx, "run_all")
@@ -153,20 +142,10 @@ func TestRunAll(t *testing.T) {
 }
 
 func TestOutOfGas(t *testing.T) {
-	defer sqlitex.Save(chain.Conn)(&rbErr)
 	t.Run("zero_limit", func(t *testing.T) {
-		// Rollback all changes made during the tests.
-		defer sqlitex.Save(chain.Conn)(&rbErr)
+		reqr, vm, cleanUp := setupTest(t, false)
+		defer cleanUp()
 
-		reqr := require.New(t)
-
-		mod, err := wasmer.CompileWithGasMetering(wasm)
-		reqr.NoError(err)
-		defer mod.Close()
-
-		vm, err := runtime.NewVM(&mod)
-		reqr.NoError(err)
-		defer vm.Close()
 		// No execution should occur with a 0 limit.
 		vm.SetExecLimit(0)
 		vm.SetPointsUsed(0)
@@ -176,18 +155,8 @@ func TestOutOfGas(t *testing.T) {
 	})
 
 	t.Run("from_host", func(t *testing.T) {
-		// Rollback all changes made during the tests.
-		defer sqlitex.Save(chain.Conn)(&rbErr)
-
-		reqr := require.New(t)
-
-		mod, err := wasmer.CompileWithGasMetering(wasm)
-		reqr.NoError(err)
-		defer mod.Close()
-
-		vm, err := runtime.NewVM(&mod)
-		reqr.NoError(err)
-		defer vm.Close()
+		reqr, vm, cleanUp := setupTest(t, true)
+		defer cleanUp()
 
 		// This is enough points to make it into the first host
 		// function, but not through it.
@@ -205,26 +174,13 @@ func TestOutOfGas(t *testing.T) {
 			int64(vm.GetPointsUsed()))
 	})
 	t.Run("revert_changes", func(t *testing.T) {
-		// Rollback all changes made during the tests.
-		defer sqlitex.Save(chain.Conn)(&rbErr)
-
-		reqr := require.New(t)
-
-		mod, err := wasmer.CompileWithGasMetering(wasm)
-		reqr.NoError(err)
-		defer mod.Close()
-
-		vm, err := runtime.NewVM(&mod)
-		reqr.NoError(err)
-		defer vm.Close()
-
-		runtime.Called = make(map[string]struct{}, len(runtime.Cost))
-		defer func() { runtime.Called = nil }()
+		reqr, vm, cleanUp := setupTest(t, true)
+		defer cleanUp()
 
 		vm.SetExecLimit(46)
 		vm.SetPointsUsed(0)
 
-		_, txErr, err := vm.Call(&ctx, "test_send")
+		_, txErr, err := vm.Call(&ctx, "test_send", 1)
 		reqr.NoError(err)
 		// Ensure send was successfully called
 		reqr.Contains(runtime.Called, "send")
@@ -235,4 +191,159 @@ func TestOutOfGas(t *testing.T) {
 		reqr.NoError(sess.Changeset(&buf))
 		reqr.Zero(buf.Len(), "changes not reverted")
 	})
+}
+
+func TestSend(t *testing.T) {
+	t.Run("low_balance", func(t *testing.T) {
+		reqr, vm, cleanUp := setupTest(t, true)
+		defer cleanUp()
+
+		_, txErr, err := vm.Call(&ctx, "test_send", 999999999999999)
+		reqr.NoError(err)
+		// Ensure send was successfully called
+		reqr.Contains(runtime.Called, "send")
+		reqr.Equalf(runtime.ErrorRevert{"send: insufficient balance"}, txErr,
+			"txErr: points used: %v", int64(vm.GetPointsUsed()))
+		// Ensure no changes.
+		var buf bytes.Buffer
+		reqr.NoError(sess.Changeset(&buf))
+		reqr.Zero(buf.Len(), "changes not reverted")
+	})
+	t.Run("success", func(t *testing.T) {
+		reqr, vm, cleanUp := setupTest(t, true)
+		defer cleanUp()
+
+		bal, err := ctx.ContractBalance()
+		reqr.NoError(err)
+		reqr.NotZero(bal)
+
+		_, txErr, err := vm.Call(&ctx, "test_send", 1)
+		reqr.NoError(err)
+		reqr.NoError(txErr)
+		// Ensure send was successfully called
+		reqr.Contains(runtime.Called, "send")
+		newBal, err := ctx.ContractBalance()
+		reqr.NoError(err)
+		reqr.Equal(bal-1, newBal)
+	})
+	t.Run("coinbase/low_supply", func(t *testing.T) {
+		reqr, vm, cleanUp := setupTest(t, true)
+		defer cleanUp()
+
+		outputs := ctx.Transaction.Outputs
+		ctx.Transaction.Outputs = fat0.AddressAmountMap{fat.Coinbase(): 0}
+		defer func() {
+			ctx.Transaction.Outputs = outputs
+		}()
+
+		_, txErr, err := vm.Call(&ctx, "test_send", 999999999999999999)
+		reqr.NoError(err)
+		// Ensure send was successfully called
+		reqr.Contains(runtime.Called, "send")
+		reqr.Equalf(runtime.ErrorRevert{"send: max supply exceeded"}, txErr,
+			"txErr: points used: %v", int64(vm.GetPointsUsed()))
+		// Ensure no changes.
+		var buf bytes.Buffer
+		reqr.NoError(sess.Changeset(&buf))
+		reqr.Zero(buf.Len(), "changes not reverted")
+	})
+
+	t.Run("coinbase/success", func(t *testing.T) {
+		reqr, vm, cleanUp := setupTest(t, true)
+		defer cleanUp()
+
+		outputs := ctx.Transaction.Outputs
+		ctx.Transaction.Outputs = fat0.AddressAmountMap{fat.Coinbase(): 0}
+		defer func() {
+			ctx.Transaction.Outputs = outputs
+		}()
+
+		bal, err := ctx.ContractBalance()
+		reqr.NoError(err)
+		remSupply := ctx.Chain.Issuance.Supply - int64(ctx.Chain.NumIssued)
+		reqr.Equal(remSupply, int64(bal))
+
+		_, txErr, err := vm.Call(&ctx, "test_send", 1)
+		reqr.NoError(err)
+		reqr.NoError(txErr)
+		// Ensure send was successfully called
+		reqr.Contains(runtime.Called, "send")
+		newBal, err := ctx.ContractBalance()
+		reqr.NoError(err)
+		reqr.Equal(int(bal-1), int(newBal))
+	})
+}
+
+func TestRevert(t *testing.T) {
+	reqr, vm, cleanUp := setupTest(t, true)
+	defer cleanUp()
+
+	_, txErr, err := vm.Call(&ctx, "test_revert")
+	reqr.NoError(err)
+	// Ensure send was successfully called
+	reqr.Contains(runtime.Called, "send")
+	reqr.Equalf(runtime.ErrorRevert{"test_revert"}, txErr,
+		"txErr: points used: %v", int64(vm.GetPointsUsed()))
+	// Ensure no changes.
+	var buf bytes.Buffer
+	reqr.NoError(sess.Changeset(&buf))
+	reqr.Zero(buf.Len(), "changes not reverted")
+}
+
+func TestSelfDestruct(t *testing.T) {
+	reqr, vm, cleanUp := setupTest(t, true)
+	defer cleanUp()
+
+	_, txErr, err := vm.Call(&ctx, "test_self_destruct")
+	reqr.NoError(err)
+	reqr.NoError(txErr)
+	// Ensure send was successfully called
+	reqr.Contains(runtime.Called, "send")
+	reqr.Contains(runtime.Called, "self_destruct")
+
+	var buf bytes.Buffer
+	reqr.NoError(sess.Changeset(&buf))
+	reqr.NotZero(buf.Len(), "changes reverted")
+
+	contract, err := ctx.ContractAddress()
+	reqr.NoError(err)
+	id, err := addresses.SelectID(ctx.Chain.Conn, &contract)
+	reqr.NoError(err)
+	chainID, err := contracts.SelectAddressContract(ctx.Chain.Conn, id)
+	reqr.NoError(err)
+	reqr.True(chainID.IsZero())
+
+}
+
+func setupTest(t *testing.T, trackCalled bool) (reqr *require.Assertions, vm *runtime.VM, cleanUp func()) {
+	reqr = require.New(t)
+	// Rollback all changes made during the tests.
+	release := sqlitex.Save(chain.Conn)
+	defer func() {
+		if cleanUp == nil {
+			release(&rbErr)
+		}
+	}()
+	mod, err := wasmer.CompileWithGasMetering(wasm)
+	reqr.NoError(err)
+	defer func() {
+		if cleanUp == nil {
+			mod.Close()
+		}
+	}()
+
+	vm, err = runtime.NewVM(&mod)
+	reqr.NoError(err)
+	if trackCalled {
+		runtime.Called = make(map[string]struct{}, len(runtime.Cost))
+	}
+	vm.SetPointsUsed(0)
+	vm.SetExecLimit(1000)
+	ctx.Err = nil
+	return reqr, vm, func() {
+		runtime.Called = nil
+		vm.Close()
+		mod.Close()
+		release(&rbErr)
+	}
 }
