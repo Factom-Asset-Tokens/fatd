@@ -10,6 +10,12 @@ import (
 	"github.com/Factom-Asset-Tokens/factom/jsonlen"
 )
 
+var rng *rand.Rand
+
+func init() {
+	rng = rand.New(rand.NewSource(time.Now().UnixNano()))
+}
+
 // Sign the RCD/Sig ID Salt + Timestamp Salt + Chain ID Salt + Content of the
 // factom.Entry and add the RCD + signature pairs for the given addresses to
 // the ExtIDs. This clears any existing ExtIDs.
@@ -47,6 +53,6 @@ func Sign(e factom.Entry, signingSet ...factom.RCDSigner) factom.Entry {
 	return e
 }
 func newTimestampSalt() []byte {
-	timestamp := time.Now().Add(time.Duration(-rand.Int63n(int64(1 * time.Hour))))
+	timestamp := time.Now().Add(time.Duration(-rng.Int63n(int64(1 * time.Hour))))
 	return []byte(strconv.FormatInt(timestamp.Unix(), 10))
 }
