@@ -27,15 +27,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"time"
 
 	jsonrpc2 "github.com/AdamSLevy/jsonrpc2/v13"
 
 	"github.com/Factom-Asset-Tokens/factom"
-	"github.com/Factom-Asset-Tokens/fatd/api"
 	"github.com/Factom-Asset-Tokens/factom/fat"
 	"github.com/Factom-Asset-Tokens/factom/fat0"
 	"github.com/Factom-Asset-Tokens/factom/fat1"
+	"github.com/Factom-Asset-Tokens/fatd/api"
 	"github.com/Factom-Asset-Tokens/fatd/internal/db/addresses"
 	"github.com/Factom-Asset-Tokens/fatd/internal/db/entries"
 	"github.com/Factom-Asset-Tokens/fatd/internal/db/nftokens"
@@ -622,7 +621,7 @@ func validate(ctx context.Context,
 	}
 	chainID := params.ValidChainID()
 	if chainID != nil {
-		ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
+		ctx, cancel := context.WithTimeout(ctx, flag.APITimeout)
 		chain, put, err := engine.Chains.Get(ctx, chainID, params.GetIncludePending())
 		if err != nil {
 			// ctx is done

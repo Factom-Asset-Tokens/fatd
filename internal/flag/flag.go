@@ -58,6 +58,7 @@ var (
 		"apitlscert":  "API_TLS_CERT",
 		"apitlskey":   "API_TLS_KEY",
 		"apimaxlimit": "API_MAX_LIMIT",
+		"apitimeout":  "API_TIMEOUT",
 
 		"s":               "FACTOMD_SERVER",
 		"factomdtimeout":  "FACTOMD_TIMEOUT",
@@ -103,6 +104,7 @@ var (
 		"apitlscert":  "",
 		"apitlskey":   "",
 		"apimaxlimit": uint64(math.MaxUint32),
+		"apitimeout":  5 * time.Second,
 
 		"s":               "http://localhost:8088/v2",
 		"factomdtimeout":  20 * time.Second,
@@ -139,6 +141,7 @@ var (
 		"apitlscert":  "Path to TLS certificate for the fatd API",
 		"apitlskey":   "Path to TLS Key for the fatd API",
 		"apimaxlimit": "Maximum pagination limit",
+		"apitimeout":  "Maximum amount of time to allow API queries to complete",
 
 		"s":               "IPAddr:port# of factomd API to use to access blockchain",
 		"factomdtimeout":  "Timeout for factomd API requests, 0 means never timeout",
@@ -178,6 +181,7 @@ var (
 		"-apitlscert":  complete.PredictFiles("*.cert"),
 		"-apitlskey":   complete.PredictFiles("*.key"),
 		"-apimaxlimit": complete.PredictAnything,
+		"-apitimeout":  complete.PredictAnything,
 
 		"-s":               complete.PredictAnything,
 		"-factomdtimeout":  complete.PredictAnything,
@@ -228,6 +232,7 @@ var (
 
 	APIAddress  string
 	APIMaxLimit uint64
+	APITimeout  time.Duration
 
 	FactomClient = factom.NewClient()
 	NetworkID    factom.NetworkID
@@ -260,6 +265,7 @@ func init() {
 
 	flagVar(&APIAddress, "apiaddress")
 	flagVar(&APIMaxLimit, "apimaxlimit")
+	flagVar(&APITimeout, "apitimeout")
 	// Added in FatD authentication info.
 	flagVar(&Username, "apiusername")
 	flagVar(&Password, "apipassword")
