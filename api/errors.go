@@ -22,7 +22,7 @@
 
 package api
 
-import jsonrpc2 "github.com/AdamSLevy/jsonrpc2/v12"
+import jsonrpc2 "github.com/AdamSLevy/jsonrpc2/v13"
 
 var (
 	ErrorTokenNotFound = jsonrpc2.NewError(-32800, "Token Not Found",

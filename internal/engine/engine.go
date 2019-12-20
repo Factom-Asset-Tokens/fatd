@@ -146,9 +146,8 @@ func Start(ctx context.Context) (done <-chan struct{}) {
 		}
 	} else if flag.StartScanHeight > -1 { // If -startscanheight was set...
 		if flag.StartScanHeight > int32(factomHeight) {
-			log.Errorf("-startscanheight %v > Factom height (%v)",
+			log.Warnf("-startscanheight %v > Factom height (%v), factomd may be syncing...",
 				flag.StartScanHeight, factomHeight)
-			return
 		}
 		if !flag.IgnoreNewChains() &&
 			flag.StartScanHeight > int32(syncHeight)+1 {

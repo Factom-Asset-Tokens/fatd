@@ -26,10 +26,10 @@ import (
 	"strings"
 	"time"
 
-	jsonrpc2 "github.com/AdamSLevy/jsonrpc2/v12"
+	jsonrpc2 "github.com/AdamSLevy/jsonrpc2/v13"
 	"github.com/Factom-Asset-Tokens/factom"
-	"github.com/Factom-Asset-Tokens/fatd/fat"
-	"github.com/Factom-Asset-Tokens/fatd/fat1"
+	"github.com/Factom-Asset-Tokens/factom/fat"
+	"github.com/Factom-Asset-Tokens/factom/fat1"
 )
 
 type Params interface {
@@ -93,8 +93,7 @@ func (p *ParamsPagination) IsValid() error {
 		p.Page = new(uint)
 		*p.Page = 1
 	} else if *p.Page == 0 {
-		return jsonrpc2.ErrorInvalidParams(
-			`"order" value must be either "asc" or "desc"`)
+		return jsonrpc2.ErrorInvalidParams(`"page" may not be 0`)
 	}
 	if p.Limit == 0 {
 		p.Limit = 25

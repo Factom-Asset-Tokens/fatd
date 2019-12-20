@@ -28,10 +28,10 @@ import (
 
 	"crawshaw.io/sqlite"
 
-	jsonrpc2 "github.com/AdamSLevy/jsonrpc2/v12"
+	jsonrpc2 "github.com/AdamSLevy/jsonrpc2/v13"
 
 	"github.com/Factom-Asset-Tokens/factom"
-	"github.com/Factom-Asset-Tokens/fatd/fat"
+	"github.com/Factom-Asset-Tokens/factom/fat"
 	"github.com/Factom-Asset-Tokens/fatd/internal/db"
 	"github.com/Factom-Asset-Tokens/fatd/internal/flag"
 	_log "github.com/Factom-Asset-Tokens/fatd/internal/log"

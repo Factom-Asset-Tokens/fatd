@@ -27,9 +27,9 @@ import (
 	"fmt"
 
 	"github.com/Factom-Asset-Tokens/factom"
-	"github.com/Factom-Asset-Tokens/fatd/fat"
-	"github.com/Factom-Asset-Tokens/fatd/fat103"
-	"github.com/Factom-Asset-Tokens/fatd/internal/jsonlen"
+	"github.com/Factom-Asset-Tokens/factom/fat"
+	"github.com/Factom-Asset-Tokens/factom/fat103"
+	"github.com/Factom-Asset-Tokens/factom/jsonlen"
 )
 
 const Type = fat.TypeFAT1
@@ -144,7 +144,7 @@ func (t Transaction) String() string {
 	return string(data)
 }
 
-func (t Transaction) Sign(signingSet ...factom.RCDPrivateKey) (factom.Entry, error) {
+func (t Transaction) Sign(signingSet ...factom.RCDSigner) (factom.Entry, error) {
 	e := t.Entry
 	content, err := json.Marshal(t)
 	if err != nil {

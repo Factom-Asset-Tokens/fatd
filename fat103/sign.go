@@ -1,20 +1,19 @@
 package fat103
 
 import (
-	"crypto/ed25519"
 	"crypto/sha512"
 	"math/rand"
 	"strconv"
 	"time"
 
 	"github.com/Factom-Asset-Tokens/factom"
-	"github.com/Factom-Asset-Tokens/fatd/internal/jsonlen"
+	"github.com/Factom-Asset-Tokens/factom/jsonlen"
 )
 
 // Sign the RCD/Sig ID Salt + Timestamp Salt + Chain ID Salt + Content of the
 // factom.Entry and add the RCD + signature pairs for the given addresses to
 // the ExtIDs. This clears any existing ExtIDs.
-func Sign(e factom.Entry, signingSet ...factom.RCDPrivateKey) factom.Entry {
+func Sign(e factom.Entry, signingSet ...factom.RCDSigner) factom.Entry {
 	// Set the Entry's timestamp so that the signatures will verify against
 	// this time salt.
 	timeSalt := newTimestampSalt()
@@ -22,7 +21,10 @@ func Sign(e factom.Entry, signingSet ...factom.RCDPrivateKey) factom.Entry {
 
 	// Compose the signed message data using exactly allocated bytes.
 	maxRcdSigIDSaltStrLen := jsonlen.Uint64(uint64(len(signingSet)))
-	maxMsgLen := maxRcdSigIDSaltStrLen + len(timeSalt) + len(e.ChainID) + len(e.Content)
+	maxMsgLen := maxRcdSigIDSaltStrLen +
+		len(timeSalt) +
+		len(e.ChainID) +
+		len(e.Content)
 	msg := make(factom.Bytes, maxMsgLen)
 	i := maxRcdSigIDSaltStrLen
 	i += copy(msg[i:], timeSalt[:])
@@ -39,8 +41,8 @@ func Sign(e factom.Entry, signingSet ...factom.RCDPrivateKey) factom.Entry {
 		copy(msg[start:], rcdSigIDSalt)
 
 		msgHash := sha512.Sum512(msg[start:])
-		sig := ed25519.Sign(a.PrivateKey(), msgHash[:])
-		e.ExtIDs = append(e.ExtIDs, a.RCD(), sig)
+
+		e.ExtIDs = append(e.ExtIDs, a.RCD(), a.Sign(msgHash[:]))
 	}
 	return e
 }

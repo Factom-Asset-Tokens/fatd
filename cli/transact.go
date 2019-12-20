@@ -28,12 +28,12 @@ import (
 	"fmt"
 	"math"
 
-	jsonrpc2 "github.com/AdamSLevy/jsonrpc2/v12"
+	jsonrpc2 "github.com/AdamSLevy/jsonrpc2/v13"
 	"github.com/Factom-Asset-Tokens/factom"
 	"github.com/Factom-Asset-Tokens/fatd/api"
-	"github.com/Factom-Asset-Tokens/fatd/fat"
-	"github.com/Factom-Asset-Tokens/fatd/fat0"
-	"github.com/Factom-Asset-Tokens/fatd/fat1"
+	"github.com/Factom-Asset-Tokens/factom/fat"
+	"github.com/Factom-Asset-Tokens/factom/fat0"
+	"github.com/Factom-Asset-Tokens/factom/fat1"
 	"github.com/posener/complete"
 	"github.com/spf13/cobra"
 )
@@ -147,7 +147,7 @@ var transactCmplCmd = complete.Command{
 	Sub:   complete.Commands{},
 }
 
-var signingSet []factom.RCDPrivateKey
+var signingSet []factom.RCDSigner
 
 func validateTransactFlags(cmd *cobra.Command, args []string) error {
 	if err := validateChainIDFlags(cmd, args); err != nil {
@@ -194,7 +194,7 @@ func validateTransactFlags(cmd *cobra.Command, args []string) error {
 				inputAdrs = append(inputAdrs, fa)
 			}
 		}
-		signingSet = make([]factom.RCDPrivateKey, numInputs)
+		signingSet = make([]factom.RCDSigner, numInputs)
 		for i, fa := range inputAdrs {
 			fs, ok := privateAddress[fa]
 			if !ok {
@@ -228,7 +228,7 @@ func validateTransactFlags(cmd *cobra.Command, args []string) error {
 
 	vrbLog.Printf("Preparing %v Transaction Entry...", cmdType)
 	var tx interface {
-		Sign(...factom.RCDPrivateKey) (factom.Entry, error)
+		Sign(...factom.RCDSigner) (factom.Entry, error)
 	}
 	switch cmdType {
 	case fat0.Type:

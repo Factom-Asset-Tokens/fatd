@@ -25,7 +25,7 @@ package fat1
 import (
 	"fmt"
 
-	"github.com/Factom-Asset-Tokens/fatd/internal/jsonlen"
+	"github.com/Factom-Asset-Tokens/factom/jsonlen"
 )
 
 // NFTokenID is a Non-Fungible Token ID.
