@@ -34,6 +34,7 @@ import (
 	"github.com/AdamSLevy/sqlbuilder"
 	"github.com/Factom-Asset-Tokens/factom"
 	"github.com/Factom-Asset-Tokens/factom/fat1"
+	"github.com/Factom-Asset-Tokens/fatd/internal/flag"
 )
 
 // CreateTable is a SQL string that creates the "entries" table.
@@ -154,6 +155,10 @@ func SelectCount(conn *sqlite.Conn, validOnly bool) (int64, error) {
 	stmt := conn.Prep(`SELECT count(*) FROM "entries" WHERE (? OR "valid" = true);`)
 	stmt.BindBool(1, !validOnly)
 	return sqlitex.ResultInt64(stmt)
+}
+
+func init() {
+	sqlbuilder.LimitMaxDefault = uint(flag.APIMaxLimit)
 }
 
 // SelectByAddress returns all the factom.Entry where adrs and nfTkns were
