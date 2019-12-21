@@ -31,9 +31,9 @@ fat-cli-distribution: fat-cli.mac fat-cli.exe fat-cli-linux
 
 REVISION     = $(shell sh -c "./revision")
 
-GO_LDFLAGS   = -extldflags=$(LDFLAGS) -X github.com/Factom-Asset-Tokens/fatd
-FATD_LDFLAGS = "$(GO_LDFLAGS)/internal/flag.Revision=$(REVISION)"
-CLI_LDFLAGS  = "$(GO_LDFLAGS)/cli.Revision=$(REVISION)"
+GO_LDFLAGS   = -extldflags=$(LDFLAGS)
+FATD_LDFLAGS = "$(GO_LDFLAGS) -X github.com/Factom-Asset-Tokens/fatd/internal/flag.Revision=$(REVISION)"
+CLI_LDFLAGS  = "$(GO_LDFLAGS) -X main.Revision=$(REVISION)"
 
 DEPSRC = go.mod go.sum
 SRC = $(DEPSRC) $(filter-out %_test.go,$(wildcard *.go */*.go */*/*.go))
