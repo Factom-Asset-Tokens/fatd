@@ -7,7 +7,7 @@ require (
 	github.com/AdamSLevy/jsonrpc2/v13 v13.0.1
 	github.com/AdamSLevy/sqlbuilder v0.0.0-20191126201320-5b1948d48973
 	github.com/AdamSLevy/sqlitechangeset v0.0.0-20191210201651-f95453d87aff
-	github.com/Factom-Asset-Tokens/factom v0.0.0-20191121210333-481aa2c19345
+	github.com/Factom-Asset-Tokens/factom v0.0.0-20191221001609-371aa1859711
 	github.com/goji/httpauth v0.0.0-20160601135302-2da839ab0f4d
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/nightlyone/lockfile v0.0.0-20180618180623-0ad87eef1443
