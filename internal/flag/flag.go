@@ -49,6 +49,7 @@ var (
 		"factomscaninterval": "FACTOM_SCAN_INTERVAL",
 		"debug":              "DEBUG",
 		"disablepending":     "DISABLE_PENDING",
+		"repairdb":           "REPAIR_DB",
 
 		"dbpath": "DB_PATH",
 
@@ -90,6 +91,7 @@ var (
 		"factomscaninterval": 15 * time.Second,
 		"debug":              false,
 		"disablepending":     false,
+		"repairdb":           false,
 
 		"dbpath": func() string {
 			if home, err := os.UserHomeDir(); err == nil {
@@ -132,6 +134,7 @@ var (
 		"factomscaninterval": "Scan interval for new blocks or pending entries",
 		"debug":              "Log debug messages",
 		"disablepending":     "Do not scan for pending txs, reducing memory usage",
+		"repairdb":           "Repair corrupted databases if possible",
 
 		"dbpath": "Path to the folder containing all database files",
 
@@ -172,6 +175,7 @@ var (
 		"-factomscaninterval": complete.PredictAnything,
 		"-debug":              complete.PredictNothing,
 		"-disablepending":     complete.PredictNothing,
+		"-repairdb":           complete.PredictNothing,
 
 		"-dbpath": complete.PredictFiles("*"),
 
@@ -223,6 +227,7 @@ var (
 	FactomScanInterval time.Duration
 	LogDebug           bool
 	DisablePending     bool
+	RepairDB           bool
 	FactomScanRetries  int64 = -1
 
 	EsAdr factom.EsAddress
@@ -260,6 +265,7 @@ func init() {
 	flagVar(&FactomScanInterval, "factomscaninterval")
 	flagVar(&LogDebug, "debug")
 	flagVar(&DisablePending, "disablepending")
+	flagVar(&RepairDB, "repairdb")
 
 	flagVar(&DBPath, "dbpath")
 
@@ -316,6 +322,7 @@ func Parse() {
 	loadFromEnv(&FactomScanInterval, "factomscaninterval")
 	loadFromEnv(&LogDebug, "debug")
 	loadFromEnv(&DisablePending, "disablepending")
+	loadFromEnv(&RepairDB, "repairdb")
 
 	loadFromEnv(&DBPath, "dbpath")
 

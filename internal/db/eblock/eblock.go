@@ -20,9 +20,9 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 // IN THE SOFTWARE.
 
-// Package eblocks provides functions and SQL framents for working with the
-// "eblocks" table, which stores factom.EBlock.
-package eblocks
+// Package eblock provides functions and SQL framents for working with the
+// "eblock" table, which stores factom.EBlock.
+package eblock
 
 import (
 	"fmt"
@@ -32,8 +32,8 @@ import (
 	"github.com/Factom-Asset-Tokens/factom"
 )
 
-// CreateTable is a SQL string that creates the "eblocks" table.
-const CreateTable = `CREATE TABLE "eblocks" (
+// CreateTable is a SQL string that creates the "eblock" table.
+const CreateTable = `CREATE TABLE "eblock" (
         "seq"           INTEGER PRIMARY KEY,
         "key_mr"        BLOB NOT NULL UNIQUE,
         "db_height"     INTEGER NOT NULL UNIQUE,
@@ -43,12 +43,17 @@ const CreateTable = `CREATE TABLE "eblocks" (
 );
 `
 
-// Insert eb into the "eblocks" table with dbKeyMR.
+// Insert eb into the "eblock" table with dbKeyMR.
 func Insert(conn *sqlite.Conn, eb factom.EBlock, dbKeyMR *factom.Bytes32) error {
 	// Ensure that this is the next EBlock.
 	prevKeyMR, err := SelectKeyMR(conn, eb.Sequence-1)
+	if err != nil {
+		return fmt.Errorf("eblock.SelectKeyMR(seq: %v): %w",
+			eb.Sequence-1, err)
+	}
 	if *eb.PrevKeyMR != prevKeyMR {
-		return fmt.Errorf("invalid EBlock.PrevKeyMR")
+		return fmt.Errorf("invalid EBlock.PrevKeyMR, database:%v but eblock:%v",
+			prevKeyMR, eb.PrevKeyMR)
 	}
 
 	var data []byte
@@ -56,7 +61,7 @@ func Insert(conn *sqlite.Conn, eb factom.EBlock, dbKeyMR *factom.Bytes32) error 
 	if err != nil {
 		panic(fmt.Errorf("factom.EBlock.MarshalBinary(): %w", err))
 	}
-	stmt := conn.Prep(`INSERT INTO "eblocks"
+	stmt := conn.Prep(`INSERT INTO "eblock"
                 ("seq", "key_mr", "db_height", "db_key_mr", "timestamp", "data")
                 VALUES (?, ?, ?, ?, ?, ?);`)
 	stmt.BindInt64(1, int64(eb.Sequence))
@@ -70,9 +75,9 @@ func Insert(conn *sqlite.Conn, eb factom.EBlock, dbKeyMR *factom.Bytes32) error 
 	return err
 }
 
-// SelectWhere is a SQL fragment for retrieving rows from the "eblocks" table
+// SelectWhere is a SQL fragment for retrieving rows from the "eblock" table
 // with Select().
-const SelectWhere = `SELECT "key_mr", "data", "timestamp" FROM "eblocks" WHERE `
+const SelectWhere = `SELECT "key_mr", "data", "timestamp" FROM "eblock" WHERE `
 
 // Select the next factom.EBlock from the given prepared Stmt.
 //
@@ -124,7 +129,7 @@ func SelectBySequence(conn *sqlite.Conn, seq uint32) (factom.EBlock, error) {
 // SelectKeyMR returns the KeyMR for the EBlock with sequence seq.
 func SelectKeyMR(conn *sqlite.Conn, seq uint32) (factom.Bytes32, error) {
 	var keyMR factom.Bytes32
-	stmt := conn.Prep(`SELECT "key_mr" FROM "eblocks" WHERE "seq" = ?;`)
+	stmt := conn.Prep(`SELECT "key_mr" FROM "eblock" WHERE "seq" = ?;`)
 	stmt.BindInt64(1, int64(int32(seq))) // Preserve uint32(-1) as -1
 	hasRow, err := stmt.Step()
 	defer stmt.Reset()
@@ -132,7 +137,7 @@ func SelectKeyMR(conn *sqlite.Conn, seq uint32) (factom.Bytes32, error) {
 		return keyMR, err
 	}
 	if !hasRow {
-		return keyMR, fmt.Errorf("no such EBlock{Sequence: %v}", seq)
+		return keyMR, nil
 	}
 
 	if stmt.ColumnBytes(0, keyMR[:]) != len(keyMR) {
@@ -145,7 +150,7 @@ func SelectKeyMR(conn *sqlite.Conn, seq uint32) (factom.Bytes32, error) {
 // SelectDBKeyMR returns the DBKeyMR for the EBlock with sequence seq.
 func SelectDBKeyMR(conn *sqlite.Conn, seq uint32) (factom.Bytes32, error) {
 	var dbKeyMR factom.Bytes32
-	stmt := conn.Prep(`SELECT "db_key_mr" FROM "eblocks" WHERE "seq" = ?;`)
+	stmt := conn.Prep(`SELECT "db_key_mr" FROM "eblock" WHERE "seq" = ?;`)
 	stmt.BindInt64(1, int64(int32(seq))) // Preserve uint32(-1) as -1
 	hasRow, err := stmt.Step()
 	defer stmt.Reset()
@@ -153,7 +158,7 @@ func SelectDBKeyMR(conn *sqlite.Conn, seq uint32) (factom.Bytes32, error) {
 		return dbKeyMR, err
 	}
 	if !hasRow {
-		return dbKeyMR, fmt.Errorf("no such EBlock{Sequence: %v}", seq)
+		return dbKeyMR, nil
 	}
 
 	if stmt.ColumnBytes(0, dbKeyMR[:]) != len(dbKeyMR) {
@@ -167,8 +172,8 @@ func SelectDBKeyMR(conn *sqlite.Conn, seq uint32) (factom.Bytes32, error) {
 func SelectLatest(conn *sqlite.Conn) (factom.EBlock, factom.Bytes32, error) {
 	var dbKeyMR factom.Bytes32
 	stmt := conn.Prep(
-		`SELECT "key_mr", "data", "timestamp", "db_key_mr" FROM "eblocks"
-                        WHERE "seq" = (SELECT max("seq") FROM "eblocks");`)
+		`SELECT "key_mr", "data", "timestamp", "db_key_mr" FROM "eblock"
+                        WHERE "seq" = (SELECT max("seq") FROM "eblock");`)
 	eb, err := Select(stmt)
 	defer stmt.Reset()
 	if err != nil {
