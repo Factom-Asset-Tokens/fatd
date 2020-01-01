@@ -20,10 +20,10 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 // IN THE SOFTWARE.
 
-// Package contracts provides functions and SQL framents for working with the
-// "contracts" table, which stores Wasm contract data indexed by its data-store
+// Package contract provides functions and SQL framents for working with the
+// "contract" table, which stores Wasm contract data indexed by its data-store
 // Chain ID.
-package contracts
+package contract
 
 import (
 	"crypto/sha256"
@@ -37,11 +37,11 @@ import (
 	"github.com/wasmerio/go-ext-wasm/wasmer"
 )
 
-// CreateTable is a SQL string that creates the "contracts" table.
+// CreateTable is a SQL string that creates the "contract" table.
 //
-// The "contracts" table stores the raw Wasm smart contract code as well as
+// The "contract" table stores the raw Wasm smart contract code as well as
 // cached compiled modules with metering code injected.
-const CreateTable = `CREATE TABLE "contracts" (
+const CreateTable = `CREATE TABLE "contract" (
         "id"            INTEGER PRIMARY KEY,
         "chainid"       BLOB NOT NULL UNIQUE,
         "valid"         BOOL NOT NULL DEFAULT TRUE,
@@ -49,10 +49,10 @@ const CreateTable = `CREATE TABLE "contracts" (
         "wasm"          BLOB,
         "compiled"      BLOB
 );
-CREATE INDEX "idx_contracts_chainid" ON "contracts"("chainid");
+CREATE INDEX "idx_contract_chainid" ON "contract"("chainid");
 `
 
-// Insert the wasm contract into the "contracts" table.
+// Insert the wasm contract into the "contract" table.
 //
 // The first factom.Entry is the data store chain first entry. This is used to
 // determine the ChainID and also is stored so that the hash of the wasm may be
@@ -65,7 +65,7 @@ func Insert(conn *sqlite.Conn, first factom.Entry, wasm, compiled []byte) (int64
 		panic(fmt.Errorf("factom.Entry.MarshalBinary(): %w", err))
 	}
 
-	stmt := conn.Prep(`INSERT INTO "contracts"
+	stmt := conn.Prep(`INSERT INTO "contract"
                 ("chainid", "valid", "first_entry", "wasm", "compiled")
                 VALUES (?, ?, ?, ?, ?);`)
 	stmt.BindBytes(1, first.ChainID[:])
@@ -84,9 +84,9 @@ func Insert(conn *sqlite.Conn, first factom.Entry, wasm, compiled []byte) (int64
 	return conn.LastInsertRowID(), nil
 }
 
-// SelectWhere is a SQL fragment for retrieving rows from the "contracts" table
+// SelectWhere is a SQL fragment for retrieving rows from the "contract" table
 // with Select().
-const SelectWhere = `SELECT "id", "valid", "compiled", "wasm" FROM "contracts" WHERE `
+const SelectWhere = `SELECT "id", "valid", "compiled", "wasm" FROM "contract" WHERE `
 const (
 	colID = iota
 	colValid
@@ -154,17 +154,17 @@ func SelectByChainID(conn *sqlite.Conn, chainID *factom.Bytes32) (*wasmer.Module
 	return Select(stmt)
 }
 
-// SelectCount returns the total number of rows in the "contracts" table. If
+// SelectCount returns the total number of rows in the "contract" table. If
 // validOnly is true, only the rows where "valid" = true are counted.
 func SelectCount(conn *sqlite.Conn, validOnly bool) (int64, error) {
-	stmt := conn.Prep(`SELECT count(*) FROM "contracts"
+	stmt := conn.Prep(`SELECT count(*) FROM "contract"
                 WHERE (? OR "valid" = true);`)
 	stmt.BindBool(1, !validOnly)
 	return sqlitex.ResultInt64(stmt)
 }
 
 func SelectIsCached(conn *sqlite.Conn, id int64) (bool, error) {
-	stmt := conn.Prep(`SELECT length("compiled") FROM "contracts"
+	stmt := conn.Prep(`SELECT length("compiled") FROM "contract"
                 WHERE "id" = ?;`)
 	stmt.BindInt64(1, id)
 	hasRow, err := stmt.Step()
@@ -184,7 +184,7 @@ func Cache(conn *sqlite.Conn, id int64, mod *wasmer.Module) error {
 	if err != nil {
 		return fmt.Errorf("wasmer.Module.Serialize(): %w", err)
 	}
-	stmt := conn.Prep(`UPDATE "contracts" SET "compiled" = ? WHERE id = ?;`)
+	stmt := conn.Prep(`UPDATE "contract" SET "compiled" = ? WHERE id = ?;`)
 	stmt.BindBytes(1, compiled)
 	stmt.BindInt64(2, id)
 	defer stmt.Reset()
@@ -193,14 +193,14 @@ func Cache(conn *sqlite.Conn, id int64, mod *wasmer.Module) error {
 }
 
 func ClearCompiledCache(conn *sqlite.Conn) error {
-	stmt := conn.Prep(`UPDATE "contracts" SET "compiled" = NULL;`)
+	stmt := conn.Prep(`UPDATE "contract" SET "compiled" = NULL;`)
 	defer stmt.Reset()
 	_, err := stmt.Step()
 	return err
 }
 
 func Validate(conn *sqlite.Conn) error {
-	stmt := conn.Prep(`SELECT "id", "chainid", "first_entry" FROM "contracts";`)
+	stmt := conn.Prep(`SELECT "id", "chainid", "first_entry" FROM "contract";`)
 
 	var err error
 	for hasRow := true; hasRow && err == nil; {
@@ -238,7 +238,7 @@ func validate(conn *sqlite.Conn, stmt *sqlite.Stmt) (bool, error) {
 	}
 
 	id := stmt.ColumnInt64(0)
-	blob, err := conn.OpenBlob("", "contracts", "wasm", id, false)
+	blob, err := conn.OpenBlob("", "contract", "wasm", id, false)
 	if blob.Size() != int64(m.Size) {
 		return false, fmt.Errorf("corrupted wasm blob: invalid size")
 	}

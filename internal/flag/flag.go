@@ -26,6 +26,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -48,6 +49,7 @@ var (
 		"factomscaninterval": "FACTOM_SCAN_INTERVAL",
 		"debug":              "DEBUG",
 		"disablepending":     "DISABLE_PENDING",
+		"repairdb":           "REPAIR_DB",
 
 		"dbpath": "DB_PATH",
 
@@ -56,6 +58,8 @@ var (
 		"apipassword": "API_PASSWORD",
 		"apitlscert":  "API_TLS_CERT",
 		"apitlskey":   "API_TLS_KEY",
+		"apimaxlimit": "API_MAX_LIMIT",
+		"apitimeout":  "API_TIMEOUT",
 
 		"s":               "FACTOMD_SERVER",
 		"factomdtimeout":  "FACTOMD_TIMEOUT",
@@ -87,6 +91,7 @@ var (
 		"factomscaninterval": 15 * time.Second,
 		"debug":              false,
 		"disablepending":     false,
+		"repairdb":           false,
 
 		"dbpath": func() string {
 			if home, err := os.UserHomeDir(); err == nil {
@@ -100,6 +105,8 @@ var (
 		"apipassword": "",
 		"apitlscert":  "",
 		"apitlskey":   "",
+		"apimaxlimit": uint64(math.MaxUint32),
+		"apitimeout":  5 * time.Second,
 
 		"s":               "http://localhost:8088/v2",
 		"factomdtimeout":  20 * time.Second,
@@ -127,6 +134,7 @@ var (
 		"factomscaninterval": "Scan interval for new blocks or pending entries",
 		"debug":              "Log debug messages",
 		"disablepending":     "Do not scan for pending txs, reducing memory usage",
+		"repairdb":           "Repair corrupted databases if possible",
 
 		"dbpath": "Path to the folder containing all database files",
 
@@ -135,6 +143,8 @@ var (
 		"apipassword": "Password required for connections to fatd API",
 		"apitlscert":  "Path to TLS certificate for the fatd API",
 		"apitlskey":   "Path to TLS Key for the fatd API",
+		"apimaxlimit": "Maximum pagination limit",
+		"apitimeout":  "Maximum amount of time to allow API queries to complete",
 
 		"s":               "IPAddr:port# of factomd API to use to access blockchain",
 		"factomdtimeout":  "Timeout for factomd API requests, 0 means never timeout",
@@ -165,6 +175,7 @@ var (
 		"-factomscaninterval": complete.PredictAnything,
 		"-debug":              complete.PredictNothing,
 		"-disablepending":     complete.PredictNothing,
+		"-repairdb":           complete.PredictNothing,
 
 		"-dbpath": complete.PredictFiles("*"),
 
@@ -173,6 +184,8 @@ var (
 		"-apipassword": complete.PredictAnything,
 		"-apitlscert":  complete.PredictFiles("*.cert"),
 		"-apitlskey":   complete.PredictFiles("*.key"),
+		"-apimaxlimit": complete.PredictAnything,
+		"-apitimeout":  complete.PredictAnything,
 
 		"-s":               complete.PredictAnything,
 		"-factomdtimeout":  complete.PredictAnything,
@@ -214,6 +227,7 @@ var (
 	FactomScanInterval time.Duration
 	LogDebug           bool
 	DisablePending     bool
+	RepairDB           bool
 	FactomScanRetries  int64 = -1
 
 	EsAdr factom.EsAddress
@@ -221,7 +235,9 @@ var (
 
 	DBPath string
 
-	APIAddress string
+	APIAddress  string
+	APIMaxLimit uint64
+	APITimeout  time.Duration
 
 	FactomClient = factom.NewClient()
 	NetworkID    factom.NetworkID
@@ -249,10 +265,13 @@ func init() {
 	flagVar(&FactomScanInterval, "factomscaninterval")
 	flagVar(&LogDebug, "debug")
 	flagVar(&DisablePending, "disablepending")
+	flagVar(&RepairDB, "repairdb")
 
 	flagVar(&DBPath, "dbpath")
 
 	flagVar(&APIAddress, "apiaddress")
+	flagVar(&APIMaxLimit, "apimaxlimit")
+	flagVar(&APITimeout, "apitimeout")
 	// Added in FatD authentication info.
 	flagVar(&Username, "apiusername")
 	flagVar(&Password, "apipassword")
@@ -303,6 +322,7 @@ func Parse() {
 	loadFromEnv(&FactomScanInterval, "factomscaninterval")
 	loadFromEnv(&LogDebug, "debug")
 	loadFromEnv(&DisablePending, "disablepending")
+	loadFromEnv(&RepairDB, "repairdb")
 
 	loadFromEnv(&DBPath, "dbpath")
 

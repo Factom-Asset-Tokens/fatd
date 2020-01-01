@@ -20,27 +20,41 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 // IN THE SOFTWARE.
 
-package db
+package state
 
 import (
 	"context"
-	"testing"
+	"fmt"
 
-	"github.com/Factom-Asset-Tokens/fatd/internal/flag"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	"github.com/Factom-Asset-Tokens/factom"
 )
 
-func TestChainValidate(t *testing.T) {
-	require := require.New(t)
-	flag.LogDebug = true
-	chains, err := OpenAll(context.Background(), "./test-fatd.db/")
-	require.NoError(err, "OpenAll()")
-	require.NotEmptyf(chains, "Test database is empty: %v", flag.DBPath)
-
-	for _, chain := range chains {
-		chain := chain
-		defer chain.Close()
-		assert.NoErrorf(t, chain.Validate(), "Chain{%v}.Validate()", chain.ID)
+func SyncEBlocks(ctx context.Context, c *factom.Client, chain Chain,
+	eblocks []factom.EBlock) error {
+	if err := chain.UpdateSidechainData(ctx, c); err != nil {
+		return fmt.Errorf("state.Chain.UpdateSidechainData(): %w", err)
 	}
+	for i := range eblocks {
+		eb := eblocks[len(eblocks)-1-i] // Earliest EBlock first.
+
+		// Get DBlock Timestamp and KeyMR
+		var dblock factom.DBlock
+		dblock.Height = eb.Height
+		if err := dblock.Get(ctx, c); err != nil {
+			return fmt.Errorf("factom.DBlock.Get(): %w", err)
+		}
+
+		eb.SetTimestamp(dblock.Timestamp)
+
+		if err := eb.GetEntries(ctx, c); err != nil {
+			return fmt.Errorf("factom.EBlock.GetEntries(): %w", err)
+		}
+
+		if err := Apply(chain, dblock.KeyMR, eb); err != nil {
+			return fmt.Errorf("state.Apply(): %w", err)
+		}
+	}
+
+	chain.ToFactomChain().Log.Infof("Chain synced.")
+	return nil
 }

@@ -32,13 +32,12 @@ import (
 	"github.com/Factom-Asset-Tokens/factom/fat0"
 	"github.com/Factom-Asset-Tokens/fatd/fat"
 	"github.com/Factom-Asset-Tokens/fatd/internal/db"
-	"github.com/Factom-Asset-Tokens/fatd/internal/db/addresses"
-	"github.com/Factom-Asset-Tokens/fatd/internal/db/contracts"
+	"github.com/Factom-Asset-Tokens/fatd/internal/db/address"
 	"github.com/wasmerio/go-ext-wasm/wasmer"
 )
 
 type Context struct {
-	db.Chain
+	Chain *db.FATChain
 	factom.DBlock
 	fat0.Transaction
 
@@ -86,10 +85,10 @@ func (ctx *Context) ContractBalance() (uint64, error) {
 		}
 		return uint64(ctx.Chain.Issuance.Supply) - ctx.Chain.NumIssued, nil
 	}
-	_, bal, err := addresses.SelectIDBalance(ctx.Chain.Conn, &contract)
+	_, bal, err := address.SelectIDBalance(ctx.Chain.Conn, &contract)
 	if err != nil {
 		return 0, ctx.Error(fmt.Errorf(
-			"get_balance: addresses.SelectIDBalance: %w", err))
+			"get_balance: address.SelectIDBalance: %w", err))
 	}
 	return bal, nil
 }
@@ -108,18 +107,18 @@ func (ctx *Context) Send(amount uint64, adr *factom.FAAddress) error {
 			return ctx.Error(err)
 		}
 	} else {
-		_, txErr, err := addresses.Sub(ctx.Chain.Conn, &contract, amount)
+		_, txErr, err := address.Sub(ctx.Chain.Conn, &contract, amount)
 		if err != nil {
-			return ctx.Error(fmt.Errorf("addresses.Sub: %w", err))
+			return ctx.Error(fmt.Errorf("address.Sub: %w", err))
 		}
 		if txErr != nil {
 			return ctx.Revert("send: insufficient balance")
 		}
 	}
 
-	_, err = addresses.Add(ctx.Chain.Conn, adr, amount)
+	_, err = address.Add(ctx.Chain.Conn, adr, amount)
 	if err != nil {
-		return ctx.Error(fmt.Errorf("addresses.Add: %w", err))
+		return ctx.Error(fmt.Errorf("address.Add: %w", err))
 	}
 	return nil
 }
@@ -131,11 +130,11 @@ func (ctx *Context) SelfDestruct() error {
 		return err
 	}
 	var id int64
-	id, ctx.Err = addresses.SelectID(ctx.Chain.Conn, &adr)
+	id, ctx.Err = address.SelectID(ctx.Chain.Conn, &adr)
 	if ctx.Err != nil {
 		return ctx.Err
 	}
-	ctx.Err = contracts.DeleteAddressContract(ctx.Chain.Conn, id)
+	ctx.Err = address.DeleteContract(ctx.Chain.Conn, id)
 	if ctx.Err != nil {
 		return ctx.Err
 	}

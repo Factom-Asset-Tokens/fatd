@@ -20,53 +20,66 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 // IN THE SOFTWARE.
 
-package contracts
+package address
 
 import (
 	"crawshaw.io/sqlite"
 	"github.com/Factom-Asset-Tokens/factom"
 )
 
-const CreateTableAddressContracts = `CREATE TABLE "address_contracts" (
+const CreateTableContract = `CREATE TABLE "address_contract" (
         "address_id"    INTEGER PRIMARY KEY,
+        "contract_id"   INTEGER,
         "chainid"       BLOB NOT NULL,
-        FOREIGN KEY("address_id") REFERENCES "addresses"
+        FOREIGN KEY("address_id") REFERENCES "address"
 );
-CREATE INDEX "idx_address_contracts_chainid" ON "address_contracts"("chainid");`
+CREATE INDEX "idx_address_contract_chainid" ON "address_contract"("chainid");`
 
-func InsertAddressContract(conn *sqlite.Conn,
-	adrID int64, chainID *factom.Bytes32) error {
+func InsertContract(conn *sqlite.Conn,
+	adrID, ctrtID int64, chainID *factom.Bytes32) error {
 
-	stmt := conn.Prep(`INSERT INTO "address_contracts"
-                ("address_id", "chainid") VALUES (?, ?);`)
+	stmt := conn.Prep(`INSERT INTO "address_contract"
+                ("address_id", "contract_id", "chainid") VALUES (?, ?, ?);`)
 	stmt.BindInt64(1, adrID)
-	stmt.BindBytes(2, chainID[:])
+	stmt.BindInt64(2, ctrtID)
+	stmt.BindBytes(3, chainID[:])
 	if _, err := stmt.Step(); err != nil {
 		return err
 	}
 	return nil
 }
 
-func SelectAddressContract(conn *sqlite.Conn,
-	adrID int64) (factom.Bytes32, error) {
-	stmt := conn.Prep(`SELECT "chainid" FROM "address_contracts"
+func SelectContract(conn *sqlite.Conn, adrID int64) (int64, factom.Bytes32, error) {
+	stmt := conn.Prep(`SELECT "contract_id", "chainid" FROM "address_contract"
                 WHERE "address_id" = ?;`)
 	stmt.BindInt64(1, adrID)
 
 	var chainID factom.Bytes32
 	if hasRow, err := stmt.Step(); err != nil || !hasRow {
-		return chainID, err
+		return -1, chainID, err
 	}
 
-	if stmt.ColumnBytes(0, chainID[:]) != len(chainID) {
+	id := stmt.ColumnInt64(0)
+
+	if stmt.ColumnBytes(1, chainID[:]) != len(chainID) {
 		panic("invalid chainid length")
 	}
 
-	return chainID, nil
+	return id, chainID, nil
 }
 
-func DeleteAddressContract(conn *sqlite.Conn, adrID int64) error {
-	stmt := conn.Prep(`DELETE FROM "address_contracts"
+func UpdateContractID(conn *sqlite.Conn, adrID, ctrtID int64) error {
+	stmt := conn.Prep(`UPDATE "address_contract" SET ("contract_id" = ?)
+                WHERE "address_id" = ?;`)
+	stmt.BindInt64(1, ctrtID)
+	stmt.BindInt64(2, adrID)
+
+	_, err := stmt.Step()
+	return err
+}
+
+func DeleteContract(conn *sqlite.Conn, adrID int64) error {
+	stmt := conn.Prep(`DELETE FROM "address_contract"
                 WHERE "address_id" = ?;`)
 	stmt.BindInt64(1, adrID)
 

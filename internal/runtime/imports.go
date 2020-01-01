@@ -50,7 +50,7 @@ import (
 
 	"github.com/Factom-Asset-Tokens/factom"
 	"github.com/Factom-Asset-Tokens/fatd/fat"
-	"github.com/Factom-Asset-Tokens/fatd/internal/db/addresses"
+	"github.com/Factom-Asset-Tokens/fatd/internal/db/address"
 	"github.com/wasmerio/go-ext-wasm/wasmer"
 )
 
@@ -161,10 +161,10 @@ func get_balance_of(ptr unsafe.Pointer, adr_buf int32) int64 {
 	if err != nil {
 		return 0
 	}
-	_, bal, err := addresses.SelectIDBalance(ctx.Chain.Conn, &adr)
+	_, bal, err := address.SelectIDBalance(ctx.Chain.Conn, &adr)
 	if err != nil {
 		ctx.Error(fmt.Errorf(
-			"get_balance_of: addresses.SelectIDBalance: %w", err))
+			"get_balance_of: address.SelectIDBalance: %w", err))
 	}
 
 	return int64(bal)

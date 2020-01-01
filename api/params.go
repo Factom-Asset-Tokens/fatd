@@ -93,8 +93,7 @@ func (p *ParamsPagination) IsValid() error {
 		p.Page = new(uint)
 		*p.Page = 1
 	} else if *p.Page == 0 {
-		return jsonrpc2.ErrorInvalidParams(
-			`"order" value must be either "asc" or "desc"`)
+		return jsonrpc2.ErrorInvalidParams(`"page" may not be 0`)
 	}
 	if p.Limit == 0 {
 		p.Limit = 25

@@ -35,8 +35,7 @@ import (
 	"github.com/Factom-Asset-Tokens/factom/fat"
 	"github.com/Factom-Asset-Tokens/factom/fat0"
 	"github.com/Factom-Asset-Tokens/fatd/internal/db"
-	"github.com/Factom-Asset-Tokens/fatd/internal/db/addresses"
-	"github.com/Factom-Asset-Tokens/fatd/internal/db/contracts"
+	"github.com/Factom-Asset-Tokens/fatd/internal/db/address"
 	"github.com/Factom-Asset-Tokens/fatd/internal/runtime"
 	"github.com/Factom-Asset-Tokens/fatd/internal/runtime/testdata"
 	"github.com/stretchr/testify/assert"
@@ -48,7 +47,7 @@ const TotalPoints = 876
 
 var (
 	wasm, modBin []byte
-	chain        db.Chain
+	chain        db.FATChain
 	sess         *sqlite.Session
 	ctx          runtime.Context
 
@@ -73,7 +72,8 @@ func TestMain(m *testing.M) {
 	}
 
 	// Open up the chain so we can set up the runtime.Context
-	chain, err = db.Open(context.Background(), "./testdata/test-fatd.db/",
+	chain, err = db.OpenFATChain(context.Background(),
+		"./testdata/test-fatd.db/",
 		"b54c4310530dc4dd361101644fa55cb10aec561e7874a7b786ea3b66f2c6fdfb.sqlite3")
 	if err != nil {
 		panic(err)
@@ -84,7 +84,7 @@ func TestMain(m *testing.M) {
 	defer sqlitex.Save(chain.Conn)(&rbErr)
 
 	// Set up our context.
-	ctx = testdata.Context(chain)
+	ctx = testdata.Context(&chain)
 
 	// Start a session so we can ensure that changes actually occur to the
 	// DB.
@@ -305,11 +305,11 @@ func TestSelfDestruct(t *testing.T) {
 	reqr.NoError(sess.Changeset(&buf))
 	reqr.NotZero(buf.Len(), "changes reverted")
 
-	contract, err := ctx.ContractAddress()
+	ctrct, err := ctx.ContractAddress()
 	reqr.NoError(err)
-	id, err := addresses.SelectID(ctx.Chain.Conn, &contract)
+	id, err := address.SelectID(ctx.Chain.Conn, &ctrct)
 	reqr.NoError(err)
-	chainID, err := contracts.SelectAddressContract(ctx.Chain.Conn, id)
+	_, chainID, err := address.SelectContract(ctx.Chain.Conn, id)
 	reqr.NoError(err)
 	reqr.True(chainID.IsZero())
 

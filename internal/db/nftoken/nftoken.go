@@ -20,10 +20,10 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 // IN THE SOFTWARE.
 
-// Package nftokens provides functions and SQL framents for working with the
-// "nf_tokens" table, which stores fat.NFToken with owner, creation id, and
+// Package nftoken provides functions and SQL framents for working with the
+// "nftoken" table, which stores fat.NFToken with owner, creation id, and
 // metadata.
-package nftokens
+package nftoken
 
 import (
 	"encoding/json"
@@ -36,35 +36,35 @@ import (
 	"github.com/Factom-Asset-Tokens/factom/fat1"
 )
 
-// CreateTable is a SQL string that creates the "nf_tokens" table.
+// CreateTable is a SQL string that creates the "nftoken" table.
 //
-// The "nf_tokens" table has foreign key references to the "entries" and
-// "addresses" tables, which must exist first.
-const CreateTable = `CREATE TABLE "nf_tokens" (
+// The "nftoken" table has foreign key references to the "entry" and
+// "address" tables, which must exist first.
+const CreateTable = `CREATE TABLE "nftoken" (
         "id"                      INTEGER PRIMARY KEY,
         "metadata"                BLOB,
         "creation_entry_id"       INTEGER NOT NULL,
         "owner_id"                INTEGER NOT NULL,
 
-        FOREIGN KEY("creation_entry_id") REFERENCES "entries",
-        FOREIGN KEY("owner_id") REFERENCES "addresses"
+        FOREIGN KEY("creation_entry_id") REFERENCES "entry",
+        FOREIGN KEY("owner_id") REFERENCES "address"
 );
-CREATE INDEX "idx_nf_tokens_metadata" ON nf_tokens("metadata");
-CREATE INDEX "idx_nf_tokens_owner_id" ON nf_tokens("owner_id");
-CREATE VIEW "nf_tokens_addresses" AS
-        SELECT "nf_tokens"."id" AS "id",
+CREATE INDEX "idx_nftoken_metadata" ON nftoken("metadata");
+CREATE INDEX "idx_nftoken_owner_id" ON nftoken("owner_id");
+CREATE VIEW "nftoken_address" AS
+        SELECT "nftoken"."id" AS "id",
                 "metadata",
                 "hash" AS "creation_hash",
                 "address" AS "owner" FROM
-                        "nf_tokens", "addresses", "entries" ON
-                                "owner_id" = "addresses"."id" AND
-                                "creation_entry_id" = "entries"."id";
+                        "nftoken", "address", "entry" ON
+                                "owner_id" = "address"."id" AND
+                                "creation_entry_id" = "entry"."id";
 `
 
-// Insert a new NFToken with "owner_id" set to the "addresses" foreign key
-// adrID and the "creation_entry_id" set to the "entries" foreign key entryID.
+// Insert a new NFToken with "owner_id" set to the "address" foreign key adrID
+// and the "creation_entry_id" set to the "entry" foreign key entryID.
 func Insert(conn *sqlite.Conn, nfID fat1.NFTokenID, adrID, entryID int64) (error, error) {
-	stmt := conn.Prep(`INSERT INTO "nf_tokens"
+	stmt := conn.Prep(`INSERT INTO "nftoken"
                 ("id", "owner_id", "creation_entry_id") VALUES (?, ?, ?);`)
 	stmt.BindInt64(1, int64(nfID))
 	stmt.BindInt64(2, adrID)
@@ -87,7 +87,7 @@ func Insert(conn *sqlite.Conn, nfID fat1.NFTokenID, adrID, entryID int64) (error
 // should never be called on an adrID that does not exist. Should it also panic
 // on that constraint error too? Both reflect program integrity issues.
 func SetOwner(conn *sqlite.Conn, nfID fat1.NFTokenID, adrID int64) error {
-	stmt := conn.Prep(`UPDATE "nf_tokens" SET "owner_id" = ? WHERE "id" = ?;`)
+	stmt := conn.Prep(`UPDATE "nftoken" SET "owner_id" = ? WHERE "id" = ?;`)
 	stmt.BindInt64(1, adrID)
 	stmt.BindInt64(2, int64(nfID))
 	_, err := stmt.Step()
@@ -101,7 +101,7 @@ func SetOwner(conn *sqlite.Conn, nfID fat1.NFTokenID, adrID int64) error {
 //
 // If the nfID does not exist, this will panic.
 func SetMetadata(conn *sqlite.Conn, nfID fat1.NFTokenID, metadata json.RawMessage) error {
-	stmt := conn.Prep(`UPDATE "nf_tokens" SET "metadata" = ? WHERE "id" = ?;`)
+	stmt := conn.Prep(`UPDATE "nftoken" SET "metadata" = ? WHERE "id" = ?;`)
 	stmt.BindBytes(1, metadata)
 	stmt.BindInt64(2, int64(nfID))
 	_, err := stmt.Step()
@@ -116,7 +116,7 @@ func SetMetadata(conn *sqlite.Conn, nfID fat1.NFTokenID, metadata json.RawMessag
 //
 // If the nfID does not yet exist, (-1, nil) is returned.
 func SelectOwnerID(conn *sqlite.Conn, nfID fat1.NFTokenID) (int64, error) {
-	stmt := conn.Prep(`SELECT "owner_id" FROM "nf_tokens" WHERE "id" = ?;`)
+	stmt := conn.Prep(`SELECT "owner_id" FROM "nftoken" WHERE "id" = ?;`)
 	stmt.BindInt64(1, int64(nfID))
 	ownerID, err := sqlitex.ResultInt64(stmt)
 	if err != nil && err.Error() == "sqlite: statement has no results" {
@@ -139,7 +139,7 @@ func SelectData(conn *sqlite.Conn, nfID fat1.NFTokenID) (
 	var owner factom.FAAddress
 	var creationHash factom.Bytes32
 	stmt := conn.Prep(`SELECT "owner", "metadata", "creation_hash"
-                        FROM "nf_tokens_addresses" WHERE "id" = ?;`)
+                        FROM "nftoken_address" WHERE "id" = ?;`)
 	stmt.BindInt64(1, int64(nfID))
 	hasRow, err := stmt.Step()
 	defer stmt.Reset()
@@ -171,7 +171,7 @@ func SelectDataAll(conn *sqlite.Conn, order string, page, limit uint) (
 		return nil, nil, nil, nil, fmt.Errorf("invalid page")
 	}
 	stmt := conn.Prep(`SELECT "id", "owner", "creation_hash", "metadata"
-                        FROM "nf_tokens_addresses";`)
+                        FROM "nftoken_address";`)
 	defer stmt.Reset()
 
 	var tkns []fat1.NFTokenID
@@ -217,8 +217,8 @@ func SelectByOwner(conn *sqlite.Conn, adr *factom.FAAddress,
 		return nil, fmt.Errorf("invalid page")
 	}
 	var sql sqlbuilder.SQLBuilder
-	sql.Append(`SELECT "id" FROM "nf_tokens" WHERE "owner_id" = (
-                SELECT "id" FROM "addresses" WHERE "address" = ?)`,
+	sql.Append(`SELECT "id" FROM "nftoken" WHERE "owner_id" = (
+                SELECT "id" FROM "address" WHERE "address" = ?)`,
 		func(s *sqlite.Stmt, c int) int {
 			s.BindBytes(c, adr[:])
 			return 1

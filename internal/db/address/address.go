@@ -20,9 +20,9 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 // IN THE SOFTWARE.
 
-// Package addresses provides functions and SQL framents for working with the
-// "addresses" table, which stores factom.FAAddress with its balance.
-package addresses
+// Package address provides functions and SQL framents for working with the
+// "address" table, which stores factom.FAAddress with its balance.
+package address
 
 import (
 	"fmt"
@@ -32,8 +32,8 @@ import (
 	"github.com/Factom-Asset-Tokens/factom"
 )
 
-// CreateTable is a SQL string that creates the "addresses" table.
-const CreateTable = `CREATE TABLE "addresses" (
+// CreateTable is a SQL string that creates the "address" table.
+const CreateTable = `CREATE TABLE "address" (
         "id"            INTEGER PRIMARY KEY,
         "address"       BLOB NOT NULL UNIQUE,
         "balance"       INTEGER NOT NULL
@@ -41,10 +41,10 @@ const CreateTable = `CREATE TABLE "addresses" (
 );
 `
 
-// Add adds add to the balance of adr, creating a new row in "addresses" if it
+// Add adds add to the balance of adr, creating a new row in "address" if it
 // does not exist. If successful, the row id of adr is returned.
 func Add(conn *sqlite.Conn, adr *factom.FAAddress, add uint64) (int64, error) {
-	stmt := conn.Prep(`INSERT INTO "addresses"
+	stmt := conn.Prep(`INSERT INTO "address"
                 ("address", "balance") VALUES (?, ?)
                 ON CONFLICT("address") DO
                 UPDATE SET "balance" = "balance" + "excluded"."balance";`)
@@ -59,7 +59,7 @@ func Add(conn *sqlite.Conn, adr *factom.FAAddress, add uint64) (int64, error) {
 
 const sqlitexNoResultsErr = "sqlite: statement has no results"
 
-// Sub subtracts sub from the balance of adr creating the row in "addresses" if
+// Sub subtracts sub from the balance of adr creating the row in "address" if
 // it does not exist and sub is 0. If successful, the row id of adr is
 // returned. If subtracting sub would result in a negative balance, txErr is
 // not nil and starts with "insufficient balance".
@@ -81,7 +81,7 @@ func Sub(conn *sqlite.Conn,
 		return id, fmt.Errorf("insufficient balance: %v", adr), nil
 	}
 	stmt := conn.Prep(
-		`UPDATE "addresses" SET "balance" = "balance" - ? WHERE "rowid" = ?;`)
+		`UPDATE "address" SET "balance" = "balance" - ? WHERE "rowid" = ?;`)
 	stmt.BindInt64(1, int64(sub))
 	stmt.BindInt64(2, id)
 	if _, err := stmt.Step(); err != nil {
@@ -100,7 +100,7 @@ func Sub(conn *sqlite.Conn,
 func SelectIDBalance(conn *sqlite.Conn,
 	adr *factom.FAAddress) (adrID int64, bal uint64, err error) {
 	adrID = -1
-	stmt := conn.Prep(`SELECT "id", "balance" FROM "addresses" WHERE "address" = ?;`)
+	stmt := conn.Prep(`SELECT "id", "balance" FROM "address" WHERE "address" = ?;`)
 	defer stmt.Reset()
 	stmt.BindBytes(1, adr[:])
 	hasRow, err := stmt.Step()
@@ -117,15 +117,15 @@ func SelectIDBalance(conn *sqlite.Conn,
 
 // SelectID returns the row id for the given adr.
 func SelectID(conn *sqlite.Conn, adr *factom.FAAddress) (int64, error) {
-	stmt := conn.Prep(`SELECT "id" FROM "addresses" WHERE "address" = ?;`)
+	stmt := conn.Prep(`SELECT "id" FROM "address" WHERE "address" = ?;`)
 	stmt.BindBytes(1, adr[:])
 	return sqlitex.ResultInt64(stmt)
 }
 
-// SelectCount returns the number of rows in "addresses". If nonZeroOnly is
-// true, then only count the addresses with a non zero balance.
+// SelectCount returns the number of rows in "address". If nonZeroOnly is true,
+// then only count the address with a non zero balance.
 func SelectCount(conn *sqlite.Conn, nonZeroOnly bool) (int64, error) {
-	stmt := conn.Prep(`SELECT count(*) FROM "addresses" WHERE "id" != 1
+	stmt := conn.Prep(`SELECT count(*) FROM "address" WHERE "id" != 1
                 AND (? OR "balance" > 0);`)
 	stmt.BindBool(1, !nonZeroOnly)
 	return sqlitex.ResultInt64(stmt)

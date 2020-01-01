@@ -8,6 +8,8 @@ crawshaw.io/sqlite v0.2.1-0.20191210213818-c9d1693acfe9 h1:7CyfosSdibjzVk27/yPjT
 crawshaw.io/sqlite v0.2.1-0.20191210213818-c9d1693acfe9/go.mod h1:igAO5JulrQ1DbdZdtVq48mnZUBAPOeFzer7VhDWNtW4=
 github.com/AdamSLevy/go-ext-wasm v0.0.0-20191212234502-d66004a8582c h1:UIphlBTOaUTOsIBEGWlID0G3CrPj9wmgLlQgzjSjX1k=
 github.com/AdamSLevy/go-ext-wasm v0.0.0-20191212234502-d66004a8582c/go.mod h1:B0C/D0a2vNos7Y3IxQhMpGOY9PCuCKfLvfry33a1cKA=
+crawshaw.io/sqlite v0.2.1 h1:6CJj2Bc3iYFMFqcsYe8WdlWebWr/YMj07bGAbNBHCfs=
+crawshaw.io/sqlite v0.2.1/go.mod h1:igAO5JulrQ1DbdZdtVq48mnZUBAPOeFzer7VhDWNtW4=
 github.com/AdamSLevy/go-merkle v0.0.0-20190611101253-ca33344a884d h1:FWutTJGVqBnL4rLgeNaspUYnmnvkXcmDA3QO3rHBGgU=
 github.com/AdamSLevy/go-merkle v0.0.0-20190611101253-ca33344a884d/go.mod h1:Nw3sh5L40Xs1wno7ndbD/dYWg+vARpBvpX9Zz1YSxbo=
 github.com/AdamSLevy/jsonrpc2/v12 v12.0.1 h1:cVyqoBa4Qgw8bQj3vCBnZHOX/E+uvPM8TbQPobGwY8Q=
@@ -29,6 +31,8 @@ github.com/Factom-Asset-Tokens/base58 v0.0.0-20181227014902-61655c4dd885/go.mod 
 github.com/Factom-Asset-Tokens/factom v0.0.0-20191207221317-3707342f4ae9 h1:P4NMrIf6EK/kPjeMo9wvnjsOFmZn0TKMc095zryM6EE=
 github.com/Factom-Asset-Tokens/factom v0.0.0-20191207221317-3707342f4ae9/go.mod h1:ab8HTelPY49ZAwJwALvMhoKPrw985cVgL/6pTh6waJM=
 github.com/JohnCGriffin/overflow v0.0.0-20170615021017-4d914c927216 h1:2ZboyJ8vl75fGesnG9NpMTD2DyQI3FzMXy4x752rGF0=
+github.com/Factom-Asset-Tokens/factom v0.0.0-20191229074842-d93f8bfcf1bf h1:AKdkTnw5baghYweei5NkMXo/3ZJToedpZQ9Ty+i2r+I=
+github.com/Factom-Asset-Tokens/factom v0.0.0-20191229074842-d93f8bfcf1bf/go.mod h1:kQvWyBV4e5uc3R8kyJeV5nWYGesmioOT8jDgnjdi4xI=
 github.com/JohnCGriffin/overflow v0.0.0-20170615021017-4d914c927216/go.mod h1:X0CRv0ky0k6m906ixxpzmDRLvX58TFUKS2eePweuyxk=
 github.com/OneOfOne/xxhash v1.2.2/go.mod h1:HSdplMjZKSmBqAxg5vPj2TmRDmfkzw+cTzAElWljhcU=
 github.com/alecthomas/template v0.0.0-20160405071501-a0175ee3bccc/go.mod h1:LOuyumcjzFXgccqObfd/Ljyb9UuFJ6TxHnclSeseNhc=
@@ -56,6 +60,7 @@ github.com/ghodss/yaml v1.0.0/go.mod h1:4dBDuWmgqj2HViK6kFavaiC9ZROes6MMH2rRYeME
 github.com/go-kit/kit v0.8.0/go.mod h1:xBxKIO96dXMWWy0MnWVtmwkA9/13aqxPnvrjFYMA2as=
 github.com/go-logfmt/logfmt v0.3.0/go.mod h1:Qt1PoO58o5twSAckw1HlFXLmHsOX5/0LbT9GBnD5lWE=
 github.com/go-logfmt/logfmt v0.4.0/go.mod h1:3RMwSq7FuexP4Kalkev3ejPJsZTpXXBr9+V4qmtdjCk=
+github.com/go-stack/stack v1.8.0 h1:5SgMzNM5HxrEjV0ww2lTmX6E2Izsfxas4+YHWRs3Lsk=
 github.com/go-stack/stack v1.8.0/go.mod h1:v0f6uXyyMGvRgIKkXu+yp6POWl0qKG85gN/melR3HDY=
 github.com/gogo/protobuf v1.1.1/go.mod h1:r8qH/GZQm5c6nD/R0oafs1akxWv10x8SbQlK7atdtwQ=
 github.com/gogo/protobuf v1.2.1/go.mod h1:hp+jE20tsWTFYpLwKvXlhS1hjn+gTNwPg2I6zVXpSg4=
@@ -155,6 +160,8 @@ github.com/stretchr/testify v1.3.1-0.20190311161405-34c6fa2dc709 h1:Ko2LQMrRU+Oy
 github.com/stretchr/testify v1.3.1-0.20190311161405-34c6fa2dc709/go.mod h1:M5WIy9Dh21IEIfnGCwXGc5bZfKNJtfHm1UVUgZn+9EI=
 github.com/stretchr/testify v1.4.0 h1:2E4SXV/wtOkTonXsotYi4li6zVWxYlZuYNCXe9XRJyk=
 github.com/stretchr/testify v1.4.0/go.mod h1:j7eGeouHqKxXV5pUuKE4zz7dFj8WfuZ+81PSLYec5m4=
+github.com/subchen/go-trylock/v2 v2.0.0 h1:XAZYp/ZvkBFuvSPAeGM0TjbMby/mHoWnnLBAv2FidUw=
+github.com/subchen/go-trylock/v2 v2.0.0/go.mod h1:jjSakPS+IvBCtFw5Fao9rQqdiCnF0ZrkzVkauvkZzLY=
 github.com/subosito/gotenv v1.2.0 h1:Slr1R9HxAlEKefgq5jn9U+DnETlIUa6HfgEzj0g5d7s=
 github.com/subosito/gotenv v1.2.0/go.mod h1:N0PQaV/YGNqwC0u51sEeR/aUtSLEXKX9iv69rRypqCw=
 github.com/tmc/grpc-websocket-proxy v0.0.0-20190109142713-0ad062ec5ee5/go.mod h1:ncp9v5uamzpCO7NfCPTXjqaC+bZgJeR0sMTm6dMHP7U=
