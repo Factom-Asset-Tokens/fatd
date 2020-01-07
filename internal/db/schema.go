@@ -29,6 +29,7 @@ import (
 	"crawshaw.io/sqlite/sqlitex"
 	"github.com/Factom-Asset-Tokens/factom/fat"
 	"github.com/Factom-Asset-Tokens/fatd/internal/db/address"
+	"github.com/Factom-Asset-Tokens/fatd/internal/db/contract"
 	"github.com/Factom-Asset-Tokens/fatd/internal/db/eblock"
 	"github.com/Factom-Asset-Tokens/fatd/internal/db/entry"
 	"github.com/Factom-Asset-Tokens/fatd/internal/db/metadata"
@@ -42,12 +43,14 @@ const (
 		entry.CreateTable +
 		address.CreateTable +
 		address.CreateTableTransaction +
+		address.CreateTableContract +
 		nftoken.CreateTable +
 		nftoken.CreateTableTransaction +
 		metadata.CreateTableFactomChain +
-		metadata.CreateTableFATChain
+		metadata.CreateTableFATChain +
+		contract.CreateTable
 
-	currentDBVersion = 1
+	currentDBVersion = 2
 )
 
 var migrations = []func(*sqlite.Conn) error{
@@ -132,7 +135,7 @@ CREATE INDEX "idx_nftoken_owner_id" ON nftoken("owner_id");`)
 			return err
 		}
 
-		err = sqlitex.ExecScript(conn, `
+		return sqlitex.ExecScript(conn, `
 UPDATE "factom_chain" SET
         (
                 "sync_height",
@@ -154,16 +157,19 @@ UPDATE "fat_chain" SET
                 "num_issued"
         FROM "metadata");
 DROP TABLE "metadata";`)
-		if err != nil {
-			return err
-		}
-
-		return err
-
+	},
+	func(conn *sqlite.Conn) error {
+		return sqlitex.ExecScript(conn,
+			contract.CreateTable+
+				address.CreateTableContract)
 	},
 }
-var _ = map[bool]int{false: 0,
-	(len(migrations) == currentDBVersion): 1}
+
+func init() {
+	if len(migrations) != currentDBVersion {
+		panic("len(migrations) != currentDBVersion")
+	}
+}
 
 func applyMigrations(conn *sqlite.Conn) (err error) {
 
@@ -207,7 +213,8 @@ func applyMigrations(conn *sqlite.Conn) (err error) {
 	defer sqlitex.Save(conn)(&err)
 
 	for i, migration := range migrations[version:] {
-		fmt.Printf("running migration: %v -> %v\n", i, i+1)
+		version := int(version) + i
+		fmt.Printf("running migration: %v -> %v\n", version, version+1)
 		if err = migration(conn); err != nil {
 			return
 		}

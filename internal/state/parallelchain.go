@@ -26,6 +26,7 @@ import (
 	"context"
 	"fmt"
 
+	"crawshaw.io/sqlite"
 	"crawshaw.io/sqlite/sqlitex"
 	"github.com/Factom-Asset-Tokens/factom"
 	"github.com/subchen/go-trylock/v2"
@@ -215,9 +216,10 @@ func (chain *ParallelChain) processEBlock(state *State, eb dbKeyMREBlock) error 
 		return fmt.Errorf("state.Apply(): %w", err)
 	}
 
-	if err := sqlitex.ExecScript(chain.ToFactomChain().Conn,
-		`PRAGMA main.wal_checkpoint;`); err != nil {
-		chain.ToFactomChain().Log.Error(err)
+	for _, db := range []string{"main", "contract"} {
+		if err := checkpointWAL(chain.ToFactomChain().Conn, db); err != nil {
+			chain.ToFactomChain().Log.Error(err)
+		}
 	}
 
 	if !chain.issued {
@@ -264,4 +266,8 @@ func (chain *ParallelChain) processPending(state *State, es []factom.Entry) erro
 	}
 
 	return nil
+}
+
+func checkpointWAL(conn *sqlite.Conn, db string) error {
+	return sqlitex.ExecScript(conn, fmt.Sprintf(`PRAGMA %q.wal_checkpoint;`, db))
 }

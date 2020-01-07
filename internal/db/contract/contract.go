@@ -41,7 +41,7 @@ import (
 //
 // The "contract" table stores the raw Wasm smart contract code as well as
 // cached compiled modules with metering code injected.
-const CreateTable = `CREATE TABLE "contract" (
+const CreateTable = `CREATE TABLE IF NOT EXISTS "contract"."contract" (
         "id"            INTEGER PRIMARY KEY,
         "chainid"       BLOB NOT NULL UNIQUE,
         "valid"         BOOL NOT NULL DEFAULT TRUE,
@@ -49,7 +49,8 @@ const CreateTable = `CREATE TABLE "contract" (
         "wasm"          BLOB,
         "compiled"      BLOB
 );
-CREATE INDEX "idx_contract_chainid" ON "contract"("chainid");
+CREATE INDEX IF NOT EXISTS
+        "contract"."idx_contract_chainid" ON "contract"("chainid");
 `
 
 // Insert the wasm contract into the "contract" table.
@@ -65,7 +66,7 @@ func Insert(conn *sqlite.Conn, first factom.Entry, wasm, compiled []byte) (int64
 		panic(fmt.Errorf("factom.Entry.MarshalBinary(): %w", err))
 	}
 
-	stmt := conn.Prep(`INSERT INTO "contract"
+	stmt := conn.Prep(`INSERT INTO "contract"."contract"
                 ("chainid", "valid", "first_entry", "wasm", "compiled")
                 VALUES (?, ?, ?, ?, ?);`)
 	stmt.BindBytes(1, first.ChainID[:])
@@ -86,7 +87,8 @@ func Insert(conn *sqlite.Conn, first factom.Entry, wasm, compiled []byte) (int64
 
 // SelectWhere is a SQL fragment for retrieving rows from the "contract" table
 // with Select().
-const SelectWhere = `SELECT "id", "valid", "compiled", "wasm" FROM "contract" WHERE `
+const SelectWhere = `SELECT "id", "valid", "compiled", "wasm"
+                                FROM "contract"."contract" WHERE `
 const (
 	colID = iota
 	colValid
@@ -157,14 +159,14 @@ func SelectByChainID(conn *sqlite.Conn, chainID *factom.Bytes32) (*wasmer.Module
 // SelectCount returns the total number of rows in the "contract" table. If
 // validOnly is true, only the rows where "valid" = true are counted.
 func SelectCount(conn *sqlite.Conn, validOnly bool) (int64, error) {
-	stmt := conn.Prep(`SELECT count(*) FROM "contract"
+	stmt := conn.Prep(`SELECT count(*) FROM "contract"."contract"
                 WHERE (? OR "valid" = true);`)
 	stmt.BindBool(1, !validOnly)
 	return sqlitex.ResultInt64(stmt)
 }
 
 func SelectIsCached(conn *sqlite.Conn, id int64) (bool, error) {
-	stmt := conn.Prep(`SELECT length("compiled") FROM "contract"
+	stmt := conn.Prep(`SELECT length("compiled") FROM "contract"."contract"
                 WHERE "id" = ?;`)
 	stmt.BindInt64(1, id)
 	hasRow, err := stmt.Step()
@@ -238,7 +240,7 @@ func validate(conn *sqlite.Conn, stmt *sqlite.Stmt) (bool, error) {
 	}
 
 	id := stmt.ColumnInt64(0)
-	blob, err := conn.OpenBlob("", "contract", "wasm", id, false)
+	blob, err := conn.OpenBlob("contract", "contract", "wasm", id, false)
 	if blob.Size() != int64(m.Size) {
 		return false, fmt.Errorf("corrupted wasm blob: invalid size")
 	}

@@ -26,6 +26,7 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
+	"path/filepath"
 
 	"crawshaw.io/sqlite"
 	"crawshaw.io/sqlite/sqlitex"
@@ -96,6 +97,10 @@ func fnameToChainID(fname string) (*factom.Bytes32, error) {
 	return &chainID, nil
 }
 
+const baseFlags = sqlite.SQLITE_OPEN_WAL |
+	sqlite.SQLITE_OPEN_URI |
+	sqlite.SQLITE_OPEN_NOMUTEX
+
 // OpenConnPool opens a Conn to the sqlite3 database at dbURI and performs a
 // number of checks and operations to ensure that the Conn is ready for use.
 // The Interrupt on the Conn is set to ctx.Done().
@@ -107,9 +112,6 @@ func fnameToChainID(fname string) (*factom.Bytes32, error) {
 func OpenConnPool(ctx context.Context, dbURI string) (
 	conn *sqlite.Conn, pool *sqlitex.Pool, err error) {
 
-	const baseFlags = sqlite.SQLITE_OPEN_WAL |
-		sqlite.SQLITE_OPEN_URI |
-		sqlite.SQLITE_OPEN_NOMUTEX
 	flags := baseFlags | sqlite.SQLITE_OPEN_READWRITE | sqlite.SQLITE_OPEN_CREATE
 
 	// Open Conn.
@@ -128,8 +130,14 @@ func OpenConnPool(ctx context.Context, dbURI string) (
 	// Set the interrupt
 	conn.SetInterrupt(ctx.Done())
 
-	if err = checkOrSetApplicationID(conn); err != nil {
+	if err = attachContractsDB(conn, dbURI); err != nil {
 		return
+	}
+
+	for _, db := range []string{"main", "contract"} {
+		if err = checkOrSetApplicationID(conn, db); err != nil {
+			return
+		}
 	}
 
 	if err = applyMigrations(conn); err != nil {
@@ -201,9 +209,10 @@ func Close(conn *sqlite.Conn, pool *sqlitex.Pool) error {
 
 const ApplicationID int32 = 0x0FA7D000
 
-func checkOrSetApplicationID(conn *sqlite.Conn) error {
+func checkOrSetApplicationID(conn *sqlite.Conn, db string) error {
 	var appID int32
-	if err := sqlitex.ExecTransient(conn, `PRAGMA application_id;`,
+	if err := sqlitex.ExecTransient(conn,
+		fmt.Sprintf(`PRAGMA %q."application_id";`, db),
 		func(stmt *sqlite.Stmt) error {
 			appID = stmt.ColumnInt32(0)
 			return nil
@@ -213,7 +222,8 @@ func checkOrSetApplicationID(conn *sqlite.Conn) error {
 	switch appID {
 	case 0: // ApplicationID not set
 		return sqlitex.ExecTransient(conn,
-			fmt.Sprintf(`PRAGMA application_id = %v;`, ApplicationID),
+			fmt.Sprintf(`PRAGMA %q."application_id" = %v;`,
+				db, ApplicationID),
 			nil)
 	case ApplicationID:
 		return nil
@@ -243,4 +253,10 @@ func ensureTransactionInWAL(conn *sqlite.Conn) error {
 		return err
 	}
 	return nil
+}
+
+func attachContractsDB(conn *sqlite.Conn, dbURI string) error {
+	return sqlitex.ExecScript(conn,
+		fmt.Sprintf(`ATTACH DATABASE %q AS "contract";`,
+			filepath.Join(filepath.Dir(dbURI), "contract.sqlite3")))
 }
