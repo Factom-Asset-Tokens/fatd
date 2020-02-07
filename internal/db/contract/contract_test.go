@@ -3,6 +3,7 @@ package contract_test
 import (
 	"bytes"
 	"crypto/sha256"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"testing"
@@ -10,6 +11,7 @@ import (
 	"crawshaw.io/sqlite"
 	"crawshaw.io/sqlite/sqlitex"
 	"github.com/Factom-Asset-Tokens/factom"
+	"github.com/Factom-Asset-Tokens/factom/fat104"
 	"github.com/Factom-Asset-Tokens/factom/fat107"
 	"github.com/Factom-Asset-Tokens/fatd/internal/db/address"
 	"github.com/Factom-Asset-Tokens/fatd/internal/db/contract"
@@ -19,9 +21,13 @@ import (
 
 func TestContracts(t *testing.T) {
 	require := require.New(t)
-	conn, err := sqlite.OpenConn(":memory:", 0)
+	conn, err := sqlite.OpenConn("", 0)
 	require.NoError(err)
 	defer conn.Close()
+
+	require.NoError(sqlitex.ExecScript(conn,
+		`ATTACH DATABASE 'file::memory:' AS "contract";`),
+		"ATTACH DATABASE")
 
 	require.NoError(sqlitex.ExecScript(conn, contract.CreateTable), "CreateTable")
 
@@ -96,7 +102,7 @@ func TestContracts(t *testing.T) {
 
 	release := sqlitex.Save(conn)
 
-	blob, err := conn.OpenBlob("", "contract", "wasm", 2, true)
+	blob, err := conn.OpenBlob("contract", "contract", "wasm", 2, true)
 	require.NoError(err)
 
 	_, err = blob.WriteAt([]byte("hello world"), 0)
@@ -110,7 +116,7 @@ func TestContracts(t *testing.T) {
 
 	release = sqlitex.Save(conn)
 
-	blob, err = conn.OpenBlob("", "contract", "first_entry", 2, true)
+	blob, err = conn.OpenBlob("contract", "contract", "first_entry", 2, true)
 	require.NoError(err)
 
 	_, err = blob.WriteAt([]byte("hello"), 38)
@@ -171,6 +177,12 @@ func insertWasmFile(t *testing.T, conn *sqlite.Conn, fileName string) (
 	require.NoError(first.UnmarshalBinary(reveals[0]))
 	reveals = nil // No need to keep in memory.
 
-	id, err := contract.Insert(conn, first, wasm, compiled)
+	var con fat104.Contract
+	con.Entry = first
+	con.Wasm = wasm
+
+	require.NoError(json.Unmarshal(first.Content, &con))
+
+	id, err := contract.Insert(conn, con, compiled)
 	return chainID, id, err
 }

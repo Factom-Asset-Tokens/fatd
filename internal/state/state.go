@@ -260,7 +260,7 @@ func (state *State) loadFATChains(dbPath string,
 			continue
 		}
 
-		chain := FATChain(dbChain)
+		chain := FATChain{dbChain, state.c}
 		state.SyncHeight = min(state.SyncHeight, chain.SyncHeight)
 
 		if dbChain.NetworkID != state.NetworkID {

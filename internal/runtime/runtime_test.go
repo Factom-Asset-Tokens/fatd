@@ -25,6 +25,7 @@ package runtime_test
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -34,6 +35,7 @@ import (
 	"crawshaw.io/sqlite/sqlitex"
 	"github.com/Factom-Asset-Tokens/factom/fat"
 	"github.com/Factom-Asset-Tokens/factom/fat0"
+	"github.com/Factom-Asset-Tokens/factom/fat104"
 	"github.com/Factom-Asset-Tokens/fatd/internal/db"
 	"github.com/Factom-Asset-Tokens/fatd/internal/db/address"
 	"github.com/Factom-Asset-Tokens/fatd/internal/runtime"
@@ -55,6 +57,10 @@ var (
 )
 
 func TestMain(m *testing.M) {
+	os.Exit(mainRun(m))
+}
+
+func mainRun(m *testing.M) int {
 	var err error
 	// Load wasm module
 	wasm, err = ioutil.ReadFile("./testdata/api_test.wasm")
@@ -97,8 +103,16 @@ func TestMain(m *testing.M) {
 		panic(err)
 	}
 
-	os.Exit(m.Run())
+	return m.Run()
 }
+
+var (
+	runAllFunc           = fat104.Func{Name: "run_all"}
+	testRevertFunc       = fat104.Func{Name: "test_revert"}
+	testSelfDestructFunc = fat104.Func{Name: "test_self_destruct"}
+	testSendFunc         = fat104.Func{Name: "test_send",
+		Args: []fat104.Type{fat104.TypeI64}}
+)
 
 func TestRunAll(t *testing.T) {
 	reqr, vm, cleanUp := setupTest(t, true)
@@ -116,7 +130,7 @@ func TestRunAll(t *testing.T) {
 	vm.SetPointsUsed(0)
 
 	// This should return successfully.
-	v, txErr, err := vm.Call(&ctx, "run_all")
+	v, txErr, err := vm.Call(&ctx, &runAllFunc)
 	reqr.NoError(err, "err")
 	reqr.NoErrorf(txErr, "txErr: points used: %v",
 		int64(vm.GetPointsUsed()))
@@ -149,7 +163,7 @@ func TestOutOfGas(t *testing.T) {
 		// No execution should occur with a 0 limit.
 		vm.SetExecLimit(0)
 		vm.SetPointsUsed(0)
-		_, txErr, err := vm.Call(&ctx, "run_all")
+		_, txErr, err := vm.Call(&ctx, &runAllFunc)
 		reqr.NoError(err)
 		reqr.EqualError(txErr, runtime.ErrorExecLimitExceededString)
 	})
@@ -165,7 +179,7 @@ func TestOutOfGas(t *testing.T) {
 
 		runtime.Cost["get_timestamp"] = 5000
 		defer func() { runtime.Cost["get_timestamp"] = 1 }()
-		_, txErr, err := vm.Call(&ctx, "run_all")
+		_, txErr, err := vm.Call(&ctx, &runAllFunc)
 		reqr.NoError(err)
 		reqr.EqualError(txErr, runtime.ErrorExecLimitExceededString)
 		// The points should be equal to the last pointsUsed plus the cost of
@@ -180,16 +194,12 @@ func TestOutOfGas(t *testing.T) {
 		vm.SetExecLimit(46)
 		vm.SetPointsUsed(0)
 
-		_, txErr, err := vm.Call(&ctx, "test_send", 1)
+		_, txErr, err := vm.Call(&ctx, &testSendFunc, json.RawMessage(`1`))
 		reqr.NoError(err)
 		// Ensure send was successfully called
 		reqr.Contains(runtime.Called, "send")
 		reqr.EqualErrorf(txErr, runtime.ErrorExecLimitExceededString,
 			"txErr: points used: %v", int64(vm.GetPointsUsed()))
-		// Ensure no changes.
-		var buf bytes.Buffer
-		reqr.NoError(sess.Changeset(&buf))
-		reqr.Zero(buf.Len(), "changes not reverted")
 	})
 }
 
@@ -198,12 +208,14 @@ func TestSend(t *testing.T) {
 		reqr, vm, cleanUp := setupTest(t, true)
 		defer cleanUp()
 
-		_, txErr, err := vm.Call(&ctx, "test_send", 999999999999999)
+		_, txErr, err := vm.Call(&ctx, &testSendFunc,
+			json.RawMessage(`999999999999999`))
 		reqr.NoError(err)
 		// Ensure send was successfully called
-		reqr.Contains(runtime.Called, "send")
-		reqr.Equalf(runtime.ErrorRevert{"send: insufficient balance"}, txErr,
+		reqr.EqualErrorf(txErr,
+			runtime.ErrorRevert{"send: insufficient balance"}.Error(),
 			"txErr: points used: %v", int64(vm.GetPointsUsed()))
+		reqr.Contains(runtime.Called, "send")
 		// Ensure no changes.
 		var buf bytes.Buffer
 		reqr.NoError(sess.Changeset(&buf))
@@ -217,7 +229,7 @@ func TestSend(t *testing.T) {
 		reqr.NoError(err)
 		reqr.NotZero(bal)
 
-		_, txErr, err := vm.Call(&ctx, "test_send", 1)
+		_, txErr, err := vm.Call(&ctx, &testSendFunc, json.RawMessage(`1`))
 		reqr.NoError(err)
 		reqr.NoError(txErr)
 		// Ensure send was successfully called
@@ -236,7 +248,8 @@ func TestSend(t *testing.T) {
 			ctx.Transaction.Outputs = outputs
 		}()
 
-		_, txErr, err := vm.Call(&ctx, "test_send", 999999999999999999)
+		_, txErr, err := vm.Call(&ctx, &testSendFunc,
+			json.RawMessage(`999999999999999`))
 		reqr.NoError(err)
 		// Ensure send was successfully called
 		reqr.Contains(runtime.Called, "send")
@@ -263,7 +276,7 @@ func TestSend(t *testing.T) {
 		remSupply := ctx.Chain.Issuance.Supply - int64(ctx.Chain.NumIssued)
 		reqr.Equal(remSupply, int64(bal))
 
-		_, txErr, err := vm.Call(&ctx, "test_send", 1)
+		_, txErr, err := vm.Call(&ctx, &testSendFunc, json.RawMessage(`1`))
 		reqr.NoError(err)
 		reqr.NoError(txErr)
 		// Ensure send was successfully called
@@ -278,23 +291,20 @@ func TestRevert(t *testing.T) {
 	reqr, vm, cleanUp := setupTest(t, true)
 	defer cleanUp()
 
-	_, txErr, err := vm.Call(&ctx, "test_revert")
+	_, txErr, err := vm.Call(&ctx, &testRevertFunc)
 	reqr.NoError(err)
 	// Ensure send was successfully called
 	reqr.Contains(runtime.Called, "send")
-	reqr.Equalf(runtime.ErrorRevert{"test_revert"}, txErr,
+	reqr.EqualErrorf(txErr,
+		runtime.ErrorRevert{"test_revert"}.Error(),
 		"txErr: points used: %v", int64(vm.GetPointsUsed()))
-	// Ensure no changes.
-	var buf bytes.Buffer
-	reqr.NoError(sess.Changeset(&buf))
-	reqr.Zero(buf.Len(), "changes not reverted")
 }
 
 func TestSelfDestruct(t *testing.T) {
 	reqr, vm, cleanUp := setupTest(t, true)
 	defer cleanUp()
 
-	_, txErr, err := vm.Call(&ctx, "test_self_destruct")
+	_, txErr, err := vm.Call(&ctx, &testSelfDestructFunc)
 	reqr.NoError(err)
 	reqr.NoError(txErr)
 	// Ensure send was successfully called

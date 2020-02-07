@@ -23,9 +23,11 @@
 package runtime
 
 import (
+	"encoding/json"
 	"fmt"
 
-	"crawshaw.io/sqlite/sqlitex"
+	"github.com/Factom-Asset-Tokens/factom"
+	"github.com/Factom-Asset-Tokens/factom/fat104"
 	"github.com/wasmerio/go-ext-wasm/wasmer"
 )
 
@@ -47,28 +49,69 @@ func NewVM(mod *wasmer.Module) (*VM, error) {
 }
 
 func (vm *VM) Call(ctx *Context,
-	fname string, args ...interface{}) (v wasmer.Value, txErr, err error) {
+	abi *fat104.Func, args ...json.RawMessage) (v wasmer.Value, txErr, err error) {
 
-	f, ok := vm.Exports[fname]
+	f, ok := vm.Exports[abi.Name]
 	if !ok {
-		txErr = fmt.Errorf("unknown function")
+		err = fmt.Errorf("function %q not defined", abi.Name)
 		return
 	}
 
-	defer func(release func(*error)) {
-		if err != nil {
-			release(&err)
-			return
+	if len(abi.Args) != len(args) {
+		txErr = fmt.Errorf("invalid number of args")
+		return
+	}
+
+	var wasmArgs []interface{}
+	var ptr int32
+	for i, arg := range abi.Args {
+		switch arg {
+		case fat104.TypeI32:
+			var val int32
+			if txErr = json.Unmarshal(args[i], &val); txErr != nil {
+				return
+			}
+			wasmArgs = append(wasmArgs, val)
+		case fat104.TypeI64:
+			var val int64
+			if txErr = json.Unmarshal(args[i], &val); txErr != nil {
+				return
+			}
+			wasmArgs = append(wasmArgs, val)
+		case fat104.TypeString:
+			var val string
+			if txErr = json.Unmarshal(args[i], &val); txErr != nil {
+				return
+			}
+
+			if copy(vm.Memory.Data()[ptr:], append([]byte(val), 0)) !=
+				len(val)+1 {
+				err = fmt.Errorf("couldn't copy arg %v into mem", i)
+			}
+			wasmArgs = append(wasmArgs, ptr)
+			ptr += int32(len(val) + 1)
+		case fat104.TypeBytes:
+			var val factom.Bytes
+			if txErr = json.Unmarshal(args[i], &val); txErr != nil {
+				return
+			}
+
+			if copy(vm.Memory.Data()[ptr:], val) !=
+				len(val) {
+				err = fmt.Errorf("couldn't copy arg %v into mem", i)
+			}
+			n := int32(len(val))
+			wasmArgs = append(wasmArgs, ptr, n)
+			ptr += n
 		}
-		release(&txErr)
-	}(sqlitex.Save(ctx.Chain.Conn))
+	}
 
 	vm.SetContextData(ctx)
 
-	v, err = f(args...)
+	v, err = f(wasmArgs...)
 	if err != nil {
 		if err.Error() == fmt.Sprintf(
-			"Failed to call the `%s` exported function.", fname) {
+			"Failed to call the `%s` exported function.", abi.Name) {
 			var errStr string
 			errStr, err = wasmer.GetLastError()
 			if err == nil {
@@ -91,4 +134,65 @@ func (vm *VM) Call(ctx *Context,
 		}
 	}
 	return
+}
+
+func (vm *VM) ValidateABI(ctx *Context, abi fat104.ABI) error {
+	for name, f := range abi {
+		args := dummyArgs(f)
+		if args == nil {
+			return fmt.Errorf("invalid ABI: args for %q", name)
+		}
+
+		ret, _, err := vm.Call(ctx, &f, args...)
+		if err != nil {
+			return fmt.Errorf("invalid ABI: %w", err)
+		}
+
+		switch ret.GetType() {
+		case wasmer.TypeVoid:
+			if f.Ret != fat104.TypeUndefined {
+				return fmt.Errorf("invalid ABI: return type for %q",
+					name)
+			}
+		case wasmer.TypeI32:
+			if f.Ret != fat104.TypeI32 {
+				return fmt.Errorf("invalid ABI: return type for %q",
+					name)
+			}
+		case wasmer.TypeI64:
+			if f.Ret != fat104.TypeI64 {
+				return fmt.Errorf("invalid ABI: return type for %q",
+					name)
+			}
+		default:
+			return fmt.Errorf("invalid ABI: return type for %q", name)
+		}
+
+	}
+	return nil
+}
+
+func dummyArgs(f fat104.Func) []json.RawMessage {
+	args := make([]json.RawMessage, 0, len(f.Args))
+	for _, arg := range f.Args {
+		a := dummyArgsType(arg)
+		if a == nil {
+			return nil
+		}
+		args = append(args, a)
+	}
+	return args
+}
+
+func dummyArgsType(t fat104.Type) json.RawMessage {
+	switch t {
+	case fat104.TypeI32, fat104.TypeI64:
+		return json.RawMessage(`0`)
+	case fat104.TypeString:
+		return json.RawMessage(`"test"`)
+	case fat104.TypeBytes:
+		return json.RawMessage(`"deadbeef"`)
+	default:
+		return nil
+	}
 }

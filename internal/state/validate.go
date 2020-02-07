@@ -178,7 +178,7 @@ func (chain *FATChain) Validate(ctx context.Context, repair bool) (err error) {
 		if err != nil {
 			return err
 		}
-		if err := Apply(chain, &dbKeyMR, eb); err != nil {
+		if err := Apply(ctx, chain, &dbKeyMR, eb); err != nil {
 			return err
 		}
 	}

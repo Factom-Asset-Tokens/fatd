@@ -60,7 +60,7 @@ func get_height(ptr unsafe.Pointer) int32 {
 	if ctx.Meter("get_height") != nil {
 		return 0
 	}
-	return int32(ctx.DBlock.Height)
+	return int32(ctx.Chain.Head.Height)
 }
 
 //export get_precision

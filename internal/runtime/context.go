@@ -38,7 +38,6 @@ import (
 
 type Context struct {
 	Chain *db.FATChain
-	factom.DBlock
 	fat0.Transaction
 
 	Err error

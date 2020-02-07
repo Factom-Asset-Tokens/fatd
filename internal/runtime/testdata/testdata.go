@@ -28,9 +28,9 @@ package testdata
 // #include "./src/runtime_test.h"
 import "C"
 import (
+	"fmt"
 	"time"
 
-	"crawshaw.io/sqlite/sqlitex"
 	"github.com/Factom-Asset-Tokens/factom"
 	"github.com/Factom-Asset-Tokens/factom/fat0"
 	"github.com/Factom-Asset-Tokens/fatd/internal/db"
@@ -62,18 +62,14 @@ func Context(chain *db.FATChain) runtime.Context {
 		panic(err)
 	}
 
-	if err := sqlitex.ExecScript(chain.Conn,
-		address.CreateTableContract); err != nil {
-		panic(err)
-	}
-
 	var chainID factom.Bytes32
 	if err := address.InsertContract(chain.Conn, id, 0, &chainID); err != nil {
 		panic(err)
 	}
 
+	fmt.Println("height: ", chain.Head.Height)
+
 	return runtime.Context{
-		DBlock:      factom.DBlock{Height: uint32(C.GET_HEIGHT_EXP)},
 		Chain:       chain,
 		Transaction: tx,
 	}

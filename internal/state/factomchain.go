@@ -35,7 +35,7 @@ import (
 
 type FactomChain db.FactomChain
 
-func (chain *FactomChain) UpdateSidechainData(context.Context, *factom.Client) error {
+func (chain *FactomChain) UpdateSidechainData(context.Context) error {
 	return nil
 }
 
@@ -51,7 +51,8 @@ func (chain *FactomChain) ApplyEBlock(dbKeyMR *factom.Bytes32, eb factom.EBlock)
 	return nil
 }
 
-func (chain *FactomChain) ApplyEntry(e factom.Entry) (eID int64, err error) {
+func (chain *FactomChain) ApplyEntry(_ context.Context, e factom.Entry) (
+	eID int64, err error) {
 	return entry.Insert(chain.Conn, e, chain.Head.Sequence)
 }
 

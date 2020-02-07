@@ -27,26 +27,33 @@ import (
 	"fmt"
 
 	"github.com/Factom-Asset-Tokens/fatd/internal/log"
+	"github.com/Factom-Asset-Tokens/fatd/internal/runtime"
+	"github.com/wasmerio/go-ext-wasm/wasmer"
 
 	jsonrpc2 "github.com/AdamSLevy/jsonrpc2/v13"
 	"github.com/Factom-Asset-Tokens/factom"
 	"github.com/Factom-Asset-Tokens/factom/fat"
 	"github.com/Factom-Asset-Tokens/factom/fat0"
 	"github.com/Factom-Asset-Tokens/factom/fat1"
+	"github.com/Factom-Asset-Tokens/factom/fat104"
 	"github.com/Factom-Asset-Tokens/fatd/internal/db"
 	"github.com/Factom-Asset-Tokens/fatd/internal/db/address"
+	"github.com/Factom-Asset-Tokens/fatd/internal/db/contract"
 	"github.com/Factom-Asset-Tokens/fatd/internal/db/entry"
 	"github.com/Factom-Asset-Tokens/fatd/internal/db/metadata"
 	"github.com/Factom-Asset-Tokens/fatd/internal/db/nftoken"
 )
 
-type FATChain db.FATChain
+type FATChain struct {
+	db.FATChain
+	c *factom.Client
+}
 
 var _ Chain = &FATChain{}
 
-func (chain *FATChain) UpdateSidechainData(ctx context.Context, c *factom.Client) error {
+func (chain *FATChain) UpdateSidechainData(ctx context.Context) error {
 	// Get Identity each time in case it wasn't populated before.
-	if err := chain.Identity.Get(ctx, c); err != nil {
+	if err := chain.Identity.Get(ctx, chain.c); err != nil {
 		// A jsonrpc2.Error indicates that the identity chain doesn't yet
 		// exist, which we tolerate.
 		if _, ok := err.(jsonrpc2.Error); !ok {
@@ -70,15 +77,16 @@ func ToFATChain(chain Chain) (fatChain *FATChain, ok bool) {
 	return
 }
 func (chain *FATChain) ToFATChain() *db.FATChain {
-	return (*db.FATChain)(chain)
+	return (*db.FATChain)(&chain.FATChain)
 }
 func (chain *FATChain) ToFactomChain() *db.FactomChain {
 	return (*db.FactomChain)(&chain.FactomChain)
 }
 
-func (chain *FATChain) ApplyEntry(e factom.Entry) (eID int64, err error) {
+func (chain *FATChain) ApplyEntry(ctx context.Context, e factom.Entry) (
+	eID int64, err error) {
 
-	eID, err = (*FactomChain)(&chain.FactomChain).ApplyEntry(e)
+	eID, err = (*FactomChain)(&chain.FactomChain).ApplyEntry(ctx, e)
 	if err != nil {
 		return
 	}
@@ -88,7 +96,7 @@ func (chain *FATChain) ApplyEntry(e factom.Entry) (eID int64, err error) {
 	if !chain.IsIssued() {
 		txErr, err = chain.ApplyIssuance(eID, e)
 	} else {
-		_, txErr, err = chain.ApplyTx(eID, e)
+		_, txErr, err = chain.ApplyTx(ctx, eID, e)
 	}
 
 	//if txErr != nil {
@@ -134,7 +142,8 @@ func (chain *FATChain) ApplyIssuance(ei int64, e factom.Entry) (txErr, err error
 	return
 }
 
-func (chain *FATChain) ApplyTx(eID int64, e factom.Entry) (tx interface{},
+func (chain *FATChain) ApplyTx(ctx context.Context,
+	eID int64, e factom.Entry) (tx interface{},
 	txErr, err error) {
 
 	valid, err := entry.CheckUniquelyValid(chain.Conn, eID, e.Hash)
@@ -148,7 +157,7 @@ func (chain *FATChain) ApplyTx(eID int64, e factom.Entry) (tx interface{},
 
 	switch chain.Issuance.Type {
 	case fat.TypeFAT0:
-		_, txErr, err = chain.applyFAT0Tx(eID, e)
+		_, txErr, err = chain.applyFAT0Tx(ctx, eID, e)
 	case fat.TypeFAT1:
 		_, txErr, err = chain.applyFAT1Tx(eID, e)
 	default:
@@ -166,14 +175,15 @@ func (chain *FATChain) ApplyTx(eID int64, e factom.Entry) (tx interface{},
 	return
 }
 
-func (chain *FATChain) ApplyFAT0Tx(eID int64, e factom.Entry) (tx fat0.Transaction,
-	txErr, err error) {
+func (chain *FATChain) ApplyFAT0Tx(ctx context.Context,
+	eID int64, e factom.Entry) (tx fat0.Transaction, txErr, err error) {
 	var txI interface{}
-	txI, txErr, err = chain.ApplyTx(eID, e)
+	txI, txErr, err = chain.ApplyTx(ctx, eID, e)
 	tx = txI.(fat0.Transaction)
 	return
 }
-func (chain *FATChain) applyFAT0Tx(eID int64, e factom.Entry) (tx fat0.Transaction,
+func (chain *FATChain) applyFAT0Tx(ctx context.Context,
+	eID int64, e factom.Entry) (tx fat0.Transaction,
 	txErr, err error) {
 
 	tx, txErr = fat0.NewTransaction(e, (*factom.Bytes32)(chain.Identity.ID1Key))
@@ -189,21 +199,28 @@ func (chain *FATChain) applyFAT0Tx(eID int64, e factom.Entry) (tx fat0.Transacti
 			return
 		}
 		if err = chain.ToFATChain().AddNumIssued(addIssued); err != nil {
+			err = fmt.Errorf("db.FATChain.AddNumIssued(): %w", err)
 			return
 		}
 		if _, err = address.InsertTransaction(
 			chain.Conn, 1, eID, false); err != nil {
+			err = fmt.Errorf("address.InsertTransaction(): %w", err)
 			return
 		}
 	} else {
 		for adr, amount := range tx.Inputs {
 			var ai int64
 			ai, txErr, err = address.Sub(chain.Conn, &adr, amount)
-			if err != nil || txErr != nil {
+			if err != nil {
+				err = fmt.Errorf("address.Sub(): %w", err)
+				return
+			}
+			if txErr != nil {
 				return
 			}
 			if _, err = address.InsertTransaction(
 				chain.Conn, ai, eID, false); err != nil {
+				err = fmt.Errorf("address.InsertTransaction(): %w", err)
 				return
 			}
 		}
@@ -217,7 +234,141 @@ func (chain *FATChain) applyFAT0Tx(eID int64, e factom.Entry) (tx fat0.Transacti
 		}
 		if _, err = address.InsertTransaction(
 			chain.Conn, ai, eID, true); err != nil {
+			err = fmt.Errorf("address.InsertTransaction(): %w", err)
 			return
+		}
+
+		if tx.IsContractDelegation() {
+			// delegate contract
+
+			// Check for contract in database
+			var conID int64
+			var validCon bool
+			if validCon, conID, err = contract.SelectValid(
+				chain.Conn, tx.Contract); err != nil {
+				err = fmt.Errorf("contract.SelectByChainID(): %w", err)
+				return
+			}
+			if conID == -1 {
+				// Contract not already in DB. So look it up...
+
+				// TODO: Distinguish a lookup error vs all
+				// other connection errors
+
+				var con fat104.Contract
+				if con, txErr = fat104.Lookup(ctx, chain.c,
+					tx.Contract); txErr != nil {
+					txErr = fmt.Errorf("fat104.Lookup(): %w",
+						txErr)
+					return
+				}
+
+				// Download contract
+				if txErr = con.Get(ctx, chain.c); txErr != nil {
+					txErr = fmt.Errorf("fat104.Contract.Get(): %w",
+						txErr)
+					return
+				}
+
+				// Compile
+				var mod wasmer.Module
+				if mod, txErr = wasmer.CompileWithGasMetering(
+					con.Wasm); txErr != nil {
+					txErr = fmt.Errorf(
+						"wasmer.CompileWithGasMetering(): %w",
+						txErr)
+					return
+				}
+
+				// instantiate
+				var vm *runtime.VM
+				if vm, txErr = runtime.NewVM(&mod); txErr != nil {
+					txErr = fmt.Errorf("runtime.NewVM(): %w",
+						txErr)
+					return
+				}
+
+				var rCtx runtime.Context
+				rCtx.Context = ctx
+				rCtx.Chain = chain.ToFATChain()
+
+				if txErr = vm.ValidateABI(&rCtx, con.ABI); txErr != nil {
+					txErr = fmt.Errorf(
+						"runtime.VM.ValidateABI(): %w", txErr)
+					return
+				}
+
+				// serialize
+				var compiled []byte
+				if compiled, err = mod.Serialize(); err != nil {
+					err = fmt.Errorf(
+						"wasmer.Module.Serialize(): %w", txErr)
+					return
+				}
+
+				// save
+				if _, err = contract.Insert(chain.Conn,
+					con, compiled); err != nil {
+					err = fmt.Errorf("contract.Insert(): %w", err)
+					return
+				}
+			} else if !validCon {
+				txErr = fmt.Errorf("invalid contract code")
+				return
+			}
+
+			if err = address.InsertContract(chain.Conn,
+				ai, conID, tx.Contract); err != nil {
+				err = fmt.Errorf("address.InsertContract(): %w", err)
+				return
+			}
+
+		} else if tx.IsContractCall() {
+			// Determine if address is contract controlled...
+			var conID int64
+			//var conChainID factom.Bytes32
+			if conID, _, txErr = address.SelectContract(
+				chain.Conn, ai); txErr != nil {
+				txErr = fmt.Errorf("address.SelectContract(): %w",
+					txErr)
+				return
+			}
+			if conID == -1 {
+				txErr = fmt.Errorf("address is not contract")
+				return
+			}
+
+			// Lookup contract from database
+			var mod *wasmer.Module
+			if mod, err = contract.SelectByID(
+				chain.Conn, conID); err != nil {
+				err = fmt.Errorf("contract.SelectByChainID(): %w", err)
+				return
+			}
+
+			// Check ABI for called function
+			var abiF *fat104.Func
+			abiF, err = contract.SelectABIFunc(chain.Conn, conID, tx.Func)
+			if err != nil {
+				err = fmt.Errorf("contract.SelectABIFunc(): %w")
+			}
+			if abiF == nil {
+				txErr = fmt.Errorf("contract does not define %q",
+					tx.Func)
+			}
+
+			// instantiate
+			var vm *runtime.VM
+			if vm, txErr = runtime.NewVM(mod); txErr != nil {
+				txErr = fmt.Errorf("runtime.NewVM(): %w",
+					txErr)
+				return
+			}
+
+			var rCtx runtime.Context
+			rCtx.Context = ctx
+			rCtx.Chain = chain.ToFATChain()
+			_, txErr, err = vm.Call(&rCtx, abiF, tx.Args...)
 		}
 	}
 
@@ -227,7 +378,7 @@ func (chain *FATChain) applyFAT0Tx(eID int64, e factom.Entry) (tx fat0.Transacti
 func (chain *FATChain) ApplyFAT1Tx(eID int64, e factom.Entry) (tx fat1.Transaction,
 	txErr, err error) {
 	var txI interface{}
-	txI, txErr, err = chain.ApplyTx(eID, e)
+	txI, txErr, err = chain.ApplyTx(nil, eID, e)
 	tx = txI.(fat1.Transaction)
 	return
 }
@@ -247,7 +398,7 @@ func (chain *FATChain) applyFAT1Tx(eID int64, e factom.Entry) (tx fat1.Transacti
 			txErr = fmt.Errorf("coinbase exceeds max supply")
 			return
 		}
-		if err = (*db.FATChain)(chain).AddNumIssued(addIssued); err != nil {
+		if err = chain.ToFATChain().AddNumIssued(addIssued); err != nil {
 			return
 		}
 		var adrTxID int64
@@ -344,7 +495,7 @@ func NewFATChain(ctx context.Context, c *factom.Client,
 	identityChainID, chainID *factom.Bytes32,
 	networkID factom.NetworkID) (_ FATChain, err error) {
 
-	chn, err := db.NewFATChain(ctx, dbPath, tokenID,
+	chain, err := db.NewFATChain(ctx, dbPath, tokenID,
 		chainID, identityChainID,
 		networkID)
 	if err != nil {
@@ -354,13 +505,11 @@ func NewFATChain(ctx context.Context, c *factom.Client,
 
 	defer func() {
 		if err != nil {
-			chn.Close()
+			chain.Close()
 		}
 	}()
 
-	chain := FATChain(chn)
-
-	return chain, nil
+	return FATChain{chain, c}, nil
 }
 
 func NewFATChainByEBlock(ctx context.Context, c *factom.Client,
@@ -426,11 +575,12 @@ func NewFATChainByEBlock(ctx context.Context, c *factom.Client,
 		err = fmt.Errorf("factom.EBlock.GetEntries(): %w", err)
 		return
 	}
-	if err = Apply(&chain, dblock.KeyMR, *firstEB); err != nil {
+	if err = Apply(ctx, &chain, dblock.KeyMR, *firstEB); err != nil {
 		err = fmt.Errorf("state.Apply(): %w", err)
 		return
 	}
 
 	err = SyncEBlocks(ctx, c, &chain, eblocks[:len(eblocks)-1])
+	chain.c = c
 	return
 }

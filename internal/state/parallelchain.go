@@ -193,7 +193,7 @@ func (chain *ParallelChain) processEBlock(state *State, eb dbKeyMREBlock) error 
 		}
 	}
 
-	if err := chain.UpdateSidechainData(state.ctx, state.c); err != nil {
+	if err := chain.UpdateSidechainData(state.ctx); err != nil {
 		return fmt.Errorf(
 			"state.Chain.UpdateSidechainData(): %w", err)
 	}
@@ -212,7 +212,7 @@ func (chain *ParallelChain) processEBlock(state *State, eb dbKeyMREBlock) error 
 		return fmt.Errorf("factom.EBlock.GetEntries(): %w", err)
 	}
 
-	if err := Apply(chain.Chain, eb.dbKeyMR, eb.EBlock); err != nil {
+	if err := Apply(state.ctx, chain.Chain, eb.dbKeyMR, eb.EBlock); err != nil {
 		return fmt.Errorf("state.Apply(): %w", err)
 	}
 

@@ -59,7 +59,7 @@ func NewPendingChain(ctx context.Context, c *factom.Client, chain Chain) (
 		return nil, err
 	}
 
-	if err := chain.UpdateSidechainData(ctx, c); err != nil {
+	if err := chain.UpdateSidechainData(ctx); err != nil {
 		return nil, err
 	}
 
@@ -92,7 +92,7 @@ func (pending *PendingChain) ApplyPendingEntries(es []factom.Entry) error {
 		// use the current time for now.
 		e.Timestamp = time.Now()
 
-		if _, err := pending.Chain.ApplyEntry(e); err != nil {
+		if _, err := pending.Chain.ApplyEntry(pending.ctx, e); err != nil {
 			return fmt.Errorf("state.Chain.ApplyEntry(): %w", err)
 		}
 

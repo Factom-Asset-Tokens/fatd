@@ -34,14 +34,14 @@ import (
 type Chain interface {
 	// UpdateSidechainData updates any data from external Chains that the
 	// state depends on. This should be called before ApplyEBlock.
-	UpdateSidechainData(context.Context, *factom.Client) error
+	UpdateSidechainData(context.Context) error
 
 	// Apply applies the next EBlock to the chain state.
 	ApplyEBlock(*factom.Bytes32, factom.EBlock) error
 
 	// ApplyEntry applies the next Entry. This is used by the engine for
 	// applying pending entries.
-	ApplyEntry(factom.Entry) (id int64, err error)
+	ApplyEntry(context.Context, factom.Entry) (id int64, err error)
 
 	SetSync(uint32, *factom.Bytes32) error
 
@@ -62,13 +62,13 @@ type UnknownChain struct{}
 
 var _ Chain = UnknownChain{}
 
-func (chain UnknownChain) UpdateSidechainData(context.Context, *factom.Client) error {
+func (chain UnknownChain) UpdateSidechainData(context.Context) error {
 	panic("UnknownChain should not be used")
 }
 func (chain UnknownChain) ApplyEBlock(*factom.Bytes32, factom.EBlock) error {
 	panic("UnknownChain should not be used")
 }
-func (chain UnknownChain) ApplyEntry(factom.Entry) (int64, error) {
+func (chain UnknownChain) ApplyEntry(context.Context, factom.Entry) (int64, error) {
 	panic("UnknownChain should not be used")
 }
 func (chain UnknownChain) ToFactomChain() *db.FactomChain {

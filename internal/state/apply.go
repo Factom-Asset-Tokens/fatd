@@ -30,7 +30,8 @@ import (
 	"github.com/Factom-Asset-Tokens/factom/fat"
 )
 
-func Apply(chain Chain, dbKeyMR *factom.Bytes32, eb factom.EBlock) (err error) {
+func Apply(ctx context.Context, chain Chain,
+	dbKeyMR *factom.Bytes32, eb factom.EBlock) (err error) {
 	defer chain.Save()(&err)
 
 	//chain.ToFactomChain().Log.Debugf("Applying EBlock %v...", eb.KeyMR)
@@ -41,7 +42,7 @@ func Apply(chain Chain, dbKeyMR *factom.Bytes32, eb factom.EBlock) (err error) {
 
 	// Insert each entry and attempt to apply it...
 	for _, e := range eb.Entries {
-		if _, err := chain.ApplyEntry(e); err != nil {
+		if _, err := chain.ApplyEntry(ctx, e); err != nil {
 			return fmt.Errorf("state.Chain.ApplyEntry(): %w", err)
 		}
 	}
@@ -119,7 +120,7 @@ func (state *State) ApplyEBlock(ctx context.Context,
 				err = fmt.Errorf("factom.EBlock.GetEntries(): %w", err)
 				return
 			}
-			if err = Apply(&fatChain, dbKeyMR, eb); err != nil {
+			if err = Apply(ctx, &fatChain, dbKeyMR, eb); err != nil {
 				err = fmt.Errorf("state.Apply(): %w", err)
 				return
 			}

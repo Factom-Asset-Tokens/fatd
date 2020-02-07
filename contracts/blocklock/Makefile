@@ -22,10 +22,7 @@
 
 .PHONY: clean
 
-test: api_test.wasm
-	go test -v -count 1 ../
-
-api_test.wasm: src/api_test.c src/runtime_test.h ../runtime.h ../runtime.syms
+blocklock.wasm: src/blocklock.c ../runtime.h ../runtime.syms
 	clang \
 	    -I ../ \
 	    --target=wasm32 \
@@ -33,9 +30,10 @@ api_test.wasm: src/api_test.c src/runtime_test.h ../runtime.h ../runtime.syms
 	    -Wl,--no-entry \
 	    -Wl,--allow-undefined-file=../runtime.syms \
 	    -O3 \
-	    -o api_test.wasm \
-	    src/api_test.c
+	    -DUNLOCK_HEIGHT=117295 \
+	    -o blocklock.wasm \
+	    src/blocklock.c
 
 
 clean:
-	rm -f api_test.wasm
+	rm -f blocklock.wasm

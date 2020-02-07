@@ -31,7 +31,7 @@ import (
 
 func SyncEBlocks(ctx context.Context, c *factom.Client, chain Chain,
 	eblocks []factom.EBlock) error {
-	if err := chain.UpdateSidechainData(ctx, c); err != nil {
+	if err := chain.UpdateSidechainData(ctx); err != nil {
 		return fmt.Errorf("state.Chain.UpdateSidechainData(): %w", err)
 	}
 	for i := range eblocks {
@@ -50,7 +50,7 @@ func SyncEBlocks(ctx context.Context, c *factom.Client, chain Chain,
 			return fmt.Errorf("factom.EBlock.GetEntries(): %w", err)
 		}
 
-		if err := Apply(chain, dblock.KeyMR, eb); err != nil {
+		if err := Apply(ctx, chain, dblock.KeyMR, eb); err != nil {
 			return fmt.Errorf("state.Apply(): %w", err)
 		}
 	}
