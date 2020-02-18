@@ -29,10 +29,10 @@ import (
 	"strings"
 
 	"github.com/Factom-Asset-Tokens/factom"
-	"github.com/Factom-Asset-Tokens/fatd/api"
 	"github.com/Factom-Asset-Tokens/factom/fat"
+	"github.com/Factom-Asset-Tokens/fatd/api"
 
-	jsonrpc2 "github.com/AdamSLevy/jsonrpc2/v13"
+	jsonrpc2 "github.com/AdamSLevy/jsonrpc2/v14"
 	"github.com/posener/complete"
 	"github.com/spf13/cobra"
 	flag "github.com/spf13/pflag"

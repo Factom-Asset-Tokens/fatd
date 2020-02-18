@@ -28,7 +28,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	jsonrpc2 "github.com/AdamSLevy/jsonrpc2/v13"
+	jsonrpc2 "github.com/AdamSLevy/jsonrpc2/v14"
 
 	"github.com/Factom-Asset-Tokens/factom"
 	"github.com/Factom-Asset-Tokens/factom/fat"

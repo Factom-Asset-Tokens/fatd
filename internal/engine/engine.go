@@ -164,7 +164,6 @@ func engine(ctx context.Context, c *factom.Client,
 
 	// Factom Blockchain Scan Loop
 	for {
-		runtime.GC()
 		if !synced && syncHeight == factomHeight {
 			synced = true
 			log.Infof("DBlock scan complete to block %v.", syncHeight)

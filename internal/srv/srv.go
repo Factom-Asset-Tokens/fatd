@@ -27,7 +27,7 @@ import (
 	"net/http"
 	"time"
 
-	jsonrpc2 "github.com/AdamSLevy/jsonrpc2/v13"
+	jsonrpc2 "github.com/AdamSLevy/jsonrpc2/v14"
 	"github.com/Factom-Asset-Tokens/fatd/internal/flag"
 	_log "github.com/Factom-Asset-Tokens/fatd/internal/log"
 	"github.com/goji/httpauth"

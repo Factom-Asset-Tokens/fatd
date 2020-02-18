@@ -3,11 +3,12 @@ module github.com/Factom-Asset-Tokens/fatd
 go 1.13
 
 require (
-	crawshaw.io/sqlite v0.2.1
-	github.com/AdamSLevy/jsonrpc2/v13 v13.0.1
+	crawshaw.io/sqlite v0.2.5
+	github.com/AdamSLevy/jsonrpc2/v14 v14.0.0
 	github.com/AdamSLevy/sqlbuilder v0.0.0-20191126201320-5b1948d48973
 	github.com/AdamSLevy/sqlitechangeset v0.0.0-20191210201651-f95453d87aff
-	github.com/Factom-Asset-Tokens/factom v0.0.0-20191229074842-d93f8bfcf1bf
+	github.com/Factom-Asset-Tokens/base58 v0.0.0-20191118025050-4fa02e92ec20 // indirect
+	github.com/Factom-Asset-Tokens/factom v0.0.0-20200218003939-f06d3b5f187a
 	github.com/goji/httpauth v0.0.0-20160601135302-2da839ab0f4d
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/nightlyone/lockfile v0.0.0-20180618180623-0ad87eef1443
@@ -26,7 +27,3 @@ require (
 replace github.com/spf13/pflag v1.0.5 => github.com/AdamSLevy/pflag v1.0.6-0.20191204180553-73c85c9446e1
 
 //replace github.com/Factom-Asset-Tokens/factom => ../factom
-
-//replace crawshaw.io/sqlite => /home/aslevy/repos/go-modules/AdamSLevy/sqlite
-
-//replace github.com/AdamSLevy/jsonrpc2/v12 => /home/aslevy/repos/go-modules/AdamSLevy/jsonrpc2

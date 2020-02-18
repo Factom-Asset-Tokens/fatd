@@ -28,12 +28,12 @@ import (
 	"fmt"
 	"math"
 
-	jsonrpc2 "github.com/AdamSLevy/jsonrpc2/v13"
+	jsonrpc2 "github.com/AdamSLevy/jsonrpc2/v14"
 	"github.com/Factom-Asset-Tokens/factom"
-	"github.com/Factom-Asset-Tokens/fatd/api"
 	"github.com/Factom-Asset-Tokens/factom/fat"
 	"github.com/Factom-Asset-Tokens/factom/fat0"
 	"github.com/Factom-Asset-Tokens/factom/fat1"
+	"github.com/Factom-Asset-Tokens/fatd/api"
 	"github.com/posener/complete"
 	"github.com/spf13/cobra"
 )
