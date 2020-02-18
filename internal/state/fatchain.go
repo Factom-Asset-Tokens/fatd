@@ -30,7 +30,7 @@ import (
 	"github.com/Factom-Asset-Tokens/fatd/internal/runtime"
 	"github.com/wasmerio/go-ext-wasm/wasmer"
 
-	jsonrpc2 "github.com/AdamSLevy/jsonrpc2/v13"
+	jsonrpc2 "github.com/AdamSLevy/jsonrpc2/v14"
 	"github.com/Factom-Asset-Tokens/factom"
 	"github.com/Factom-Asset-Tokens/factom/fat"
 	"github.com/Factom-Asset-Tokens/factom/fat0"

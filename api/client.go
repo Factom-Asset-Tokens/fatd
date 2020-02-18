@@ -27,7 +27,7 @@ import (
 	"fmt"
 	"time"
 
-	jrpc "github.com/AdamSLevy/jsonrpc2/v13"
+	jrpc "github.com/AdamSLevy/jsonrpc2/v14"
 )
 
 // Client makes RPC requests to fatd's APIs. Client embeds a jsonrpc2.Client,

@@ -51,7 +51,6 @@ func _main() (ret int) {
 	log := log.New("pkg", "main")
 	go func() {
 		<-sigint
-		log.Infof("SIGINT: Shutting down...")
 		cancel()
 	}()
 
@@ -93,6 +92,7 @@ func _main() (ret int) {
 
 	select {
 	case <-ctx.Done():
+		log.Infof("SIGINT: Shutting down...")
 		return 0
 	case <-engineDone: // Closed if engine exits prematurely.
 	case <-srvDone: // Closed if server exits prematurely.
