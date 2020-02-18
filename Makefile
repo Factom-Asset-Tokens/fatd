@@ -20,6 +20,8 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+.PHONY: all fatd fat-cli fatd.race fat-cli.race clean
+
 all: fatd fat-cli
 
 race: fatd.race fat-cli.race
@@ -29,62 +31,43 @@ distribution: fatd-distribution fat-cli-distribution
 fatd-distribution: fatd.mac fatd.exe fatd-linux
 fat-cli-distribution: fat-cli.mac fat-cli.exe fat-cli-linux
 
-REVISION     = $(shell sh -c "./revision")
+REVISION     := $(shell sh -c "./revision")
 
-GO_LDFLAGS   = -extldflags=$(LDFLAGS) -X github.com/Factom-Asset-Tokens/fatd
-FATD_LDFLAGS = "$(GO_LDFLAGS)/internal/flag.Revision=$(REVISION)"
-CLI_LDFLAGS  = "$(GO_LDFLAGS)/cli.Revision=$(REVISION)"
+GO_LDFLAGS   = -extldflags=$(LDFLAGS)
+FATD_LDFLAGS = "$(GO_LDFLAGS) -X github.com/Factom-Asset-Tokens/fatd/internal/flag.Revision=$(REVISION)"
+CLI_LDFLAGS  = "$(GO_LDFLAGS) -X main.Revision=$(REVISION)"
 
-DEPSRC = go.mod go.sum
-SRC = $(DEPSRC) $(filter-out %_test.go,$(wildcard *.go */*.go */*/*.go))
-
-FATDSRC=$(filter-out cli/%,$(SRC)) $(GENSRC)
-fatd: $(FATDSRC)
+fatd:
 	go build -trimpath -ldflags=$(FATD_LDFLAGS) ./
 
-CLISRC=$(filter-out main.go engine/% state/% flag/%,$(SRC)) $(GENSRC)
-fat-cli: $(CLISRC)
+fat-cli:
 	go build -trimpath -ldflags=$(CLI_LDFLAGS) -o fat-cli ./cli
 
 
-fatd.race: $(FATDSRC)
-	go build -trimpath -race -ldflags=$(FATD_LDFLAGS) -o fatd.race ./
+fatd.race:
+	go build -race -trimpath -ldflags=$(FATD_LDFLAGS) ./
 
-fat-cli.race: $(CLISRC)
-	go build -trimpath -race -ldflags=$(CLI_LDFLAGS) -o fat-cli.race ./cli
+fat-cli.race:
+	go build -race -trimpath -ldflags=$(CLI_LDFLAGS) -o fat-cli ./cli
 
 
-fatd.mac: $(FATDSRC)
+fatd.mac:
 	env GOOS=darwin GOARCH=amd64 go build -trimpath -ldflags=$(FATD_LDFLAGS) -o fatd.mac ./
 
-fatd.exe: $(FATDSRC)
+fatd.exe:
 	env GOOS=windows GOARCH=amd64 go build -trimpath -ldflags=$(FATD_LDFLAGS) -o fatd.exe ./
 
-fatd-linux: $(FATDSRC)
+fatd-linux:
 	env GOOS=linux GOARCH=amd64 go build -trimpath -ldflags=$(FATD_LDFLAGS) ./
 
-fat-cli.mac: $(CLISRC)
+fat-cli.mac:
 	env GOOS=darwin GOARCH=amd64 go build -trimpath -ldflags=$(CLI_LDFLAGS) -o fat-cli.mac ./
 
-fat-cli.exe: $(CLISRC)
+fat-cli.exe:
 	env GOOS=windows GOARCH=amd64 go build -trimpath -ldflags=$(CLI_LDFLAGS) -o fat-cli.exe ./
 
-fat-cli-linux: $(CLISRC)
+fat-cli-linux:
 	env GOOS=linux GOARCH=amd64 go build -trimpath -ldflags=$(CLI_LDFLAGS) -o fat-cli ./cli
 
-.PHONY: clean clean-gen purge-db unpurge-db
-
 clean:
-	rm -f ./fatd ./fatd.mac ./fatd.exe ./fat-cli ./fat-cli.mac ./fat-cli.exe ./fatd.race ./fat-cli.race
-
-clean-gen:
-	rm -f $(GENSRC)
-
-DATE = $(shell date -Ins)
-purge-db:
-	mv ./fatd.db /tmp/fatd.db.save-$(DATE)
-
-PURGED_DB = $(shell ls /tmp/fatd.db.save-* -d | tail -n 1)
-unpurge-db:
-	cp -aTn $(PURGED_DB) ./fatd.db
-
+	rm -f ./fatd ./fat-cli ./fatd.{mac,exe,race} ./fat-cli.{mac,exe,race}

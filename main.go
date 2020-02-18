@@ -48,17 +48,17 @@ func _main() (ret int) {
 	ctx, cancel := context.WithCancel(context.Background())
 	sigint := make(chan os.Signal, 1)
 	signal.Notify(sigint, os.Interrupt)
+	log := log.New("pkg", "main")
 	go func() {
 		<-sigint
 		cancel()
 	}()
 
-	log := log.New("pkg", "main")
 	log.Info("Fatd Version: ", flag.Revision)
 	defer log.Info("Factom Asset Token Daemon stopped.")
 
 	// Engine
-	engineDone := engine.Start(ctx)
+	engineDone := engine.Start(ctx, flag.FactomClient)
 	if engineDone == nil {
 		return 1
 	}

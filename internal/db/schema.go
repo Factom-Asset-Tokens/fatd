@@ -27,58 +27,215 @@ import (
 
 	"crawshaw.io/sqlite"
 	"crawshaw.io/sqlite/sqlitex"
-	"github.com/Factom-Asset-Tokens/fatd/internal/db/addresses"
-	"github.com/Factom-Asset-Tokens/fatd/internal/db/eblocks"
-	"github.com/Factom-Asset-Tokens/fatd/internal/db/entries"
+	"github.com/Factom-Asset-Tokens/factom/fat"
+	"github.com/Factom-Asset-Tokens/fatd/internal/db/address"
+	"github.com/Factom-Asset-Tokens/fatd/internal/db/eblock"
+	"github.com/Factom-Asset-Tokens/fatd/internal/db/entry"
 	"github.com/Factom-Asset-Tokens/fatd/internal/db/metadata"
-	"github.com/Factom-Asset-Tokens/fatd/internal/db/nftokens"
+	"github.com/Factom-Asset-Tokens/fatd/internal/db/nftoken"
 )
 
 const (
 	// For the sake of simplicity, all chain DBs use the exact same schema,
 	// regardless of whether they actually make use of the NFTokens tables.
-	chainDBSchema = eblocks.CreateTable +
-		entries.CreateTable +
-		addresses.CreateTable +
-		addresses.CreateTableTransactions +
-		nftokens.CreateTable +
-		nftokens.CreateTableTransactions +
-		metadata.CreateTable
+	chainDBSchema = eblock.CreateTable +
+		entry.CreateTable +
+		address.CreateTable +
+		address.CreateTableTxRelation +
+		nftoken.CreateTable +
+		nftoken.CreateTableTxRelation +
+		metadata.CreateTableFactomChain +
+		metadata.CreateTableFATChain
+
+	currentDBVersion = 1
 )
 
-// validateOrApplySchema compares schema with the database connected to by
-// conn. If the database has no schema, the schema is applied. Otherwise an
-// error will be returned if the schema is not an exact match.
-func validateOrApplySchema(conn *sqlite.Conn, schema string) error {
-	fullSchema, err := getFullSchema(conn)
-	if err != nil {
-		return err
-	}
-	if len(fullSchema) == 0 {
-		if err := sqlitex.ExecScript(conn, schema); err != nil {
-			return fmt.Errorf("failed to apply schema: %w", err)
+var migrations = []func(*sqlite.Conn) error{
+	func(conn *sqlite.Conn) error {
+		err := sqlitex.ExecScript(conn,
+			metadata.CreateTableFactomChain+
+				metadata.CreateTableFATChain+`
+ALTER TABLE "eblocks" RENAME TO "eblock";
+ALTER TABLE "entries" RENAME TO "entry";
+ALTER TABLE "addresses" RENAME TO "address";
+ALTER TABLE "address_transactions" RENAME TO "address_tx";
+ALTER TABLE "nf_tokens" RENAME TO "nftoken";
+ALTER TABLE "nf_token_transactions" RENAME TO "nftoken_tx";
+ALTER TABLE "nftoken_tx" RENAME COLUMN "adr_tx_id" TO
+        "address_tx_id";
+ALTER TABLE "nftoken_tx" RENAME COLUMN "nf_tkn_id" TO
+        "nftoken_id";
+
+DROP VIEW "nf_token_address_transactions";
+CREATE VIEW "nftoken_address_tx" AS
+        SELECT "entry_id", "address_id", "nftoken_id", "to" FROM
+                "address_tx" AS "adr_tx",
+                "nftoken_tx" AS "tkn_tx"
+                        ON "adr_tx"."rowid" = "tkn_tx"."address_tx_id";
+
+DROP VIEW "nf_tokens_addresses";
+CREATE VIEW "nftoken_address" AS
+        SELECT "nftoken"."id" AS "id",
+                "metadata",
+                "hash" AS "creation_hash",
+                "address" AS "owner" FROM
+                        "nftoken", "address", "entry" ON
+                                "owner_id" = "address"."id" AND
+                                "creation_entry_id" = "entry"."id";
+
+DROP INDEX "idx_address_transactions_address_id";
+CREATE INDEX "idx_address_tx_address_id" ON "address_tx"("address_id");
+
+DROP INDEX "idx_address_transactions_entry_id";
+CREATE INDEX "idx_address_tx_entry_id" ON "address_tx"("entry_id");
+
+DROP INDEX "idx_entries_eb_seq";
+CREATE INDEX "idx_entry_eb_seq" ON "entry"("eb_seq");
+
+DROP INDEX "idx_entries_hash";
+CREATE INDEX "idx_entry_hash" ON "entry"("hash");
+
+DROP INDEX "idx_nf_token_transactions_adr_tx_id";
+CREATE INDEX "idx_nftoken_tx_address_tx_id" ON "nftoken_tx"("address_tx_id");
+
+DROP INDEX "idx_nf_token_transactions_nf_tkn_id";
+CREATE INDEX "idx_nftoken_tx_nftoken_id" ON "nftoken_tx"("nftoken_id");
+
+DROP INDEX "idx_nf_tokens_metadata";
+CREATE INDEX "idx_nftoken_metadata" ON nftoken("metadata");
+
+DROP INDEX "idx_nf_tokens_owner_id";
+CREATE INDEX "idx_nftoken_owner_id" ON nftoken("owner_id");`)
+		if err != nil {
+			return err
 		}
+
+		e, err := entry.SelectByID(conn, 1)
+		if err != nil {
+			return err
+		}
+
+		err = sqlitex.ExecTransient(conn,
+			`INSERT INTO "factom_chain" ("chain_id", "network_id")
+                                VALUES (?,
+                                (SELECT "network_id" FROM "metadata"));`,
+			nil, e.ChainID[:])
+		if err != nil {
+			return err
+		}
+
+		tokenID, issuerID := fat.ParseTokenIssuer(e.ExtIDs)
+		err = sqlitex.ExecTransient(conn,
+			`INSERT INTO "fat_chain" ("token", "issuer") VALUES (?, ?);`,
+			nil, tokenID, issuerID[:])
+		if err != nil {
+			return err
+		}
+
+		err = sqlitex.ExecScript(conn, `
+UPDATE "factom_chain" SET
+        (
+                "sync_height",
+                "sync_db_key_mr"
+        ) = (SELECT
+                "sync_height",
+                "sync_db_key_mr"
+        FROM "metadata");
+UPDATE "fat_chain" SET
+        (
+                "id_key_entry_data",
+                "id_key_height",
+                "init_entry_id",
+                "num_issued"
+        ) = (SELECT
+                "id_key_entry",
+                "id_key_height",
+                "init_entry_id",
+                "num_issued"
+        FROM "metadata");
+DROP TABLE "metadata";`)
+		if err != nil {
+			return err
+		}
+
+		return err
+
+	},
+}
+var _ = map[bool]int{false: 0,
+	(len(migrations) == currentDBVersion): 1}
+
+func applyMigrations(conn *sqlite.Conn) (err error) {
+
+	empty, err := isEmpty(conn)
+	if err != nil {
+		return
+	}
+	if empty {
+		if err = sqlitex.ExecScript(conn, chainDBSchema); err != nil {
+			return
+		}
+		return updateDBVersion(conn)
+	}
+
+	version, err := getDBVersion(conn)
+	if err != nil {
+		return
+	}
+	if int(version) == len(migrations) {
 		return nil
 	}
-	if fullSchema != schema {
-		return fmt.Errorf("invalid schema: %v\n expected: %v",
-			fullSchema, schema)
+	if int(version) > len(migrations) {
+		return fmt.Errorf("no migration exists for DB version: %v", version)
 	}
-	return nil
+
+	// Always VACUUM after a successful migration.
+	defer func() {
+		if err != nil {
+			return
+		}
+		stmt, _, err := conn.PrepareTransient(`VACUUM;`)
+		if err != nil {
+			panic(err)
+		}
+		defer stmt.Finalize()
+		if _, err := stmt.Step(); err != nil {
+			panic(err)
+		}
+	}()
+
+	defer sqlitex.Save(conn)(&err)
+
+	for i, migration := range migrations[version:] {
+		fmt.Printf("running migration: %v -> %v\n", i, i+1)
+		if err = migration(conn); err != nil {
+			return
+		}
+	}
+	return updateDBVersion(conn)
 }
-func getFullSchema(conn *sqlite.Conn) (string, error) {
-	const selectSchema = `SELECT "sql" FROM "sqlite_master";`
-	var schema string
-	err := sqlitex.ExecTransient(conn, selectSchema,
+
+func isEmpty(conn *sqlite.Conn) (bool, error) {
+	var count int
+	err := sqlitex.ExecTransient(conn, `SELECT count(*) from "sqlite_master";`,
 		func(stmt *sqlite.Stmt) error {
-			// Concatenate all non-empty table schemas.
-			if tableSchema := stmt.ColumnText(0); len(tableSchema) > 0 {
-				schema += tableSchema + ";\n"
-			}
+			count = stmt.ColumnInt(0)
 			return nil
 		})
-	if err != nil {
-		return "", err
-	}
-	return schema, nil
+	return count == 0, err
+}
+
+func getDBVersion(conn *sqlite.Conn) (int64, error) {
+	var version int64
+	err := sqlitex.ExecTransient(conn, `PRAGMA user_version;`,
+		func(stmt *sqlite.Stmt) error {
+			version = stmt.ColumnInt64(0)
+			return nil
+		})
+	return version, err
+}
+
+func updateDBVersion(conn *sqlite.Conn) error {
+	return sqlitex.ExecScript(conn, fmt.Sprintf(`PRAGMA user_version = %v;`,
+		currentDBVersion))
 }

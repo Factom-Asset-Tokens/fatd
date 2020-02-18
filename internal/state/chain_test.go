@@ -20,52 +20,31 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 // IN THE SOFTWARE.
 
-package engine
+package state
 
 import (
+	"context"
+	"fmt"
 	"testing"
 
+	"github.com/Factom-Asset-Tokens/fatd/internal/db"
+	"github.com/Factom-Asset-Tokens/fatd/internal/flag"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-const (
-	unknownID int = iota
-	trackedID
-	issuedID
-	ignoredID
-)
+func TestChainValidate(t *testing.T) {
+	require := require.New(t)
+	flag.LogDebug = true
+	fmt.Println("open all...")
+	chains, err := db.OpenAllFATChains(context.Background(), "./test-fatd.db/")
+	require.NoError(err, "OpenAll()")
+	require.NotEmptyf(chains, "Test database is empty: %v", flag.DBPath)
 
-var chainStatusTests = []struct {
-	ChainStatus
-	expected [4]bool
-}{{
-	ChainStatus: ChainStatusUnknown,
-	expected:    [4]bool{unknownID: true},
-}, {
-	ChainStatus: ChainStatusTracked,
-	expected:    [4]bool{trackedID: true},
-}, {
-	ChainStatus: ChainStatusIssued,
-	expected:    [4]bool{trackedID: true, issuedID: true},
-}, {
-	ChainStatus: ChainStatusIgnored,
-	expected:    [4]bool{ignoredID: true},
-}}
-
-func TestChainStatus(t *testing.T) {
-	for _, test := range chainStatusTests {
-		status := test.ChainStatus
-		t.Run(status.String(), func(t *testing.T) {
-			assert := assert.New(t)
-			expected := test.expected
-			assert.Equalf(expected[unknownID], status.IsUnknown(),
-				"IsUnknown()")
-			assert.Equalf(expected[trackedID], status.IsTracked(),
-				"IsTracked()")
-			assert.Equalf(expected[issuedID], status.IsIssued(),
-				"IsIssued()")
-			assert.Equalf(expected[ignoredID], status.IsIgnored(),
-				"IsIgnored()")
-		})
+	for _, chain := range chains {
+		chain := FATChain(chain)
+		defer chain.Close()
+		assert.NoErrorf(t, chain.Validate(context.Background(), false),
+			"Chain{%v}.Validate()", chain.ID)
 	}
 }

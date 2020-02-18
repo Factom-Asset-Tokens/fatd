@@ -20,39 +20,7 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 // IN THE SOFTWARE.
 
-package engine
+package state
 
-type ChainStatus uint
-
-const (
-	ChainStatusUnknown ChainStatus = 0
-	ChainStatusTracked ChainStatus = 1
-	ChainStatusIssued  ChainStatus = 3
-	ChainStatusIgnored ChainStatus = 4
-)
-
-func (status ChainStatus) IsUnknown() bool {
-	return status == ChainStatusUnknown
-}
-func (status ChainStatus) IsIgnored() bool {
-	return status == ChainStatusIgnored
-}
-func (status ChainStatus) IsTracked() bool {
-	return status&ChainStatusTracked == ChainStatusTracked
-}
-func (status ChainStatus) IsIssued() bool {
-	return status&ChainStatusIssued == ChainStatusIssued
-}
-
-func (status ChainStatus) String() string {
-	s := "Unknown"
-	switch status {
-	case ChainStatusTracked:
-		s = "Tracked"
-	case ChainStatusIssued:
-		s = "Issued"
-	case ChainStatusIgnored:
-		s = "Ignored"
-	}
-	return s
-}
+//go:generate go run ./gentestdb.go -chainid b54c4310530dc4dd361101644fa55cb10aec561e7874a7b786ea3b66f2c6fdfb
+//go:generate go run ./gentestdb.go -chainid 0692c0f9c3171575cf53d6d8067139bad3f56169f94966341018b1950542f3dd

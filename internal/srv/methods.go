@@ -28,18 +28,19 @@ import (
 	"encoding/json"
 	"fmt"
 
-	jsonrpc2 "github.com/AdamSLevy/jsonrpc2/v13"
+	jsonrpc2 "github.com/AdamSLevy/jsonrpc2/v14"
 
 	"github.com/Factom-Asset-Tokens/factom"
 	"github.com/Factom-Asset-Tokens/factom/fat"
 	"github.com/Factom-Asset-Tokens/factom/fat0"
 	"github.com/Factom-Asset-Tokens/factom/fat1"
 	"github.com/Factom-Asset-Tokens/fatd/api"
-	"github.com/Factom-Asset-Tokens/fatd/internal/db/addresses"
-	"github.com/Factom-Asset-Tokens/fatd/internal/db/entries"
-	"github.com/Factom-Asset-Tokens/fatd/internal/db/nftokens"
+	"github.com/Factom-Asset-Tokens/fatd/internal/db/address"
+	"github.com/Factom-Asset-Tokens/fatd/internal/db/entry"
+	"github.com/Factom-Asset-Tokens/fatd/internal/db/nftoken"
 	"github.com/Factom-Asset-Tokens/fatd/internal/engine"
 	"github.com/Factom-Asset-Tokens/fatd/internal/flag"
+	"github.com/Factom-Asset-Tokens/fatd/internal/state"
 )
 
 var c = flag.FactomClient
@@ -99,7 +100,7 @@ func getTransaction(getEntry bool) jsonrpc2.MethodFunc {
 		}
 		defer put()
 
-		entry, err := entries.SelectValidByHash(chain.Conn, params.Hash)
+		entry, err := entry.SelectValidByHash(chain.Conn, params.Hash)
 		if err != nil {
 			panic(err)
 		}
@@ -156,28 +157,28 @@ func getTransactions(getEntry bool) jsonrpc2.MethodFunc {
 		if params.NFTokenID != nil {
 			nfTkns = fat1.NFTokens{*params.NFTokenID: struct{}{}}
 		}
-		entries, err := entries.SelectByAddress(chain.Conn, params.StartHash,
+		entry, err := entry.SelectByAddress(chain.Conn, params.StartHash,
 			params.Addresses, nfTkns,
 			params.ToFrom, params.Order,
 			*params.Page, params.Limit)
 		if err != nil {
 			panic(err)
 		}
-		if len(entries) == 0 {
+		if len(entry) == 0 {
 			return api.ErrorTransactionNotFound
 		}
 		if getEntry {
 			// Omit the ChainID from the response since the client
 			// already knows it.
-			for i := range entries {
-				entries[i].ChainID = nil
+			for i := range entry {
+				entry[i].ChainID = nil
 			}
-			return entries
+			return entry
 		}
 
-		txs := make([]api.ResultGetTransaction, len(entries))
+		txs := make([]api.ResultGetTransaction, len(entry))
 		for i := range txs {
-			entry := entries[i]
+			entry := entry[i]
 			var tx interface{}
 			switch chain.Issuance.Type {
 			case fat0.Type:
@@ -212,7 +213,7 @@ func getBalance(ctx context.Context, data json.RawMessage) interface{} {
 	}
 	defer put()
 
-	_, balance, err := addresses.SelectIDBalance(chain.Conn, params.Address)
+	_, balance, err := address.SelectIDBalance(chain.Conn, params.Address)
 	if err != nil {
 		panic(err)
 	}
@@ -225,16 +226,20 @@ func getBalances(ctx context.Context, data json.RawMessage) interface{} {
 		return err
 	}
 
-	issuedIDs := engine.Chains.GetIssued()
+	issuedIDs := engine.IssuedIDs()
 	balances := make(api.ResultGetBalances, len(issuedIDs))
 	for _, chainID := range issuedIDs {
-		chain, put, err := engine.Chains.Get(ctx, chainID, params.GetIncludePending())
+		chain, put, err := engine.Get(ctx, chainID, params.GetIncludePending())
 		if err != nil {
 			// ctx is done
 			return err
 		}
 		defer put()
-		_, balance, err := addresses.SelectIDBalance(chain.Conn, params.Address)
+		fatChain, ok := state.ToFATChain(chain)
+		if !ok {
+			panic("not a FAT chain")
+		}
+		_, balance, err := address.SelectIDBalance(fatChain.Conn, params.Address)
 		if err != nil {
 			panic(err)
 		}
@@ -259,7 +264,7 @@ func getNFBalance(ctx context.Context, data json.RawMessage) interface{} {
 		return err
 	}
 
-	tkns, err := nftokens.SelectByOwner(chain.Conn, params.Address,
+	tkns, err := nftoken.SelectByOwner(chain.Conn, params.Address,
 		*params.Page, params.Limit, params.Order)
 	if err != nil {
 		panic(err)
@@ -284,17 +289,17 @@ func getStats(ctx context.Context, data json.RawMessage) interface{} {
 	}
 	defer put()
 
-	_, burned, err := addresses.SelectIDBalance(chain.Conn, &coinbaseRCDHash)
+	_, burned, err := address.SelectIDBalance(chain.Conn, &coinbaseRCDHash)
 	if err != nil {
 		panic(err)
 	}
-	txCount, err := entries.SelectCount(chain.Conn, true)
-	e, err := entries.SelectLatestValid(chain.Conn)
+	txCount, err := entry.SelectCount(chain.Conn, true)
+	e, err := entry.SelectLatestValid(chain.Conn)
 	if err != nil {
 		panic(err)
 	}
 
-	nonZeroBalances, err := addresses.SelectCount(chain.Conn, true)
+	nonZeroBalances, err := address.SelectCount(chain.Conn, true)
 	if err != nil {
 		panic(err)
 	}
@@ -331,7 +336,7 @@ func getNFToken(ctx context.Context, data json.RawMessage) interface{} {
 		return err
 	}
 
-	owner, creationHash, metadata, err := nftokens.SelectData(
+	owner, creationHash, metadata, err := nftoken.SelectData(
 		chain.Conn, *params.NFTokenID)
 	if err != nil {
 		panic(err)
@@ -370,7 +375,7 @@ func getNFTokens(ctx context.Context, data json.RawMessage) interface{} {
 		return err
 	}
 
-	tkns, owners, creationHashes, metadata, err := nftokens.SelectDataAll(
+	tkns, owners, creationHashes, metadata, err := nftoken.SelectDataAll(
 		chain.Conn, params.Order, *params.Page, params.Limit)
 	if err != nil {
 		panic(err)
@@ -448,9 +453,9 @@ func sendTransaction(ctx context.Context, data json.RawMessage) interface{} {
 		Hash    *factom.Bytes32 `json:"entryhash"`
 	}{ChainID: chain.ID, TxID: txID, Hash: entry.Hash}
 }
-func attemptApplyFAT0Tx(chain *engine.Chain, e factom.Entry) (txErr, err error) {
+func attemptApplyFAT0Tx(chain *state.FATChain, e factom.Entry) (txErr, err error) {
 	// Validate tx
-	valid, err := entries.CheckUniquelyValid(chain.Conn, 0, e.Hash)
+	valid, err := entry.CheckUniquelyValid(chain.Conn, 0, e.Hash)
 	if err != nil {
 		return
 	}
@@ -475,7 +480,7 @@ func attemptApplyFAT0Tx(chain *engine.Chain, e factom.Entry) (txErr, err error) 
 		// Check all input balances
 		for adr, amount := range tx.Inputs {
 			var bal uint64
-			if _, bal, err = addresses.SelectIDBalance(
+			if _, bal, err = address.SelectIDBalance(
 				chain.Conn, &adr); err != nil {
 				return
 			}
@@ -487,9 +492,9 @@ func attemptApplyFAT0Tx(chain *engine.Chain, e factom.Entry) (txErr, err error) 
 	}
 	return
 }
-func attemptApplyFAT1Tx(chain *engine.Chain, e factom.Entry) (txErr, err error) {
+func attemptApplyFAT1Tx(chain *state.FATChain, e factom.Entry) (txErr, err error) {
 	// Validate tx
-	valid, err := entries.CheckUniquelyValid(chain.Conn, 0, e.Hash)
+	valid, err := entry.CheckUniquelyValid(chain.Conn, 0, e.Hash)
 	if err != nil {
 		return
 	}
@@ -513,7 +518,7 @@ func attemptApplyFAT1Tx(chain *engine.Chain, e factom.Entry) (txErr, err error) 
 		}
 		for nfID := range nfTkns {
 			var ownerID int64
-			ownerID, err = nftokens.SelectOwnerID(chain.Conn, nfID)
+			ownerID, err = nftoken.SelectOwnerID(chain.Conn, nfID)
 			if err != nil {
 				return
 			}
@@ -526,7 +531,7 @@ func attemptApplyFAT1Tx(chain *engine.Chain, e factom.Entry) (txErr, err error) 
 		for adr, nfTkns := range tx.Inputs {
 			var adrID int64
 			var bal uint64
-			adrID, bal, err = addresses.SelectIDBalance(chain.Conn, &adr)
+			adrID, bal, err = address.SelectIDBalance(chain.Conn, &adr)
 			if err != nil {
 				return
 			}
@@ -537,7 +542,7 @@ func attemptApplyFAT1Tx(chain *engine.Chain, e factom.Entry) (txErr, err error) 
 			}
 			for nfTkn := range nfTkns {
 				var ownerID int64
-				ownerID, err = nftokens.SelectOwnerID(
+				ownerID, err = nftoken.SelectOwnerID(
 					chain.Conn, nfTkn)
 				if err != nil {
 					return
@@ -561,23 +566,27 @@ func getDaemonTokens(ctx context.Context, data json.RawMessage) interface{} {
 		return err
 	}
 
-	issuedIDs := engine.Chains.GetIssued()
+	issuedIDs := engine.IssuedIDs()
 	chains := make([]api.ParamsToken, len(issuedIDs))
 	for i, chainID := range issuedIDs {
 		// Use pending = true because a chain that has a pending
 		// issuance entry will not show up in this list, and no other
-		// pending entries will effect the data of interest. Using the
+		// pending entry will effect the data of interest. Using the
 		// pending state is more efficient.
-		chain, put, err := engine.Chains.Get(ctx, chainID, true)
+		chain, put, err := engine.Get(ctx, chainID, true)
 		if err != nil {
 			// ctx is done
 			return err
 		}
 		defer put()
+		fatChain, ok := state.ToFATChain(chain)
+		if !ok {
+			panic("not a FAT chain")
+		}
 		chainID := chainID
 		chains[i].ChainID = chainID
-		chains[i].TokenID = chain.TokenID
-		chains[i].IssuerChainID = chain.Identity.ChainID
+		chains[i].TokenID = fatChain.TokenID
+		chains[i].IssuerChainID = fatChain.Identity.ChainID
 	}
 	return chains
 }
@@ -599,7 +608,7 @@ func getSyncStatus(ctx context.Context, data json.RawMessage) interface{} {
 }
 
 func validate(ctx context.Context,
-	data json.RawMessage, params api.Params) (*engine.Chain, func(), error) {
+	data json.RawMessage, params api.Params) (*state.FATChain, func(), error) {
 	if params == nil {
 		if len(data) > 0 {
 			return nil, nil, jsonrpc2.ErrorInvalidParams(
@@ -622,21 +631,27 @@ func validate(ctx context.Context,
 	chainID := params.ValidChainID()
 	if chainID != nil {
 		ctx, cancel := context.WithTimeout(ctx, flag.APITimeout)
-		chain, put, err := engine.Chains.Get(ctx, chainID, params.GetIncludePending())
+		chain, put, err := engine.Get(ctx, chainID, params.GetIncludePending())
 		if err != nil {
 			// ctx is done
+			cancel()
+			log.Debugf("err")
 			return nil, nil, err
 		}
 		if put == nil {
 			cancel()
 			return nil, nil, api.ErrorTokenNotFound
 		}
-		if !chain.IsIssued() {
+		fatChain, ok := state.ToFATChain(chain)
+		if !ok {
+			panic("not a FAT chain")
+		}
+		if !fatChain.IsIssued() {
 			cancel()
 			put()
 			return nil, nil, api.ErrorTokenNotFound
 		}
-		return &chain, func() { cancel(); put() }, nil
+		return fatChain, func() { cancel(); put() }, nil
 	}
 	return nil, nil, nil
 }

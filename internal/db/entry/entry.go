@@ -20,9 +20,9 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 // IN THE SOFTWARE.
 
-// Package entries provides functions and SQL framents for working with the
-// "entries" table, which stores factom.Entry with a valid flag.
-package entries
+// Package entry provides functions and SQL framents for working with the
+// "entry" table, which stores factom.Entry with a valid flag.
+package entry
 
 import (
 	"fmt"
@@ -37,11 +37,11 @@ import (
 	"github.com/Factom-Asset-Tokens/fatd/internal/flag"
 )
 
-// CreateTable is a SQL string that creates the "entries" table.
+// CreateTable is a SQL string that creates the "entry" table.
 //
-// The "entries" table has a foreign key reference to the "eblocks" table,
-// which must exist first.
-const CreateTable = `CREATE TABLE "entries" (
+// The "entry" table has a foreign key reference to the "eblock" table, which
+// must exist first.
+const CreateTable = `CREATE TABLE "entry" (
         "id"            INTEGER PRIMARY KEY,
         "eb_seq"        INTEGER NOT NULL,
         "timestamp"     INTEGER NOT NULL,
@@ -49,13 +49,13 @@ const CreateTable = `CREATE TABLE "entries" (
         "hash"          BLOB NOT NULL,
         "data"          BLOB NOT NULL,
 
-        FOREIGN KEY("eb_seq") REFERENCES "eblocks"
+        FOREIGN KEY("eb_seq") REFERENCES "eblock"
 );
-CREATE INDEX "idx_entries_eb_seq" ON "entries"("eb_seq");
-CREATE INDEX "idx_entries_hash" ON "entries"("hash");
+CREATE INDEX "idx_entry_eb_seq" ON "entry"("eb_seq");
+CREATE INDEX "idx_entry_hash" ON "entry"("hash");
 `
 
-// Insert e into the "entries" table with the EBlock reference ebSeq. If
+// Insert e into the "entry" table with the EBlock reference ebSeq. If
 // successful, the new row id of e is returned.
 func Insert(conn *sqlite.Conn, e factom.Entry, ebSeq uint32) (int64, error) {
 	data, err := e.MarshalBinary()
@@ -63,7 +63,7 @@ func Insert(conn *sqlite.Conn, e factom.Entry, ebSeq uint32) (int64, error) {
 		panic(fmt.Errorf("factom.Entry.MarshalBinary(): %w", err))
 	}
 
-	stmt := conn.Prep(`INSERT INTO "entries"
+	stmt := conn.Prep(`INSERT INTO "entry"
                 ("eb_seq", "timestamp", "hash", "data")
                 VALUES (?, ?, ?, ?);`)
 	stmt.BindInt64(1, int64(int32(ebSeq))) // Preserve uint32(-1) as -1
@@ -77,23 +77,23 @@ func Insert(conn *sqlite.Conn, e factom.Entry, ebSeq uint32) (int64, error) {
 	return conn.LastInsertRowID(), nil
 }
 
-// SetValid marks the entry valid at the id'th row of the "entries" table.
+// SetValid marks the entry valid at the id'th row of the "entry" table.
 func SetValid(conn *sqlite.Conn, id int64) error {
-	stmt := conn.Prep(`UPDATE "entries" SET "valid" = 1 WHERE "id" = ?;`)
+	stmt := conn.Prep(`UPDATE "entry" SET "valid" = 1 WHERE "id" = ?;`)
 	stmt.BindInt64(1, id)
 	_, err := stmt.Step()
 	if err != nil {
 		return err
 	}
 	if conn.Changes() == 0 {
-		panic("no entries updated")
+		panic("no entry updated")
 	}
 	return nil
 }
 
-// SelectWhere is a SQL fragment for retrieving rows from the "entries" table
+// SelectWhere is a SQL fragment for retrieving rows from the "entry" table
 // with Select().
-const SelectWhere = `SELECT "hash", "data", "timestamp" FROM "entries" WHERE `
+const SelectWhere = `SELECT "hash", "data", "timestamp" FROM "entry" WHERE `
 
 // Select the next factom.Entry from the given prepared Stmt.
 //
@@ -149,10 +149,10 @@ func SelectValidByHash(conn *sqlite.Conn, hash *factom.Bytes32) (factom.Entry, e
 	return Select(stmt)
 }
 
-// SelectCount returns the total number of rows in the "entries" table. If
+// SelectCount returns the total number of rows in the "entry" table. If
 // validOnly is true, only the rows where "valid" = true are counted.
 func SelectCount(conn *sqlite.Conn, validOnly bool) (int64, error) {
-	stmt := conn.Prep(`SELECT count(*) FROM "entries" WHERE (? OR "valid" = true);`)
+	stmt := conn.Prep(`SELECT count(*) FROM "entry" WHERE (? OR "valid" = true);`)
 	stmt.BindBool(1, !validOnly)
 	return sqlitex.ResultInt64(stmt)
 }
@@ -166,7 +166,7 @@ func init() {
 //
 // Pages start at 1.
 //
-// TODO: This should probably be moved out of the entries package and into a db
+// TODO: This should probably be moved out of the entry package and into a db
 // package that is more specific to FAT0 and FAT1.
 func SelectByAddress(conn *sqlite.Conn, startHash *factom.Bytes32,
 	adrs []factom.FAAddress, nfTkns fat1.NFTokens,
@@ -178,7 +178,7 @@ func SelectByAddress(conn *sqlite.Conn, startHash *factom.Bytes32,
 	var sql sqlbuilder.SQLBuilder
 	sql.Append(SelectWhere + `"valid" = true`)
 	if startHash != nil {
-		sql.Append(` AND "id" >= (SELECT "id" FROM "entries" WHERE "hash" = ?)`,
+		sql.Append(` AND "id" >= (SELECT "id" FROM "entry" WHERE "hash" = ?)`,
 			func(s *sqlite.Stmt, p int) int {
 				s.BindBytes(p, startHash[:])
 				return 1
@@ -207,7 +207,7 @@ func SelectByAddress(conn *sqlite.Conn, startHash *factom.Bytes32,
 		sql.WriteString(`)`) // 1 open (
 		if len(adrs) > 0 {
 			sql.WriteString(` AND "address_id" IN (
-                                SELECT "id" FROM "addresses"
+                                SELECT "id" FROM "address"
                                         WHERE "address" IN (`) // 3 open (
 			sql.BindNParams(len(adrs), func(s *sqlite.Stmt, p int) int {
 				for i, adr := range adrs {
@@ -228,7 +228,7 @@ func SelectByAddress(conn *sqlite.Conn, startHash *factom.Bytes32,
 		sql.WriteString(` AND "id" IN (
                                 SELECT "entry_id" FROM "address_transactions"
                                         WHERE "address_id" IN (
-                                                SELECT "id" FROM "addresses"
+                                                SELECT "id" FROM "address"
                                                         WHERE "address" IN (`) // 3 open (
 
 		sql.BindNParams(len(adrs), func(s *sqlite.Stmt, p int) int {
@@ -252,7 +252,7 @@ func SelectByAddress(conn *sqlite.Conn, startHash *factom.Bytes32,
 	stmt := sql.Prep(conn)
 	defer stmt.Reset()
 
-	var entries []factom.Entry
+	var entry []factom.Entry
 	for {
 		e, err := Select(stmt)
 		if err != nil {
@@ -261,17 +261,17 @@ func SelectByAddress(conn *sqlite.Conn, startHash *factom.Bytes32,
 		if !e.IsPopulated() {
 			break
 		}
-		entries = append(entries, e)
+		entry = append(entry, e)
 	}
 
-	return entries, nil
+	return entry, nil
 }
 
-// CheckUniquelyValid returns true if there are no valid entries earlier than
-// id that have the same hash. If id is 0, then all entries are checked.
+// CheckUniquelyValid returns true if there are no valid entry earlier than
+// id that have the same hash. If id is 0, then all entry are checked.
 func CheckUniquelyValid(conn *sqlite.Conn,
 	id int64, hash *factom.Bytes32) (bool, error) {
-	stmt := conn.Prep(`SELECT count(*) FROM "entries" WHERE
+	stmt := conn.Prep(`SELECT count(*) FROM "entry" WHERE
                 "valid" = true AND (? OR "id" < ?) AND "hash" = ?;`)
 	stmt.BindBool(1, id > 0)
 	stmt.BindInt64(2, id)
@@ -286,7 +286,7 @@ func CheckUniquelyValid(conn *sqlite.Conn,
 // SelectLatestValid returns the most recent valid factom.Entry.
 func SelectLatestValid(conn *sqlite.Conn) (factom.Entry, error) {
 	stmt := conn.Prep(SelectWhere +
-		`"id" = (SELECT max("id") FROM "entries" WHERE "valid" = true);`)
+		`"id" = (SELECT max("id") FROM "entry" WHERE "valid" = true);`)
 	e, err := Select(stmt)
 	defer stmt.Reset()
 	if err != nil {

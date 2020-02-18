@@ -20,19 +20,22 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 // IN THE SOFTWARE.
 
-package db
+package state
 
 import (
+	"bytes"
+	"context"
 	"fmt"
 	"os"
 	"time"
 
+	"crawshaw.io/sqlite"
 	"crawshaw.io/sqlite/sqlitex"
 	"github.com/AdamSLevy/sqlitechangeset"
 	"github.com/Factom-Asset-Tokens/factom"
 	"github.com/Factom-Asset-Tokens/factom/fat"
-	"github.com/Factom-Asset-Tokens/fatd/internal/db/eblocks"
-	"github.com/Factom-Asset-Tokens/fatd/internal/db/entries"
+	"github.com/Factom-Asset-Tokens/fatd/internal/db/eblock"
+	"github.com/Factom-Asset-Tokens/fatd/internal/db/entry"
 	"github.com/Factom-Asset-Tokens/fatd/internal/flag"
 )
 
@@ -44,13 +47,14 @@ func init() {
 // all stored EBlocks and Entries.
 //
 // This does not validate the validity of the saved DBlock KeyMRs.
-func (chain Chain) Validate() (err error) {
+func (chain *FATChain) Validate(ctx context.Context, repair bool) (err error) {
 	// Validate ChainID...
 	chain.Log.Info("Validating...")
-	read := chain.Pool.Get(nil)
+	read := chain.Pool.Get(ctx)
 	defer chain.Pool.Put(read)
 	write := chain.Conn
-	first, err := entries.SelectByID(read, 1)
+	write.SetInterrupt(ctx.Done())
+	first, err := entry.SelectByID(read, 1)
 	if err != nil {
 		return err
 	}
@@ -68,41 +72,55 @@ func (chain Chain) Validate() (err error) {
 	if err != nil {
 		return err
 	}
-	sess.Attach("eblocks")
-	sess.Attach("entries")
-	sess.Attach("addresses")
-	sess.Attach("nf_tokens")
+	sess.Attach("eblock")
+	sess.Attach("entry")
+	sess.Attach("address")
+	sess.Attach("nftoken")
 	sess.Attach("metadata")
 	defer sess.Delete()
 
 	// In case there are any changes, we want to roll back everything. We
 	// don't fix corrupted databases, at least not yet.
-	defer sqlitex.Save(write)(&err)
+	defer chain.Save()(&err)
+
+	chain.Head = factom.EBlock{}
+	chain.SyncHeight = 0
+	chain.SyncDBKeyMR = nil
 
 	// Completely clear the state, while preserving all chain data.
-	sqlitex.ExecScript(write, `
-                UPDATE "addresses" SET "balance" = 0;
-                DELETE FROM "address_transactions";
-                DELETE FROM "nf_tokens";
-                DELETE FROM "nf_token_transactions";
-                DELETE FROM "eblocks";
-                DELETE FROM "entries";
-                UPDATE "metadata" SET ("init_entry_id", "num_issued") = (NULL, NULL);
+	err = sqlitex.ExecScript(write, `
+                UPDATE "address" SET "balance" = 0;
+                DELETE FROM "address_tx";
+                DELETE FROM "nftoken";
+                DELETE FROM "nftoken_tx";
+                DELETE FROM "eblock";
+                DELETE FROM "entry";
+                UPDATE "fat_chain" SET ("init_entry_id", "num_issued") = (NULL, NULL);
                 `)
+	if err != nil {
+		return err
+	}
 	chain.NumIssued = 0
 	chain.Issuance = fat.Issuance{}
-	chain.setApplyFunc()
 
-	eBlockStmt := read.Prep(eblocks.SelectWhere + `true;`) // SELECT all EBlocks.
-	defer eBlockStmt.Reset()
-	entryStmt := read.Prep(entries.SelectWhere + `true;`) // SELECT all Entries.
-	defer entryStmt.Reset()
+	eBlockStmt, _, err := read.PrepareTransient(
+		eblock.SelectWhere + `true;`) // SELECT all EBlocks.
+	if err != nil {
+		panic(err)
+	}
+	defer eBlockStmt.Finalize()
+	entryStmt, _, err := read.PrepareTransient(
+		entry.SelectWhere + `true;`) // SELECT all Entries.
+	if err != nil {
+		panic(err)
+	}
+	defer entryStmt.Finalize()
 
 	var eID int = 1     // Entry ID
 	var sequence uint32 // EBlock Sequence
 	var prevKeyMR, prevFullHash *factom.Bytes32
 	for {
-		eb, err := eblocks.Select(eBlockStmt)
+		eb, err := eblock.Select(eBlockStmt)
 		if err != nil {
 			return err
 		}
@@ -132,7 +150,7 @@ func (chain Chain) Validate() (err error) {
 		prevFullHash = eb.FullHash
 
 		for i, ebe := range eb.Entries {
-			e, err := entries.Select(entryStmt)
+			e, err := entry.Select(entryStmt)
 			if err != nil {
 				return err
 			}
@@ -148,50 +166,68 @@ func (chain Chain) Validate() (err error) {
 			}
 
 			if e.Timestamp != ebe.Timestamp {
-				return fmt.Errorf("invalid Entry{%v}: invalid Timestamp",
-					e.Hash)
+				return fmt.Errorf(
+					"invalid Entry{%v}: invalid Timestamp: %v, expected: %v",
+					e.Hash, e.Timestamp, ebe.Timestamp)
 			}
 
 			eb.Entries[i] = e
 			eID++
 		}
-		dbKeyMR, err := eblocks.SelectDBKeyMR(read, eb.Sequence)
+		dbKeyMR, err := eblock.SelectDBKeyMR(read, eb.Sequence)
 		if err != nil {
 			return err
 		}
-		if err := chain.Apply(&dbKeyMR, eb); err != nil {
+		if err := Apply(chain, &dbKeyMR, eb); err != nil {
 			return err
 		}
 	}
 	if sequence == 0 {
 		return fmt.Errorf("no eblocks")
 	}
-
-	changesetSQL, err := sqlitechangeset.SessionToSQL(chain.Conn, sess)
-	if err != nil {
-		chain.Log.Debugf("sqlitechangeset.SessionToSQL(): %v", err)
-		return
+	if ctx.Err() != nil {
+		return ctx.Err()
 	}
-	if len(changesetSQL) > 0 {
-		defer func() {
-			chain.Log.Warnf("invalid state changeset: %v", changesetSQL)
-			// Write the changeset to a file for later analysis...
-			path := fmt.Sprintf("%v/%v-corrupt-%v.changeset",
-				flag.DBPath, chain.ID.String(), time.Now().Unix())
-			chain.Log.Warnf("writing corrupted state changeset to %v", path)
-			f, err := os.Create(path)
-			if err != nil {
-				chain.Log.Debug(err)
-				return
-			}
-			if _, err := f.WriteString(changesetSQL); err != nil {
-				chain.Log.Debug(err)
-			}
-			if err := f.Close(); err != nil {
-				chain.Log.Debug(err)
-			}
-		}()
-		return fmt.Errorf("could not recompute saved state")
+
+	var changeset bytes.Buffer
+	if err := sess.Changeset(&changeset); err != nil {
+		return fmt.Errorf("sqlite.Session.Changeset(): %w", err)
+	}
+
+	iter, err := sqlite.ChangesetIterStart(&changeset)
+	if err != nil {
+		return fmt.Errorf("sqlite.ChangesetIterStart(): %w", err)
+	}
+	defer func() {
+		if err := iter.Finalize(); err != nil {
+			chain.Log.Errorf("sqlite.ChangesetIter.Finalize(): %w", err)
+		}
+	}()
+	hasRow, err := iter.Next()
+	if err != nil {
+		return fmt.Errorf("sqlite.ChangesetIter.Next(): %w", err)
+	}
+	if hasRow {
+		if repair {
+			chain.Log.Warnf("Corrupted state repaired!")
+			return nil
+		}
+		chain.Log.Error("Corrupted state!")
+		// Write the changeset to a file for later analysis...
+		path := fmt.Sprintf("%v%v-corrupt-%v.changeset",
+			flag.DBPath, chain.ID.String(), time.Now().Unix())
+		chain.Log.Warnf("writing corrupted state changeset to %v", path)
+		f, err := os.Create(path)
+		if err != nil {
+			return fmt.Errorf("os.Create(): %w", err)
+		}
+		if err := sess.Changeset(f); err != nil {
+			return fmt.Errorf("sqlite.Session.Changeset(): %w", err)
+		}
+		if err := f.Close(); err != nil {
+			return fmt.Errorf("os.File.Close(): %w", err)
+		}
+		return fmt.Errorf("Corrupted state!")
 	}
 	return nil
 }
