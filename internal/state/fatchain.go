@@ -84,18 +84,20 @@ func (chain *FATChain) ApplyEntry(e factom.Entry) (eID int64, err error) {
 	}
 
 	var txErr error
+	entryType := "Tx"
 	defer chain.save()(&txErr, &err)
 	if !chain.IsIssued() {
 		txErr, err = chain.ApplyIssuance(eID, e)
+		entryType = "Issuance"
 	} else {
 		_, txErr, err = chain.ApplyTx(eID, e)
 	}
 
-	//if txErr != nil {
-	//	chain.Log.Debugf("Invalid Tx: %v %v", txErr, e.Hash)
-	//} else {
-	//	chain.Log.Debugf("Valid Tx: %v", e.Hash)
-	//}
+	if txErr != nil {
+		chain.Log.Debugf("Invalid %v: %v %v", entryType, txErr, e.Hash)
+	} else {
+		chain.Log.Debugf("Valid %v: %v", entryType, e.Hash)
+	}
 
 	return
 }
@@ -419,6 +421,11 @@ func NewFATChainByEBlock(ctx context.Context, c *factom.Client,
 			chain.Close()
 		}
 	}()
+
+	if err = chain.UpdateSidechainData(ctx, c); err != nil {
+		err = fmt.Errorf("state.Chain.UpdateSidechainData(): %w", err)
+		return
+	}
 
 	chain.Log.Info("Syncing entries...")
 
