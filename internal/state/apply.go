@@ -70,8 +70,8 @@ func (state *State) ApplyEBlock(ctx context.Context,
 		return fmt.Errorf("factom.EBlock.Get(): %w", err)
 	}
 
-	if chain == nil { // Chain is unknown
-		if !eb.IsFirst() {
+	if chain == nil { // if Chain is unknown...
+		if !eb.IsFirst() { // if Chain is not new...
 			state.ignore(eb.ChainID)
 			return nil
 		}
@@ -119,6 +119,10 @@ func (state *State) ApplyEBlock(ctx context.Context,
 			if err = eb.GetEntries(ctx, c); err != nil {
 				err = fmt.Errorf("factom.EBlock.GetEntries(): %w", err)
 				return
+			}
+			if err := chain.UpdateSidechainData(ctx); err != nil {
+				return nil, fmt.Errorf(
+					"state.Chain.UpdateSidechainData(): %w", err)
 			}
 			if err = Apply(ctx, &fatChain, dbKeyMR, eb); err != nil {
 				err = fmt.Errorf("state.Apply(): %w", err)

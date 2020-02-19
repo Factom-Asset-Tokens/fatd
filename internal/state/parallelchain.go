@@ -131,7 +131,7 @@ func (state *State) NewParallelChain(ctx context.Context,
 		}
 
 		defer func() {
-			pChain.Lock()
+			pChain.Lock() // lock forever on exit.
 			if err := pChain.Chain.Close(); err != nil {
 				pChain.ToFactomChain().Log.Errorf(
 					"state.Chain.Close(): %v", err)
@@ -198,9 +198,10 @@ func (chain *ParallelChain) processEBlock(state *State, eb dbKeyMREBlock) error 
 			"state.Chain.UpdateSidechainData(): %w", err)
 	}
 
-	if eb.EBlock.ChainID == nil {
-		if err := chain.Chain.SetSync(
-			eb.EBlock.Height, eb.dbKeyMR); err != nil {
+	if !eb.EBlock.IsPopulated() {
+		// An unpopulated EBlock is sent by ParallelChain.SetSync to
+		// indicate that we should simply advance the sync height.
+		if err := chain.Chain.SetSync(eb.EBlock.Height, eb.dbKeyMR); err != nil {
 			return fmt.Errorf("state.Chain.SetSync(): %w",
 				err)
 
