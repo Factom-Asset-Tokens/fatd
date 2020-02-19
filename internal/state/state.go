@@ -322,11 +322,6 @@ func (state *State) loadFATChains(dbPath string,
 				return nil, fmt.Errorf(
 					"state.NewFATChainByChainID(): %w", err)
 			}
-			if err := chain.UpdateSidechainData(
-				state.ctx, state.c); err != nil {
-				return nil, fmt.Errorf(
-					"state.Chain.UpdateSidechainData(): %w", err)
-			}
 			return &chain, nil
 		}
 
