@@ -258,7 +258,9 @@ func goN(ctx context.Context, n int,
 }
 
 func ApplyDBlock(ctx context.Context, c *factom.Client, h uint32, state State) error {
-	log.Debugf("Syncing DBlock %v...", h)
+	if h%500 == 0 {
+		log.Debugf("Syncing DBlock %v...", h)
+	}
 	// Load next DBlock.
 	dblock := factom.DBlock{Height: h}
 	if err := dblock.Get(ctx, c); err != nil {
