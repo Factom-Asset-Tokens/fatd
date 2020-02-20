@@ -157,12 +157,12 @@ func (state *State) NewParallelChain(ctx context.Context,
 	return nil
 }
 func (chain *ParallelChain) run(state *State) (err error) {
-	defer chain.ToFactomChain().Log.Debug("ParallelChain.run():", err)
+	defer chain.ToFactomChain().Log.Info("ParallelChain.run():", err)
 	for {
 		select {
 		case eb, ok := <-chain.eblocks:
 			if !ok {
-				chain.ToFactomChain().Log.Debug(
+				chain.ToFactomChain().Log.Info(
 					"ParallelChain.eblocks closed")
 				return nil
 			}
@@ -171,7 +171,7 @@ func (chain *ParallelChain) run(state *State) (err error) {
 			}
 		case es, ok := <-chain.pending:
 			if !ok {
-				chain.ToFactomChain().Log.Debug(
+				chain.ToFactomChain().Log.Info(
 					"ParallelChain.pending closed")
 				return nil
 			}
