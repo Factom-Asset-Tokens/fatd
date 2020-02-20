@@ -76,7 +76,7 @@ func ToFATChain(chain Chain) (fatChain *FATChain, ok bool) {
 	fatChain, ok = chain.(*FATChain)
 	return
 }
-func (chain *FATChain) ToFATChain() *db.FATChain {
+func (chain *FATChain) ToDBFATChain() *db.FATChain {
 	return (*db.FATChain)(&chain.FATChain)
 }
 func (chain *FATChain) ToFactomChain() *db.FactomChain {
@@ -101,11 +101,12 @@ func (chain *FATChain) ApplyEntry(ctx context.Context, e factom.Entry) (
 		_, txErr, err = chain.ApplyTx(ctx, eID, e)
 	}
 
-	if txErr != nil {
-		chain.Log.Debugf("Invalid %v: %v %v", entryType, txErr, e.Hash)
-	} else {
-		chain.Log.Debugf("Valid %v: %v", entryType, e.Hash)
-	}
+	//if txErr != nil {
+	//	chain.Log.Debugf("Invalid %v: %v %v", entryType, txErr, e.Hash)
+	//} else {
+	//	chain.Log.Debugf("Valid %v: %v", entryType, e.Hash)
+	//}
+	_ = entryType
 
 	return
 }
@@ -200,7 +201,7 @@ func (chain *FATChain) applyFAT0Tx(ctx context.Context,
 			txErr = fmt.Errorf("coinbase exceeds max supply")
 			return
 		}
-		if err = chain.ToFATChain().AddNumIssued(addIssued); err != nil {
+		if err = chain.ToDBFATChain().AddNumIssued(addIssued); err != nil {
 			err = fmt.Errorf("db.FATChain.AddNumIssued(): %w", err)
 			return
 		}
@@ -292,7 +293,7 @@ func (chain *FATChain) applyFAT0Tx(ctx context.Context,
 
 				var rCtx runtime.Context
 				rCtx.Context = ctx
-				rCtx.Chain = chain.ToFATChain()
+				rCtx.Chain = chain.ToDBFATChain()
 
 				if txErr = vm.ValidateABI(&rCtx, con.ABI); txErr != nil {
 					txErr = fmt.Errorf(
@@ -369,7 +370,7 @@ func (chain *FATChain) applyFAT0Tx(ctx context.Context,
 
 			var rCtx runtime.Context
 			rCtx.Context = ctx
-			rCtx.Chain = chain.ToFATChain()
+			rCtx.Chain = chain.ToDBFATChain()
 			_, txErr, err = vm.Call(&rCtx, abiF, tx.Args...)
 		}
 	}
@@ -400,7 +401,7 @@ func (chain *FATChain) applyFAT1Tx(eID int64, e factom.Entry) (tx fat1.Transacti
 			txErr = fmt.Errorf("coinbase exceeds max supply")
 			return
 		}
-		if err = chain.ToFATChain().AddNumIssued(addIssued); err != nil {
+		if err = chain.ToDBFATChain().AddNumIssued(addIssued); err != nil {
 			return
 		}
 		var adrTxID int64

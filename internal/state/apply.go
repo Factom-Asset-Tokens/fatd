@@ -104,7 +104,7 @@ func (state *State) ApplyEBlock(ctx context.Context,
 			}
 			defer func() {
 				if err != nil {
-					chain.Close()
+					fatChain.Close()
 				}
 			}()
 
@@ -120,7 +120,7 @@ func (state *State) ApplyEBlock(ctx context.Context,
 				err = fmt.Errorf("factom.EBlock.GetEntries(): %w", err)
 				return
 			}
-			if err := chain.UpdateSidechainData(ctx); err != nil {
+			if err := fatChain.UpdateSidechainData(state.ctx); err != nil {
 				return nil, fmt.Errorf(
 					"state.Chain.UpdateSidechainData(): %w", err)
 			}

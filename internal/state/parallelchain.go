@@ -61,8 +61,24 @@ func (chain *ParallelChain) SetSync(height uint32, dbKeyMR *factom.Bytes32) erro
 	if height <= chain.syncHeight {
 		return nil
 	}
-
+	// SetSync is called inside of State.SetSync on all chains.
+	// State.SetSync acquires the State.Lock. In order to avoid deadlock,
+	// this function MUST return so that the State.Lock can be released.
 	chain.syncHeight = height
+	select {
+	case eb := <-chain.eblocks:
+		// If there is already an eblock in the channel, check to see
+		// if its populated.
+		if eb.EBlock.IsPopulated() {
+			// Just put it back.
+			chain.eblocks <- eb
+			return nil
+		}
+		// Otherwise it was simply a marker for the sync height, so we
+		// discard it and replace it with the new sync height.
+	default:
+	}
+
 	chain.eblocks <- dbKeyMREBlock{dbKeyMR, factom.EBlock{Height: height}}
 
 	return nil
@@ -82,8 +98,6 @@ func (chain *ParallelChain) ApplyEBlockCtx(ctx context.Context,
 	case <-ctx.Done():
 		return ctx.Err()
 	}
-
-	return nil
 }
 
 func (chain *ParallelChain) ApplyPendingEntries(
@@ -108,8 +122,8 @@ func (state *State) NewParallelChain(ctx context.Context,
 	}
 
 	pChain := ParallelChain{
-		eblocks:    make(chan dbKeyMREBlock, 1),
-		pending:    make(chan []factom.Entry, 1),
+		eblocks:    make(chan dbKeyMREBlock, 1),  // DO NOT INCREASE BUFFER SIZE
+		pending:    make(chan []factom.Entry, 1), // DO NOT INCREASE BUFFER SIZE
 		syncHeight: head.Height,
 		TryLocker:  trylock.New(),
 	}
@@ -193,11 +207,6 @@ func (chain *ParallelChain) processEBlock(state *State, eb dbKeyMREBlock) error 
 		}
 	}
 
-	if err := chain.UpdateSidechainData(state.ctx); err != nil {
-		return fmt.Errorf(
-			"state.Chain.UpdateSidechainData(): %w", err)
-	}
-
 	if !eb.EBlock.IsPopulated() {
 		// An unpopulated EBlock is sent by ParallelChain.SetSync to
 		// indicate that we should simply advance the sync height.
@@ -213,6 +222,9 @@ func (chain *ParallelChain) processEBlock(state *State, eb dbKeyMREBlock) error 
 		return fmt.Errorf("factom.EBlock.GetEntries(): %w", err)
 	}
 
+	if err := chain.UpdateSidechainData(state.ctx); err != nil {
+		return fmt.Errorf("state.Chain.UpdateSidechainData(): %w", err)
+	}
 	if err := Apply(state.ctx, chain.Chain, eb.dbKeyMR, eb.EBlock); err != nil {
 		return fmt.Errorf("state.Apply(): %w", err)
 	}
