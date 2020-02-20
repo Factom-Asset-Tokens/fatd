@@ -28,6 +28,7 @@ import (
 
 	"crawshaw.io/sqlite/sqlitex"
 	"github.com/Factom-Asset-Tokens/factom"
+	"github.com/sirupsen/logrus"
 	"github.com/subchen/go-trylock/v2"
 )
 
@@ -156,10 +157,13 @@ func (state *State) NewParallelChain(ctx context.Context,
 	return nil
 }
 func (chain *ParallelChain) run(state *State) (err error) {
+	defer chain.ToFactomChain().Log.Debug("ParallelChain.run():", err)
 	for {
 		select {
 		case eb, ok := <-chain.eblocks:
 			if !ok {
+				chain.ToFactomChain().Log.Debug(
+					"ParallelChain.eblocks closed")
 				return nil
 			}
 			if err := chain.processEBlock(state, eb); err != nil {
@@ -167,6 +171,8 @@ func (chain *ParallelChain) run(state *State) (err error) {
 			}
 		case es, ok := <-chain.pending:
 			if !ok {
+				chain.ToFactomChain().Log.Debug(
+					"ParallelChain.pending closed")
 				return nil
 			}
 			if err := chain.processPending(state, es); err != nil {
@@ -213,7 +219,8 @@ func (chain *ParallelChain) processEBlock(state *State, eb dbKeyMREBlock) error 
 		return fmt.Errorf(
 			"state.Chain.UpdateSidechainData(): %w", err)
 	}
-
+	fmt.Println("is debug enabled?",
+		chain.ToFactomChain().Log.Logger.IsLevelEnabled(logrus.DebugLevel))
 	chain.ToFactomChain().Log.Debugf("Syncing Entries for EBlock{%v,%v}...",
 		eb.Height, eb.KeyMR)
 	if err := Apply(chain.Chain, eb.dbKeyMR, eb.EBlock); err != nil {
