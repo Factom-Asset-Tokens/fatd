@@ -69,7 +69,7 @@ func ToFATChain(chain Chain) (fatChain *FATChain, ok bool) {
 	fatChain, ok = chain.(*FATChain)
 	return
 }
-func (chain *FATChain) ToFATChain() *db.FATChain {
+func (chain *FATChain) ToDBFATChain() *db.FATChain {
 	return (*db.FATChain)(chain)
 }
 func (chain *FATChain) ToFactomChain() *db.FactomChain {
@@ -190,7 +190,7 @@ func (chain *FATChain) applyFAT0Tx(eID int64, e factom.Entry) (tx fat0.Transacti
 			txErr = fmt.Errorf("coinbase exceeds max supply")
 			return
 		}
-		if err = chain.ToFATChain().AddNumIssued(addIssued); err != nil {
+		if err = chain.ToDBFATChain().AddNumIssued(addIssued); err != nil {
 			return
 		}
 		if _, err = address.InsertTxRelation(

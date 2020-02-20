@@ -107,7 +107,7 @@ func (state *State) NewParallelChain(ctx context.Context,
 	}
 
 	pChain := ParallelChain{
-		eblocks:    make(chan dbKeyMREBlock, 1),
+		eblocks:    make(chan dbKeyMREBlock, 2),
 		pending:    make(chan []factom.Entry, 1),
 		syncHeight: head.Height,
 		TryLocker:  trylock.New(),
@@ -192,11 +192,6 @@ func (chain *ParallelChain) processEBlock(state *State, eb dbKeyMREBlock) error 
 		}
 	}
 
-	if err := chain.UpdateSidechainData(state.ctx, state.c); err != nil {
-		return fmt.Errorf(
-			"state.Chain.UpdateSidechainData(): %w", err)
-	}
-
 	if !eb.EBlock.IsPopulated() {
 		// An unpopulated EBlock is sent by ParallelChain.SetSync to
 		// indicate that we should simply advance the sync height.
@@ -208,13 +203,24 @@ func (chain *ParallelChain) processEBlock(state *State, eb dbKeyMREBlock) error 
 		return nil
 	}
 
+	chain.ToFactomChain().Log.Debugf("Downloading Entries for EBlock{%v,%v}...",
+		eb.Height, eb.KeyMR)
 	if err := eb.GetEntries(state.ctx, state.c); err != nil {
 		return fmt.Errorf("factom.EBlock.GetEntries(): %w", err)
 	}
 
+	if err := chain.UpdateSidechainData(state.ctx, state.c); err != nil {
+		return fmt.Errorf(
+			"state.Chain.UpdateSidechainData(): %w", err)
+	}
+
+	chain.ToFactomChain().Log.Debugf("Syncing Entries for EBlock{%v,%v}...",
+		eb.Height, eb.KeyMR)
 	if err := Apply(chain.Chain, eb.dbKeyMR, eb.EBlock); err != nil {
 		return fmt.Errorf("state.Apply(): %w", err)
 	}
+	chain.ToFactomChain().Log.Debugf("Processed EBlock{%v,%v",
+		eb.Height, eb.KeyMR)
 
 	if err := sqlitex.ExecScript(chain.ToFactomChain().Conn,
 		`PRAGMA main.wal_checkpoint;`); err != nil {
