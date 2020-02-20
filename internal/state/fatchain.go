@@ -93,11 +93,12 @@ func (chain *FATChain) ApplyEntry(e factom.Entry) (eID int64, err error) {
 		_, txErr, err = chain.ApplyTx(eID, e)
 	}
 
-	if txErr != nil {
-		chain.Log.Debugf("Invalid %v: %v %v", entryType, txErr, e.Hash)
-	} else {
-		chain.Log.Debugf("Valid %v: %v", entryType, e.Hash)
-	}
+	//if txErr != nil {
+	//	chain.Log.Debugf("Invalid %v: %v %v", entryType, txErr, e.Hash)
+	//} else {
+	//	chain.Log.Debugf("Valid %v: %v", entryType, e.Hash)
+	//}
+	_ = entryType
 
 	return
 }
