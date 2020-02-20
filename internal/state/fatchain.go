@@ -69,7 +69,7 @@ func ToFATChain(chain Chain) (fatChain *FATChain, ok bool) {
 	fatChain, ok = chain.(*FATChain)
 	return
 }
-func (chain *FATChain) ToFATChain() *db.FATChain {
+func (chain *FATChain) ToDBFATChain() *db.FATChain {
 	return (*db.FATChain)(chain)
 }
 func (chain *FATChain) ToFactomChain() *db.FactomChain {
@@ -93,11 +93,12 @@ func (chain *FATChain) ApplyEntry(e factom.Entry) (eID int64, err error) {
 		_, txErr, err = chain.ApplyTx(eID, e)
 	}
 
-	if txErr != nil {
-		chain.Log.Debugf("Invalid %v: %v %v", entryType, txErr, e.Hash)
-	} else {
-		chain.Log.Debugf("Valid %v: %v", entryType, e.Hash)
-	}
+	//if txErr != nil {
+	//	chain.Log.Debugf("Invalid %v: %v %v", entryType, txErr, e.Hash)
+	//} else {
+	//	chain.Log.Debugf("Valid %v: %v", entryType, e.Hash)
+	//}
+	_ = entryType
 
 	return
 }
@@ -190,7 +191,7 @@ func (chain *FATChain) applyFAT0Tx(eID int64, e factom.Entry) (tx fat0.Transacti
 			txErr = fmt.Errorf("coinbase exceeds max supply")
 			return
 		}
-		if err = chain.ToFATChain().AddNumIssued(addIssued); err != nil {
+		if err = chain.ToDBFATChain().AddNumIssued(addIssued); err != nil {
 			return
 		}
 		if _, err = address.InsertTxRelation(
