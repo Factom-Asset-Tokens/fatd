@@ -24,9 +24,7 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"strings"
 
 	"github.com/Factom-Asset-Tokens/factom"
 	"github.com/Factom-Asset-Tokens/factom/fat"
@@ -35,25 +33,7 @@ import (
 	jsonrpc2 "github.com/AdamSLevy/jsonrpc2/v14"
 	"github.com/posener/complete"
 	"github.com/spf13/cobra"
-	flag "github.com/spf13/pflag"
 )
-
-var (
-	ecEsAdr ECEsAddress
-	force   bool
-	curl    bool
-)
-
-var composeFlags = func() *flag.FlagSet {
-	flags := flag.NewFlagSet("", flag.ContinueOnError)
-	flags.VarPF(&ecEsAdr, "ecadr", "e",
-		"EC or Es address to pay for entries").DefValue = ""
-	flags.BoolVar(&force, "force", false,
-		"Skip sanity checks for balances, chain status, and sk1 key")
-	flags.BoolVar(&curl, "curl", false,
-		"Do not submit Factom entry; print curl commands")
-	return flags
-}()
 
 // issueCmd represents the issue command
 var issueCmd = func() *cobra.Command {
@@ -119,7 +99,7 @@ Entry Credits
 
 	flags := cmd.Flags()
 	flags.AddFlagSet(composeFlags)
-	flags.VarPF((*Type)(&Issuance.Type), "type", "",
+	flags.VarPF((*FATType)(&Issuance.Type), "type", "",
 		"Token standard to use").DefValue = ""
 	flags.VarPF(&sk1, "sk1", "", "Secret Identity Key 1 to sign entry").DefValue = ""
 	flags.Int64Var(&Issuance.Supply, "supply", 0,
@@ -127,8 +107,7 @@ Entry Credits
 	flags.UintVar(&Issuance.Precision, "precision", 0,
 		"Number of whole unit decimal places, \ni.e. 3 means 1.0 is 1000 base units")
 	flags.StringVar(&Issuance.Symbol, "symbol", "", "Optional abbreviated token symbol")
-	flags.VarPF((*RawMessage)(&Issuance.Metadata), "metadata", "m",
-		"JSON metadata to include in tx")
+	flags.VarPF((*JSONOrFile)(&Issuance.Metadata), "metadata", "m", "JSON metadata to include in tx")
 
 	generateCmplFlags(cmd, issueCmplCmd.Flags)
 	// Don't complete these global flags as they are ignored by this
@@ -388,65 +367,4 @@ func printCurl(entry factom.Entry, es factom.EsAddress) error {
 		revealMethod, factom.Bytes(reveal), FactomClient.FactomdServer)
 	fmt.Println()
 	return nil
-}
-
-type ECEsAddress struct {
-	EC factom.ECAddress
-	Es factom.EsAddress
-}
-
-func (e *ECEsAddress) Set(adrStr string) error {
-	if err := e.EC.Set(adrStr); err != nil {
-		if err := e.Es.Set(adrStr); err != nil {
-			return err
-		}
-		e.EC = e.Es.ECAddress()
-	}
-	return nil
-}
-
-func (e ECEsAddress) String() string {
-	return e.EC.String()
-}
-
-func (ECEsAddress) Type() string {
-	return "<EC | Es>"
-}
-
-type Type fat.Type
-
-func (t *Type) Set(typeStr string) error {
-	typeStr = strings.ToUpper(typeStr)
-	switch typeStr {
-	case "FAT0":
-		typeStr = "FAT-0"
-	case "FAT1":
-		typeStr = "FAT-1"
-	}
-	return (*fat.Type)(t).Set(typeStr)
-}
-
-func (t Type) String() string {
-	return fat.Type(t).String()
-}
-func (t Type) Type() string {
-	return `<"FAT-0" | "FAT-1">`
-}
-
-type RawMessage json.RawMessage
-
-func (r *RawMessage) Set(data string) error {
-	if !json.Valid([]byte(data)) {
-		return fmt.Errorf("invalid JSON")
-	}
-	*r = RawMessage(data)
-	return nil
-}
-
-func (r RawMessage) String() string {
-	return string(r)
-}
-
-func (RawMessage) Type() string {
-	return "JSON"
 }

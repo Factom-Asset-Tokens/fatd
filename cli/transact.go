@@ -135,7 +135,7 @@ Sanity Checks
 	flags.AddFlagSet(composeFlags)
 	flags.VarPF(&sk1, "sk1", "",
 		"Secret Identity Key 1 to sign coinbase txs").DefValue = ""
-	flags.VarPF((*RawMessage)(&metadata), "metadata", "m",
+	flags.VarPF((*JSONOrFile)(&metadata), "metadata", "m",
 		"JSON metadata to include in tx")
 
 	generateCmplFlags(cmd, transactCmplCmd.Flags)
@@ -154,7 +154,7 @@ func validateTransactFlags(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	var cmdType fat.Type
-	if err := (*Type)(&cmdType).Set(cmd.Name()); err != nil {
+	if err := (*FATType)(&cmdType).Set(cmd.Name()); err != nil {
 		panic(err) // This should never happen.
 	}
 

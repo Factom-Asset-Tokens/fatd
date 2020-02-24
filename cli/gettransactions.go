@@ -26,12 +26,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/Factom-Asset-Tokens/factom"
-	"github.com/Factom-Asset-Tokens/fatd/api"
 	"github.com/Factom-Asset-Tokens/factom/fat1"
+	"github.com/Factom-Asset-Tokens/fatd/api"
 
 	"github.com/posener/complete"
 	"github.com/spf13/cobra"
@@ -86,8 +85,8 @@ more, and in the case of a FAT-1 chain, by a single --nftokenid. Use --page and
 	flags := cmd.Flags()
 	flags.UintVarP(paramsGetTxs.Page, "page", "p", 1, "Page of returned txs")
 	flags.UintVarP(&paramsGetTxs.Limit, "limit", "l", 10, "Limit of returned txs")
-	flags.VarPF((*txOrder)(&paramsGetTxs.Order), "order", "", "Order of returned txs").
-		DefValue = "desc"
+	flags.VarPF((*PaginationOrder)(&paramsGetTxs.Order),
+		"order", "", "Order of returned txs").DefValue = "desc"
 	flags.BoolVar(&to, "to", false, "Request only txs TO the given --address set")
 	flags.BoolVar(&from, "from", false, "Request only txs FROM the given --address set")
 	flags.VarPF(paramsGetTxs.StartHash, "starttx", "",
@@ -220,42 +219,4 @@ func printTx(result api.ResultGetTransaction) {
 	fmt.Println("TX:", (string)(*result.Tx.(*json.RawMessage)))
 
 	fmt.Println()
-}
-
-type FAAddressList []factom.FAAddress
-
-func (adrs *FAAddressList) Set(adrStr string) error {
-	adr, err := factom.NewFAAddress(adrStr)
-	if err != nil {
-		return err
-	}
-	*adrs = append(*adrs, adr)
-	return nil
-}
-func (adrs FAAddressList) String() string {
-	return fmt.Sprintf("%#v", adrs)
-}
-func (adrs FAAddressList) Type() string {
-	return "FAAddress"
-}
-
-type txOrder string
-
-func (o *txOrder) Set(str string) error {
-	str = strings.ToLower(str)
-	switch str {
-	case "asc", "ascending", "earliest":
-		*o = "asc"
-	case "des", "desc", "descending", "latest":
-		*o = "desc"
-	default:
-		return fmt.Errorf(`must be "asc" or "desc"`)
-	}
-	return nil
-}
-func (o txOrder) String() string {
-	return string(o)
-}
-func (o txOrder) Type() string {
-	return "asc|desc"
 }

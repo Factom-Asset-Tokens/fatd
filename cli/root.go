@@ -35,11 +35,9 @@ import (
 	"github.com/Factom-Asset-Tokens/factom"
 	"github.com/Factom-Asset-Tokens/factom/fat"
 	"github.com/Factom-Asset-Tokens/fatd/api"
-	homedir "github.com/mitchellh/go-homedir"
 	"github.com/posener/complete"
 	"github.com/spf13/cobra"
 	flag "github.com/spf13/pflag"
-	"github.com/spf13/viper"
 )
 
 // Execute adds all child commands to the root command and sets flags
@@ -47,7 +45,7 @@ import (
 // to the rootCmd.
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
-		errLog.Fatal(err)
+		errLog.Fatalln("Error:", err)
 	}
 }
 
@@ -56,7 +54,7 @@ func init() {
 	cobra.OnInitialize(initClients)
 }
 func initClients() {
-	// Only use Debug if true to avoid always overriding --debugfactomd and
+	// The --debug flag is equivalent to using both --debugfactomd and
 	// --debugfatd flags.
 	if Debug {
 		FATClient.DebugRequest = Debug
@@ -107,7 +105,6 @@ var (
 	vrbLog  = log.New(ioutil.Discard, "", 0)
 	Verbose bool
 
-	cfgFile      string
 	FATClient    = api.NewClient()
 	FactomClient = factom.NewClient()
 
@@ -257,9 +254,11 @@ CLI Completion
         is always used to avoid noticeable blocking when generating completion
         suggestions.
 `[1:],
-		Args:    cobra.ExactArgs(0),
-		PreRunE: validateRunCompletionFlags,
-		Run:     runCompletion,
+		SilenceUsage:  true,
+		SilenceErrors: true,
+		Args:          cobra.ExactArgs(0),
+		PreRunE:       validateRunCompletionFlags,
+		Run:           runCompletion,
 	}
 
 	flags := cmd.Flags()
@@ -351,37 +350,6 @@ func validateRunCompletionFlags(cmd *cobra.Command, _ []string) error {
 	return nil
 }
 
-func whitelistFlags(flags *flag.FlagSet, list ...string) []string {
-	var invalid []string
-	flags.Visit(func(flg *flag.Flag) {
-		var whitelisted bool
-		// Compare flg.Name with all whitelisted flags.
-		for _, name := range list {
-			// Check for very basic globbing.
-			if name[len(name)-1] == '*' {
-				// Remove the asterisk so that len(name) is
-				// correct when used below.
-				name = name[:len(name)-1]
-			}
-			if flg.Name[:min(len(name), len(flg.Name))] == name {
-				whitelisted = true
-				break
-			}
-		}
-		if whitelisted {
-			return
-		}
-		invalid = append(invalid, flg.Name)
-	})
-	return invalid
-}
-func min(x, y int) int {
-	if x < y {
-		return x
-	}
-	return y
-}
-
 func runCompletion(cmd *cobra.Command, _ []string) {
 	// Complete() returns true if it attempts to install completion, in
 	// which case just exit silently.
@@ -439,29 +407,4 @@ func initChainID() {
 	NameIDs = fat.NameIDs(paramsToken.TokenID, paramsToken.IssuerChainID)
 	*paramsToken.ChainID = factom.ComputeChainID(NameIDs)
 	vrbLog.Println("Token Chain ID:", paramsToken.ChainID)
-}
-
-// initConfig reads in config file and ENV variables if set.
-func initConfig() {
-	if cfgFile != "" {
-		// Use config file from the flag.
-		viper.SetConfigFile(cfgFile)
-	} else {
-		// Find home directory.
-		home, err := homedir.Dir()
-		if err != nil {
-			errLog.Fatal(err)
-		}
-
-		// Search config in home directory with name ".cli" (without extension).
-		viper.AddConfigPath(home)
-		viper.SetConfigName(".fat-cli")
-	}
-
-	viper.AutomaticEnv() // read in environment variables that match
-
-	// If a config file is found, read it in.
-	if err := viper.ReadInConfig(); err == nil {
-		errLog.Println("Using config file:", viper.ConfigFileUsed())
-	}
 }

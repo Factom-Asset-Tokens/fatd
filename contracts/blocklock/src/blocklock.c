@@ -2,7 +2,7 @@
 
 // UNLOCK_HEIGHT must be defined at compile time.
 
-void unlock() {
+EXPORT void unlock() {
         if (ext_get_height() < UNLOCK_HEIGHT) {
                 ext_revert("locked", 7);
         }

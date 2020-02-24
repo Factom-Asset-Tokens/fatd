@@ -30,7 +30,7 @@ blocklock.wasm: src/blocklock.c ../runtime.h ../runtime.syms
 	    -Wl,--no-entry \
 	    -Wl,--allow-undefined-file=../runtime.syms \
 	    -O3 \
-	    -DUNLOCK_HEIGHT=117295 \
+	    -DUNLOCK_HEIGHT=120000 \
 	    -o blocklock.wasm \
 	    src/blocklock.c
 
