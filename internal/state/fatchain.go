@@ -38,7 +38,6 @@ import (
 	"github.com/Factom-Asset-Tokens/factom/fat104"
 	"github.com/Factom-Asset-Tokens/fatd/internal/db"
 	"github.com/Factom-Asset-Tokens/fatd/internal/db/address"
-	"github.com/Factom-Asset-Tokens/fatd/internal/db/contract"
 	"github.com/Factom-Asset-Tokens/fatd/internal/db/entry"
 	"github.com/Factom-Asset-Tokens/fatd/internal/db/metadata"
 	"github.com/Factom-Asset-Tokens/fatd/internal/db/nftoken"
@@ -46,7 +45,8 @@ import (
 
 type FATChain struct {
 	db.FATChain
-	c *factom.Client
+	c   *factom.Client
+	rsv *ContractResolver
 }
 
 var _ Chain = &FATChain{}
@@ -84,14 +84,14 @@ func (chain *FATChain) ToFactomChain() *db.FactomChain {
 }
 
 func (chain *FATChain) ApplyEntry(ctx context.Context, e factom.Entry) (
-	eID int64, err error) {
+	eID int64, txErr, err error) {
 
-	eID, err = (*FactomChain)(&chain.FactomChain).ApplyEntry(ctx, e)
+	// Insert next entry.
+	eID, _, err = (*FactomChain)(&chain.FactomChain).ApplyEntry(ctx, e)
 	if err != nil {
 		return
 	}
 
-	var txErr error
 	entryType := "Tx"
 	defer chain.save()(&txErr, &err)
 	if !chain.IsIssued() {
@@ -244,127 +244,64 @@ func (chain *FATChain) applyFAT0Tx(ctx context.Context,
 		if tx.IsContractDelegation() {
 			// delegate contract
 
-			// Check for contract in database
-			var conID int64
 			var validCon bool
-			if validCon, conID, err = contract.SelectValid(
-				chain.Conn, tx.Contract); err != nil {
-				err = fmt.Errorf("contract.SelectByChainID(): %w", err)
+			validCon, err = chain.rsv.GetValid(ctx, tx.Contract)
+			if err != nil {
+				err = fmt.Errorf(
+					"state.ContractResolver.GetValid(): %w", err)
 				return
 			}
-			if conID == -1 {
-				// Contract not already in DB. So look it up...
 
-				// TODO: Distinguish a lookup error vs all
-				// other connection errors
-
-				var con fat104.Contract
-				if con, txErr = fat104.Lookup(ctx, chain.c,
-					tx.Contract); txErr != nil {
-					txErr = fmt.Errorf("fat104.Lookup(): %w",
-						txErr)
-					return
-				}
-
-				// Download contract
-				if txErr = con.Get(ctx, chain.c); txErr != nil {
-					txErr = fmt.Errorf("fat104.Contract.Get(): %w",
-						txErr)
-					return
-				}
-
-				// Compile
-				var mod wasmer.Module
-				if mod, txErr = wasmer.CompileWithGasMetering(
-					con.Wasm); txErr != nil {
-					txErr = fmt.Errorf(
-						"wasmer.CompileWithGasMetering(): %w",
-						txErr)
-					return
-				}
-
-				// instantiate
-				var vm *runtime.VM
-				if vm, txErr = runtime.NewVM(&mod); txErr != nil {
-					txErr = fmt.Errorf("runtime.NewVM(): %w",
-						txErr)
-					return
-				}
-
-				var rCtx runtime.Context
-				rCtx.Context = ctx
-				rCtx.Chain = chain.ToDBFATChain()
-
-				if txErr = vm.ValidateABI(&rCtx, con.ABI); txErr != nil {
-					txErr = fmt.Errorf(
-						"runtime.VM.ValidateABI(): %w", txErr)
-					return
-				}
-
-				// serialize
-				var compiled []byte
-				if compiled, err = mod.Serialize(); err != nil {
-					err = fmt.Errorf(
-						"wasmer.Module.Serialize(): %w", txErr)
-					return
-				}
-
-				// save
-				if _, err = contract.Insert(chain.Conn,
-					con, compiled); err != nil {
-					err = fmt.Errorf("contract.Insert(): %w", err)
-					return
-				}
-			} else if !validCon {
+			if !validCon {
 				txErr = fmt.Errorf("invalid contract code")
 				return
 			}
 
-			if err = address.InsertContract(chain.Conn,
-				ai, conID, tx.Contract); err != nil {
+			txErr, err = address.InsertContract(chain.Conn,
+				ai, tx.Contract)
+			if err != nil {
 				err = fmt.Errorf("address.InsertContract(): %w", err)
+				return
+			}
+			if txErr != nil {
 				return
 			}
 
 		} else if tx.IsContractCall() {
 			// Determine if address is contract controlled...
-			var conID int64
-			//var conChainID factom.Bytes32
-			if conID, _, txErr = address.SelectContract(
+			var conChainID factom.Bytes32
+			if conChainID, txErr = address.SelectContractChainID(
 				chain.Conn, ai); txErr != nil {
 				txErr = fmt.Errorf("address.SelectContract(): %w",
 					txErr)
 				return
 			}
-			if conID == -1 {
-				txErr = fmt.Errorf("address is not contract")
-				return
-			}
-
-			// Lookup contract from database
-			var mod *wasmer.Module
-			if mod, err = contract.SelectByID(
-				chain.Conn, conID); err != nil {
-				err = fmt.Errorf("contract.SelectByChainID(): %w", err)
+			if conChainID.IsZero() {
+				txErr = fmt.Errorf("address is not contract controlled")
 				return
 			}
 
 			// Check ABI for called function
+			var mod *wasmer.Module
 			var abiF *fat104.Func
-			abiF, err = contract.SelectABIFunc(chain.Conn, conID, tx.Func)
+			mod, abiF, err = chain.rsv.GetABIFunc(ctx,
+				&conChainID, tx.Func)
 			if err != nil {
-				err = fmt.Errorf("contract.SelectABIFunc(): %w")
+				err = fmt.Errorf(
+					"state.ContractResolver.SelectABIFunc(): %w",
+					err)
+				return
 			}
 			if abiF == nil {
 				txErr = fmt.Errorf("contract does not define %q",
 					tx.Func)
+				return
 			}
 
 			// instantiate
 			var vm *runtime.VM
-			if vm, txErr = runtime.NewVM(mod); txErr != nil {
-				txErr = fmt.Errorf("runtime.NewVM(): %w",
-					txErr)
+			if vm, err = runtime.NewVM(mod); err != nil {
+				err = fmt.Errorf("runtime.NewVM(): %w", err)
 				return
 			}
 
@@ -496,7 +433,7 @@ func (chain *FATChain) applyFAT1Tx(eID int64, e factom.Entry) (tx fat1.Transacti
 func NewFATChain(ctx context.Context, c *factom.Client,
 	dbPath, tokenID string,
 	identityChainID, chainID *factom.Bytes32,
-	networkID factom.NetworkID) (_ FATChain, err error) {
+	networkID factom.NetworkID, rsv *ContractResolver) (_ FATChain, err error) {
 
 	chain, err := db.NewFATChain(ctx, dbPath, tokenID,
 		chainID, identityChainID,
@@ -512,11 +449,12 @@ func NewFATChain(ctx context.Context, c *factom.Client,
 		}
 	}()
 
-	return FATChain{chain, c}, nil
+	return FATChain{chain, c, rsv}, nil
 }
 
 func NewFATChainByEBlock(ctx context.Context, c *factom.Client,
-	dbPath string, head factom.EBlock) (chain FATChain, err error) {
+	dbPath string, head factom.EBlock,
+	rsv *ContractResolver) (chain FATChain, err error) {
 
 	log := log.New("chain", head.ChainID)
 	log.Infof("Syncing new chain...")
@@ -561,7 +499,7 @@ func NewFATChainByEBlock(ctx context.Context, c *factom.Client,
 
 	chain, err = NewFATChain(ctx, c, dbPath,
 		tokenID, &identityChainID,
-		head.ChainID, dblock.NetworkID)
+		head.ChainID, dblock.NetworkID, rsv)
 	if err != nil {
 		err = fmt.Errorf("state.NewFATChain(): %w", err)
 		return

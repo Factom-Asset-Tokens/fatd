@@ -90,7 +90,8 @@ func OpenFATChain(ctx context.Context,
 	dbPath, fname string) (chain FATChain, err error) {
 	chain.Log = _log.New("chain", strings.TrimRight(fname, dbFileExtension))
 	chain.Log.Info("Opening...")
-	chain.Conn, chain.Pool, err = OpenConnPool(ctx, dbPath+fname)
+	chain.Conn, chain.Pool, err = OpenConnPoolChain(ctx, dbPath+fname)
+
 	if err != nil {
 		return
 	}
@@ -100,6 +101,7 @@ func OpenFATChain(ctx context.Context,
 		}
 	}()
 	chain.DBFile = fname
+	chain.DBPath = dbPath + fname
 
 	err = chain.load()
 	return

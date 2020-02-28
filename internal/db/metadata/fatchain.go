@@ -26,6 +26,7 @@ import (
 	"fmt"
 
 	"crawshaw.io/sqlite"
+	"crawshaw.io/sqlite/sqlitex"
 	"github.com/Factom-Asset-Tokens/factom"
 	"github.com/Factom-Asset-Tokens/factom/fat"
 	"github.com/Factom-Asset-Tokens/fatd/internal/db/entry"
@@ -36,11 +37,12 @@ import (
 //
 // The "fat_chain" table has a foreign key reference to the "entry" table,
 // which must exist first.
-const CreateTableFATChain = `CREATE TABLE "fat_chain" (
+const CreateTableFATChain = `
+CREATE TABLE IF NOT EXISTS %[1]q."fat_chain" (
         "id"                    INTEGER PRIMARY KEY,
 
-        "token"                 TEXT NOT NULL,
-        "issuer"                BLOB NOT NULL,
+        "token"                 TEXT,
+        "issuer"                BLOB,
 
         "id_key_entry_data"     BLOB,
         "id_key_height"         INTEGER,
@@ -50,12 +52,19 @@ const CreateTableFATChain = `CREATE TABLE "fat_chain" (
 
         FOREIGN KEY("init_entry_id") REFERENCES "entry"
 );
+CREATE VIEW IF NOT EXISTS "temp"."fat_chain_all" AS
+        SELECT "id", "token", "issuer", "id_key_entry_data",
+                "id_key_height", "init_entry_id",
+                ifnull((
+                        SELECT "num_issued" FROM "temp"."fat_chain"
+                ), "num_issued") AS "num_issued"
+                FROM "main"."fat_chain";
 `
 
 // Insert the TokenID and issuer Chain ID into the first row of the "fat_chain"
 // table. This may only ever be called once for a given database.
 func InsertFATChain(conn *sqlite.Conn, tokenID string, issuer *factom.Bytes32) error {
-	stmt := conn.Prep(`INSERT INTO "fat_chain"
+	stmt := conn.Prep(`INSERT INTO "main"."fat_chain"
                 ("id", "token", "issuer")
                 VALUES (0, ?, ?);`)
 	stmt.BindText(1, tokenID)
@@ -65,7 +74,7 @@ func InsertFATChain(conn *sqlite.Conn, tokenID string, issuer *factom.Bytes32) e
 }
 
 func UpdateIdentity(conn *sqlite.Conn, identity factom.Identity) error {
-	stmt := conn.Prep(`UPDATE "fat_chain" SET
+	stmt := conn.Prep(`UPDATE "main"."fat_chain" SET
                 ("id_key_entry_data", "id_key_height") = (?, ?);`)
 	data, err := identity.MarshalBinary()
 	if err != nil {
@@ -80,7 +89,7 @@ func UpdateIdentity(conn *sqlite.Conn, identity factom.Identity) error {
 
 // SetInitEntryID updates the "init_entry_id"
 func SetInitEntryID(conn *sqlite.Conn, id int64) error {
-	stmt := conn.Prep(`UPDATE "fat_chain" SET
+	stmt := conn.Prep(`UPDATE "main"."fat_chain" SET
                 ("init_entry_id", "num_issued") = (?, 0);`)
 	stmt.BindInt64(1, id)
 	_, err := stmt.Step()
@@ -91,16 +100,29 @@ func SetInitEntryID(conn *sqlite.Conn, id int64) error {
 	return err
 }
 
+func Commit(conn *sqlite.Conn) error {
+	return sqlitex.ExecScript(conn, `
+UPDATE "main"."fat_chain" SET "num_issued" = (
+        SELECT "num_issued" FROM "temp"."fat_chain_all");
+DELETE FROM "temp"."fat_chain";
+`)
+}
+
 func AddNumIssued(conn *sqlite.Conn, add uint64) error {
-	stmt := conn.Prep(`UPDATE "fat_chain" SET
-                "num_issued" = "num_issued" + ?;`)
+	stmt := conn.Prep(`
+INSERT INTO "temp"."fat_chain"("id", "num_issued")
+        SELECT 0, "num_issued" + ?1 FROM "main"."fat_chain" WHERE true
+        ON CONFLICT("id") DO UPDATE SET "num_issued" = "num_issued" + ?1;`)
 	stmt.BindInt64(1, int64(add))
 	_, err := stmt.Step()
-	if err != nil && conn.Changes() != 1 {
+	if err != nil {
+		return err
+	}
+	if conn.Changes() != 1 {
 		panic(fmt.Errorf("expected exactly 1 change but got %v",
 			conn.Changes()))
 	}
-	return err
+	return nil
 }
 
 func SelectFATChain(conn *sqlite.Conn) (numIssued uint64,
@@ -110,7 +132,7 @@ func SelectFATChain(conn *sqlite.Conn) (numIssued uint64,
 	err error) {
 	stmt := conn.Prep(`SELECT "id_key_entry_data", "id_key_height",
                         "init_entry_id", "num_issued", "token", "issuer"
-                        FROM "fat_chain";`)
+                        FROM "temp"."fat_chain_all";`)
 	hasRow, err := stmt.Step()
 	defer stmt.Reset()
 	if err != nil {

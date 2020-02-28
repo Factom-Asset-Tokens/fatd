@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"crawshaw.io/sqlite"
+	"github.com/AdamSLevy/sqlitechangeset"
 	"github.com/Factom-Asset-Tokens/factom"
 	"github.com/Factom-Asset-Tokens/fatd/internal/db"
 )
@@ -39,14 +40,14 @@ func NewPendingChain(ctx context.Context, c *factom.Client, chain Chain) (
 	if ok := factomChain.CloseMtx.RTryLock(ctx); !ok {
 		return nil, ctx.Err()
 	}
-	s, err := factomChain.Pool.GetSnapshot(ctx, "")
+	s, err := factomChain.Pool.GetSnapshot(ctx, "main")
 	if err != nil {
 		return
 	}
 
 	// Start a new session so we can track all changes and later rollback
 	// all pending entries.
-	session, err := factomChain.Conn.CreateSession("")
+	session, err := factomChain.Conn.CreateSession("main")
 	if err != nil {
 		return nil, err
 	}
@@ -74,8 +75,9 @@ func NewPendingChain(ctx context.Context, c *factom.Client, chain Chain) (
 	}, nil
 }
 
-func (pending *PendingChain) ApplyPendingEntries(es []factom.Entry) error {
+func (pending *PendingChain) ApplyPendingEntries(es []factom.Entry) (err error) {
 
+	defer pending.Save()(&err)
 	// Apply any new pending entries.
 	for _, e := range es {
 		// Ignore entries we have seen before.
@@ -83,16 +85,16 @@ func (pending *PendingChain) ApplyPendingEntries(es []factom.Entry) error {
 			continue
 		}
 
+		// The timestamp won't be established until the next EBlock so
+		// use the current time for now.
+		e.Timestamp = time.Now()
+
 		// Load the Entry data.
 		if err := e.Get(pending.ctx, pending.c); err != nil {
 			return fmt.Errorf("factom.Entry.Get(): %w", err)
 		}
 
-		// The timestamp won't be established until the next EBlock so
-		// use the current time for now.
-		e.Timestamp = time.Now()
-
-		if _, err := pending.Chain.ApplyEntry(pending.ctx, e); err != nil {
+		if _, _, err := pending.Chain.ApplyEntry(pending.ctx, e); err != nil {
 			return fmt.Errorf("state.Chain.ApplyEntry(): %w", err)
 		}
 
@@ -130,39 +132,44 @@ func (pending *PendingChain) Revert() (Chain, error) {
 		factomChain.Conn.SetInterrupt(oldDone)
 		factomChain.CloseMtx.RUnlock()
 	}()
+	chain := pending.OfficialState
 	// Revert all of the pending transactions by applying the inverse of
 	// the changeset tracked by the session.
 	var changeset bytes.Buffer
 	if err := pending.Session.Changeset(&changeset); err != nil {
-		return nil, fmt.Errorf("sqlite.Session.Changeset(): %w", err)
+		return chain, fmt.Errorf("sqlite.Session.Changeset(): %w", err)
 	}
-	inverse := bytes.NewBuffer(make([]byte, 0, changeset.Len()))
-	if err := sqlite.ChangesetInvert(inverse, &changeset); err != nil {
-		return nil, fmt.Errorf("sqlite.ChangesetInvert(): %w", err)
-	}
-	if err := factomChain.Conn.ChangesetApply(
-		inverse, nil, conflictFn(factomChain)); err != nil {
-		return nil, fmt.Errorf("sqlite.Conn.ChangesetApply(): %w", err)
+	if err := factomChain.Conn.ChangesetApplyInverse(&changeset,
+		nil, conflictFn(factomChain)); err != nil {
+		return chain, fmt.Errorf("sqlite.Conn.ChangesetApply(): %w", err)
 	}
 
-	return pending.OfficialState, nil
+	return chain, nil
 }
 func conflictFn(chain *db.FactomChain) func(
 	sqlite.ConflictType, sqlite.ChangesetIter) sqlite.ConflictAction {
 
 	return func(cType sqlite.ConflictType,
-		_ sqlite.ChangesetIter) sqlite.ConflictAction {
+		iter sqlite.ChangesetIter) sqlite.ConflictAction {
 
 		chain.Log.Errorf("ChangesetApply Conflict: %v", cType)
-		return sqlite.SQLITE_CHANGESET_ABORT
+		sql, err := sqlitechangeset.ConflictChangesetIterToSQL(chain.Conn, iter)
+		if err != nil {
+			chain.Log.Errorf(
+				"sqlitechangeset.ChangesetIterToSQL(): %v", err)
+			return sqlite.SQLITE_CHANGESET_ABORT
+		}
+		chain.Log.Error(sql)
+
+		return sqlite.SQLITE_CHANGESET_REPLACE
 	}
 }
 
 func (pending *PendingChain) Close() error {
-	_, err := pending.Revert()
+	chain, err := pending.Revert()
 	if err != nil {
 		pending.ToFactomChain().Log.Errorf(
 			"state.PendingChain.Revert(): %v", err)
 	}
-	return pending.Chain.Close()
+	return chain.Close()
 }

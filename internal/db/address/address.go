@@ -32,24 +32,71 @@ import (
 	"github.com/Factom-Asset-Tokens/factom"
 )
 
-// CreateTable is a SQL string that creates the "address" table.
-const CreateTable = `CREATE TABLE "address" (
+// Commit updates all main.address balances from temp.address, making them
+// permanent and visible to all database connections, and then Resets the temp
+// database. This causes the conn's currently held read transaction to become a
+// write transaction. It will prevent any other open read transactions from
+// being committed. Only one thread should be responsible for Committing
+// official changes.
+func Commit(conn *sqlite.Conn) error {
+	return sqlitex.ExecScript(conn, `
+INSERT INTO "main"."address" SELECT * FROM "temp"."address" WHERE true
+        ON CONFLICT("id") DO UPDATE SET "balance" = "excluded"."balance";
+
+INSERT INTO "main"."address_tx"("rowid", "entry_id", "address_id", "to")
+        SELECT "rowid", * FROM "temp"."address_tx";
+
+DELETE FROM "main"."address_contract" WHERE "address_id" IN (
+        SELECT "address_id" FROM "temp"."address_contract" WHERE "chainid" IS NULL);
+INSERT INTO "main"."address_contract"
+        SELECT * FROM "temp"."address_contract" WHERE "chainid" IS NOT NULL;
+DELETE FROM "temp"."address";
+DELETE FROM "temp"."address_tx";
+DELETE FROM "temp"."address_contract";
+`)
+}
+
+// CreateTable uses the first fmt argument as the database ("main" or "temp")
+// to return a SQL string that creates the %[1]q."address" table.
+const CreateTable = `
+CREATE TABLE IF NOT EXISTS %[1]q."address" (
         "id"            INTEGER PRIMARY KEY,
         "address"       BLOB NOT NULL UNIQUE,
         "balance"       INTEGER NOT NULL
                         CONSTRAINT "insufficient balance" CHECK ("balance" >= 0)
 );
+CREATE VIEW IF NOT EXISTS "temp"."address_all" AS
+        SELECT * FROM "temp"."address"
+        UNION ALL
+        SELECT * FROM "main"."address" WHERE
+                "id" NOT IN (SELECT "id" FROM "temp"."address");
+
 `
 
-// Add adds add to the balance of adr, creating a new row in "address" if it
-// does not exist. If successful, the row id of adr is returned.
-func Add(conn *sqlite.Conn, adr *factom.FAAddress, add uint64) (int64, error) {
-	stmt := conn.Prep(`INSERT INTO "address"
-                ("address", "balance") VALUES (?, ?)
-                ON CONFLICT("address") DO
-                UPDATE SET "balance" = "balance" + "excluded"."balance";`)
-	stmt.BindBytes(1, adr[:])
-	stmt.BindInt64(2, int64(add))
+// Add amount to the balance of adr, creating a new row if it does not already
+// exist. If successful, the row id of adr is returned.
+//
+// Add only makes changes to the temp database, which allows it to be called
+// concurrently on other conns without blocking serially. However the changes
+// will only be visible to this conn until Commit is called.
+//
+// Add must be called within a read transaction on the conn to ensure a
+// consistent view of the state, as this depends on the main database not
+// changing after changes to temp have been added.
+func Add(conn *sqlite.Conn, adr *factom.FAAddress, amount uint64) (int64, error) {
+	return add(conn, adr, int64(amount))
+}
+func add(conn *sqlite.Conn, adr *factom.FAAddress, amount int64) (int64, error) {
+	stmt := conn.Prep(`
+INSERT INTO "temp"."address"("id", "address", "balance")
+    SELECT "id", $adr, "balance" + $amount FROM (
+        SELECT "id", "balance" FROM "main"."address" WHERE "address" = $adr
+        UNION ALL
+        SELECT max("id")+1 AS "id", 0 AS "balance" FROM "temp"."address_all"
+    ) ORDER BY "id" ASC LIMIT 1
+    ON CONFLICT("address") DO UPDATE SET "balance" = "balance" + $amount;`)
+	stmt.SetBytes("$adr", adr[:])
+	stmt.SetInt64("$amount", amount)
 	_, err := stmt.Step()
 	if err != nil {
 		return -1, err
@@ -63,35 +110,14 @@ const sqlitexNoResultsErr = "sqlite: statement has no results"
 // it does not exist and sub is 0. If successful, the row id of adr is
 // returned. If subtracting sub would result in a negative balance, txErr is
 // not nil and starts with "insufficient balance".
-func Sub(conn *sqlite.Conn,
-	adr *factom.FAAddress, sub uint64) (id int64, txErr, err error) {
-	if sub == 0 {
-		// Allow tx's with zeros to result in an INSERT.
-		id, err = Add(conn, adr, 0)
-		return id, nil, err
-	}
-	id, err = SelectID(conn, adr)
+func Sub(conn *sqlite.Conn, adr *factom.FAAddress,
+	amount uint64) (id int64, txErr, err error) {
+	id, err = add(conn, adr, -int64(amount))
 	if err != nil {
-		if err.Error() == sqlitexNoResultsErr {
-			return id, fmt.Errorf("insufficient balance: %v", adr), nil
-		}
-		return id, nil, err
-	}
-	if id < 0 {
-		return id, fmt.Errorf("insufficient balance: %v", adr), nil
-	}
-	stmt := conn.Prep(
-		`UPDATE "address" SET "balance" = "balance" - ? WHERE "rowid" = ?;`)
-	stmt.BindInt64(1, int64(sub))
-	stmt.BindInt64(2, id)
-	if _, err := stmt.Step(); err != nil {
 		if sqlite.ErrCode(err) == sqlite.SQLITE_CONSTRAINT_CHECK {
 			return id, fmt.Errorf("insufficient balance: %v", adr), nil
 		}
 		return id, nil, err
-	}
-	if conn.Changes() == 0 {
-		panic("no balances updated")
 	}
 	return id, nil, nil
 }
@@ -100,9 +126,10 @@ func Sub(conn *sqlite.Conn,
 func SelectIDBalance(conn *sqlite.Conn,
 	adr *factom.FAAddress) (adrID int64, bal uint64, err error) {
 	adrID = -1
-	stmt := conn.Prep(`SELECT "id", "balance" FROM "address" WHERE "address" = ?;`)
+	stmt := conn.Prep(`SELECT "id", "balance" FROM "temp"."address_all"
+                WHERE "address" = ?;`)
 	defer stmt.Reset()
-	stmt.BindBytes(1, adr[:])
+	stmt.BindBytes(sqlite.BindIndexStart, adr[:])
 	hasRow, err := stmt.Step()
 	if err != nil {
 		return
@@ -117,16 +144,17 @@ func SelectIDBalance(conn *sqlite.Conn,
 
 // SelectID returns the row id for the given adr.
 func SelectID(conn *sqlite.Conn, adr *factom.FAAddress) (int64, error) {
-	stmt := conn.Prep(`SELECT "id" FROM "address" WHERE "address" = ?;`)
-	stmt.BindBytes(1, adr[:])
+	stmt := conn.Prep(`SELECT "id" FROM "temp"."address_all"
+		WHERE "address" = ?;`)
+	stmt.BindBytes(sqlite.BindIndexStart, adr[:])
 	return sqlitex.ResultInt64(stmt)
 }
 
 // SelectCount returns the number of rows in "address". If nonZeroOnly is true,
 // then only count the address with a non zero balance.
 func SelectCount(conn *sqlite.Conn, nonZeroOnly bool) (int64, error) {
-	stmt := conn.Prep(`SELECT count(*) FROM "address" WHERE "id" != 1
-                AND (? OR "balance" > 0);`)
-	stmt.BindBool(1, !nonZeroOnly)
+	stmt := conn.Prep(`SELECT count(*) FROM "temp"."address_all"
+		WHERE "id" != 1 AND (? OR "balance" > 0);`)
+	stmt.BindBool(sqlite.BindIndexStart, !nonZeroOnly)
 	return sqlitex.ResultInt64(stmt)
 }

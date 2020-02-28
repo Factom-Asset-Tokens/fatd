@@ -54,6 +54,26 @@ import (
 	"github.com/wasmerio/go-ext-wasm/wasmer"
 )
 
+// TODO: The current implementation has some limitations in how it can be used.
+// Since it writes directly to a chain's sqlite database it must hold a write
+// transaction open, which blocks all readers and writers (which may timeout).
+// This means it can't really be used on a single chain concurrently. This
+// prevents its effective use in the "send-transaction" API method for
+// pre-validating transactions submitted to the API. Even if the transaction is
+// being rolled back, it is blocking use of that API method on that chain,
+// which is not really a good property for an HTTP API.
+//
+// A context scoped write cache needs to be created so that any changes to the
+// database are performed on in-memory data structures (or perhaps the temp
+// sqlite db). At the end of the contract call, these changes can be written to
+// the database or discarded.
+//
+// The database driver functions could be re-written to work like that, writing
+// all changes to duplicates in the "temp" database. Basically at startup, the
+// schema would be applied to the temp database on all connections. Then any
+// INSERTS would be written to the "temp" and updates would be written to the
+// "temp" tables.
+
 //export get_height
 func get_height(ptr unsafe.Pointer) int32 {
 	ctx := intoContext(ptr)

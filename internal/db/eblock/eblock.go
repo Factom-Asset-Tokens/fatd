@@ -33,7 +33,8 @@ import (
 )
 
 // CreateTable is a SQL string that creates the "eblock" table.
-const CreateTable = `CREATE TABLE "eblock" (
+const CreateTable = `
+CREATE TABLE IF NOT EXISTS "eblock" (
         "seq"           INTEGER PRIMARY KEY,
         "key_mr"        BLOB NOT NULL UNIQUE,
         "db_height"     INTEGER NOT NULL UNIQUE,

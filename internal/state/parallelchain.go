@@ -163,7 +163,12 @@ func (state *State) NewParallelChain(ctx context.Context,
 
 		pChain.Unlock()
 
-		return pChain.run(state)
+		if err := pChain.run(state); err != nil {
+			if state.ctx.Err() != nil {
+				pChain.ToFactomChain().Log.Error(err)
+			}
+		}
+		return err
 	})
 
 	state.track(chainID, &pChain)
@@ -229,10 +234,8 @@ func (chain *ParallelChain) processEBlock(state *State, eb dbKeyMREBlock) error 
 		return fmt.Errorf("state.Apply(): %w", err)
 	}
 
-	for _, db := range []string{"main", "contract"} {
-		if err := checkpointWAL(chain.ToFactomChain().Conn, db); err != nil {
-			chain.ToFactomChain().Log.Error(err)
-		}
+	if err := checkpointWAL(chain.ToFactomChain().Conn, "main"); err != nil {
+		chain.ToFactomChain().Log.Error(err)
 	}
 
 	if !chain.issued {

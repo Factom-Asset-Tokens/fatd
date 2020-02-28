@@ -411,7 +411,7 @@ func sendTransaction(ctx context.Context, data json.RawMessage) interface{} {
 	var txErr error
 	switch chain.Issuance.Type {
 	case fat0.Type:
-		txErr, err = attemptApplyFAT0Tx(chain, entry)
+		_, txErr, err = chain.ApplyEntry(ctx, entry)
 	case fat1.Type:
 		txErr, err = attemptApplyFAT1Tx(chain, entry)
 	}

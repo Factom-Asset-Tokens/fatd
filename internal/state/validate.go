@@ -36,7 +36,6 @@ import (
 	"github.com/Factom-Asset-Tokens/factom/fat"
 	"github.com/Factom-Asset-Tokens/fatd/internal/db/eblock"
 	"github.com/Factom-Asset-Tokens/fatd/internal/db/entry"
-	"github.com/Factom-Asset-Tokens/fatd/internal/flag"
 )
 
 func init() {
@@ -83,19 +82,25 @@ func (chain *FATChain) Validate(ctx context.Context, repair bool) (err error) {
 	// don't fix corrupted databases, at least not yet.
 	defer chain.Save()(&err)
 
+	// Reset the SaveDepth to force the following Saves to perform the
+	// final Commit.
+	chain.SaveDepth--
+	defer func() { chain.SaveDepth++ }()
+
 	chain.Head = factom.EBlock{}
 	chain.SyncHeight = 0
 	chain.SyncDBKeyMR = nil
 
 	// Completely clear the state, while preserving all chain data.
 	err = sqlitex.ExecScript(write, `
-                UPDATE "address" SET "balance" = 0;
-                DELETE FROM "address_tx";
-                DELETE FROM "nftoken";
-                DELETE FROM "nftoken_tx";
-                DELETE FROM "eblock";
-                DELETE FROM "entry";
-                UPDATE "fat_chain" SET ("init_entry_id", "num_issued") = (NULL, NULL);
+                UPDATE "main"."address" SET "balance" = 0;
+                DELETE FROM "main"."address_tx";
+                DELETE FROM "main"."nftoken";
+                DELETE FROM "main"."nftoken_tx";
+                DELETE FROM "main"."eblock";
+                DELETE FROM "main"."entry";
+                UPDATE "main"."fat_chain" SET
+                        ("init_entry_id", "num_issued") = (NULL, NULL);
                 `)
 	if err != nil {
 		return err
@@ -156,20 +161,12 @@ func (chain *FATChain) Validate(ctx context.Context, repair bool) (err error) {
 			}
 
 			if *e.Hash != *ebe.Hash {
-				return fmt.Errorf("invalid Entry{%v}: broken EBlock link",
-					e.Hash)
-			}
-
-			if *e.ChainID != *chain.ID {
-				return fmt.Errorf("invalid Entry{%v}: invalid ChainID",
-					e.Hash)
-			}
-
-			if e.Timestamp != ebe.Timestamp {
 				return fmt.Errorf(
-					"invalid Entry{%v}: invalid Timestamp: %v, expected: %v",
-					e.Hash, e.Timestamp, ebe.Timestamp)
+					"invalid Entry{%v}: broken EBlock link", e.Hash)
 			}
+
+			e.Timestamp = ebe.Timestamp
+			e.Height = ebe.Height
 
 			eb.Entries[i] = e
 			eID++
@@ -214,8 +211,8 @@ func (chain *FATChain) Validate(ctx context.Context, repair bool) (err error) {
 		}
 		chain.Log.Error("Corrupted state!")
 		// Write the changeset to a file for later analysis...
-		path := fmt.Sprintf("%v%v-corrupt-%v.changeset",
-			flag.DBPath, chain.ID.String(), time.Now().Unix())
+		path := fmt.Sprintf("%v-corrupt-%v.changeset",
+			chain.DBPath, time.Now().Unix())
 		chain.Log.Warnf("writing corrupted state changeset to %v", path)
 		f, err := os.Create(path)
 		if err != nil {

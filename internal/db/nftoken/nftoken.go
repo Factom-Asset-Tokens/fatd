@@ -40,7 +40,8 @@ import (
 //
 // The "nftoken" table has foreign key references to the "entry" and
 // "address" tables, which must exist first.
-const CreateTable = `CREATE TABLE "nftoken" (
+const CreateTable = `
+CREATE TABLE IF NOT EXISTS "nftoken" (
         "id"                      INTEGER PRIMARY KEY,
         "metadata"                BLOB,
         "creation_entry_id"       INTEGER NOT NULL,
@@ -49,9 +50,9 @@ const CreateTable = `CREATE TABLE "nftoken" (
         FOREIGN KEY("creation_entry_id") REFERENCES "entry",
         FOREIGN KEY("owner_id") REFERENCES "address"
 );
-CREATE INDEX "idx_nftoken_metadata" ON nftoken("metadata");
-CREATE INDEX "idx_nftoken_owner_id" ON nftoken("owner_id");
-CREATE VIEW "nftoken_address" AS
+CREATE INDEX IF NOT EXISTS "idx_nftoken_metadata" ON nftoken("metadata");
+CREATE INDEX IF NOT EXISTS "idx_nftoken_owner_id" ON nftoken("owner_id");
+CREATE VIEW IF NOT EXISTS "nftoken_address" AS
         SELECT "nftoken"."id" AS "id",
                 "metadata",
                 "hash" AS "creation_hash",

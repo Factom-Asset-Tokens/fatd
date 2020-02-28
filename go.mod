@@ -3,11 +3,11 @@ module github.com/Factom-Asset-Tokens/fatd
 go 1.13
 
 require (
-	crawshaw.io/sqlite v0.2.5
+	crawshaw.io/sqlite v0.2.6-0.20200228213945-251d8861ace6
 	github.com/AdamSLevy/jsonrpc2/v14 v14.0.0
 	github.com/AdamSLevy/sqlbuilder v0.0.0-20191210203204-7d84c87e7f80
-	github.com/AdamSLevy/sqlitechangeset v0.0.0-20191210201651-f95453d87aff
-	github.com/Factom-Asset-Tokens/factom v0.0.0-20200222022040-798896758557
+	github.com/AdamSLevy/sqlitechangeset v0.0.0-20200226212845-28d0f422561e
+	github.com/Factom-Asset-Tokens/factom v0.0.0-20200226063345-fba5860cb176
 	github.com/goji/httpauth v0.0.0-20160601135302-2da839ab0f4d
 	github.com/nightlyone/lockfile v0.0.0-20200124072040-edb130adc195
 	github.com/posener/complete v1.2.3
@@ -27,7 +27,8 @@ replace (
 
 	// Uses the LLVM backend and exposes metering. Also fixes a bug with
 	// InstanceContext.Data.
-	github.com/wasmerio/go-ext-wasm => github.com/AdamSLevy/go-ext-wasm v0.0.0-20191212234502-d66004a8582c
+	github.com/wasmerio/go-ext-wasm => github.com/AdamSLevy/go-ext-wasm v0.0.0-20200228221709-5ba085aa00c3
 )
 
 //replace github.com/Factom-Asset-Tokens/factom => ../factom
+//replace github.com/AdamSLevy/sqlitechangeset => ../../go-modules/AdamSLevy/sqlitechangeset

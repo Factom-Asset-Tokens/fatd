@@ -1,9 +1,10 @@
 package state
 
 import (
-	"fmt"
-
 	"crawshaw.io/sqlite/sqlitex"
+	"github.com/Factom-Asset-Tokens/fatd/internal/db/address"
+	"github.com/Factom-Asset-Tokens/fatd/internal/db/entry"
+	"github.com/Factom-Asset-Tokens/fatd/internal/db/metadata"
 )
 
 // Save is implemented in the same way for all types but without generics this
@@ -15,16 +16,25 @@ import (
 func (chain *FactomChain) Save() func(err *error) {
 	rollback := sqlitex.Save(chain.Conn)
 	chainCopy := *chain
+	saveDepth := chain.SaveDepth
+	chain.SaveDepth++
 	return func(err *error) {
-		if *err != nil {
-			// Reset chain on any error
-			var alwaysRollbackErr = fmt.Errorf("always rollback")
-			rollback(&alwaysRollbackErr)
-			*chain = chainCopy
+		ch := chain.Conn.SetInterrupt(nil)
+		defer rollback(err)
+		defer func() {
+			if *err != nil {
+				*chain = chainCopy
+			}
+			chain.Conn.SetInterrupt(ch)
+		}()
+		chain.SaveDepth--
+		if saveDepth > 0 || *err != nil {
+			return
+		}
+		if *err = entry.Commit(chain.Conn); *err != nil {
 			return
 		}
 		// *err == nil, commit all changes
-		rollback(err)
 	}
 }
 
@@ -33,15 +43,29 @@ func (chain *FactomChain) Save() func(err *error) {
 func (chain *FATChain) Save() func(err *error) {
 	rollback := sqlitex.Save(chain.Conn)
 	chainCopy := *chain
+	saveDepth := chain.SaveDepth
+	chain.SaveDepth++
 	return func(err *error) {
-		if *err != nil {
-			// Reset chain on any error
-			var alwaysRollbackErr = fmt.Errorf("always rollback")
-			rollback(&alwaysRollbackErr)
-			*chain = chainCopy
+		ch := chain.Conn.SetInterrupt(nil)
+		defer rollback(err)
+		defer func() {
+			if *err != nil {
+				*chain = chainCopy
+			}
+			chain.Conn.SetInterrupt(ch)
+		}()
+		chain.SaveDepth--
+		if saveDepth > 0 || *err != nil {
 			return
 		}
-		// *err == nil, commit all changes
-		rollback(err)
+		if *err = entry.Commit(chain.Conn); *err != nil {
+			return
+		}
+		if *err = address.Commit(chain.Conn); *err != nil {
+			return
+		}
+		if *err = metadata.Commit(chain.Conn); *err != nil {
+			return
+		}
 	}
 }

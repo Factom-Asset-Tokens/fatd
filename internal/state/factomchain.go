@@ -52,8 +52,9 @@ func (chain *FactomChain) ApplyEBlock(dbKeyMR *factom.Bytes32, eb factom.EBlock)
 }
 
 func (chain *FactomChain) ApplyEntry(_ context.Context, e factom.Entry) (
-	eID int64, err error) {
-	return entry.Insert(chain.Conn, e, chain.Head.Sequence)
+	eID int64, _, err error) {
+	eID, err = entry.Insert(chain.Conn, e, chain.Head.Sequence)
+	return
 }
 
 func (chain *FactomChain) SetSync(height uint32, dbKeyMR *factom.Bytes32) error {

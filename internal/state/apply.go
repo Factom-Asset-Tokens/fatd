@@ -42,7 +42,7 @@ func Apply(ctx context.Context, chain Chain,
 
 	// Insert each entry and attempt to apply it...
 	for _, e := range eb.Entries {
-		if _, err := chain.ApplyEntry(ctx, e); err != nil {
+		if _, _, err := chain.ApplyEntry(ctx, e); err != nil {
 			return fmt.Errorf("state.Chain.ApplyEntry(): %w", err)
 		}
 	}
@@ -98,7 +98,8 @@ func (state *State) ApplyEBlock(ctx context.Context,
 
 			// Attempt to open a new chain.
 			fatChain, err := NewFATChain(ctx, state.c, state.DBPath,
-				tokenID, &issuerID, eb.ChainID, state.NetworkID)
+				tokenID, &issuerID, eb.ChainID, state.NetworkID,
+				state.rsv)
 			if err != nil {
 				return nil, fmt.Errorf("state.NewFATChain(): %w", err)
 			}
@@ -215,7 +216,10 @@ func (state *State) Get(ctx context.Context,
 	if includePending || !ok {
 		chain = chain.Copy()
 		chain.ToFactomChain().Conn = read
+		release := chain.Save()
 		return chain, func() {
+			err := fmt.Errorf("always rollback")
+			release(&err)
 			factomChain.Pool.Put(read)
 			factomChain.CloseMtx.RUnlock()
 		}, nil
@@ -233,6 +237,7 @@ func (state *State) Get(ctx context.Context,
 	// Use the official chain state with the conn from the Pool.
 	chain = pending.OfficialState.Copy()
 	chain.ToFactomChain().Conn = read
+	release := chain.Save()
 
 	// Return a function that ends the read transaction and returns the
 	// conn to the Pool.
@@ -240,6 +245,8 @@ func (state *State) Get(ctx context.Context,
 		// We must clear the interrupt to prevent endRead from
 		// panicking.
 		read.SetInterrupt(nil)
+		err := fmt.Errorf("always rollback")
+		release(&err)
 		endRead()
 		factomChain.Pool.Put(read)
 		factomChain.CloseMtx.RUnlock()

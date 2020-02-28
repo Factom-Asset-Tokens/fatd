@@ -46,10 +46,12 @@ type FactomChain struct {
 	SyncHeight  uint32
 	SyncDBKeyMR *factom.Bytes32
 
-	DBFile   string
-	Conn     *sqlite.Conn  // Read/Write
-	Pool     *sqlitex.Pool // Read Only Pool
-	CloseMtx trylock.TryLocker
+	DBPath    string
+	DBFile    string
+	Conn      *sqlite.Conn  // Read/Write
+	Pool      *sqlitex.Pool // Read Only Pool
+	CloseMtx  trylock.TryLocker
+	SaveDepth int
 
 	Log _log.Log
 }
@@ -72,11 +74,12 @@ func NewFactomChain(ctx context.Context,
 	}
 
 	log := _log.New("chain", strings.TrimRight(fname, dbFileExtension))
-	conn, pool, err := OpenConnPool(ctx, dbPath+fname)
+	conn, pool, err := OpenConnPoolChain(ctx, dbPath+fname)
 	if err != nil {
 		err = fmt.Errorf("db.OpenConnPool(): %w", err)
 		return
 	}
+
 	defer func() {
 		if err != nil {
 			Close(conn, pool)
@@ -100,6 +103,7 @@ func NewFactomChain(ctx context.Context,
 		Head:        factom.EBlock{ChainID: chainID, KeyMR: &zero},
 		SyncDBKeyMR: &zero,
 
+		DBPath:   path,
 		DBFile:   fname,
 		Conn:     conn,
 		Pool:     pool,
@@ -113,7 +117,7 @@ func OpenFactomChain(ctx context.Context,
 	dbPath, fname string) (_ FactomChain, err error) {
 	log := _log.New("chain", strings.TrimRight(fname, dbFileExtension))
 	log.Info("Opening...")
-	conn, pool, err := OpenConnPool(ctx, dbPath+fname)
+	conn, pool, err := OpenConnPoolChain(ctx, dbPath+fname)
 	if err != nil {
 		return
 	}

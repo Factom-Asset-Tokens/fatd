@@ -23,66 +23,76 @@
 package address
 
 import (
+	"fmt"
+
 	"crawshaw.io/sqlite"
 	"github.com/Factom-Asset-Tokens/factom"
 )
 
-const CreateTableContract = `CREATE TABLE "address_contract" (
+const CreateTableContract = `
+CREATE TABLE IF NOT EXISTS %[1]q."address_contract" (
         "address_id"    INTEGER PRIMARY KEY,
-        "contract_id"   INTEGER,
-        "chainid"       BLOB NOT NULL,
+        "chainid"       BLOB,
         FOREIGN KEY("address_id") REFERENCES "address"
 );
-CREATE INDEX "idx_address_contract_chainid" ON "address_contract"("chainid");`
+CREATE INDEX IF NOT EXISTS
+        %[1]q."idx_address_contract_chainid" ON "address_contract"("chainid");
+CREATE VIEW IF NOT EXISTS "temp"."address_contract_all" AS
+        SELECT * FROM "temp"."address_contract" WHERE "chainid" IS NOT NULL
+        UNION ALL
+        SELECT * FROM "main"."address_contract" WHERE "address_id" NOT IN (
+                SELECT "address_id" FROM "temp"."address_contract");
+`
 
 func InsertContract(conn *sqlite.Conn,
-	adrID, ctrtID int64, chainID *factom.Bytes32) error {
-
-	stmt := conn.Prep(`INSERT INTO "address_contract"
-                ("address_id", "contract_id", "chainid") VALUES (?, ?, ?);`)
-	stmt.BindInt64(1, adrID)
-	stmt.BindInt64(2, ctrtID)
-	stmt.BindBytes(3, chainID[:])
+	adrID int64, chainID *factom.Bytes32) (txErr, err error) {
+	// Ensure contract does not already exist in "main" or "temp".
+	cID, err := SelectContractChainID(conn, adrID)
+	if err != nil {
+		return nil, err
+	}
+	if !cID.IsZero() {
+		return fmt.Errorf("address already delegated"), nil
+	}
+	stmt := conn.Prep(`INSERT INTO "temp"."address_contract"
+                ("address_id", "chainid") VALUES (?, ?);`)
+	i := sqlite.BindIncrementor()
+	stmt.BindInt64(i(), adrID)
+	stmt.BindBytes(i(), chainID[:])
 	if _, err := stmt.Step(); err != nil {
-		return err
+		return nil, err
 	}
-	return nil
-}
-
-func SelectContract(conn *sqlite.Conn, adrID int64) (int64, factom.Bytes32, error) {
-	stmt := conn.Prep(`SELECT "contract_id", "chainid" FROM "address_contract"
-                WHERE "address_id" = ?;`)
-	stmt.BindInt64(1, adrID)
-
-	var chainID factom.Bytes32
-	if hasRow, err := stmt.Step(); err != nil || !hasRow {
-		return -1, chainID, err
-	}
-
-	id := stmt.ColumnInt64(0)
-
-	if stmt.ColumnBytes(1, chainID[:]) != len(chainID) {
-		panic("invalid chainid length")
-	}
-
-	return id, chainID, nil
-}
-
-func UpdateContractID(conn *sqlite.Conn, adrID, ctrtID int64) error {
-	stmt := conn.Prep(`UPDATE "address_contract" SET ("contract_id" = ?)
-                WHERE "address_id" = ?;`)
-	stmt.BindInt64(1, ctrtID)
-	stmt.BindInt64(2, adrID)
-
-	_, err := stmt.Step()
-	return err
+	return nil, nil
 }
 
 func DeleteContract(conn *sqlite.Conn, adrID int64) error {
-	stmt := conn.Prep(`DELETE FROM "address_contract"
-                WHERE "address_id" = ?;`)
-	stmt.BindInt64(1, adrID)
+	stmt := conn.Prep(`
+INSERT INTO "temp"."address_contract" VALUES (?, NULL)
+        ON CONFLICT("address_id") DO
+                UPDATE SET "chainid" = NULL;`)
+	stmt.BindInt64(sqlite.BindIndexStart, adrID)
 
 	_, err := stmt.Step()
+	if conn.Changes() == 0 {
+		panic("no rows updated")
+	}
+
 	return err
+}
+
+func SelectContractChainID(conn *sqlite.Conn, adrID int64) (factom.Bytes32, error) {
+	stmt := conn.Prep(`SELECT "chainid" FROM "temp"."address_contract_all"
+        WHERE "address_id" = ?;`)
+	stmt.BindInt64(sqlite.BindIndexStart, adrID)
+
+	var chainID factom.Bytes32
+	if hasRow, err := stmt.Step(); err != nil || !hasRow {
+		return chainID, err
+	}
+
+	if stmt.ColumnBytes(sqlite.ColumnIndexStart, chainID[:]) != len(chainID) {
+		panic("invalid chainid length")
+	}
+
+	return chainID, nil
 }

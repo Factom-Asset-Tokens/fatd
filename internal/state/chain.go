@@ -41,9 +41,17 @@ type Chain interface {
 
 	// ApplyEntry applies the next Entry. This is used by the engine for
 	// applying pending entries.
-	ApplyEntry(context.Context, factom.Entry) (id int64, err error)
+	//
+	// This may be called concurrently on Chain Copies with distinct Conns,
+	// as the change is only visible in the temp database until the
+	// outermost SAVEPOINT is committed.
+	ApplyEntry(context.Context, factom.Entry) (id int64, txErr, err error)
 
-	SetSync(uint32, *factom.Bytes32) error
+	// Update metadata.
+	//
+	// This starts a write transaction and may only be used by a single
+	// goroutine.
+	SetSync(height uint32, dbKeyMR *factom.Bytes32) error
 
 	// Copy returns a copy of the current state. This allows the engine to
 	// save and rollback the in-memory state data.
@@ -68,7 +76,7 @@ func (chain UnknownChain) UpdateSidechainData(context.Context) error {
 func (chain UnknownChain) ApplyEBlock(*factom.Bytes32, factom.EBlock) error {
 	panic("UnknownChain should not be used")
 }
-func (chain UnknownChain) ApplyEntry(context.Context, factom.Entry) (int64, error) {
+func (chain UnknownChain) ApplyEntry(context.Context, factom.Entry) (_ int64, _, _ error) {
 	panic("UnknownChain should not be used")
 }
 func (chain UnknownChain) ToFactomChain() *db.FactomChain {

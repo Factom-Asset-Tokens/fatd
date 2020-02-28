@@ -43,7 +43,8 @@ import (
 //
 // The "contract" table stores the raw Wasm smart contract code as well as
 // cached compiled modules with metering code injected.
-const CreateTable = `CREATE TABLE IF NOT EXISTS "contract"."contract" (
+const CreateTable = `
+CREATE TABLE IF NOT EXISTS "main"."contract" (
         "id"            INTEGER PRIMARY KEY,
         "chainid"       BLOB NOT NULL UNIQUE,
         "valid"         BOOL NOT NULL DEFAULT TRUE,
@@ -56,7 +57,7 @@ const CreateTable = `CREATE TABLE IF NOT EXISTS "contract"."contract" (
         "compiled"      BLOB
 );
 CREATE INDEX IF NOT EXISTS
-        "contract"."idx_contract_chainid" ON "contract"("chainid");
+        "main"."idx_contract_chainid" ON "contract"("chainid");
 `
 
 // Insert the wasm contract into the "contract" table.
@@ -72,19 +73,20 @@ func Insert(conn *sqlite.Conn, con fat104.Contract, compiled []byte) (int64, err
 		panic(fmt.Errorf("factom.Entry.MarshalBinary(): %w", err))
 	}
 
-	stmt := conn.Prep(`INSERT INTO "contract"."contract"
+	stmt := conn.Prep(`INSERT INTO "main"."contract"
                 ("chainid", "valid", "first_entry", "wasm", "compiled", "abi")
                 VALUES (?, ?, ?, ?, ?, json_extract(?, '$.abi'));`)
-	stmt.BindBytes(1, con.Entry.ChainID[:])
-	stmt.BindBool(2, len(compiled) > 0)
-	stmt.BindBytes(3, data)
-	stmt.BindBytes(4, con.Wasm)
+	i := sqlite.BindIncrementor()
+	stmt.BindBytes(i(), con.Entry.ChainID[:])
+	stmt.BindBool(i(), len(compiled) > 0)
+	stmt.BindBytes(i(), data)
+	stmt.BindBytes(i(), con.Wasm)
 	if len(compiled) > 0 {
-		stmt.BindBytes(5, compiled)
-		stmt.BindBytes(6, con.Entry.Content)
+		stmt.BindBytes(i(), compiled)
+		stmt.BindBytes(i(), con.Entry.Content)
 	} else {
-		stmt.BindNull(5)
-		stmt.BindNull(6)
+		stmt.BindNull(i())
+		stmt.BindNull(i())
 	}
 
 	if _, err := stmt.Step(); err != nil {
@@ -96,7 +98,7 @@ func Insert(conn *sqlite.Conn, con fat104.Contract, compiled []byte) (int64, err
 // SelectWhere is a SQL fragment for retrieving rows from the "contract" table
 // with Select().
 const SelectWhere = `SELECT "id", "valid", "compiled", "wasm"
-                                FROM "contract"."contract" WHERE `
+        FROM "main"."contract" WHERE `
 const (
 	colID = iota
 	colValid
@@ -146,6 +148,8 @@ func SelectModule(stmt *sqlite.Stmt) (*wasmer.Module, int64, error) {
 		return nil, id, fmt.Errorf("wasmer.Compile(): %w", err)
 	}
 
+	// TODO: return indication of compiled cache miss
+
 	return &mod, id, nil
 }
 
@@ -157,9 +161,9 @@ func SelectModule(stmt *sqlite.Stmt) (*wasmer.Module, int64, error) {
 //
 // A known valid contract will return (false, rowid, nil).
 func SelectValid(conn *sqlite.Conn, chainID *factom.Bytes32) (bool, int64, error) {
-	stmt := conn.Prep(`SELECT "id", "valid" FROM "contract"."contract"
-                                WHERE "chainid" = ?;`)
-	stmt.BindBytes(1, chainID[:])
+	stmt := conn.Prep(`SELECT "id", "valid" FROM "main"."contract"
+                WHERE "chainid" = ?;`)
+	stmt.BindBytes(sqlite.BindIndexStart, chainID[:])
 
 	hasRow, err := stmt.Step()
 	if err != nil || !hasRow {
@@ -172,7 +176,7 @@ func SelectValid(conn *sqlite.Conn, chainID *factom.Bytes32) (bool, int64, error
 // SelectByID returns the compiled wasmer.Module for the contract stored at row
 // id.
 //
-// See Select for more information on return values.
+// See SelectModule for more information on return values.
 func SelectByID(conn *sqlite.Conn, id int64) (*wasmer.Module, error) {
 	stmt := conn.Prep(SelectWhere + `"id" = ?;`)
 	stmt.BindInt64(1, id)
@@ -182,44 +186,49 @@ func SelectByID(conn *sqlite.Conn, id int64) (*wasmer.Module, error) {
 }
 
 // SelectABIFunc returns the fat104.Func with the given fname from the contract
-// with the given conID.
+// with the given chainID.
 //
-// If no such conID exists, a "contract not found" error is returned.
+// If the contract is unknown (nil, -1, nil) is returned.
 //
-// If no such fname exists, (nil, nil) is returned.
-func SelectABIFunc(conn *sqlite.Conn, conID int64, fname string) (
-	*fat104.Func, error) {
+// If no such fname exists (nil, rowID>0, nil) is returned.
+func SelectABIFunc(conn *sqlite.Conn, chainID *factom.Bytes32, fname string) (
+	*fat104.Func, int64, error) {
 
 	stmt := conn.Prep(fmt.Sprintf(
-		`SELECT json_extract("abi", '$.%v') FROM "contract"."contract"
-                        WHERE "id" = ?;`, fname))
-	stmt.BindInt64(1, conID)
+		`SELECT "id", json_extract("abi", '$.%v') FROM "main"."contract"
+                        WHERE "chainid" = ?;`, fname))
+	stmt.BindBytes(sqlite.BindIndexStart, chainID[:])
 
 	hasRow, err := stmt.Step()
-	if !hasRow {
-		return nil, fmt.Errorf("contract not found")
-	}
 	if err != nil {
-		return nil, err
+		return nil, -1, err
+	}
+	if !hasRow {
+		return nil, -1, nil
 	}
 
-	if stmt.ColumnType(0) == sqlite.SQLITE_NULL {
-		return nil, nil
-	}
-	fJSON := []byte(stmt.ColumnText(0))
+	i := sqlite.ColumnIncrementor()
+	id := stmt.ColumnInt64(i())
 
 	var f fat104.Func
-	if err := json.Unmarshal(fJSON, &f); err != nil {
-		return nil, fmt.Errorf("json.Unmarshal(): %w", err)
+	{
+		i := i()
+		if stmt.ColumnType(i) == sqlite.SQLITE_NULL {
+			return nil, id, nil
+		}
+		fJSON := []byte(stmt.ColumnText(i))
+		if err := json.Unmarshal(fJSON, &f); err != nil {
+			return nil, id, fmt.Errorf("json.Unmarshal(): %w", err)
+		}
 	}
 
 	f.Name = fname
-	return &f, nil
+	return &f, id, nil
 }
 
 // SelectByChainID returns the contract with given chainID.
 //
-// See Select for more information on return values.
+// See SelectModule for more information on return values.
 func SelectByChainID(conn *sqlite.Conn, chainID *factom.Bytes32) (*wasmer.Module, int64, error) {
 	stmt := conn.Prep(SelectWhere + `"chainid" = ?;`)
 	stmt.BindBytes(1, chainID[:])
@@ -230,14 +239,14 @@ func SelectByChainID(conn *sqlite.Conn, chainID *factom.Bytes32) (*wasmer.Module
 // SelectCount returns the total number of rows in the "contract" table. If
 // validOnly is true, only the rows where "valid" = true are counted.
 func SelectCount(conn *sqlite.Conn, validOnly bool) (int64, error) {
-	stmt := conn.Prep(`SELECT count(*) FROM "contract"."contract"
+	stmt := conn.Prep(`SELECT count(*) FROM "main"."contract"
                 WHERE (? OR "valid" = true);`)
 	stmt.BindBool(1, !validOnly)
 	return sqlitex.ResultInt64(stmt)
 }
 
 func SelectIsCached(conn *sqlite.Conn, id int64) (bool, error) {
-	stmt := conn.Prep(`SELECT length("compiled") FROM "contract"."contract"
+	stmt := conn.Prep(`SELECT length("compiled") FROM "main"."contract"
                 WHERE "id" = ?;`)
 	stmt.BindInt64(1, id)
 	hasRow, err := stmt.Step()
@@ -257,16 +266,18 @@ func Cache(conn *sqlite.Conn, id int64, mod *wasmer.Module) error {
 	if err != nil {
 		return fmt.Errorf("wasmer.Module.Serialize(): %w", err)
 	}
-	stmt := conn.Prep(`UPDATE "contract" SET "compiled" = ? WHERE id = ?;`)
-	stmt.BindBytes(1, compiled)
-	stmt.BindInt64(2, id)
+	stmt := conn.Prep(`UPDATE "main"."contract"
+                SET "compiled" = ? WHERE id = ?;`)
+	i := sqlite.BindIncrementor()
+	stmt.BindBytes(i(), compiled)
+	stmt.BindInt64(i(), id)
 	defer stmt.Reset()
 	_, err = stmt.Step()
 	return err
 }
 
 func ClearCompiledCache(conn *sqlite.Conn) error {
-	stmt := conn.Prep(`UPDATE "contract" SET "compiled" = NULL;`)
+	stmt := conn.Prep(`UPDATE "main"."contract" SET "compiled" = NULL;`)
 	defer stmt.Reset()
 	_, err := stmt.Step()
 	return err
@@ -278,7 +289,8 @@ func ClearCompiledCache(conn *sqlite.Conn) error {
 // TODO: This should also re-validate the "valid" column and ABIs by
 // re-assessing the validity of all contracts marked invalid.
 func Validate(conn *sqlite.Conn) error {
-	stmt := conn.Prep(`SELECT "id", "chainid", "first_entry" FROM "contract";`)
+	stmt := conn.Prep(`SELECT "id", "chainid", "first_entry" FROM
+                "main"."contract";`)
 
 	var err error
 	for hasRow := true; hasRow && err == nil; {
@@ -316,7 +328,7 @@ func validate(conn *sqlite.Conn, stmt *sqlite.Stmt) (bool, error) {
 	}
 
 	id := stmt.ColumnInt64(0)
-	blob, err := conn.OpenBlob("contract", "contract", "wasm", id, false)
+	blob, err := conn.OpenBlob("main", "contract", "wasm", id, false)
 	if err != nil {
 		return false, fmt.Errorf("sqlite.Conn.OpenBlob(): %w", err)
 	}

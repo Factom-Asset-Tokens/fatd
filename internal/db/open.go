@@ -27,6 +27,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
+	"runtime"
 
 	"crawshaw.io/sqlite"
 	"crawshaw.io/sqlite/sqlitex"
@@ -38,9 +39,9 @@ const (
 	dbDriver        = "sqlite3"
 	dbFileExtension = ".sqlite3"
 	dbFileNameLen   = len(factom.Bytes32{})*2 + len(dbFileExtension)
-
-	PoolSize = 10
 )
+
+var poolSize = runtime.NumCPU()
 
 var (
 	log _log.Log
@@ -109,7 +110,8 @@ const baseFlags = sqlite.SQLITE_OPEN_WAL |
 // the same database.
 //
 // The caller is responsible for closing conn and pool if err is not nil.
-func OpenConnPool(ctx context.Context, dbURI string) (
+func OpenConnPool(ctx context.Context, dbURI string,
+	appID int32, initSchema string, migrations []func(*sqlite.Conn) error) (
 	conn *sqlite.Conn, pool *sqlitex.Pool, err error) {
 
 	flags := baseFlags | sqlite.SQLITE_OPEN_READWRITE | sqlite.SQLITE_OPEN_CREATE
@@ -130,17 +132,11 @@ func OpenConnPool(ctx context.Context, dbURI string) (
 	// Set the interrupt
 	conn.SetInterrupt(ctx.Done())
 
-	if err = attachContractsDB(conn, dbURI); err != nil {
+	if err = checkOrSetApplicationID(conn, "main"); err != nil {
 		return
 	}
 
-	for _, db := range []string{"main", "contract"} {
-		if err = checkOrSetApplicationID(conn, db); err != nil {
-			return
-		}
-	}
-
-	if err = applyMigrations(conn); err != nil {
+	if err = applyMigrations(conn, initSchema, migrations); err != nil {
 		return
 	}
 
@@ -163,11 +159,15 @@ func OpenConnPool(ctx context.Context, dbURI string) (
 		return
 	}
 
+	if err = setupTempTables(conn, initSchema); err != nil {
+		return
+	}
+
 	// Open Pool.
 	flags = baseFlags | sqlite.SQLITE_OPEN_READONLY
-	if pool, err = sqlitex.Open(dbURI, flags, PoolSize); err != nil {
+	if pool, err = sqlitex.Open(dbURI, flags, poolSize); err != nil {
 		err = fmt.Errorf("sqlitex.Open(%q, %x, %v): %w",
-			dbURI, flags, PoolSize, err)
+			dbURI, flags, poolSize, err)
 		return
 	}
 	defer func() {
@@ -180,11 +180,22 @@ func OpenConnPool(ctx context.Context, dbURI string) (
 
 	// Prime pool for snapshot reads.
 	// https://www.sqlite.org/c3ref/snapshot_open.html
-	for i := 0; i < PoolSize; i++ {
-		c := pool.Get(nil)
-		err = sqlitex.ExecScript(c, "PRAGMA application_id;")
-		pool.Put(c)
-		if err != nil {
+	for i := 0; i < poolSize; i++ {
+		if err = func() error {
+			conn := pool.Get(nil)
+			defer pool.Put(conn)
+			if err := attachContractsDB(conn, dbURI); err != nil {
+				return err
+			}
+			if err := setupTempTables(conn, initSchema); err != nil {
+				return err
+			}
+			err := sqlitex.ExecScript(conn, "PRAGMA application_id;")
+			if err != nil {
+				return err
+			}
+			return nil
+		}(); err != nil {
 			return
 		}
 	}
@@ -206,8 +217,6 @@ func Close(conn *sqlite.Conn, pool *sqlitex.Pool) error {
 	}
 	return nil
 }
-
-const ApplicationID int32 = 0x0FA7D000
 
 func checkOrSetApplicationID(conn *sqlite.Conn, db string) error {
 	var appID int32
@@ -259,4 +268,9 @@ func attachContractsDB(conn *sqlite.Conn, dbURI string) error {
 	return sqlitex.ExecScript(conn,
 		fmt.Sprintf(`ATTACH DATABASE %q AS "contract";`,
 			filepath.Join(filepath.Dir(dbURI), "contract.sqlite3")))
+}
+
+func setupTempTables(conn *sqlite.Conn, initSchema string) error {
+	return sqlitex.ExecScript(conn, fmt.Sprintf(initSchema+`
+                        PRAGMA %[1]q.application_id;`, "temp"))
 }

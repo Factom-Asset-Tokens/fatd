@@ -34,7 +34,8 @@ import (
 
 // CreateTableFactomChain is a SQL string that creates the "factom_chain"
 // metadata table.
-const CreateTableFactomChain = `CREATE TABLE "factom_chain" (
+const CreateTableFactomChain = `
+CREATE TABLE IF NOT EXISTS "factom_chain" (
         "id"                    INTEGER PRIMARY KEY,
         "chain_id"              BLOB NOT NULL,
         "network_id"            BLOB NOT NULL,

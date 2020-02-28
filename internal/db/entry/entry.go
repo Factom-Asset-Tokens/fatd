@@ -41,7 +41,8 @@ import (
 //
 // The "entry" table has a foreign key reference to the "eblock" table, which
 // must exist first.
-const CreateTable = `CREATE TABLE "entry" (
+const CreateTable = `
+CREATE TABLE IF NOT EXISTS %[1]q."entry" (
         "id"            INTEGER PRIMARY KEY,
         "eb_seq"        INTEGER NOT NULL,
         "timestamp"     INTEGER NOT NULL,
@@ -51,25 +52,47 @@ const CreateTable = `CREATE TABLE "entry" (
 
         FOREIGN KEY("eb_seq") REFERENCES "eblock"
 );
-CREATE INDEX "idx_entry_eb_seq" ON "entry"("eb_seq");
-CREATE INDEX "idx_entry_hash" ON "entry"("hash");
+CREATE INDEX IF NOT EXISTS
+        %[1]q"idx_entry_eb_seq" ON "entry"("eb_seq");
+CREATE INDEX IF NOT EXISTS
+        %[1]q"idx_entry_hash" ON "entry"("hash");
+CREATE VIEW IF NOT EXISTS "temp"."entry_all" AS
+        SELECT * FROM "temp"."entry"
+        UNION ALL
+        SELECT * FROM "main"."entry";
 `
+
+func Commit(conn *sqlite.Conn) error {
+	return sqlitex.ExecScript(conn, `
+INSERT INTO "main"."entry" SELECT * FROM "temp"."entry";
+DELETE FROM "temp"."entry";
+`)
+}
 
 // Insert e into the "entry" table with the EBlock reference ebSeq. If
 // successful, the new row id of e is returned.
 func Insert(conn *sqlite.Conn, e factom.Entry, ebSeq uint32) (int64, error) {
+	// Defer FK checks until the outermost TRANSACTION is committed so we
+	// can insert rows into "temp" tables that temporarily violate FK
+	// constraints.
+	if err := sqlitex.Exec(conn,
+		`PRAGMA defer_foreign_keys = true;`, nil); err != nil {
+		return -1, err
+	}
 	data, err := e.MarshalBinary()
 	if err != nil {
 		panic(fmt.Errorf("factom.Entry.MarshalBinary(): %w", err))
 	}
 
-	stmt := conn.Prep(`INSERT INTO "entry"
-                ("eb_seq", "timestamp", "hash", "data")
-                VALUES (?, ?, ?, ?);`)
-	stmt.BindInt64(1, int64(int32(ebSeq))) // Preserve uint32(-1) as -1
-	stmt.BindInt64(2, int64(e.Timestamp.Unix()))
-	stmt.BindBytes(3, e.Hash[:])
-	stmt.BindBytes(4, data)
+	stmt := conn.Prep(`INSERT INTO "temp"."entry"
+                ("id", "eb_seq", "timestamp", "hash", "data")
+                VALUES ((SELECT max("id")+1 FROM "temp"."entry_all"),
+                        ?, ?, ?, ?);`)
+	i := sqlite.BindIncrementor()
+	stmt.BindInt64(i(), int64(int32(ebSeq))) // Preserve uint32(-1) as -1
+	stmt.BindInt64(i(), int64(e.Timestamp.Unix()))
+	stmt.BindBytes(i(), e.Hash[:])
+	stmt.BindBytes(i(), data)
 
 	if _, err := stmt.Step(); err != nil {
 		return -1, err
@@ -79,8 +102,8 @@ func Insert(conn *sqlite.Conn, e factom.Entry, ebSeq uint32) (int64, error) {
 
 // SetValid marks the entry valid at the id'th row of the "entry" table.
 func SetValid(conn *sqlite.Conn, id int64) error {
-	stmt := conn.Prep(`UPDATE "entry" SET "valid" = 1 WHERE "id" = ?;`)
-	stmt.BindInt64(1, id)
+	stmt := conn.Prep(`UPDATE "temp"."entry" SET "valid" = 1 WHERE "id" = ?;`)
+	stmt.BindInt64(sqlite.BindIndexStart, id)
 	_, err := stmt.Step()
 	if err != nil {
 		return err
@@ -93,7 +116,7 @@ func SetValid(conn *sqlite.Conn, id int64) error {
 
 // SelectWhere is a SQL fragment for retrieving rows from the "entry" table
 // with Select().
-const SelectWhere = `SELECT "hash", "data", "timestamp" FROM "entry" WHERE `
+const SelectWhere = `SELECT "hash", "data", "timestamp" FROM "temp"."entry_all" WHERE `
 
 // Select the next factom.Entry from the given prepared Stmt.
 //
@@ -108,19 +131,24 @@ func Select(stmt *sqlite.Stmt) (factom.Entry, error) {
 		return e, nil
 	}
 
+	i := sqlite.ColumnIncrementor()
 	e.Hash = new(factom.Bytes32)
-	if stmt.ColumnBytes(0, e.Hash[:]) != len(e.Hash) {
+	if stmt.ColumnBytes(i(), e.Hash[:]) != len(e.Hash) {
 		panic("invalid hash length")
 	}
 
-	data := make([]byte, stmt.ColumnLen(1))
-	stmt.ColumnBytes(1, data)
+	var data []byte
+	{
+		i := i()
+		data = make([]byte, stmt.ColumnLen(i))
+		stmt.ColumnBytes(i, data)
+	}
 	if err := e.UnmarshalBinary(data); err != nil {
 		panic(fmt.Errorf("factom.Entry.UnmarshalBinary(%v): %w",
 			factom.Bytes(data), err))
 	}
 
-	e.Timestamp = time.Unix(stmt.ColumnInt64(2), 0)
+	e.Timestamp = time.Unix(stmt.ColumnInt64(i()), 0)
 
 	return e, nil
 }
@@ -136,7 +164,7 @@ func SelectByID(conn *sqlite.Conn, id int64) (factom.Entry, error) {
 // SelectByHash returns the first factom.Entry with hash.
 func SelectByHash(conn *sqlite.Conn, hash *factom.Bytes32) (factom.Entry, error) {
 	stmt := conn.Prep(SelectWhere + `"hash" = ?;`)
-	stmt.BindBytes(1, hash[:])
+	stmt.BindBytes(sqlite.BindIndexStart, hash[:])
 	defer stmt.Reset()
 	return Select(stmt)
 }
@@ -144,7 +172,7 @@ func SelectByHash(conn *sqlite.Conn, hash *factom.Bytes32) (factom.Entry, error)
 // SelectValidByHash returns the first valid factom.Entry with hash.
 func SelectValidByHash(conn *sqlite.Conn, hash *factom.Bytes32) (factom.Entry, error) {
 	stmt := conn.Prep(SelectWhere + `"hash" = ? AND "valid" = true;`)
-	stmt.BindBytes(1, hash[:])
+	stmt.BindBytes(sqlite.BindIndexStart, hash[:])
 	defer stmt.Reset()
 	return Select(stmt)
 }
@@ -152,8 +180,9 @@ func SelectValidByHash(conn *sqlite.Conn, hash *factom.Bytes32) (factom.Entry, e
 // SelectCount returns the total number of rows in the "entry" table. If
 // validOnly is true, only the rows where "valid" = true are counted.
 func SelectCount(conn *sqlite.Conn, validOnly bool) (int64, error) {
-	stmt := conn.Prep(`SELECT count(*) FROM "entry" WHERE (? OR "valid" = true);`)
-	stmt.BindBool(1, !validOnly)
+	stmt := conn.Prep(`SELECT count(*) FROM "temp"."entry_all" WHERE
+                (? OR "valid" = true);`)
+	stmt.BindBool(sqlite.BindIndexStart, !validOnly)
 	return sqlitex.ResultInt64(stmt)
 }
 
@@ -178,7 +207,8 @@ func SelectByAddress(conn *sqlite.Conn, startHash *factom.Bytes32,
 	var sql sqlbuilder.SQLBuilder
 	sql.Append(SelectWhere + `"valid" = true`)
 	if startHash != nil {
-		sql.Append(` AND "id" >= (SELECT "id" FROM "entry" WHERE "hash" = ?)`,
+		sql.Append(` AND "id" >= (SELECT "id" FROM "temp"."entry_all"
+                                                WHERE "hash" = ?)`,
 			func(s *sqlite.Stmt, p int) int {
 				s.BindBytes(p, startHash[:])
 				return 1
@@ -271,7 +301,7 @@ func SelectByAddress(conn *sqlite.Conn, startHash *factom.Bytes32,
 // id that have the same hash. If id is 0, then all entry are checked.
 func CheckUniquelyValid(conn *sqlite.Conn,
 	id int64, hash *factom.Bytes32) (bool, error) {
-	stmt := conn.Prep(`SELECT count(*) FROM "entry" WHERE
+	stmt := conn.Prep(`SELECT count(*) FROM "temp"."entry_all" WHERE
                 "valid" = true AND (? OR "id" < ?) AND "hash" = ?;`)
 	stmt.BindBool(1, id > 0)
 	stmt.BindInt64(2, id)
@@ -286,7 +316,7 @@ func CheckUniquelyValid(conn *sqlite.Conn,
 // SelectLatestValid returns the most recent valid factom.Entry.
 func SelectLatestValid(conn *sqlite.Conn) (factom.Entry, error) {
 	stmt := conn.Prep(SelectWhere +
-		`"id" = (SELECT max("id") FROM "entry" WHERE "valid" = true);`)
+		`"id" = (SELECT max("id") FROM "temp"."entry_all" WHERE "valid" = true);`)
 	e, err := Select(stmt)
 	defer stmt.Reset()
 	if err != nil {

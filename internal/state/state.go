@@ -53,6 +53,8 @@ type State struct {
 
 	c *factom.Client
 
+	rsv *ContractResolver
+
 	SyncHeight  uint32
 	SyncDBKeyMR *factom.Bytes32
 
@@ -138,6 +140,7 @@ func (state *State) Close() {
 			state.Log.Errorf("state.State.g.Wait(): %v", err)
 		}
 	}
+	state.rsv.Close()
 	if err := state.Lockfile.Unlock(); err != nil {
 		state.Log.Errorf("lockfile.Lockfile.Unlock(): %w", err)
 	}
@@ -179,6 +182,16 @@ func Open(ctx context.Context, c *factom.Client,
 		}
 	}()
 
+	rsv, ctx, err := NewContractResolver(ctx, c, dbPath)
+	if err != nil {
+		return nil, nil, fmt.Errorf("NewContractResolver(): %w", err)
+	}
+	defer func() {
+		if err != nil {
+			rsv.Close()
+		}
+	}()
+
 	g, ctx := errgroup.WithContext(ctx)
 	state := State{
 		Log:      log,
@@ -191,7 +204,7 @@ func Open(ctx context.Context, c *factom.Client,
 		DBPath:    dbPath,
 		NetworkID: networkID,
 
-		g: g, ctx: ctx, c: c,
+		g: g, ctx: ctx, c: c, rsv: rsv,
 	}
 
 	if err := state.loadFATChains(dbPath,
@@ -260,7 +273,7 @@ func (state *State) loadFATChains(dbPath string,
 			continue
 		}
 
-		chain := FATChain{dbChain, state.c}
+		chain := FATChain{dbChain, state.c, state.rsv}
 		state.SyncHeight = min(state.SyncHeight, chain.SyncHeight)
 
 		if dbChain.NetworkID != state.NetworkID {
@@ -317,7 +330,7 @@ func (state *State) loadFATChains(dbPath string,
 			defer synced.Done()
 
 			chain, err := NewFATChainByEBlock(ctx, c,
-				state.DBPath, head)
+				state.DBPath, head, state.rsv)
 			if err != nil {
 				return nil, fmt.Errorf(
 					"state.NewFATChainByChainID(): %w", err)

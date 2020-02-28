@@ -23,18 +23,37 @@
 package db
 
 import (
+	"context"
 	"fmt"
 
 	"crawshaw.io/sqlite"
 	"crawshaw.io/sqlite/sqlitex"
 	"github.com/Factom-Asset-Tokens/factom/fat"
 	"github.com/Factom-Asset-Tokens/fatd/internal/db/address"
-	"github.com/Factom-Asset-Tokens/fatd/internal/db/contract"
 	"github.com/Factom-Asset-Tokens/fatd/internal/db/eblock"
 	"github.com/Factom-Asset-Tokens/fatd/internal/db/entry"
 	"github.com/Factom-Asset-Tokens/fatd/internal/db/metadata"
 	"github.com/Factom-Asset-Tokens/fatd/internal/db/nftoken"
 )
+
+const ApplicationID int32 = 0x0FA7D000
+
+func OpenConnPoolChain(ctx context.Context, dbURI string) (
+	*sqlite.Conn, *sqlitex.Pool, error) {
+	conn, pool, err := OpenConnPool(ctx, dbURI,
+		ApplicationID, chainDBSchema, chainDBMigrations)
+	if err != nil {
+		return nil, nil, err
+	}
+	// Snapshots are unreliable if auto checkpointing is enabled. So we
+	// manually checkpoint in the engine every new EBlock and in Close.
+	if err = disableAutoCheckpoint(conn); err != nil {
+		pool.Close()
+		conn.Close()
+		return nil, nil, err
+	}
+	return conn, pool, nil
+}
 
 const (
 	// For the sake of simplicity, all chain DBs use the exact same schema,
@@ -47,17 +66,16 @@ const (
 		nftoken.CreateTable +
 		nftoken.CreateTableTransaction +
 		metadata.CreateTableFactomChain +
-		metadata.CreateTableFATChain +
-		contract.CreateTable
-
-	currentDBVersion = 2
+		metadata.CreateTableFATChain
 )
 
-var migrations = []func(*sqlite.Conn) error{
+var chainDBVersion = len(chainDBMigrations)
+
+var chainDBMigrations = []func(*sqlite.Conn) error{
 	func(conn *sqlite.Conn) error {
 		err := sqlitex.ExecScript(conn,
-			metadata.CreateTableFactomChain+
-				metadata.CreateTableFATChain+`
+			fmt.Sprintf(metadata.CreateTableFactomChain+
+				metadata.CreateTableFATChain)+`
 ALTER TABLE "eblocks" RENAME TO "eblock";
 ALTER TABLE "entries" RENAME TO "entry";
 ALTER TABLE "addresses" RENAME TO "address";
@@ -160,89 +178,6 @@ DROP TABLE "metadata";`)
 	},
 	func(conn *sqlite.Conn) error {
 		return sqlitex.ExecScript(conn,
-			contract.CreateTable+
-				address.CreateTableContract)
+			fmt.Sprintf(address.CreateTableContract, "main"))
 	},
-}
-
-func init() {
-	if len(migrations) != currentDBVersion {
-		panic("len(migrations) != currentDBVersion")
-	}
-}
-
-func applyMigrations(conn *sqlite.Conn) (err error) {
-
-	empty, err := isEmpty(conn)
-	if err != nil {
-		return
-	}
-	if empty {
-		if err = sqlitex.ExecScript(conn, chainDBSchema); err != nil {
-			return
-		}
-		return updateDBVersion(conn)
-	}
-
-	version, err := getDBVersion(conn)
-	if err != nil {
-		return
-	}
-	if int(version) == len(migrations) {
-		return nil
-	}
-	if int(version) > len(migrations) {
-		return fmt.Errorf("no migration exists for DB version: %v", version)
-	}
-
-	// Always VACUUM after a successful migration.
-	defer func() {
-		if err != nil {
-			return
-		}
-		stmt, _, err := conn.PrepareTransient(`VACUUM;`)
-		if err != nil {
-			panic(err)
-		}
-		defer stmt.Finalize()
-		if _, err := stmt.Step(); err != nil {
-			panic(err)
-		}
-	}()
-
-	defer sqlitex.Save(conn)(&err)
-
-	for i, migration := range migrations[version:] {
-		version := int(version) + i
-		fmt.Printf("running migration: %v -> %v\n", version, version+1)
-		if err = migration(conn); err != nil {
-			return
-		}
-	}
-	return updateDBVersion(conn)
-}
-
-func isEmpty(conn *sqlite.Conn) (bool, error) {
-	var count int
-	err := sqlitex.ExecTransient(conn, `SELECT count(*) from "sqlite_master";`,
-		func(stmt *sqlite.Stmt) error {
-			count = stmt.ColumnInt(0)
-			return nil
-		})
-	return count == 0, err
-}
-
-func getDBVersion(conn *sqlite.Conn) (int64, error) {
-	var version int64
-	err := sqlitex.ExecTransient(conn, `PRAGMA user_version;`,
-		func(stmt *sqlite.Stmt) error {
-			version = stmt.ColumnInt64(0)
-			return nil
-		})
-	return version, err
-}
-
-func updateDBVersion(conn *sqlite.Conn) error {
-	return sqlitex.ExecScript(conn, fmt.Sprintf(`PRAGMA user_version = %v;`,
-		currentDBVersion))
 }
