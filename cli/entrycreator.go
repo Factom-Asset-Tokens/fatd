@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	jsonrpc2 "github.com/AdamSLevy/jsonrpc2/v14"
 	"github.com/Factom-Asset-Tokens/factom"
 	flag "github.com/spf13/pflag"
 )
@@ -42,21 +41,6 @@ func (ec *EntryCreator) Flags() *flag.FlagSet {
 
 func (ec *EntryCreator) ValidateFlagStructure(flags *flag.FlagSet) error {
 	return required(flags, "ecadr")
-}
-
-func (ec *EntryCreator) PopulateEsAddress() error {
-	if !factom.Bytes32(ec.Es).IsZero() {
-		// Es address already populated.
-		return nil
-	}
-	// Get the private Es Address if an EC address was given.
-	vrbLog.Println("Fetching secret address...", ec.EC)
-	var err error
-	ec.Es, err = ec.EC.GetEsAddress(context.Background(), FactomClient)
-	if err, ok := err.(jsonrpc2.Error); ok {
-		return fmt.Errorf("%q %v", err.Data, ec.EC)
-	}
-	return err
 }
 
 func (ec *EntryCreator) CheckECBalance(cost uint) error {

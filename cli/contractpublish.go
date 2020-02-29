@@ -60,7 +60,7 @@ Publish the WASM binary code and its public ABI.
 var contractPublishCmplCmd = complete.Command{
 	Flags: mergeFlags(apiCmplFlags, ecAdrCmplFlags,
 		complete.Flags{
-			"--api":      complete.PredictFiles("*.json"),
+			"--abi":      complete.PredictFiles("*.json"),
 			"-a":         complete.PredictFiles("*.json"),
 			"--metadata": complete.PredictFiles("*.json"),
 			"-m":         complete.PredictFiles("*.json"),
@@ -97,6 +97,10 @@ func (pub *ContractPublisher) ValidateFlagStructure(flags *flag.FlagSet) error {
 }
 
 func (pub *ContractPublisher) Publish() error {
+	if err := pub.EntryCreator.PopulateEsAddress(); err != nil {
+		return err
+	}
+
 	vrbLog.Println("Compiling WASM...")
 	mod, err := wasmer.CompileWithGasMetering(pub.Wasm.Data)
 	if err != nil {

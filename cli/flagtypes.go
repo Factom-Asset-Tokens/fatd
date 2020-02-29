@@ -1,11 +1,13 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"strings"
 
+	"github.com/AdamSLevy/jsonrpc2/v14"
 	"github.com/Factom-Asset-Tokens/factom"
 	"github.com/Factom-Asset-Tokens/factom/fat"
 	"github.com/Factom-Asset-Tokens/factom/fat104"
@@ -135,28 +137,6 @@ func (PaginationOrder) Type() string {
 	return "asc|desc"
 }
 
-// ECEsAddress parses a flag as an EC or Es Address.
-type ECEsAddress struct {
-	EC factom.ECAddress
-	Es factom.EsAddress
-}
-
-func (e *ECEsAddress) Set(adrStr string) error {
-	if err := e.EC.Set(adrStr); err != nil {
-		if err := e.Es.Set(adrStr); err != nil {
-			return err
-		}
-		e.EC = e.Es.ECAddress()
-	}
-	return nil
-}
-func (e ECEsAddress) String() string {
-	return e.EC.String()
-}
-func (ECEsAddress) Type() string {
-	return "<EC | Es>"
-}
-
 // FATType parses a flag as a fat.Type like "FAT-0".
 type FATType fat.Type
 
@@ -176,4 +156,77 @@ func (t FATType) String() string {
 }
 func (FATType) Type() string {
 	return `<"FAT-0" | "FAT-1">`
+}
+
+type FAFsAddress struct {
+	Fs factom.FsAddress
+	FA factom.FAAddress
+}
+
+func (fs *FAFsAddress) Set(text string) error {
+	if err := fs.Fs.Set(text); err == nil {
+		fs.FA = fs.Fs.FAAddress()
+		return nil
+	}
+	if err := fs.FA.Set(text); err != nil {
+		return err
+	}
+	return nil
+}
+func (fs FAFsAddress) String() string {
+	return fs.FA.String()
+}
+func (fs FAFsAddress) Type() string {
+	return "<FA | Fs>"
+}
+func (fs *FAFsAddress) PopulateFsAddress() error {
+	if !factom.Bytes32(fs.Fs).IsZero() {
+		// Es address already populated.
+		return nil
+	}
+	// Get the private Es Address if an EC address was given.
+	vrbLog.Println("Fetching secret address...", fs)
+	var err error
+	fs.Fs, err = fs.FA.GetFsAddress(context.Background(), FactomClient)
+	if err, ok := err.(jsonrpc2.Error); ok {
+		return fmt.Errorf("%q %v", err.Data, fs)
+	}
+	return err
+}
+
+// ECEsAddress parses a flag as an EC or Es Address.
+type ECEsAddress struct {
+	Es factom.EsAddress
+	EC factom.ECAddress
+}
+
+func (es *ECEsAddress) Set(adrStr string) error {
+	if err := es.Es.Set(adrStr); err == nil {
+		es.EC = es.Es.ECAddress()
+		return nil
+	}
+	if err := es.EC.Set(adrStr); err != nil {
+		return err
+	}
+	return nil
+}
+func (es ECEsAddress) String() string {
+	return es.EC.String()
+}
+func (ECEsAddress) Type() string {
+	return "<EC | Es>"
+}
+func (es *ECEsAddress) PopulateEsAddress() error {
+	if !factom.Bytes32(es.Es).IsZero() {
+		// Es address already populated.
+		return nil
+	}
+	// Get the private Es Address if an EC address was given.
+	vrbLog.Println("Fetching secret address...", es)
+	var err error
+	es.Es, err = es.EC.GetEsAddress(context.Background(), FactomClient)
+	if err, ok := err.(jsonrpc2.Error); ok {
+		return fmt.Errorf("%q %v", err.Data, es)
+	}
+	return err
 }
