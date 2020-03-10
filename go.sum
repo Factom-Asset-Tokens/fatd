@@ -1,10 +1,9 @@
 cloud.google.com/go v0.26.0/go.mod h1:aQUYkXzVsufM+DwF1aE+0xfcU+56JwCaLick0ClmMTw=
 crawshaw.io/iox v0.0.0-20181124134642-c51c3df30797 h1:yDf7ARQc637HoxDho7xjqdvO5ZA2Yb+xzv/fOnnvZzw=
 crawshaw.io/iox v0.0.0-20181124134642-c51c3df30797/go.mod h1:sXBiorCo8c46JlQV3oXPKINnZ8mcqnye1EkVkqsectk=
-crawshaw.io/sqlite v0.2.0 h1:KYWbuV1q+BcvoDSl8n6IT+uVLHP7+0+y9eE1VbVTrvc=
 crawshaw.io/sqlite v0.2.0/go.mod h1:igAO5JulrQ1DbdZdtVq48mnZUBAPOeFzer7VhDWNtW4=
-crawshaw.io/sqlite v0.2.5 h1:lUjWtEQJZApoL4V83cHsNeaGZkY5Ofmh8cGGBdZNxPU=
-crawshaw.io/sqlite v0.2.5/go.mod h1:igAO5JulrQ1DbdZdtVq48mnZUBAPOeFzer7VhDWNtW4=
+crawshaw.io/sqlite v0.2.6-0.20200310202746-80e848489fd6 h1:vwUovhuaOxPh3mx808opP/unyE6UBU2qAJ+RedqFOJQ=
+crawshaw.io/sqlite v0.2.6-0.20200310202746-80e848489fd6/go.mod h1:igAO5JulrQ1DbdZdtVq48mnZUBAPOeFzer7VhDWNtW4=
 github.com/AdamSLevy/go-merkle v0.0.0-20190611101253-ca33344a884d h1:FWutTJGVqBnL4rLgeNaspUYnmnvkXcmDA3QO3rHBGgU=
 github.com/AdamSLevy/go-merkle v0.0.0-20190611101253-ca33344a884d/go.mod h1:Nw3sh5L40Xs1wno7ndbD/dYWg+vARpBvpX9Zz1YSxbo=
 github.com/AdamSLevy/jsonrpc2/v14 v14.0.0 h1:ofSXSSa9Opft4KtEcIEshKbI2CAynwtKNZj2ASFDucc=

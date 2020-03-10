@@ -25,6 +25,7 @@ package state
 import (
 	"context"
 	"fmt"
+	"os"
 
 	"github.com/Factom-Asset-Tokens/factom"
 	"github.com/Factom-Asset-Tokens/factom/fat"
@@ -88,7 +89,8 @@ func (state *State) ApplyEBlock(ctx context.Context,
 			return nil
 		}
 
-		state.Log.Infof("Tracking new FAT chain: %v", eb.ChainID)
+		state.Log.Infof("Tracking new FAT chain at height %v: %v",
+			eb.Height, eb.ChainID)
 
 		init := func(ctx context.Context, c *factom.Client,
 			head factom.EBlock) (_ Chain, err error) {
@@ -99,11 +101,22 @@ func (state *State) ApplyEBlock(ctx context.Context,
 			fatChain, err := NewFATChain(ctx, state.c, state.DBPath,
 				tokenID, &issuerID, eb.ChainID, state.NetworkID)
 			if err != nil {
-				return nil, fmt.Errorf("state.NewFATChain(): %w", err)
+				return nil, fmt.Errorf(
+					"state.NewFATChain(): %w", err)
 			}
+			var hasFirstEBlock bool
 			defer func() {
 				if err != nil {
 					fatChain.Close()
+				}
+				if hasFirstEBlock {
+					return
+				}
+				if err := os.Remove(state.DBPath +
+					fatChain.DBFile); err != nil &&
+					!os.IsNotExist(err) {
+					fatChain.Log.Errorf(
+						"os.Remove(): %w", err)
 				}
 			}()
 
@@ -111,25 +124,30 @@ func (state *State) ApplyEBlock(ctx context.Context,
 			eblocks, err := head.GetPrevN(ctx, c, head.Sequence)
 			if err != nil {
 				return nil, fmt.Errorf(
-					"factom.EBlock.GetPrevBackTo(): %w", err)
+					"factom.EBlock.GetPrevBackTo(): %w",
+					err)
 			}
 
 			fatChain.Log.Info("Syncing entries...")
 			if err = eb.GetEntries(ctx, c); err != nil {
-				err = fmt.Errorf("factom.EBlock.GetEntries(): %w", err)
+				err = fmt.Errorf(
+					"factom.EBlock.GetEntries(): %w", err)
 				return
 			}
 			if err := fatChain.UpdateSidechainData(
 				state.ctx, state.c); err != nil {
 				return nil, fmt.Errorf(
-					"state.Chain.UpdateSidechainData(): %w", err)
+					"state.Chain.UpdateSidechainData(): %w",
+					err)
 			}
 			if err = Apply(&fatChain, dbKeyMR, eb); err != nil {
 				err = fmt.Errorf("state.Apply(): %w", err)
 				return
 			}
+			hasFirstEBlock = true
 
-			if err := SyncEBlocks(ctx, c, &fatChain, eblocks); err != nil {
+			if err := SyncEBlocks(ctx,
+				c, &fatChain, eblocks); err != nil {
 				return nil, fmt.Errorf(
 					"state.SyncEBlocks(): %w", err)
 			}
@@ -137,8 +155,10 @@ func (state *State) ApplyEBlock(ctx context.Context,
 			return &fatChain, nil
 		}
 
-		if err = state.NewParallelChain(ctx, eb.ChainID, init); err != nil {
-			return fmt.Errorf("state.State.NewParallelChain(): %w", err)
+		if err = state.NewParallelChain(ctx,
+			eb.ChainID, init); err != nil {
+			return fmt.Errorf(
+				"state.State.NewParallelChain(): %w", err)
 		}
 
 		return nil
