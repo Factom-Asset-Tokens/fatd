@@ -134,7 +134,7 @@ func (state *State) Close() {
 		}
 	}
 	if err := state.g.Wait(); err != nil {
-		if !errors.Is(state.ctx.Err(), context.Canceled) {
+		if !errors.Is(err, context.Canceled) {
 			state.Log.Errorf("state.State.g.Wait(): %v", err)
 		}
 	}
@@ -153,7 +153,8 @@ func Open(ctx context.Context, c *factom.Client,
 	// Try to create the database directory.
 	if err := os.Mkdir(dbPath, 0755); err != nil {
 		if !os.IsExist(err) {
-			return nil, nil, fmt.Errorf("os.Mkdir(%q): %w", dbPath, err)
+			return nil, nil,
+				fmt.Errorf("os.Mkdir(%q): %w", dbPath, err)
 		}
 		log.Debugf("Loading state from %q...", dbPath)
 	} else {
@@ -165,10 +166,12 @@ func Open(ctx context.Context, c *factom.Client,
 	lockFilePath := dbPath + "db.lock"
 	lockFile, err := lockfile.New(lockFilePath)
 	if err != nil {
-		return nil, nil, fmt.Errorf("lockfile.New(%q): %w", lockFilePath, err)
+		return nil, nil,
+			fmt.Errorf("lockfile.New(%q): %w", lockFilePath, err)
 	}
 	if err = lockFile.TryLock(); err != nil {
-		return nil, nil, fmt.Errorf("lockfile.Lockfile.TryLock(): %w", err)
+		return nil, nil,
+			fmt.Errorf("lockfile.Lockfile.TryLock(): %w", err)
 	}
 	// Always clean up the lockfile if Start fails.
 	defer func() {

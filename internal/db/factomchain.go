@@ -80,7 +80,7 @@ func NewFactomChain(ctx context.Context,
 	defer func() {
 		if err != nil {
 			Close(conn, pool)
-			if err := os.Remove(path); err != nil {
+			if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
 				log.Errorf("os.Remove(): %w", err)
 			}
 		}

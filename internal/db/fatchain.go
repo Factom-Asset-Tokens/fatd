@@ -59,7 +59,8 @@ func NewFATChain(ctx context.Context, dbPath, tokenID string,
 	defer func() {
 		if err != nil {
 			chain.Close()
-			if err := os.Remove(dbPath + chain.DBFile); err != nil {
+			if err := os.Remove(dbPath + chain.DBFile); err != nil &&
+				!os.IsNotExist(err) {
 				chain.Log.Errorf("os.Remove(): %w", err)
 			}
 		}

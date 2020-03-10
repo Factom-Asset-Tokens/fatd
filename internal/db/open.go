@@ -26,6 +26,7 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
+	"os"
 
 	"crawshaw.io/sqlite"
 	"crawshaw.io/sqlite/sqlitex"
@@ -38,7 +39,15 @@ const (
 	dbFileExtension = ".sqlite3"
 	dbFileNameLen   = len(factom.Bytes32{})*2 + len(dbFileExtension)
 
-	PoolSize = 10
+	// TODO: expose this as flag
+	PoolSize = 2
+	// If the PoolSize is large, we can hit a limit on the number of open
+	// SQLite connections. The limit seems to be somewhere around 500 total
+	// connections but whether those are pooled or not seems to affect the
+	// number.
+	// 2 allows for roughly 170 simultaneously tracked chains.
+	// 10 allows for roughly 46 simultaneously tracked chains.
+	// Many improvements could be made to this.
 )
 
 var (
@@ -122,6 +131,9 @@ func OpenConnPool(ctx context.Context, dbURI string) (
 			if err := conn.Close(); err != nil {
 				log.Error(err)
 			}
+			if err := os.Remove(dbURI); err != nil && !os.IsNotExist(err) {
+				log.Errorf("os.Remove(): %w", err)
+			}
 		}
 	}()
 
@@ -172,8 +184,8 @@ func OpenConnPool(ctx context.Context, dbURI string) (
 
 	// Prime pool for snapshot reads.
 	// https://www.sqlite.org/c3ref/snapshot_open.html
-	for i := 0; i < PoolSize; i++ {
-		c := pool.Get(nil)
+	for i := 0; i < PoolSize && ctx.Err() != nil; i++ {
+		c := pool.Get(ctx)
 		err = sqlitex.ExecScript(c, "PRAGMA application_id;")
 		pool.Put(c)
 		if err != nil {
