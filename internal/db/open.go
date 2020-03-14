@@ -27,7 +27,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"path/filepath"
 	"runtime"
 
 	"crawshaw.io/sqlite"
@@ -198,9 +197,6 @@ func OpenConnPool(ctx context.Context, dbURI string,
 		if err = func() error {
 			conn := pool.Get(ctx)
 			defer pool.Put(conn)
-			if err := attachContractsDB(conn, dbURI); err != nil {
-				return err
-			}
 			if err := setupTempTables(conn, initSchema); err != nil {
 				return err
 			}
@@ -276,12 +272,6 @@ func ensureTransactionInWAL(conn *sqlite.Conn) error {
 		return err
 	}
 	return nil
-}
-
-func attachContractsDB(conn *sqlite.Conn, dbURI string) error {
-	return sqlitex.ExecScript(conn,
-		fmt.Sprintf(`ATTACH DATABASE %q AS "contract";`,
-			filepath.Join(filepath.Dir(dbURI), "contract.sqlite3")))
 }
 
 func setupTempTables(conn *sqlite.Conn, initSchema string) error {
