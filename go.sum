@@ -1,14 +1,10 @@
 cloud.google.com/go v0.26.0/go.mod h1:aQUYkXzVsufM+DwF1aE+0xfcU+56JwCaLick0ClmMTw=
 crawshaw.io/iox v0.0.0-20181124134642-c51c3df30797 h1:yDf7ARQc637HoxDho7xjqdvO5ZA2Yb+xzv/fOnnvZzw=
 crawshaw.io/iox v0.0.0-20181124134642-c51c3df30797/go.mod h1:sXBiorCo8c46JlQV3oXPKINnZ8mcqnye1EkVkqsectk=
-crawshaw.io/sqlite v0.2.0 h1:KYWbuV1q+BcvoDSl8n6IT+uVLHP7+0+y9eE1VbVTrvc=
 crawshaw.io/sqlite v0.2.0/go.mod h1:igAO5JulrQ1DbdZdtVq48mnZUBAPOeFzer7VhDWNtW4=
-crawshaw.io/sqlite v0.2.5 h1:lUjWtEQJZApoL4V83cHsNeaGZkY5Ofmh8cGGBdZNxPU=
 crawshaw.io/sqlite v0.2.5/go.mod h1:igAO5JulrQ1DbdZdtVq48mnZUBAPOeFzer7VhDWNtW4=
-crawshaw.io/sqlite v0.2.6-0.20200228213945-251d8861ace6 h1:KljJboEQtjEhx2OGAASgvj53F5wSfgM0mMJOFV6o4Ag=
-crawshaw.io/sqlite v0.2.6-0.20200228213945-251d8861ace6/go.mod h1:igAO5JulrQ1DbdZdtVq48mnZUBAPOeFzer7VhDWNtW4=
-github.com/AdamSLevy/go-ext-wasm v0.0.0-20191212234502-d66004a8582c h1:UIphlBTOaUTOsIBEGWlID0G3CrPj9wmgLlQgzjSjX1k=
-github.com/AdamSLevy/go-ext-wasm v0.0.0-20191212234502-d66004a8582c/go.mod h1:B0C/D0a2vNos7Y3IxQhMpGOY9PCuCKfLvfry33a1cKA=
+crawshaw.io/sqlite v0.2.6-0.20200310202746-80e848489fd6 h1:vwUovhuaOxPh3mx808opP/unyE6UBU2qAJ+RedqFOJQ=
+crawshaw.io/sqlite v0.2.6-0.20200310202746-80e848489fd6/go.mod h1:igAO5JulrQ1DbdZdtVq48mnZUBAPOeFzer7VhDWNtW4=
 github.com/AdamSLevy/go-ext-wasm v0.0.0-20200228221709-5ba085aa00c3 h1:O49cnpwXqQMATwJCpLG7MaOJbR7OEbE7vjKTsbISGGo=
 github.com/AdamSLevy/go-ext-wasm v0.0.0-20200228221709-5ba085aa00c3/go.mod h1:B0C/D0a2vNos7Y3IxQhMpGOY9PCuCKfLvfry33a1cKA=
 github.com/AdamSLevy/go-merkle v0.0.0-20190611101253-ca33344a884d h1:FWutTJGVqBnL4rLgeNaspUYnmnvkXcmDA3QO3rHBGgU=

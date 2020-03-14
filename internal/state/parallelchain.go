@@ -141,6 +141,8 @@ func (state *State) NewParallelChain(ctx context.Context,
 
 		pChain.Chain, err = init(state.ctx, state.c, head)
 		if err != nil {
+			state.Log.Debugf("NewParallelChain(): init(): %v %v",
+				head.ChainID, err)
 			return fmt.Errorf("init(): %w", err)
 		}
 
@@ -180,6 +182,8 @@ func (chain *ParallelChain) run(state *State) (err error) {
 		select {
 		case eb, ok := <-chain.eblocks:
 			if !ok {
+				chain.ToFactomChain().Log.Debugf(
+					"ParallelChain.eblocks closed")
 				return nil
 			}
 			if err := chain.processEBlock(state, eb); err != nil {
@@ -187,12 +191,16 @@ func (chain *ParallelChain) run(state *State) (err error) {
 			}
 		case es, ok := <-chain.pending:
 			if !ok {
+				chain.ToFactomChain().Log.Debugf(
+					"ParallelChain.pending closed")
 				return nil
 			}
 			if err := chain.processPending(state, es); err != nil {
 				return err
 			}
 		case <-state.ctx.Done():
+			chain.ToFactomChain().Log.Debugf(
+				"ParallelChain.ctx.Err(): %v", state.ctx.Err())
 			return state.ctx.Err()
 		}
 	}

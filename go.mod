@@ -3,7 +3,7 @@ module github.com/Factom-Asset-Tokens/fatd
 go 1.13
 
 require (
-	crawshaw.io/sqlite v0.2.6-0.20200228213945-251d8861ace6
+	crawshaw.io/sqlite v0.2.6-0.20200310202746-80e848489fd6
 	github.com/AdamSLevy/jsonrpc2/v14 v14.0.0
 	github.com/AdamSLevy/sqlbuilder v0.0.0-20191210203204-7d84c87e7f80
 	github.com/AdamSLevy/sqlitechangeset v0.0.0-20200226212845-28d0f422561e

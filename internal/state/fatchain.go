@@ -25,6 +25,7 @@ package state
 import (
 	"context"
 	"fmt"
+	"os"
 
 	"github.com/Factom-Asset-Tokens/fatd/internal/log"
 	"github.com/Factom-Asset-Tokens/fatd/internal/runtime"
@@ -443,12 +444,6 @@ func NewFATChain(ctx context.Context, c *factom.Client,
 		return
 	}
 
-	defer func() {
-		if err != nil {
-			chain.Close()
-		}
-	}()
-
 	return FATChain{chain, c, rsv}, nil
 }
 
@@ -497,6 +492,7 @@ func NewFATChainByEBlock(ctx context.Context, c *factom.Client,
 
 	tokenID, identityChainID := fat.ParseTokenIssuer(nameIDs)
 
+	var hasFirstEBlock bool
 	chain, err = NewFATChain(ctx, c, dbPath,
 		tokenID, &identityChainID,
 		head.ChainID, dblock.NetworkID, rsv)
@@ -507,6 +503,13 @@ func NewFATChainByEBlock(ctx context.Context, c *factom.Client,
 	defer func() {
 		if err != nil {
 			chain.Close()
+		}
+		if hasFirstEBlock {
+			return
+		}
+		if err := os.Remove(dbPath + chain.DBFile); err != nil &&
+			!os.IsNotExist(err) {
+			chain.Log.Errorf("os.Remove(): %w", err)
 		}
 	}()
 
@@ -525,6 +528,7 @@ func NewFATChainByEBlock(ctx context.Context, c *factom.Client,
 		err = fmt.Errorf("state.Apply(): %w", err)
 		return
 	}
+	hasFirstEBlock = true
 
 	err = SyncEBlocks(ctx, c, &chain, eblocks[:len(eblocks)-1])
 	chain.c = c

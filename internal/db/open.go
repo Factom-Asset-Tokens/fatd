@@ -26,6 +26,7 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 	"runtime"
 
@@ -39,6 +40,16 @@ const (
 	dbDriver        = "sqlite3"
 	dbFileExtension = ".sqlite3"
 	dbFileNameLen   = len(factom.Bytes32{})*2 + len(dbFileExtension)
+
+	// TODO: expose this as flag
+	PoolSize = 2
+	// If the PoolSize is large, we can hit a limit on the number of open
+	// SQLite connections. The limit seems to be somewhere around 500 total
+	// connections but whether those are pooled or not seems to affect the
+	// number.
+	// 2 allows for roughly 170 simultaneously tracked chains.
+	// 10 allows for roughly 46 simultaneously tracked chains.
+	// Many improvements could be made to this.
 )
 
 var poolSize = runtime.NumCPU()
@@ -126,6 +137,9 @@ func OpenConnPool(ctx context.Context, dbURI string,
 			if err := conn.Close(); err != nil {
 				log.Error(err)
 			}
+			if err := os.Remove(dbURI); err != nil && !os.IsNotExist(err) {
+				log.Errorf("os.Remove(): %w", err)
+			}
 		}
 	}()
 
@@ -182,7 +196,7 @@ func OpenConnPool(ctx context.Context, dbURI string,
 	// https://www.sqlite.org/c3ref/snapshot_open.html
 	for i := 0; i < poolSize; i++ {
 		if err = func() error {
-			conn := pool.Get(nil)
+			conn := pool.Get(ctx)
 			defer pool.Put(conn)
 			if err := attachContractsDB(conn, dbURI); err != nil {
 				return err
