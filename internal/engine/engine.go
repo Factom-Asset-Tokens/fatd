@@ -74,6 +74,13 @@ func Start(ctx context.Context, c *factom.Client) (done <-chan struct{}) {
 	flag.DBPath += fmt.Sprintf("%s%c",
 		strings.ReplaceAll(flag.NetworkID.String(), " ", ""), os.PathSeparator)
 
+	// Check if networkid subdirectory exists
+	// If not create it
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		log.Debug("NetworkId directory not found. Creating...")
+		os.Mkdir(path, mode)
+	}
+	
 	log.Debug("Loading state...")
 	state, ctx, err := openState(ctx, c,
 		flag.DBPath,
